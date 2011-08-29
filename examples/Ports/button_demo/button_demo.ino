@@ -1,6 +1,5 @@
 // Show how the BlinkPlug's buttonCheck function works
-// 2010-08-23 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: button_demo.pde 5961 2010-08-23 15:50:03Z jcw $
+// 2010-08-23 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <Ports.h>
 #include <RF12.h> // needed to avoid a linker error :(

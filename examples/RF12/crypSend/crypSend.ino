@@ -1,6 +1,5 @@
 // Test encrypted communication, sender side
-// 2010-02-21 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: crypSend.pde 4833 2010-02-21 21:44:24Z jcw $
+// 2010-02-21 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <RF12.h>
 #include <Ports.h>

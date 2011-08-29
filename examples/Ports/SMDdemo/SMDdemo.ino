@@ -1,6 +1,5 @@
 // Test sketch for the JeeSMD plug - continuously toggle all the I/O lines.
-// 2010-03-18 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: SMDdemo.pde 4880 2010-03-18 13:36:04Z jcw $
+// 2010-03-18 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 byte value;
 

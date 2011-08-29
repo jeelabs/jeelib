@@ -1,6 +1,5 @@
 // Send a remote command to take a snapshot on a Nikon camera, using infrared
-// 2010-06-10 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: snapNikon.pde 5801 2010-06-10 16:09:12Z jcw $
+// 2010-06-10 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 // IR LED connected between DIO1 and GND with a 33 ohm resistor in series
 // using direct pin I/O for speed and PINx output for fast toggling

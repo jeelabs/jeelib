@@ -1,6 +1,5 @@
 // Ports demo, interface to Nintendo's "Nunchuk", which simply uses I2C inside
-// 2009-02-17 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: nunchuk_demo.pde 5824 2010-06-16 17:29:41Z jcw $
+// 2009-02-17 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <Ports.h>
 #include <RF12.h> // needed to avoid a linker error :(

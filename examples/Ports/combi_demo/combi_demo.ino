@@ -1,6 +1,5 @@
 // Ports demo, interfacing to lots of things at the same time
-// 2009-02-17 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: combi_demo.pde 5402 2010-04-30 19:24:52Z jcw $
+// 2009-02-17 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 // this code is the combination of all sht11demo, bmp085demo, pir_demo, and
 // nunchuk_demo sources, plus some #define tricks to make it all work as one
@@ -56,7 +55,7 @@ void loop() {
 #define loop loop1
 
 // Ports demo, reads out a SHT11 sensor connected via "something like I2C"
-// 2009-02-16 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
+// 2009-02-16 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <Ports.h>
 #include "PortsSHT11.h"
@@ -107,7 +106,7 @@ void loop() {
 #define loop loop2
 
 // Ports demo, reads out a BMP085 sensor connected via I2C
-// 2009-02-17 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
+// 2009-02-17 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <Ports.h>
 #include "PortsBMP085.h"
@@ -153,7 +152,7 @@ void loop() {
 #define loop loop3
 
 // Ports demo, reads out a digital PIR sensor signal and an analog LDR voltage.
-// 2009-02-17 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
+// 2009-02-17 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <Ports.h>
 
@@ -190,7 +189,7 @@ void loop() {
 #define loop loop4
 
 // Ports demo, interface to Nintendo's "Nunchuk", which simply uses I2C inside
-// 2009-02-17 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
+// 2009-02-17 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <Ports.h>
 

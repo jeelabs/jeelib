@@ -1,6 +1,5 @@
 // Port demo, DCF77 radio signal decoder
-// 2009-02-26 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: dcf77demo.pde 5402 2010-04-30 19:24:52Z jcw $
+// 2009-02-26 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <Ports.h>
 #include <avr/pgmspace.h>

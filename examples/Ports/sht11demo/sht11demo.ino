@@ -1,6 +1,5 @@
 // Ports demo, reads out a SHT11 sensor connected via "something like I2C"
-// 2009-02-16 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: sht11demo.pde 5402 2010-04-30 19:24:52Z jcw $
+// 2009-02-16 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <Ports.h>
 #include "PortsSHT11.h"

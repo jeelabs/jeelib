@@ -1,6 +1,5 @@
 // New version of the Room Node, derived from rooms.pde
-// 2010-10-19 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: roomNode.pde 7503 2011-04-07 10:41:06Z jcw $
+// 2010-10-19 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 // see http://jeelabs.org/2010/10/20/new-roomnode-code/
 // and http://jeelabs.org/2010/10/21/reporting-motion/

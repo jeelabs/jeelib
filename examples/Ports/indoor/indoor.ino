@@ -1,6 +1,5 @@
 // Example indoor temp + humidty + barometer, mounted on a Graphics Board
-// 2010-11-17 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: indoor.pde 7502 2011-04-07 10:40:28Z jcw $
+// 2010-11-17 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include "ST7565.h"
 #include <Ports.h>

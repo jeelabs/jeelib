@@ -1,6 +1,5 @@
 // Demo of the Proximity Plug, based on ProximityPlug class in the Ports library
-// 2010-03-19 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: proximity_demo.pde 6089 2010-10-25 00:12:23Z jcw $
+// 2010-03-19 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <Ports.h>
 #include <RF12.h> // needed to avoid a linker error :(

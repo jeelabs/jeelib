@@ -1,6 +1,5 @@
 // Experiment with time-controlled periodic reception.
-// 2011-06-24 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: timedRecv.pde 7735 2011-06-24 18:53:51Z jcw $
+// 2011-06-24 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <Ports.h>
 #include <RF12.h>

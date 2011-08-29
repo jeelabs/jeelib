@@ -1,6 +1,5 @@
 // Demo of the Gravity Plug, based on the GravityPlug class in the Ports library
-// 2010-03-19 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: gravity_demo.pde 7637 2011-04-27 23:05:26Z jcw $
+// 2010-03-19 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <Ports.h>
 #include <RF12.h>

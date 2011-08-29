@@ -1,6 +1,5 @@
 // Ports demo, reads out a BMP085 sensor connected via I2C
-// 2009-02-17 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: bmp085demo.pde 7502 2011-04-07 10:40:28Z jcw $
+// 2009-02-17 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 // 2010-05-22: added support for all resolution modes
 // 2010-05-25: extended to also broadcast all readings over wireless

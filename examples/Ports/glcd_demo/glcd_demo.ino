@@ -1,6 +1,5 @@
 // Demo display for the Graphics Boad
-// 2010-11-14 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: glcd_demo.pde 7502 2011-04-07 10:40:28Z jcw $
+// 2010-11-14 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include "ST7565.h"
 #include <Ports.h>

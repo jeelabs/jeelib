@@ -1,6 +1,5 @@
 // Demo of the Lux Plug, based on the LuxPlug class in the Ports library
-// 2010-03-18 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: lux_demo.pde 7689 2011-05-24 14:22:35Z jcw $
+// 2010-03-18 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <Ports.h>
 #include <RF12.h> // needed to avoid a linker error :(

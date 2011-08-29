@@ -1,6 +1,5 @@
 // Generalized decoder framework for 868 MHz and 433 MHz OOK signals.
-// 2010-04-11 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: decoders.h 7271 2011-03-07 00:32:14Z jcw $
+// 2010-04-11 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <Arduino.h>
 

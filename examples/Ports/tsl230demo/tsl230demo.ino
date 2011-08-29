@@ -1,6 +1,5 @@
 // Ports interface to the TSL230 light sensor, see SparkFun #08940
-// 2009-02-21 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: tsl230demo.pde 5402 2010-04-30 19:24:52Z jcw $
+// 2009-02-21 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <Ports.h>
 #include <RF12.h> // needed to avoid a linker error :(

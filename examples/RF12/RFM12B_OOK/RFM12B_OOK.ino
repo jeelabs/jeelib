@@ -6,7 +6,7 @@
 // The basic idea is to measure pulse widths between 0/1 and 1/0 transitions,
 // and to keep track of pulse width sequences in a state machine.
 //
-// 2009-04-08 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
+// 2009-04-08 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 // 2010-10-15 JGJ: changed RFM12 init OOK-mode
 
 #include <RF12.h>

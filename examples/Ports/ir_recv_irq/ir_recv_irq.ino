@@ -1,6 +1,5 @@
 // Infrared receiver using the InfraredPlug class (interrupt version)
-// 2010-10-12 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: ir_recv_irq.pde 6168 2010-11-09 12:02:58Z jcw $
+// 2010-10-12 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <Ports.h>
 #include <RF12.h> // needed to avoid a linker error :(

@@ -1,6 +1,5 @@
 // Ports demo, reads out the Parallax H48C 3-axis accelerometer #29123
-// 2009-02-19 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: h48c_demo.pde 5402 2010-04-30 19:24:52Z jcw $
+// 2009-02-19 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <Ports.h>
 #include <RF12.h> // needed to avoid a linker error :(

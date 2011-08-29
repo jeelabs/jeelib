@@ -1,6 +1,5 @@
 // Demo for the SC16IS740 UART, connected via I2C
-// 2009-10-01 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: uart_demo.pde 4747 2009-12-18 12:53:27Z jcw $
+// 2009-10-01 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <Ports.h>
 #include <RF12.h> // needed to avoid a linker error :(

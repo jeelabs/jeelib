@@ -1,6 +1,5 @@
 // Demo clock for the Graphics Board, this version runs on the internal clock.
-// 2010-11-18 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: glcdClock.pde 6540 2010-12-24 14:41:03Z jcw $
+// 2010-11-18 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <ST7565.h>
 #include <RTClib.h>

@@ -1,6 +1,5 @@
 // Control some LED strips, using settings received by wireless
-// 2010-10-01 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: rgbRemote.pde 6056 2010-10-02 00:08:08Z jcw $
+// 2010-10-01 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 // see http://jeelabs.org/2010/06/15/remote-rgb-strip-control/
 // and http://jeelabs.org/2010/10/03/software-pwm-at-1-khz/

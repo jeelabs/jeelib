@@ -1,6 +1,5 @@
 // Sample code to power down a JeeNode completely
-// 2010-08-16 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: powerdown_demo.pde 7502 2011-04-07 10:40:28Z jcw $
+// 2010-08-16 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <Ports.h>
 #include <RF12.h>

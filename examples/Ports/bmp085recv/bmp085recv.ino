@@ -1,6 +1,5 @@
 // Receiver for the bmp085 demo sketch
-// 2010-05-26 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: bmp085recv.pde 5828 2010-06-17 00:44:09Z jcw $
+// 2010-05-26 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <Ports.h>
 #include <RF12.h>

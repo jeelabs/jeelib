@@ -1,6 +1,5 @@
 // This example sends commands to the KlikAanKlikUit units via OOK at 433 Mhz.
-// 2009-02-21 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: kaku_demo.pde 4736 2009-12-14 11:37:43Z jcw $
+// 2009-02-21 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 // Note that 868 MHz RFM12B's can send 433 MHz just fine, even though the RF
 // circuitry is presumably not optimized for that band. Maybe the range will

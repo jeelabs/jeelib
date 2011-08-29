@@ -1,6 +1,5 @@
 // Demo for the DC Motor Plug
-// 2010-11-18 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: dcmotor_demo.pde 6271 2010-11-29 12:02:22Z jcw $
+// 2010-11-18 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <Ports.h>
 #include <RF12.h> // needed to avoid a linker error :(

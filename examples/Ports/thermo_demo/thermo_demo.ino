@@ -1,6 +1,5 @@
 // Demo sketch for the Thermo Plug v1
-// 2009-09-17 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: thermo_demo.pde 4727 2009-12-08 21:39:49Z jcw $
+// 2009-09-17 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <Ports.h>
 #include <RF12.h> // needed to avoid a linker error :(

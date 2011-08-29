@@ -1,6 +1,5 @@
 // Generalized decoder and relay for 868 MHz and 433 MHz OOK signals.
-// 2010-04-11 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: ookRelay2.pde 7322 2011-03-10 17:03:48Z jcw $
+// 2010-04-11 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <Ports.h>
 #include <RF12.h>

@@ -1,6 +1,5 @@
 // LiquidCrystal library, extended for use over I2C with the LCD Plug
-// 2009-09-23 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: PortsLCD.h 4769 2010-01-22 18:59:59Z jcw $
+// 2009-09-23 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 // see http://news.jeelabs.org/2009/09/26/generalized-liquidcrystal-library/
 

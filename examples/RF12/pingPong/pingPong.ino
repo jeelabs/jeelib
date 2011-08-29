@@ -1,6 +1,5 @@
 // Demo of a sketch which sends and receives packets
-// 2010-05-17 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: pingPong.pde 5655 2010-05-17 16:13:35Z jcw $
+// 2010-05-17 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 // with thanks to Peter G for creating a test sketch and pointing out the issue
 // see http://news.jeelabs.org/2010/05/20/a-subtle-rf12-detail/

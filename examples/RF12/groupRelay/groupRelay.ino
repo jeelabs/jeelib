@@ -1,6 +1,5 @@
 // Relay packets from one net group to another to extend the range.
-// 2011-01-11 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: groupRelay.pde 6614 2011-01-15 21:39:13Z jcw $
+// 2011-01-11 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <Ports.h>
 #include <RF12.h>

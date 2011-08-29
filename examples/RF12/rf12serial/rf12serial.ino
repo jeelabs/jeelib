@@ -1,6 +1,5 @@
 // Serial data over RF12 demo, works in both directions
-// 2009-04-17 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: rf12serial.pde 4727 2009-12-08 21:39:49Z jcw $
+// 2009-04-17 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <Ports.h>
 #include <RF12.h>

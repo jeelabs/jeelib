@@ -1,6 +1,5 @@
 // Ports library definitions
-// 2009-02-13 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: Ports.cpp 7726 2011-06-14 10:18:21Z jcw $
+// 2009-02-13 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include "Ports.h"
 #include <avr/sleep.h>

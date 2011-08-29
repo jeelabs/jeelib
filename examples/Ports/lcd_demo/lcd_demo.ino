@@ -1,6 +1,5 @@
 // Demo sketch for an LCD connected to I2C port via MCP23008 I/O expander
-// 2009-10-31 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: lcd_demo.pde 5966 2010-08-27 10:25:59Z jcw $
+// 2009-10-31 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <PortsLCD.h>
 #include <RF12.h> // needed to avoid a linker error :(

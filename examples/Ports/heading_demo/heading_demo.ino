@@ -1,6 +1,5 @@
 // Demo of the Heading Board based on the HDPM01 (with barometer and compass)
-// 2010-03-22 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: heading_demo.pde 6089 2010-10-25 00:12:23Z jcw $
+// 2010-03-22 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <Ports.h>
 #include <RF12.h> // needed to avoid a linker error :(

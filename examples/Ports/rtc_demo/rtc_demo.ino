@@ -1,7 +1,5 @@
 // Hooking up a DS1307 (5V) or DS1340Z (3V) real time clock via I2C.
-// see http://jeelabs.org/cp1
-// 2009-09-17 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: rtc_demo.pde 5302 2010-04-12 07:52:28Z jcw $
+// 2009-09-17 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 // the real-time clock is connected to port 1 in I2C mode (AIO = SCK, dIO = SDA)
 

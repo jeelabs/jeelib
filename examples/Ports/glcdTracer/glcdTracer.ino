@@ -1,6 +1,5 @@
 // Very simple "Logic Analyzer", using the Graphics Board as display device.
-// 2010-11-20 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: glcdTracer.pde 6540 2010-12-24 14:41:03Z jcw $
+// 2010-11-20 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include "ST7565.h"
 

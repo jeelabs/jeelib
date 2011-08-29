@@ -1,6 +1,5 @@
 // Ports demo, reads out the Parallax HM55B compass module #29123
-// 2009-02-19 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: hm55b_demo.pde 5402 2010-04-30 19:24:52Z jcw $
+// 2009-02-19 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <Ports.h>
 #include <RF12.h> // needed to avoid a linker error :(

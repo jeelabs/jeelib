@@ -1,6 +1,5 @@
 // Demo readout of the 4-channel 18-bit MCP3424 on the Analog Plug v2.
-// 2009-09-28 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: analog_demo.pde 6163 2010-11-09 00:32:24Z jcw $
+// 2009-09-28 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <Ports.h>
 #include <RF12.h> // needed to avoid a linker error :(

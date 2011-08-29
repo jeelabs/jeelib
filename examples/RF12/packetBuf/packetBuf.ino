@@ -1,6 +1,5 @@
 // This example shows how to fill a packet buffer with strings and send them
-// 2010-MM-DD <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: packetBuf.pde 6049 2010-09-27 09:21:37Z jcw $
+// 2010-09-27 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 // Note: this demo code sends with broadcasting, so each node will see data
 // from every other node running this same sketch. The node ID's don't matter

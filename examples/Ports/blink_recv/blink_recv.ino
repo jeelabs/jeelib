@@ -1,6 +1,5 @@
 // Ports library demo, this is the receiver, see also the blink_xmit example
-// 2009-02-14 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: blink_recv.pde 6395 2010-12-10 19:27:21Z jcw $
+// 2009-02-14 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <Ports.h>
 #include "RF12.h"

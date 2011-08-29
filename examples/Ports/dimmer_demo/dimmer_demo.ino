@@ -1,6 +1,5 @@
 // Demo for the Dimmer plug
-// 2010-03-18 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: dimmer_demo.pde 7705 2011-06-04 22:52:08Z jcw $
+// 2010-03-18 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <Ports.h>
 #include <RF12.h> // needed to avoid a linker error :(

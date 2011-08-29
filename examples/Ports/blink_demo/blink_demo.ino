@@ -1,6 +1,5 @@
 // Demo of the BlinkPlug class
-// 2009-12-09 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: blink_demo.pde 4730 2009-12-11 15:36:29Z jcw $
+// 2009-12-09 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <Ports.h>
 #include <RF12.h> // needed to avoid a linker error :(

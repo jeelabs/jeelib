@@ -1,6 +1,5 @@
 // RFM12B driver implementation
-// 2009-02-09 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: RF12.cpp 7753 2011-08-19 08:55:14Z jcw $
+// 2009-02-09 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include "RF12.h"
 #include <avr/io.h>

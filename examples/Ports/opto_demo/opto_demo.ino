@@ -1,6 +1,5 @@
 // Demo of the opto-coupler plug
-// 2010-09-26 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: opto_demo.pde 6110 2010-10-28 16:19:03Z jcw $
+// 2010-09-26 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <Ports.h>
 #include <RF12.h>

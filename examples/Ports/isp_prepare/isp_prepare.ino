@@ -1,7 +1,7 @@
 // Upload a built-in range of data bytes to a target board attached via ISP
+// 2010-04-18 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
+//
 // see http://news.jeelabs.org/2010/04/25/preparing-atmegas-with-isp/
-// jcw, 2010-04-18
-// $Id: isp_prepare.pde 7700 2011-05-26 10:07:41Z jcw $
 
 // see http://jeelabs.org/tag/isp/ for related weblog posts
 // and http://jeelabs.org/2011/05/29/summary-of-isp-options/

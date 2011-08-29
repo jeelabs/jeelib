@@ -1,6 +1,5 @@
 // Ports demo, reads out a digital PIR sensor signal and an analog LDR voltage.
-// 2009-02-17 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: pir_demo.pde 5402 2010-04-30 19:24:52Z jcw $
+// 2009-02-17 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <Ports.h>
 #include <RF12.h> // needed to avoid a linker error :(

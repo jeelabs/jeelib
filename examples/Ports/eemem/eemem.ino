@@ -1,8 +1,7 @@
 // Hooking up an 64 kbyte AT24C512B serial EEPROM via I2C.
+// 2009-07-03 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 //
 // see http://www.jeelabs.org/2009/07/06/external-memory/
-// 2009-07-03 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: eemem.pde 5761 2010-05-29 21:06:25Z jcw $
 
 // the AT24C512B eeprom is connected as follows (JeeNode v3 pinout):
 //		pin 1, 2, 3, 7: not connected

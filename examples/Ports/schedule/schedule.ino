@@ -1,6 +1,5 @@
 // Demo sketch demonstrating the Scheduler class
-// 2010-10-18 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: schedule.pde 7502 2011-04-07 10:40:28Z jcw $
+// 2010-10-18 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <Ports.h>
 #include <RF12.h>

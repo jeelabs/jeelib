@@ -1,7 +1,6 @@
 // Reflash a boot loader and a sketch an a second ATmega.
-// jcw, 2010-05-29
-// $Id: isp_repair2.pde 7700 2011-05-26 10:07:41Z jcw $
-
+// 2010-05-29 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
+//
 // see http://jeelabs.org/2011/05/29/summary-of-isp-options/
 
 // This code is adapted from isp_prepare. It omits the button and run LED,

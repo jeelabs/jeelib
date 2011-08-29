@@ -1,6 +1,5 @@
 // Port library interface to BMP085 sensors connected via I2C
-// 2009-02-17 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: PortsBMP085.cpp 5698 2010-05-22 09:41:48Z jcw $
+// 2009-02-17 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 // computation and algorithm taken from the Bosch Sensortec BMP085 data sheet
 // (IIRC, I had to cast to an int32_t for the b3 calculation to work above 25C)

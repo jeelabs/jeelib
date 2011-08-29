@@ -1,6 +1,5 @@
 // Experimental code to control four high-side DC power switches.
-// 2011-06-05 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: highside.pde 7708 2011-06-05 20:28:21Z jcw $
+// 2011-06-05 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <Ports.h>
 #include <RF12.h>

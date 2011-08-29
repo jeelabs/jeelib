@@ -1,8 +1,7 @@
 // Hooking up an 8-bit MCP23008 expander via I2C.
+// 2009-07-03 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 //
 // see http://www.jeelabs.org/2009/07/07/io-expander/
-// 2009-07-03 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: expander.pde 5279 2010-04-07 02:16:28Z jcw $
 
 #include <Ports.h>
 #include <RF12.h> // needed to avoid a linker error :(

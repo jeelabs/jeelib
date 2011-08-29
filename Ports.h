@@ -1,6 +1,5 @@
 // Ports library definitions
-// 2009-02-13 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: Ports.h 7705 2011-06-04 22:52:08Z jcw $
+// 2009-02-13 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #ifndef Ports_h
 #define Ports_h

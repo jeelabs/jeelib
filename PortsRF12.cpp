@@ -1,6 +1,5 @@
 // Ports library remote interface to the RF12 wireless radio
-// 2009-02-14 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: PortsRF12.cpp 5402 2010-04-30 19:24:52Z jcw $
+// 2009-02-14 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <Ports.h>
 #include "RF12.h"

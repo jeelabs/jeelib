@@ -1,6 +1,5 @@
 // Streaming layer demo, transfers different types of data in both directions
-// 2009-05-07 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: rf12stream.pde 4727 2009-12-08 21:39:49Z jcw $
+// 2009-05-07 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <Ports.h>
 #include <RF12.h>

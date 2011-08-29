@@ -1,6 +1,5 @@
 // Upload a boot loader and the blink demo sketch to a second board
-// jcw, 2010-05-29
-// $Id: isp_repair.pde 7700 2011-05-26 10:07:41Z jcw $
+// 2020-05-29 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 // see http://news.jeelabs.org/2010/04/25/preparing-atmegas-with-isp/
 //     http://jeelabs.org/2011/05/17/switching-to-optiboot/

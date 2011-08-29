@@ -1,6 +1,5 @@
 // Very simple 100 KHz DSO scope, using the Graphics Board as display device.
-// 2010-11-19 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: glcdScope.pde 6219 2010-11-19 02:05:04Z jcw $
+// 2010-11-19 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include "ST7565.h"
 

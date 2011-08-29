@@ -1,6 +1,5 @@
 // Example o how to use the InputParser class
-// 2010-10-23 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: parser_demo.pde 6081 2010-10-23 19:11:10Z jcw $
+// 2010-10-23 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <Ports.h>
 #include <RF12.h> // needed to avoid a linker error :(
