@@ -276,7 +276,7 @@ public:
     byte available();
     int read();
     void flush();
-    virtual void write(byte);
+    virtual size_t write(byte);
 };
 
 // interface for the Dimmer Plug - see http://jeelabs.org/dp1

@@ -376,9 +376,10 @@ void UartPlug::flush () {
     in = out;
 }
 
-void UartPlug::write (byte data) {
+size_t UartPlug::write (byte data) {
     regSet(THR, data);
     dev.stop();
+    return 1;
 }
 
 void DimmerPlug::begin () {

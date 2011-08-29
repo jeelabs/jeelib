@@ -177,8 +177,9 @@ inline void LiquidCrystalBase::command(byte value) {
   send(value, LOW);
 }
 
-inline void LiquidCrystalBase::write(byte value) {
+inline size_t LiquidCrystalBase::write(byte value) {
   send(value, HIGH);
+  return 1;
 }
 
 // When the display powers up, it is configured as follows:
