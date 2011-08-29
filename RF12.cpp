@@ -378,7 +378,7 @@ uint8_t rf12_config (uint8_t show) {
         else if (b == 0)
             break;
         else if (show)
-            Serial.print(b);
+            Serial.print((char) b);
     }
     if (show)
         Serial.println();
