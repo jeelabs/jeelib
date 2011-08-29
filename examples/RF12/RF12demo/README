@@ -1,0 +1,75 @@
+RF12DEMO
+========
+
+The RF12demo sketch can be useful to test proper operation of RFM12(B) modules.
+It lets you set up two nodes and send test packets between them via commands
+entered on the serial USB connection. The basic settings are stored in EEPROM
+so that you can configure a board and then use it at the remote end without
+connecting it to a second computer.
+
+
+HOW TO SET UP A SMALL WIRELESS TEST
+===================================
+
+1.  First of all, get two units hooked up as described here:
+        http://news.jeelabs.org/2009/02/10/rfm12b-library-for-arduino/
+    I use "JeeNodes" for this, but that's just me:
+        http://news.jeelabs.org/2009/03/05/jeenode-v2-pcb/
+        
+2.  Compile and upload this RF12demo sketch to both boards. The serial baud
+    rate is set at 57600, you can change it in the source code if needed.
+    You will need to install the "RF12" Arduino library module - eg. on Mac OS X
+    I copied the "RF12/" directory to /Applications/arduino/hardware/libraries/.
+    
+3.  When run, the demo gets config settings from EEPROM to set up the RFM12(B).
+    If this is the first time, it'll probably report "A i1 g212 @ 433 MHz".
+    
+4.  Change the node ID as follows: enter "<N>i" with <N> a number from 1 to 26.
+    For a first test, you could just pick node ID's 1 and 2 for the two units.
+
+5.  Change the frequency band as follows: enter "<N>b" with <N> one of: 4, 8, 9.
+    These are the 433 MHz, 868 MHz, and 915 MHz frequency bands, respectively.
+    You should pick the same band as your RFM12B modules, preferably.
+    
+6.  Set the network group (aka "house code") with the command "212g". Groups
+    1..250 are available for the RFM12B, the RFM12 module *only* works with 212.
+    Make sure you set all units to the same group or they won't see each other.
+    
+7.  You're all set for the first unit, disconnect and repeat for the other one.
+
+8.  Ok, time to try sending a packet. First make sure both units are powered up.
+    It helps to have both units connected to the same machine so you can set up
+    terminal windows for both of them, but if you only have one unit connected
+    to the terminal window and the other just powered up that's ok too.
+    
+9.  Enter "0s" on one unit. The other unit should report "OK" plus a number.
+    If you can't see the output of the other unit, use "a" instead of "s". This
+    will send a packet and also request and acknowledgement. If all is well
+    you'll see a short "OK" response on the same unit as where you typed "a".
+    
+10. In the above test, you're sending packets with no actual data other than
+    what the protocol itself requires to function properly. To include some test
+    data use "1,2,3,0s" or "1,2,3,0a" with "1,2,3" being the actual data. This
+    sends a test packet with 3 data bytes (you can send up to 66 data bytes).
+    The "t" commands is available as shorthand for "0,1,2,...,63,64,65,0a".
+    
+11. To do some range tests, carry the second unit to a remote location and use
+    "0a" or "t" to try and send some data across and get an acknowledgement.
+    At some point you'll see packets drop out (which could either be the data
+    or the ack return). Longer packets tend to drop out more quickly, because
+    there is a larger chance of them getting disturbed by noise along the way.
+    
+12. You may see "?" replies instead of "OK". These are packets with an invalid
+    checksum. These are either random noise or incorrectly received packets.
+    If you leave the demo running long enough, you'll probably also get such "?"
+    messages occasionally when the radio picks up some random noise.
+    
+13. Note that you *can* configure an RFM12(B) module to send/receive on another
+    frequency band than the one it was designed for. You'll just get a lower
+    range because the RF components will not be optimally tuned for these cases.
+    
+14. The code is fully open source - feel free to browse and make changes as you
+    see fit. The latest version of this software is always available here:
+        http://jeelabs.org/view/libraries/RF12/
+    
+That's it - have fun!
