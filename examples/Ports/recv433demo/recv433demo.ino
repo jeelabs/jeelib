@@ -7,8 +7,7 @@
 // transmitters, but the same mechanism can be used to receive a variety of
 // signal types by adding extra state-machine recognizers.
 
-#include <Ports.h>
-#include <RF12.h> // needed to avoid a linker error :(
+#include <JeeLib.h>
 
 enum { UNKNOWN, T0, T1, T2, T3, OK, DONE };
 

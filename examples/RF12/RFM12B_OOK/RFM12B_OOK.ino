@@ -9,8 +9,7 @@
 // 2009-04-08 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 // 2010-10-15 JGJ: changed RFM12 init OOK-mode
 
-#include <RF12.h>
-#include <Ports.h>
+#include <JeeLib.h>
 
 #define DEBUG 1 // set to 1 to also send out info on the serial port
 

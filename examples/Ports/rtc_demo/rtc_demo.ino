@@ -3,8 +3,7 @@
 
 // the real-time clock is connected to port 1 in I2C mode (AIO = SCK, dIO = SDA)
 
-#include <Ports.h>
-#include <RF12.h> // needed to avoid a linker error :(
+#include <JeeLib.h>
 
 PortI2C myport (1 /*, PortI2C::KHZ400 */);
 DeviceI2C rtc (myport, 0x68);

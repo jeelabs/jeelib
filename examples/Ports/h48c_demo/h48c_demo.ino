@@ -1,8 +1,7 @@
 // Ports demo, reads out the Parallax H48C 3-axis accelerometer #29123
 // 2009-02-19 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
-#include <Ports.h>
-#include <RF12.h> // needed to avoid a linker error :(
+#include <JeeLib.h>
 
 class H48C : private Port {
     Port enable;

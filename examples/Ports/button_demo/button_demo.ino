@@ -1,8 +1,7 @@
 // Show how the BlinkPlug's buttonCheck function works
 // 2010-08-23 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
-#include <Ports.h>
-#include <RF12.h> // needed to avoid a linker error :(
+#include <JeeLib.h>
 
 BlinkPlug blink (1);
 MilliTimer everySecond;

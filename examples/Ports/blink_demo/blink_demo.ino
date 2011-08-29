@@ -1,8 +1,7 @@
 // Demo of the BlinkPlug class
 // 2009-12-09 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
-#include <Ports.h>
-#include <RF12.h> // needed to avoid a linker error :(
+#include <JeeLib.h>
 
 BlinkPlug buttons (3);
 

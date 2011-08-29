@@ -1,8 +1,7 @@
 // Infrared receiver using the InfraredPlug class (polled version)
 // 2010-10-12 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
-#include <Ports.h>
-#include <RF12.h> // needed to avoid a linker error :(
+#include <JeeLib.h>
 
 InfraredPlug ir (2);
 byte value;

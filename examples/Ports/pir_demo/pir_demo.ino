@@ -1,8 +1,7 @@
 // Ports demo, reads out a digital PIR sensor signal and an analog LDR voltage.
 // 2009-02-17 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
-#include <Ports.h>
-#include <RF12.h> // needed to avoid a linker error :(
+#include <JeeLib.h>
 
 Port pir (3);   // PIR sensor is connected to DIO (pin 2) of port 3
                 // to demo analog I/O, connect an LDR from AIO to GND

@@ -3,8 +3,7 @@
 
 // Based on a sample implementation by Steve Evans (@tankslappa).
 
-#include <Ports.h>
-#include <RF12.h>
+#include <JeeLib.h>
 
 byte outData, pending;
 MilliTimer sendTimer;

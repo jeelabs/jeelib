@@ -8,9 +8,8 @@
 // motion needs to be reported as soon as possible, but only once, while all the
 // other sensor values are being collected and averaged in a more regular cycle.
 
-#include <Ports.h>
+#include <JeeLib.h>
 #include <PortsSHT11.h>
-#include <RF12.h>
 #include <avr/sleep.h>
 #include <util/atomic.h>
 

@@ -1,8 +1,7 @@
 // Demo of the Lux Plug, based on the LuxPlug class in the Ports library
 // 2010-03-18 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
-#include <Ports.h>
-#include <RF12.h> // needed to avoid a linker error :(
+#include <JeeLib.h>
     
 PortI2C myBus (1);
 LuxPlug sensor (myBus, 0x39);

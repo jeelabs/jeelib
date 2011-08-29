@@ -1,8 +1,7 @@
 // Streaming layer demo, transfers different types of data in both directions
 // 2009-05-07 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
-#include <Ports.h>
-#include <RF12.h>
+#include <JeeLib.h>
 #include <RF12sio.h>
 
 MilliTimer testTimer;

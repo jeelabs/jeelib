@@ -1,8 +1,7 @@
 // Demo of the opto-coupler plug
 // 2010-09-26 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
-#include <Ports.h>
-#include <RF12.h>
+#include <JeeLib.h>
 
 Port optoIn (3), optoOut (4), testIn (2), testOut (1);
 byte state; // counts on each cycle, bits 3..0 used as test signals

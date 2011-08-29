@@ -1,8 +1,7 @@
 // Small demo for the Relay Plug, receives wireless packets and sets relays
 // 2010-07-05 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
-#include <Ports.h>
-#include <RF12.h>
+#include <JeeLib.h>
 
 Port relays (1);
 

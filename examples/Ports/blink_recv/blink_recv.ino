@@ -1,8 +1,7 @@
 // Ports library demo, this is the receiver, see also the blink_xmit example
 // 2009-02-14 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
-#include <Ports.h>
-#include "RF12.h"
+#include <JeeLib.h>
 
 // the state received from the transmitter
 RemoteNode::Data state;

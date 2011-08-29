@@ -1,8 +1,7 @@
 // Demo for the Dimmer plug
 // 2010-03-18 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
-#include <Ports.h>
-#include <RF12.h> // needed to avoid a linker error :(
+#include <JeeLib.h>
 
 PortI2C myBus (1);
 DimmerPlug dimmer (myBus, 0x40);

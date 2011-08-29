@@ -1,9 +1,8 @@
 // Demo display for the Graphics Boad
 // 2010-11-14 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
-#include "ST7565.h"
-#include <Ports.h>
-#include <RF12.h> // needed to avoid a linker error :(
+#include <ST7565.h>
+#include <JeeLib.h>
 
 ST7565 glcd(14, 4, 17, 7);
 

@@ -1,8 +1,7 @@
 // Generalized decoder and relay for 868 MHz and 433 MHz OOK signals.
 // 2010-04-11 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
-#include <Ports.h>
-#include <RF12.h>
+#include <JeeLib.h>
 #include "decoders.h"
 
 #define DEBUG 1     // set to 1 to also report results on the serial port

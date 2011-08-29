@@ -1,8 +1,7 @@
 // Receiver for the bmp085 demo sketch
 // 2010-05-26 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
-#include <Ports.h>
-#include <RF12.h>
+#include <JeeLib.h>
 
 typedef struct { int16_t temp; int32_t pres; } Payload;
 

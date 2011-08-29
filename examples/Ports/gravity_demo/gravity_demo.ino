@@ -1,8 +1,7 @@
 // Demo of the Gravity Plug, based on the GravityPlug class in the Ports library
 // 2010-03-19 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
-#include <Ports.h>
-#include <RF12.h>
+#include <JeeLib.h>
 
 PortI2C myBus (1);
 GravityPlug sensor (myBus);

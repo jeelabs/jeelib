@@ -1,8 +1,7 @@
 // Demo sketch for the Thermo Plug v1
 // 2009-09-17 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
-#include <Ports.h>
-#include <RF12.h> // needed to avoid a linker error :(
+#include <JeeLib.h>
 
 Port tplug (1);
 

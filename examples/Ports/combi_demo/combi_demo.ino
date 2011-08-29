@@ -57,8 +57,8 @@ void loop() {
 // Ports demo, reads out a SHT11 sensor connected via "something like I2C"
 // 2009-02-16 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
-#include <Ports.h>
-#include "PortsSHT11.h"
+#include <JeeLib.h>
+#include <PortsSHT11.h>
 
 SHT11 hsensor (1);
 
@@ -108,8 +108,8 @@ void loop() {
 // Ports demo, reads out a BMP085 sensor connected via I2C
 // 2009-02-17 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
-#include <Ports.h>
-#include "PortsBMP085.h"
+#include <JeeLib.h>
+#include <PortsBMP085.h>
 
 PortI2C two (2);
 
@@ -154,7 +154,7 @@ void loop() {
 // Ports demo, reads out a digital PIR sensor signal and an analog LDR voltage.
 // 2009-02-17 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
-#include <Ports.h>
+#include <JeeLib.h>
 
 Port pir (3);   // PIR sensor is connected to DIO (pin 2) of port 3
                 // to demo analog I/O, connect an LDR from AIO to GND
@@ -191,7 +191,7 @@ void loop() {
 // Ports demo, interface to Nintendo's "Nunchuk", which simply uses I2C inside
 // 2009-02-17 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
-#include <Ports.h>
+#include <JeeLib.h>
 
 PortI2C four (4, PortI2C::KHZ100);
 

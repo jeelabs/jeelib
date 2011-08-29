@@ -1,8 +1,7 @@
 // Ports interface to the TSL230 light sensor, see SparkFun #08940
 // 2009-02-21 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
-#include <Ports.h>
-#include <RF12.h> // needed to avoid a linker error :(
+#include <JeeLib.h>
 
 // the TSL230 light sensor chip is connected as follows:
 //      pin 1: S0   port 3 AIO

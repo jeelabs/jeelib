@@ -1,8 +1,7 @@
 // Demo of the MemoryPlug and MemoryStream classes
 // 2009-12-11 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
-#include <Ports.h>
-#include <RF12.h> // needed to avoid a linker error :(
+#include <JeeLib.h>
 
 // pressing button 1 replays the collected data
 // pressing button 2 clears the data

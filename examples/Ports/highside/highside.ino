@@ -1,8 +1,7 @@
 // Experimental code to control four high-side DC power switches.
 // 2011-06-05 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
-#include <Ports.h>
-#include <RF12.h>
+#include <JeeLib.h>
 
 #define CHANNELS 1
 

@@ -5,8 +5,7 @@
 // circuitry is presumably not optimized for that band. Maybe the range will
 // be limited, or maybe it's just because 868 is nearly a multiple of 433 ?
 
-#include <Ports.h>
-#include <RF12.h>
+#include <JeeLib.h>
 #include <util/parity.h>
 
 // Turn transmitter on or off, but also apply asymmetric correction and account

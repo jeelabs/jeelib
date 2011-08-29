@@ -1,8 +1,7 @@
 // Demo for the DC Motor Plug
 // 2010-11-18 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
-#include <Ports.h>
-#include <RF12.h> // needed to avoid a linker error :(
+#include <JeeLib.h>
 
 PortI2C myport (1 /*, PortI2C::KHZ400 */);
 DeviceI2C expander (myport, 0x26);

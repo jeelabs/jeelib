@@ -9,9 +9,8 @@
 // see http://news.jeelabs.org/2010/06/20/battery-savings-for-the-pressure-plug/
 // see http://news.jeelabs.org/2010/06/30/going-for-gold-with-the-bmp085/
 
-#include <Ports.h>
-#include "PortsBMP085.h"
-#include <RF12.h>
+#include <JeeLib.h>
+#include <PortsBMP085.h>
 #include <avr/sleep.h>
 
 PortI2C two (2);

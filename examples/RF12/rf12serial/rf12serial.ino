@@ -1,8 +1,7 @@
 // Serial data over RF12 demo, works in both directions
 // 2009-04-17 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
-#include <Ports.h>
-#include <RF12.h>
+#include <JeeLib.h>
 #include <RF12sio.h>
 
 RF12 RF12;

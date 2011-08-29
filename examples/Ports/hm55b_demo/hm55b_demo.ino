@@ -1,8 +1,7 @@
 // Ports demo, reads out the Parallax HM55B compass module #29123
 // 2009-02-19 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
-#include <Ports.h>
-#include <RF12.h> // needed to avoid a linker error :(
+#include <JeeLib.h>
 
 class HM55B : private Port {
     Port enable;

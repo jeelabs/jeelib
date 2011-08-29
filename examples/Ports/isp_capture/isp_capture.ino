@@ -27,8 +27,7 @@
 //  - Ignore fuse reads in playback mode, because they may differ, depending on
 //    what they were previously set to (can use serial hookup to see details).
 
-#include <Ports.h>
-#include <RF12.h> // needed to avoid a linker error :(
+#include <JeeLib.h>
 #include <avr/sleep.h>
 
 // set to 1 to get some more output on the serial port during playback

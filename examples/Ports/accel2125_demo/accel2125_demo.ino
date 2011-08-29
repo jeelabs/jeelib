@@ -1,8 +1,7 @@
 // Port interface to the Parallax Memsic 2125 Accelerometer #28017
 // 2009-02-18 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
-#include <Ports.h>
-#include <RF12.h> // needed to avoid a linker error :(
+#include <JeeLib.h>
 
 // the accelerometer has 2 pulse-modulated outputs tied to port 4
 

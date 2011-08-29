@@ -1,9 +1,8 @@
 // Ports demo, reads out a SHT11 sensor connected via "something like I2C"
 // 2009-02-16 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
-#include <Ports.h>
-#include "PortsSHT11.h"
-#include <RF12.h> // needed to avoid a linker error :(
+#include <JeeLib.h>
+#include <PortsSHT11.h>
 
 SHT11 hsensor (1);
 

@@ -22,8 +22,7 @@
 // TODO: save changes to EEPROM using interrupts, i.e. in the background
 // TODO: staggered turn-on, to reduce the inrush current of time slot zero
 
-#include <Ports.h>
-#include <RF12.h>
+#include <JeeLib.h>
 #include <EEPROM.h>
 
 #define DEBUG 0

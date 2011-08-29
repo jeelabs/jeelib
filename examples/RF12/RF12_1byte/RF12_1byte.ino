@@ -3,8 +3,7 @@
 
 // this version adds flash memory support, 2009-11-19
 
-#include <Ports.h>
-#include <RF12.h>
+#include <JeeLib.h>
 #include <util/crc16.h>
 #include <util/parity.h>
 #include <avr/eeprom.h>

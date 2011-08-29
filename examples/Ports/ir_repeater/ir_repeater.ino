@@ -1,8 +1,7 @@
 // Record an IR command using an Infrared Plug, and repeat it 3x.
 // 2010-11-11 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
-#include <Ports.h>
-#include <RF12.h> // needed to avoid a linker error :(
+#include <JeeLib.h>
 
 InfraredPlug ir (2);
 byte outBuf[250];

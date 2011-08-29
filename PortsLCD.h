@@ -137,7 +137,8 @@ public:
 protected:
   virtual void config();
   virtual void send(byte, byte);
-  virtual void write4bits(byte);
+  virtual void #include <JeeLib.h>
+  4bits(byte);
 };
 
 #endif

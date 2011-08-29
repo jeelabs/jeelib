@@ -4,8 +4,7 @@
 // with thanks to Peter G for creating a test sketch and pointing out the issue
 // see http://news.jeelabs.org/2010/05/20/a-subtle-rf12-detail/
 
-#include <RF12.h>
-#include <Ports.h>
+#include <JeeLib.h>
 
 Port leds (1);
 MilliTimer sendTimer;

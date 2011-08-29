@@ -1,8 +1,7 @@
 // Demo of the Proximity Plug, based on ProximityPlug class in the Ports library
 // 2010-03-19 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
-#include <Ports.h>
-#include <RF12.h> // needed to avoid a linker error :(
+#include <JeeLib.h>
 
 PortI2C myBus (4, PortI2C::KHZ100); // max 100 KHz!
 ProximityPlug sensor (myBus);

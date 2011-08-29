@@ -1,9 +1,8 @@
 // Port demo, DCF77 radio signal decoder
 // 2009-02-26 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
-#include <Ports.h>
+#include <JeeLib.h>
 #include <avr/pgmspace.h>
-#include <RF12.h> // needed to avoid a linker error :(
 
 Port DCF77 (1);
 

@@ -4,8 +4,7 @@
 // this code was inspired by Chad Phillips' example code at:
 //  http://windmeadowdotcom.googlecode.com/svn/trunk/examples/stepper.c
 
-#include <Ports.h>
-#include <RF12.h> // needed to avoid a linker error :(
+#include <JeeLib.h>
 
 enum {
   MCP_IODIR, MCP_IPOL, MCP_GPINTEN, MCP_DEFVAL, MCP_INTCON, MCP_IOCON,

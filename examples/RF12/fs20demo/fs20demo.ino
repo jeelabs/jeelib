@@ -6,8 +6,7 @@
 // off via the SPI interface. Doing so takes about 25 usecs, so the delays
 // used for encoding simple bit patterns need to be adjusted accordingly.
 
-#include <Ports.h>
-#include <RF12.h>
+#include <JeeLib.h>
 #include <util/parity.h>
 
 void sendBits(uint16_t data, uint8_t bits) {

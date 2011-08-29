@@ -3,8 +3,7 @@
 
 // all the low-power functions have been moved into the Ports library
 
-#include <Ports.h>
-#include <RF12.h>
+#include <JeeLib.h>
 
 static word payload;
 

@@ -1,8 +1,7 @@
 // Ports demo, interface to Nintendo's "Nunchuk", which simply uses I2C inside
 // 2009-02-17 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
-#include <Ports.h>
-#include <RF12.h> // needed to avoid a linker error :(
+#include <JeeLib.h>
 
 PortI2C four (4, 15 /*PortI2C::KHZ100*/);
 

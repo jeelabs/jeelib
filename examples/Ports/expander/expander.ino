@@ -3,8 +3,7 @@
 //
 // see http://www.jeelabs.org/2009/07/07/io-expander/
 
-#include <Ports.h>
-#include <RF12.h> // needed to avoid a linker error :(
+#include <JeeLib.h>
 
 PortI2C myport (1 /*, PortI2C::KHZ400 */);
 DeviceI2C expander (myport, 0x20); // also works with output plug if 0x26/0x27

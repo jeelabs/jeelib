@@ -3,8 +3,8 @@
 
 // Based on a sample implementation by Steve Evans (@tankslappa).
 
+#include <JeeLib.h>
 #include <PortsLCD.h>
-#include <RF12.h>
 
 #define BUFFER_SIZE 64
 #define DISPLAY_INTERVAL 500 // ms

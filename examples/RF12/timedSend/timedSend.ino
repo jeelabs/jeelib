@@ -1,8 +1,7 @@
 // Experiment with time-controlled periodic transmission.
 // 2011-06-24 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
-#include <Ports.h>
-#include <RF12.h>
+#include <JeeLib.h>
 
 MilliTimer sendTimer;
 byte pending;

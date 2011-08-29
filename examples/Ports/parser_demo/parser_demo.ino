@@ -1,8 +1,7 @@
 // Example o how to use the InputParser class
 // 2010-10-23 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
-#include <Ports.h>
-#include <RF12.h> // needed to avoid a linker error :(
+#include <JeeLib.h>
 
 extern InputParser::Commands cmdTab[] PROGMEM;
 InputParser parser (50, cmdTab);

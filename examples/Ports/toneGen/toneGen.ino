@@ -1,8 +1,7 @@
 // Tone generator based on a discrete DAC.
 // 2010-11-18 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
-#include <Ports.h>
-#include <RF12.h>
+#include <JeeLib.h>
 #include <avr/pgmspace.h>
 
 byte index;

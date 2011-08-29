@@ -1,11 +1,10 @@
 // Example indoor temp + humidty + barometer, mounted on a Graphics Board
 // 2010-11-17 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
-#include "ST7565.h"
-#include <Ports.h>
+#include <ST7565.h>
+#include <JeeLib.h>
 #include <PortsBMP085.h>
 #include <PortsSHT11.h>
-#include <RF12.h> // needed to avoid a linker error :(
 
 ST7565 glcd(14, 4, 17, 7);
 SHT11 th_sensor (3);        // port 3

@@ -1,8 +1,7 @@
 // Demo sketch demonstrating the Scheduler class
 // 2010-10-18 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
-#include <Ports.h>
-#include <RF12.h>
+#include <JeeLib.h>
 
 enum { TASK1, TASK2, TASK_LIMIT };
 

@@ -6,8 +6,7 @@
 // (they can even be the same!) but all the nodes have to be in the same group.
 // Use the RF12demo sketch to initialize the band/group/nodeid in EEPROM.
  
-#include <Ports.h>
-#include <RF12.h>
+#include <JeeLib.h>
 
 // Utility class to fill a buffer with string data
 

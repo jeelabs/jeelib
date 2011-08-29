@@ -1,8 +1,7 @@
 // Test encrypted communication, sender side
 // 2010-02-21 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
-#include <RF12.h>
-#include <Ports.h>
+#include <JeeLib.h>
 
 MilliTimer sendTimer;
 byte sendSize;

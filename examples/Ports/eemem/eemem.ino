@@ -10,8 +10,7 @@
 //		pin 6: SCL, AIO, port pin 5
 //		pin 8: +3V, port pin 4
 
-#include <Ports.h>
-#include <RF12.h> // needed to avoid a linker error :(
+#include <JeeLib.h>
 
 PortI2C myport (4730);
 DeviceI2C eemem (myport, 0x50);

@@ -1,8 +1,7 @@
 // Sample code to power down a JeeNode completely
 // 2010-08-16 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
-#include <Ports.h>
-#include <RF12.h>
+#include <JeeLib.h>
 
 void setup () {
     // turn the radio off completely
