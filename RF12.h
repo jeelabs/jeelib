@@ -46,7 +46,7 @@ extern volatile uint8_t rf12_buf[]; // recv/xmit buf including hdr & crc bytes
 extern long rf12_seq;               // seq number of encrypted packet (or -1)
 
 // call this once with the node ID, frequency band, and optional group
-void rf12_initialize(uint8_t id, uint8_t band, uint8_t group=0xD4);
+uint8_t rf12_initialize(uint8_t id, uint8_t band, uint8_t group=0xD4);
 
 // initialize the RF12 module from settings stored in EEPROM by "RF12demo"
 // don't call rf12_initialize() if you init the hardware with rf12_config()
