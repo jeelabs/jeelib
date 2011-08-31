@@ -313,7 +313,7 @@ void rf12_sendWait (uint8_t mode) {
   Call this once with the node ID (0-31), frequency band (0-3), and
   optional group (0-255 for RF12B, only 212 allowed for RF12).
 */
-void rf12_initialize (uint8_t id, uint8_t band, uint8_t g) {
+uint8_t rf12_initialize (uint8_t id, uint8_t band, uint8_t g) {
     nodeid = id;
     group = g;
     
@@ -355,6 +355,8 @@ void rf12_initialize (uint8_t id, uint8_t band, uint8_t g) {
         attachInterrupt(0, rf12_interrupt, LOW);
     else
         detachInterrupt(0);
+    
+    return nodeid;
 }
 
 void rf12_onOff (uint8_t value) {
