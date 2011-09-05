@@ -254,6 +254,10 @@ byte BlinkPlug::buttonCheck () {
 }
 
 void MemoryPlug::load (word page, void* buf, byte offset, int count) {
+    // also don't load right after a save, see http://forum.jeelabs.net/node/469
+    while (millis() < nextSave)
+        ;
+
     setAddress(0x50 + (page >> 8));
     send();
     write((byte) page);
