@@ -7,7 +7,7 @@
 // *absolute* difference from this value. Result is in microvolts.
 
 #include <JeeLib.h>
-#define DEBUG 1
+#define DEBUG 0
 
 Port measure (3);
 MilliTimer report;
@@ -27,7 +27,7 @@ void loop () {
   uint32_t value = measure.anaRead() * (3300000L / 1023);
   
   // keep track of the (slow-) moving average
-  avg = (499L * avg + value) / 500;
+  avg = (499L * avg + value + 250) / 500;
 
   // accumulate the absolute differences from the average
   if (value > avg)
