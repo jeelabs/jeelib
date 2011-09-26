@@ -1,5 +1,6 @@
 // Use Output Plug as a unipolar stepper motor driver.
 // 2009-11-12 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
+// see http://jeelabs.org/2009/11/17/meet-the-output-plug/
 
 // this code was inspired by Chad Phillips' example code at:
 //  http://windmeadowdotcom.googlecode.com/svn/trunk/examples/stepper.c
