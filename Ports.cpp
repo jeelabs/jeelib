@@ -840,9 +840,13 @@ char Scheduler::poll() {
             if (tasks[i] < lowest)
                 lowest = tasks[i];
         }
-        if (lowest != ~0)
-            for (byte i = 0; i < maxTasks; ++i)
-                tasks[i] -= lowest;
+        if (lowest != ~0) {
+            for (byte i = 0; i < maxTasks; ++i) {
+                if(tasks[i] != ~0) {
+                    tasks[i] -= lowest;
+                }
+            }
+        }
         remaining = lowest;
     } else if (ms100.poll(100))
         --remaining;
