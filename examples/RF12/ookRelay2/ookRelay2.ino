@@ -47,6 +47,9 @@ CrestaDecoder cres;
 KakuDecoder kaku;
 XrfDecoder xrf;
 HezDecoder hez;
+FlamingoDecoder fmgo;
+SmokeDecoder smk;
+ByronbellDecoder byr;
 
 DecoderInfo di_433[] = {
     { 5, "ORSC", &orsc },
@@ -54,6 +57,9 @@ DecoderInfo di_433[] = {
     { 7, "KAKU", &kaku },
     { 8, "XRF", &xrf },
     { 9, "HEZ", &hez },
+    { 10, "FMGO", &fmgo },
+    { 11, "SMK", &smk },
+    { 12, "BYR", &byr },
     { -1, 0, 0 }
 };
 

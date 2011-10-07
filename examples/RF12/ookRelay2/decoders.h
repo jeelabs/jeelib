@@ -274,6 +274,112 @@ public:
     }
 };
 
+// The following three decoders were contributed bij Gijs van Duimen:
+//    FlamingoDecoder = Flamingo FA15RF
+//    SmokeDecoder = Flamingo FA12RF
+//    ByronbellDecoder = Byron SX30T
+// see http://www.domoticaforum.eu/viewtopic.php?f=17&t=4960&start=90#p51118
+
+class FlamingoDecoder : public DecodeOOK {
+public:
+    FlamingoDecoder () {}
+     
+    // see also http://homeeasyhacking.wikia.com/wiki/Home_Easy_Hacking_Wiki
+    virtual char decode (word width) {
+        // ligt tussen 200 en 1200
+        if ((width > 740 && width < 780) || (width > 2650 && width < 2750) || (width > 810 && width < 950) || (width > 1040 && width < 1450)) {
+
+            // de byte is een 1 of 0 afhankelijk van of het boven
+            // of onder de 600 us
+            byte w = width >= 950;            
+            gotBit(w);
+            
+        // als width boven de 5000 ligt 
+        } else if (pos >= 4 /*&& 8 * pos + bits == 50*/) {
+          // if the first six values are 255 in int
+          if ( (int) data[0] == 84 && (int) data[1] == 85 && (int) data[2] == 85 && (int) data[3] == 85 ) {
+             resetDecoder();
+             pos = 1;
+             bits = 1;
+             data[0] = (byte) 255;
+             
+             return 1; 
+          } else {
+             return -1;
+          }
+        } else
+            return -1;
+        return 0;
+    }
+};
+
+class SmokeDecoder : public DecodeOOK {
+public:
+    SmokeDecoder () {}
+     
+    // see also http://homeeasyhacking.wikia.com/wiki/Home_Easy_Hacking_Wiki
+    virtual char decode (word width) {
+        // ligt tussen 200 en 1200
+        if (width > 20000 && width < 21000 || width > 6900 && width < 7000 || width > 6500 && width < 6800 ) {
+            // de byte is een 1 of 0 afhankelijk van of het boven
+            // of onder de 600 us
+            byte w = width > 0;
+            gotBit(w);
+        } else if ( width > 3000 && width < 4000) {
+            byte w = width < 100;
+        } else if (pos >= 4 /*&& 8 * pos + bits == 50*/) {
+          // if the first six values are 255 in int
+          if ( (int) data[0] == 255 && (int) data[1] == 255 && (int) data[2] == 255 && (int) data[3] == 255 ) {
+             resetDecoder();
+             pos = 1;
+             bits = 1;
+             data[0] = (byte) 255;
+             
+             return 1; 
+          } else {
+             return -1;
+          }
+        } else
+            return -1;
+        return 0;
+    }
+};
+
+class ByronbellDecoder : public DecodeOOK {
+public:
+    ByronbellDecoder () {}
+     
+    // see also http://homeeasyhacking.wikia.com/wiki/Home_Easy_Hacking_Wiki
+    virtual char decode (word width) {
+        // ligt tussen 200 en 1200
+//        Serial.print("DE ");
+  //      Serial.println(width);
+    
+        if (width > 5100 && width < 5400 ) {
+            // de byte is een 1 of 0 afhankelijk van of het boven
+            // of onder de 600 us
+            byte w = width > 0;
+            gotBit(w);
+        } else if ( width > 660 && width < 715) {
+            byte w = width < 100;
+            gotBit(w);
+        } else if ( width > 270 && width < 380) {
+            byte w = width < 100;
+        } else if (pos >= 8 /*&& 8 * pos + bits == 50*/) {
+          // if the first six values are 255 in int
+           resetDecoder();
+           pos = 1;
+           bits = 1;
+           data[0] = (byte) 255;
+           
+           return 1; 
+        } else {
+           return -1;
+        }
+        return 0;
+    }
+};
+
 // 868 MHz decoders
 
 class VisonicDecoder : public DecodeOOK {
