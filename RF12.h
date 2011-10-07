@@ -37,7 +37,7 @@
 #define RF12_ACK_REPLY (rf12_hdr & RF12_HDR_DST ? RF12_HDR_CTL : \
             RF12_HDR_CTL | RF12_HDR_DST | (rf12_hdr & RF12_HDR_MASK))
             
-// options fro RF12_sleep()
+// options for RF12_sleep()
 #define RF12_SLEEP 0
 #define RF12_WAKEUP -1
 
@@ -67,7 +67,7 @@ void rf12_sendStart(uint8_t hdr, const void* ptr, uint8_t len);
 void rf12_sendStart(uint8_t hdr, const void* ptr, uint8_t len, uint8_t sync);
 
 // wait for send to finish, sleep mode: 0=none, 1=idle, 2=standby, 3=powerdown
-void rf12_sendWait (uint8_t mode);
+void rf12_sendWait(uint8_t mode);
 
 // this simulates OOK by turning the transmitter on and off via SPI commands
 // use this only when the radio was initialized with a fake zero node ID
