@@ -8,16 +8,37 @@
 #include <stdint.h>
 #include <avr/pgmspace.h>
 
+// keep the ATtiny85 on the "old" conventions until arduino-tiny gets fixed
+#if ARDUINO >= 100 && !defined(__AVR_ATtiny85__)
+#define WRITE_RESULT size_t
+#else
+#define WRITE_RESULT void
+#endif
+
 class Port {
 protected:
     uint8_t portNum;
 
+#if defined(__AVR_ATtiny85__)
+    inline uint8_t digiPin() const
+        { return 1; }
+    inline uint8_t digiPin2() const
+        { return 2; }
+    static uint8_t digiPin3()
+        { return 0; }
+    inline uint8_t anaPin() const
+        { return 1; }
+#else
     inline uint8_t digiPin() const
         { return portNum ? portNum + 3 : 18; }
     inline uint8_t digiPin2() const
         { return portNum ? portNum + 13 : 19; }
+    static uint8_t digiPin3()
+        { return 3; }
     inline uint8_t anaPin() const
         { return portNum - 1; }
+#endif
+
 public:
     inline Port (uint8_t num) : portNum (num) {}
 
@@ -47,13 +68,13 @@ public:
         
     // IRQ pin (INT1, shared across all ports)
     static void mode3(uint8_t value)
-        { pinMode(3, value); }
+        { pinMode(digiPin3(), value); }
     static uint8_t digiRead3()
-        { return digitalRead(3); }
+        { return digitalRead(digiPin3()); }
     static void digiWrite3(uint8_t value)
-        { return digitalWrite(3, value); }
+        { return digitalWrite(digiPin3(), value); }
     static void anaWrite3(uint8_t val)
-        { analogWrite(3, val); }
+        { analogWrite(digiPin3(), val); }
         
     // both pins: data on DIO, clock on AIO
     inline void shift(uint8_t bitOrder, uint8_t value) const
@@ -276,7 +297,7 @@ public:
     byte available();
     int read();
     void flush();
-    virtual size_t write(byte);
+    virtual WRITE_RESULT write(byte);
 };
 
 // interface for the Dimmer Plug - see http://jeelabs.org/dp1
