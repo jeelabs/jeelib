@@ -21,13 +21,13 @@ protected:
 
 #if defined(__AVR_ATtiny85__)
     inline uint8_t digiPin() const
-        { return 1; }
+        { return 0; }
     inline uint8_t digiPin2() const
         { return 2; }
     static uint8_t digiPin3()
-        { return 0; }
-    inline uint8_t anaPin() const
         { return 1; }
+    inline uint8_t anaPin() const
+        { return 0; }
 #else
     inline uint8_t digiPin() const
         { return portNum ? portNum + 3 : 18; }

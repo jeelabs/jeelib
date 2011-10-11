@@ -15,14 +15,16 @@ int values[ORDER];
 int vmin, vmax;
 
 static void led (byte on) {
-#define LED 0
+#define LED 1
     bitSet(DDRB, LED);
     bitWrite(PORTB, LED, on);
 }
 
 static void setupAdc () {
     // 2.56V int ref, C2/B4 + C3/B3 diff, 20x
-    ADMUX = bit(REFS2) | bit(REFS1) | bit(MUX2) | bit(MUX1) | bit(MUX0);
+    //ADMUX = bit(REFS2) | bit(REFS1) | bit(MUX2) | bit(MUX1) | bit(MUX0);
+    // 1.1V int ref, C2/B4 + C3/B3 diff, 20x
+    ADMUX = bit(REFS1) | bit(MUX2) | bit(MUX1) | bit(MUX0);
     // disable these pins for digital I/O
     DIDR0 |= bit(ADC2D) | bit(ADC3D);
     // bipolar
