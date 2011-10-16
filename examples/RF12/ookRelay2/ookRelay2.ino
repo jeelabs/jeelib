@@ -58,6 +58,7 @@ HezDecoder hez;
 FlamingoDecoder fmgo;
 SmokeDecoder smk;
 ByronbellDecoder byr;
+ElroDecoder elro;
 
 DecoderInfo di_433[] = {
     { 5, "ORSC", &orsc },
@@ -65,9 +66,10 @@ DecoderInfo di_433[] = {
     { 7, "KAKU", &kaku },
     { 8, "XRF", &xrf },
     { 9, "HEZ", &hez },
-    { 10, "FMGO", &fmgo },
-    { 11, "SMK", &smk },
-    { 12, "BYR", &byr },
+    { 10, "ELRO", &elro },
+    { 11, "FMGO", &fmgo },
+    { 12, "SMK", &smk },
+    { 13, "BYR", &byr },
     { -1, 0, 0 }
 };
 

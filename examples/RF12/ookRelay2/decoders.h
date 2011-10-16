@@ -279,6 +279,51 @@ public:
     }
 };
 
+class ElroDecoder : public DecodeOOK {
+public:
+    ElroDecoder () {}
+    
+    virtual char decode (word width) {
+        if (50 <= width && width < 600) {
+            byte w = (width - 40) / 190; // 40 <= 0 < 230 <= 1 < 420 <= 2 < 610
+            switch (state) {
+                case UNKNOWN:
+                case OK:
+                    if (w == 0)
+                        state = T0;
+                    else if (w == 2)
+                        state = T2;
+                    break;
+                case T0:
+                case T2:
+                    if (w == 1)
+                        ++state;
+                    else
+                        return -1;
+                    break;
+                case T1:
+                    if (w == 0) { // sync pattern has 0-1-0-1 patterns
+                        resetDecoder();
+                        break;
+                    }
+                    if (w != 2)
+                        return -1;
+                    gotBit(0);
+                    break;
+                case T3:
+                    if (w != 0)
+                        return -1;
+                    gotBit(1);
+                    break;
+            }
+            return 0;
+        }
+        if (pos >= 11)
+            return 1;
+        return -1;
+    }
+};
+
 // The following three decoders were contributed bij Gijs van Duimen:
 //    FlamingoDecoder = Flamingo FA15RF
 //    SmokeDecoder = Flamingo FA12RF
