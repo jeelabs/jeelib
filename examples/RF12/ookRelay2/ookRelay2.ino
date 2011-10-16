@@ -5,16 +5,24 @@
 #include "decoders.h"
 
 #define DEBUG 1     // set to 1 to also report results on the serial port
-#define DEBUG_LED 0 // define as pin 4..7 to blink LED on each pin change
+//#define DEBUG_LED // define as pin 1..19 to blink LED on each pin change
+#define NODO 0      // use the Nodo shield hardware (only 433 MHz receiver)
 
 // RF12 communication settings
 #define NODEID 19
 #define NETGRP 5
 
 // I/O pin allocations, leave any of these undefined to omit the code for it
-#define PIN_868 14  // AIO1 = 868 MHz receiver
-#define PIN_433 17  // AIO4 = 433 MHz receiver
-#define PIN_DCF 15  // AIO2 = DCF77 receiver
+#if NODO
+#define PIN_433 2     // D.2 = 433 MHz receiver
+#define POWER_433 12  // must be 1 to supply power to the receiver
+#define DEBUG_LED 13  // std Arduino led is also red status led
+#else
+#define USE_RF12 1    // only set if the RFM12B hardware is present
+#define PIN_868 14    // AIO1 = 868 MHz receiver
+#define PIN_433 17    // AIO4 = 433 MHz receiver
+#define PIN_DCF 15    // AIO2 = DCF77 receiver
+#endif
 
 #if PIN_868
 VisonicDecoder viso;
@@ -67,7 +75,15 @@ DecoderInfo di_433[] = {
 volatile word pulse_433;
 word last_433; // never accessed outside ISR's
 
-ISR(PCINT1_vect) {
+#if PIN_433 >= 14
+#define VECT PCINT1_vect
+#elif PIN_433 >= 8
+#define VECT PCINT0_vect
+#else
+#define VECT PCINT2_vect
+#endif
+
+ISR(VECT) {
     word now = micros();
     pulse_433 = now - last_433;
     last_433 = now;
@@ -97,8 +113,16 @@ static void setupPinChangeInterrupt () {
     digitalWrite(PIN_433, 1);   // pull-up
 
     // interrupt on pin change
+#if PIN_433 >= 14
     bitSet(PCMSK1, PIN_433 - 14);
     bitSet(PCICR, PCIE1);
+#elif PIN_433 >= 8
+    bitSet(PCMSK0, PIN_433 - 8);
+    bitSet(PCICR, PCIE0);
+#else
+    bitSet(PCMSK2, PIN_433);
+    bitSet(PCICR, PCIE2);
+#endif
 #endif
 }
 
@@ -147,13 +171,17 @@ static void runPulseDecoders (DecoderInfo* pdi, volatile word& pulse) {
 
     // if we had a pulse, go through each of the decoders
     if (p != 0) { 
-        bitSet(PORTD, DEBUG_LED);
+#if DEBUG_LED
+        digitalWrite(DEBUG_LED, 1);
+#endif
         while (pdi->typecode >= 0) {
             if (pdi->decoder->nextPulse(p))
                 addDecodedData(*pdi);
             ++pdi;
         }
-        bitClear(PORTD, DEBUG_LED); 
+#if DEBUG_LED
+        digitalWrite(DEBUG_LED, 0);
+#endif
     }
 }
 
@@ -214,7 +242,9 @@ static byte dcf77poll () {
     if (now != last) {
         // track signal levels using an 8-bit shift register
         dcfLevels = (dcfLevels << 1) | digitalRead(PIN_DCF);
+#if DEBUG_LED
         digitalWrite(DEBUG_LED, dcfLevels & 1);
+#endif
         if (dcfLevels == 0x07F) {
             // found one 0 followed by seven 1's
             if (dcfWidth > 1000) {
@@ -248,12 +278,12 @@ static byte dcf77poll () {
 #endif // PIN_DCF
 
 void setup () {
-#if DEBUG_LED    
-    bitSet(DDRD, DEBUG_LED);
+#if DEBUG_LED   
+    pinMode(DEBUG_LED, 1);
     // brief LED flash on startup to make sure it works
-    bitSet(PORTD, DEBUG_LED);
+    digitalWrite(DEBUG_LED, 1);
     delay(100);
-    bitClear(PORTD, DEBUG_LED);
+    digitalWrite(DEBUG_LED, 0);
 #endif
 
 #if DEBUG
@@ -261,14 +291,21 @@ void setup () {
     Serial.println("\n[ookRelay2]");
 #endif
 
+#if USE_RF12
 #if PIN_868
     rf12_init_OOK();
 #else
     rf12_initialize(NODEID, RF12_868MHZ, NETGRP);
 #endif
+#endif
 
 #if PIN_433
     setupPinChangeInterrupt();
+#endif
+
+#if POWER_433
+    pinMode(POWER_433, 1);
+    digitalWrite(POWER_433, 1);
 #endif
 
 #if PIN_DCF
@@ -289,17 +326,19 @@ void loop () {
     if (dcf77poll())
         addToBuffer(0, "DCF", dcfBuf, sizeof dcfBuf);
 #endif 
-    
+
     if (sendTimer.poll(100) && packetFill > 0) {
+#if USE_RF12
 #if PIN_868
         rf12_initialize(NODEID, RF12_868MHZ, NETGRP);
 #endif
         while (!rf12_canSend())
             rf12_recvDone(); // ignores incoming
         rf12_sendStart(0, packetBuffer, packetFill, 1);
-        packetFill = 0;
 #if PIN_868
         rf12_init_OOK();
 #endif
+#endif
+        packetFill = 0;
     }
 }

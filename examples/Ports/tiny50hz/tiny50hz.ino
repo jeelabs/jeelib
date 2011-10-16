@@ -55,7 +55,7 @@ static void measure () {
     for (word i = 0; i < 500; ++i) {
       int last = values[next];
       values[next] = readAdc();
-      accum += last - values[next];
+      accum += values[next] - last;
       if (++next >= ORDER)
         next = 0;
       if (accum < vmin) vmin = accum;

@@ -7,6 +7,8 @@ class DecodeOOK {
 protected:
     byte bits, flip, state, pos, data[25];
 
+    // gets called once per incoming pulse with the width in us
+    // return values: 0 = keep going, 1 = done, -1 = no match
     virtual char decode (word width) =0;
     
 public:
@@ -129,11 +131,11 @@ public:
                         return -1;
                     break;
             }
-        } else if (width >= 2500 && pos >= 9) 
+            return 0;
+        }
+        if (width >= 2500 && pos >= 9) 
             return 1;
-        else
-            return -1;
-        return 0;
+        return -1;
     }
 };
 
@@ -167,11 +169,11 @@ public:
                         return -1;
                     break;
             }
-        } else if (width >= 2500 && pos >= 7) 
+            return 0;
+        }
+        if (width >= 2500 && pos >= 7) 
             return 1;
-        else
-            return -1;
-        return 0;
+        return -1;
     }
 };
 
@@ -212,14 +214,15 @@ public:
                         return -1;
                     break;
             }
-        } else if (width >= 2500 && 8 * pos + bits == 12) {
+            return 0;
+        }
+        if (width >= 2500 && 8 * pos + bits == 12) {
             for (byte i = 0; i < 4; ++i)
                 gotBit(0);
             alignTail(2);
             return 1;
-        } else
-            return -1;
-        return 0;
+        }
+        return -1;
     }
 };
 
@@ -233,9 +236,11 @@ public:
             return 1;
         if (width > 5000)
             return -1;
-        if (width > 4000 && state == UNKNOWN)
+        if (width > 4000 && state == UNKNOWN) {
             state = OK;
-        else if (350 <= width && width < 1800) {
+            return 0;
+        }
+        if (350 <= width && width < 1800) {
             byte w = width >= 720;
             switch (state) {
                 case OK:
@@ -248,9 +253,9 @@ public:
                     gotBit(w);
                     break;
             }
-        } else
-            return -1;
-        return 0;
+            return 0;
+        }
+        return -1;
     }
 };
 
@@ -261,16 +266,16 @@ public:
     // see also http://homeeasyhacking.wikia.com/wiki/Home_Easy_Hacking_Wiki
     virtual char decode (word width) {
         if (200 <= width && width < 1200) {
-            byte w = width >= 600;
-            gotBit(w);
-        } else if (width >= 5000 && pos >= 5 /*&& 8 * pos + bits == 50*/) {
+            gotBit(width >= 600);
+            return 0;
+        }
+        if (width >= 5000 && pos >= 5) {
             for (byte i = 0; i < 6; ++i)
                 gotBit(0);
             alignTail(7); // keep last 56 bits
             return 1;
-        } else
-            return -1;
-        return 0;
+        }
+        return -1;
     }
 };
 
@@ -279,37 +284,23 @@ public:
 //    SmokeDecoder = Flamingo FA12RF
 //    ByronbellDecoder = Byron SX30T
 // see http://www.domoticaforum.eu/viewtopic.php?f=17&t=4960&start=90#p51118
+// there's some weirdness in this code, I've edited it a bit -jcw, 2011-10-16
 
 class FlamingoDecoder : public DecodeOOK {
 public:
     FlamingoDecoder () {}
      
-    // see also http://homeeasyhacking.wikia.com/wiki/Home_Easy_Hacking_Wiki
     virtual char decode (word width) {
-        // ligt tussen 200 en 1200
-        if ((width > 740 && width < 780) || (width > 2650 && width < 2750) || (width > 810 && width < 950) || (width > 1040 && width < 1450)) {
-
-            // de byte is een 1 of 0 afhankelijk van of het boven
-            // of onder de 600 us
-            byte w = width >= 950;            
-            gotBit(w);
-            
-        // als width boven de 5000 ligt 
-        } else if (pos >= 4 /*&& 8 * pos + bits == 50*/) {
-          // if the first six values are 255 in int
-          if ( (int) data[0] == 84 && (int) data[1] == 85 && (int) data[2] == 85 && (int) data[3] == 85 ) {
-             resetDecoder();
-             pos = 1;
-             bits = 1;
-             data[0] = (byte) 255;
-             
-             return 1; 
-          } else {
-             return -1;
-          }
-        } else
-            return -1;
-        return 0;
+        if ((width > 740 && width < 780) || (width > 2650 && width < 2750) ||
+             (width > 810 && width < 950) || (width > 1040 && width < 1450)) {
+            gotBit(width >= 950);
+            return 0;
+        }
+        // if (pos >= 4 && data[0] == 84 && data[1] == 85 &&
+        //                 data[2] == 85 && data[3] == 85)
+        if (pos >= 4)
+            return 1; 
+        return -1;
     }
 };
 
@@ -317,31 +308,17 @@ class SmokeDecoder : public DecodeOOK {
 public:
     SmokeDecoder () {}
      
-    // see also http://homeeasyhacking.wikia.com/wiki/Home_Easy_Hacking_Wiki
     virtual char decode (word width) {
-        // ligt tussen 200 en 1200
-        if (width > 20000 && width < 21000 || width > 6900 && width < 7000 || width > 6500 && width < 6800 ) {
-            // de byte is een 1 of 0 afhankelijk van of het boven
-            // of onder de 600 us
-            byte w = width > 0;
-            gotBit(w);
-        } else if ( width > 3000 && width < 4000) {
-            byte w = width < 100;
-        } else if (pos >= 4 /*&& 8 * pos + bits == 50*/) {
-          // if the first six values are 255 in int
-          if ( (int) data[0] == 255 && (int) data[1] == 255 && (int) data[2] == 255 && (int) data[3] == 255 ) {
-             resetDecoder();
-             pos = 1;
-             bits = 1;
-             data[0] = (byte) 255;
-             
-             return 1; 
-          } else {
-             return -1;
-          }
-        } else
-            return -1;
-        return 0;
+        if (width > 20000 && width < 21000 || width > 6900 && width < 7000 ||
+            width > 6500 && width < 6800) {
+            gotBit(1);
+            // if (width > 3000 && width < 4000)
+            //     byte w = width < 100;
+            return 0;
+        }
+        if (pos >= 4)
+            return pos = bits = 1; 
+        return -1;
     }
 };
 
@@ -349,34 +326,14 @@ class ByronbellDecoder : public DecodeOOK {
 public:
     ByronbellDecoder () {}
      
-    // see also http://homeeasyhacking.wikia.com/wiki/Home_Easy_Hacking_Wiki
     virtual char decode (word width) {
-        // ligt tussen 200 en 1200
-//        Serial.print("DE ");
-  //      Serial.println(width);
-    
-        if (width > 5100 && width < 5400 ) {
-            // de byte is een 1 of 0 afhankelijk van of het boven
-            // of onder de 600 us
-            byte w = width > 0;
-            gotBit(w);
-        } else if ( width > 660 && width < 715) {
-            byte w = width < 100;
-            gotBit(w);
-        } else if ( width > 270 && width < 380) {
-            byte w = width < 100;
-        } else if (pos >= 8 /*&& 8 * pos + bits == 50*/) {
-          // if the first six values are 255 in int
-           resetDecoder();
-           pos = 1;
-           bits = 1;
-           data[0] = (byte) 255;
-           
-           return 1; 
-        } else {
-           return -1;
+        if (660 < width && width < 715 || 5100 < width && width < 5400) {
+            gotBit(width > 1000);
+            return 0;
         }
-        return 0;
+        if (pos >= 8)
+            return pos = bits = 1; 
+        return -1;
     }
 };
 
