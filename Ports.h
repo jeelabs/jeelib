@@ -193,7 +193,8 @@ public:
 
 // simple task scheduler for times up to 6000 seconds
 class Scheduler {
-    word* tasks, remaining;
+    word* tasks;
+    word remaining;
     byte maxTasks;
     MilliTimer ms100;
 public:

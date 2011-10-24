@@ -820,11 +820,13 @@ Scheduler::Scheduler (byte size) : maxTasks (size) {
     byte bytes = size * sizeof *tasks;
     tasks = (word*) malloc(bytes);
     memset(tasks, 0xFF, bytes);
+    remaining = ~0;
 }
 
 Scheduler::Scheduler (word* buf, byte size) : tasks (buf), maxTasks (size) {
     byte bytes = size * sizeof *tasks;
     memset(tasks, 0xFF, bytes);
+    remaining = ~0;
 }
 
 char Scheduler::poll() {
