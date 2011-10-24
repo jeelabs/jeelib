@@ -95,4 +95,26 @@ void rf12_encrypt(const uint8_t*);
 // low-level control of the RFM12B via direct register access
 uint16_t rf12_control(uint16_t cmd);
 
+// Values below based on http://blog.strobotics.com.au/2009/07/27/rfm12-tutorial-part-3a/
+// Note - data rates are approximate. For higher data rates you will need to alter reciever
+// radio bandwidth and transmittor modulator bandwidth
+
+enum {
+    _RF12_DATA_RATE_COMMAND = 1 << 15 + 1 << 14 + 1 << 10 + 1 << 9,
+};
+
+enum rf12DataRates {
+    RF12_DATA_RATE_115200 = _RF12_DATA_RATE_COMMAND | 0x02,
+    RF12_DATA_RATE_57600  = _RF12_DATA_RATE_COMMAND | 0x05,
+    RF12_DATA_RATE_49200  = _RF12_DATA_RATE_COMMAND | 0x06,  // Default JeeNode Setting
+    RF12_DATA_RATE_38400  = _RF12_DATA_RATE_COMMAND | 0x08,
+    RF12_DATA_RATE_28800  = _RF12_DATA_RATE_COMMAND | 0x0B,
+    RF12_DATA_RATE_19200  = _RF12_DATA_RATE_COMMAND | 0x11,
+    RF12_DATA_RATE_9600   = _RF12_DATA_RATE_COMMAND | 0x23,
+    RF12_DATA_RATE_4800   = _RF12_DATA_RATE_COMMAND | 0x47,
+    RF12_DATA_RATE_2400   = _RF12_DATA_RATE_COMMAND | 0x11 | 1 << 7,
+    RF12_DATA_RATE_1200   = _RF12_DATA_RATE_COMMAND | 0x1E | 1 << 7,
+    RF12_DATA_RATE_JEENODE_DEFAULT = RF12_DATA_RATE_49200
+};
+
 #endif
