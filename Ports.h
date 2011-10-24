@@ -195,7 +195,7 @@ public:
     void set(word ms);
 };
 
-// Low-power utility cod using the Watchdog Timer (WDT). Requires a WDT interrupt handler, e.g.
+// Low-power utility code using the Watchdog Timer (WDT). Requires a WDT interrupt handler, e.g.
 // EMPTY_INTERRUPT(WDT_vect);
 class Sleepy {
 public:
