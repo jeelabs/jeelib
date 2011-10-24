@@ -195,7 +195,8 @@ public:
     void set(word ms);
 };
 
-// Low-power utility code.
+// Low-power utility cod using the Watchdog Timer (WDT). Requires a WDT interrupt handler, e.g.
+// EMPTY_INTERRUPT(WDT_vect);
 class Sleepy {
 public:
     // start the watchdog timer (or disable it if mode < 0)
@@ -223,9 +224,10 @@ public:
     Scheduler (byte max);
     Scheduler (word* buf, byte max);
 
-    // return next task to run, or -1 if there is none
+    // return next task to run, -1 if there are none ready to run, but there are tasks waiting, or -2 if there are no tasks waiting (i.e. all are idle)
     char poll();
-    // same as poll, but wait for event in power-down mode
+    // same as poll, but wait for event in power-down mode.
+    // Uses Sleepy::loseSomeTime() - see comments there re requiring the watchdog timer. 
     char pollWaiting();
     
     // set a task timer, in tenths of seconds

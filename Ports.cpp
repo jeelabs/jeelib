@@ -821,17 +821,15 @@ void Sleepy::watchdogEvent() {
     ++watchdogCounter;
 }
 
-Scheduler::Scheduler (byte size) : maxTasks (size) {
+Scheduler::Scheduler (byte size) : maxTasks (size), remaining(~0) {
     byte bytes = size * sizeof *tasks;
     tasks = (word*) malloc(bytes);
     memset(tasks, 0xFF, bytes);
-    remaining = ~0;
 }
 
-Scheduler::Scheduler (word* buf, byte size) : tasks (buf), maxTasks (size) {
+Scheduler::Scheduler (word* buf, byte size) : tasks (buf), maxTasks (size), remaining(~0) {
     byte bytes = size * sizeof *tasks;
     memset(tasks, 0xFF, bytes);
-    remaining = ~0;
 }
 
 char Scheduler::poll() {
@@ -855,12 +853,16 @@ char Scheduler::poll() {
             }
         }
         remaining = lowest;
-    } else if (ms100.poll(100))
+    } else if (remaining == ~0) //remaining == ~0 means nothing running
+        return -2;
+    else if ( ms100.poll(100))
         --remaining;
     return -1;
 }
 
 char Scheduler::pollWaiting() {
+    if(remaining == ~0)  // Nothing running!
+        return -2;
     // first wait until the remaining time we need to wait is less than 0.1s
     while (remaining > 0) {
         if (!Sleepy::loseSomeTime(100)) // approximate, actually waits 96 ms
