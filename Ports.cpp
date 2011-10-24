@@ -380,10 +380,12 @@ void UartPlug::flush () {
     in = out;
 }
 
-size_t UartPlug::write (byte data) {
+WRITE_RESULT UartPlug::write (byte data) {
     regSet(THR, data);
     dev.stop();
+#if ARDUINO >= 100 && !defined(__AVR_ATtiny84__) && !defined(__AVR_ATtiny85__)
     return 1;
+#endif
 }
 
 void DimmerPlug::begin () {
@@ -761,6 +763,9 @@ void Sleepy::watchdogInterrupts (char mode) {
     byte wdtcsr = mode >= 0 ? bit(WDIE) | mode : 0;
     MCUSR &= ~(1<<WDRF);
     ATOMIC_BLOCK(ATOMIC_FORCEON) {
+#ifndef WDTCSR
+#define WDTCSR WDTCR
+#endif
         WDTCSR |= (1<<WDCE) | (1<<WDE); // timed sequence
         WDTCSR = wdtcsr;
     }

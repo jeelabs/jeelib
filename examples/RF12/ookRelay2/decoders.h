@@ -7,6 +7,8 @@ class DecodeOOK {
 protected:
     byte bits, flip, state, pos, data[25];
 
+    // gets called once per incoming pulse with the width in us
+    // return values: 0 = keep going, 1 = done, -1 = no match
     virtual char decode (word width) =0;
     
 public:
@@ -129,11 +131,11 @@ public:
                         return -1;
                     break;
             }
-        } else if (width >= 2500 && pos >= 9) 
+            return 0;
+        }
+        if (width >= 2500 && pos >= 9) 
             return 1;
-        else
-            return -1;
-        return 0;
+        return -1;
     }
 };
 
@@ -167,11 +169,11 @@ public:
                         return -1;
                     break;
             }
-        } else if (width >= 2500 && pos >= 7) 
+            return 0;
+        }
+        if (width >= 2500 && pos >= 7) 
             return 1;
-        else
-            return -1;
-        return 0;
+        return -1;
     }
 };
 
@@ -212,14 +214,15 @@ public:
                         return -1;
                     break;
             }
-        } else if (width >= 2500 && 8 * pos + bits == 12) {
+            return 0;
+        }
+        if (width >= 2500 && 8 * pos + bits == 12) {
             for (byte i = 0; i < 4; ++i)
                 gotBit(0);
             alignTail(2);
             return 1;
-        } else
-            return -1;
-        return 0;
+        }
+        return -1;
     }
 };
 
@@ -233,9 +236,11 @@ public:
             return 1;
         if (width > 5000)
             return -1;
-        if (width > 4000 && state == UNKNOWN)
+        if (width > 4000 && state == UNKNOWN) {
             state = OK;
-        else if (350 <= width && width < 1800) {
+            return 0;
+        }
+        if (350 <= width && width < 1800) {
             byte w = width >= 720;
             switch (state) {
                 case OK:
@@ -248,9 +253,9 @@ public:
                     gotBit(w);
                     break;
             }
-        } else
-            return -1;
-        return 0;
+            return 0;
+        }
+        return -1;
     }
 };
 
@@ -261,16 +266,119 @@ public:
     // see also http://homeeasyhacking.wikia.com/wiki/Home_Easy_Hacking_Wiki
     virtual char decode (word width) {
         if (200 <= width && width < 1200) {
-            byte w = width >= 600;
-            gotBit(w);
-        } else if (width >= 5000 && pos >= 5 /*&& 8 * pos + bits == 50*/) {
+            gotBit(width >= 600);
+            return 0;
+        }
+        if (width >= 5000 && pos >= 5) {
             for (byte i = 0; i < 6; ++i)
                 gotBit(0);
             alignTail(7); // keep last 56 bits
             return 1;
-        } else
-            return -1;
-        return 0;
+        }
+        return -1;
+    }
+};
+
+class ElroDecoder : public DecodeOOK {
+public:
+    ElroDecoder () {}
+    
+    virtual char decode (word width) {
+        if (50 <= width && width < 600) {
+            byte w = (width - 40) / 190; // 40 <= 0 < 230 <= 1 < 420 <= 2 < 610
+            switch (state) {
+                case UNKNOWN:
+                case OK:
+                    if (w == 0)
+                        state = T0;
+                    else if (w == 2)
+                        state = T2;
+                    break;
+                case T0:
+                case T2:
+                    if (w == 1)
+                        ++state;
+                    else
+                        return -1;
+                    break;
+                case T1:
+                    if (w == 0) { // sync pattern has 0-1-0-1 patterns
+                        resetDecoder();
+                        break;
+                    }
+                    if (w != 2)
+                        return -1;
+                    gotBit(0);
+                    break;
+                case T3:
+                    if (w != 0)
+                        return -1;
+                    gotBit(1);
+                    break;
+            }
+            return 0;
+        }
+        if (pos >= 11)
+            return 1;
+        return -1;
+    }
+};
+
+// The following three decoders were contributed bij Gijs van Duimen:
+//    FlamingoDecoder = Flamingo FA15RF
+//    SmokeDecoder = Flamingo FA12RF
+//    ByronbellDecoder = Byron SX30T
+// see http://www.domoticaforum.eu/viewtopic.php?f=17&t=4960&start=90#p51118
+// there's some weirdness in this code, I've edited it a bit -jcw, 2011-10-16
+
+class FlamingoDecoder : public DecodeOOK {
+public:
+    FlamingoDecoder () {}
+     
+    virtual char decode (word width) {
+        if ((width > 740 && width < 780) || (width > 2650 && width < 2750) ||
+             (width > 810 && width < 950) || (width > 1040 && width < 1450)) {
+            gotBit(width >= 950);
+            return 0;
+        }
+        // if (pos >= 4 && data[0] == 84 && data[1] == 85 &&
+        //                 data[2] == 85 && data[3] == 85)
+        if (pos >= 4)
+            return 1; 
+        return -1;
+    }
+};
+
+class SmokeDecoder : public DecodeOOK {
+public:
+    SmokeDecoder () {}
+     
+    virtual char decode (word width) {
+        if (width > 20000 && width < 21000 || width > 6900 && width < 7000 ||
+            width > 6500 && width < 6800) {
+            gotBit(1);
+            // if (width > 3000 && width < 4000)
+            //     byte w = width < 100;
+            return 0;
+        }
+        if (pos >= 4)
+            return pos = bits = 1; 
+        return -1;
+    }
+};
+
+class ByronbellDecoder : public DecodeOOK {
+public:
+    ByronbellDecoder () {}
+     
+    virtual char decode (word width) {
+        if (660 < width && width < 715 || 5100 < width && width < 5400) {
+            gotBit(width > 1000);
+            return 0;
+        }
+        if (pos >= 8)
+            return pos = bits = 1; 
+        return -1;
     }
 };
 

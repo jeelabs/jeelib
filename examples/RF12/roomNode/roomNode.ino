@@ -116,7 +116,7 @@ struct {
 #endif
 
 // has to be defined because we're using the watchdog for low-power waiting
-// ISR(WDT_vect) { Sleepy::watchdogEvent(); }
+ISR(WDT_vect) { Sleepy::watchdogEvent(); }
 
 // utility code to perform simple smoothing as a running average
 static int smoothedAverage(int prev, int next, byte firstTime =0) {
@@ -127,7 +127,7 @@ static int smoothedAverage(int prev, int next, byte firstTime =0) {
 
 // spend a little time in power down mode while the SHT11 does a measurement
 static void shtDelay () {
-    delay(32); // must wait at least 20 ms
+    Sleepy::loseSomeTime(32); // must wait at least 20 ms
 }
 
 // wait a few milliseconds for proper ACK to me, return true if indeed received
