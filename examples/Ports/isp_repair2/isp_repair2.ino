@@ -33,9 +33,9 @@
 #include <avr/sleep.h>
 
 // pin definitions
-#define SCK         14  // PC0 - AIO1 - serial clock to target avr
-#define MISO        4   // PD4 - DIO1 - input from target avr
-#define MOSI        17  // PC3 - AIO4 - output to target avr
+#define PIN_SCK     14  // PC0 - AIO1 - serial clock to target avr
+#define PIN_MISO    4   // PD4 - DIO1 - input from target avr
+#define PIN_MOSI    17  // PC3 - AIO4 - output to target avr
 #define RESET       7   // PD7 - DIO4 - reset pin of the target avr
 #define DONE_LED    9   // B1 - blue LED on JN USB, blinks on start and when ok
 
@@ -101,11 +101,11 @@
 static byte XferByte(byte v) {
     byte result = 0;
     for (byte i = 0; i < 8; ++i) {
-        digitalWrite(MOSI, v & 0x80);
-        digitalWrite(SCK, 0); // slow pulse, max 60KHz
-        digitalWrite(SCK, 1);
+        digitalWrite(PIN_MOSI, v & 0x80);
+        digitalWrite(PIN_SCK, 0); // slow pulse, max 60KHz
+        digitalWrite(PIN_SCK, 1);
         v <<= 1;
-        result = (result << 1) | digitalRead(MISO);
+        result = (result << 1) | digitalRead(PIN_MISO);
     }
     return result;
 }
@@ -126,7 +126,7 @@ static void Send_ISP_wait (word v01, byte v2 =0, byte v3 =0) {
 
 static void Reset_Target() {
     digitalWrite(RESET, 1);
-    digitalWrite(SCK, 0); // has to be set LOW at startup, or PE fails
+    digitalWrite(PIN_SCK, 0); // has to be set LOW at startup, or PE fails
     delay(30);
     digitalWrite(RESET, 0);
     delay(30); // minimum delay here is 20ms for the ATmega8
@@ -228,12 +228,12 @@ void setup () {
     Serial.println("\n[isp_repair2]");
     blink();
 
-    digitalWrite(SCK, 1);
-    digitalWrite(MOSI, 1);
+    digitalWrite(PIN_SCK, 1);
+    digitalWrite(PIN_MOSI, 1);
     digitalWrite(RESET, 1);
   
-    pinMode(SCK, OUTPUT);
-    pinMode(MOSI, OUTPUT);
+    pinMode(PIN_SCK, OUTPUT);
+    pinMode(PIN_MOSI, OUTPUT);
     pinMode(RESET, OUTPUT);
   
     byte config = readConfig();
@@ -283,12 +283,12 @@ void setup () {
         }
     }
 
-    pinMode(SCK, INPUT);
-    pinMode(MOSI, INPUT);
+    pinMode(PIN_SCK, INPUT);
+    pinMode(PIN_MOSI, INPUT);
     pinMode(RESET, INPUT);
     
-    digitalWrite(SCK, 0);
-    digitalWrite(MOSI, 0);
+    digitalWrite(PIN_SCK, 0);
+    digitalWrite(PIN_MOSI, 0);
     digitalWrite(RESET, 0);
     
     delay(10); // let the serial port finish

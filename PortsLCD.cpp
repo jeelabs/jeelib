@@ -177,9 +177,11 @@ inline void LiquidCrystalBase::command(byte value) {
   send(value, LOW);
 }
 
-inline size_t LiquidCrystalBase::write(byte value) {
+inline WRITE_RESULT LiquidCrystalBase::write(byte value) {
   send(value, HIGH);
+#if ARDUINO >= 100 && !defined(__AVR_ATtiny84__) && !defined(__AVR_ATtiny85__)
   return 1;
+#endif
 }
 
 // When the display powers up, it is configured as follows:
