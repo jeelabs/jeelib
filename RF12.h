@@ -97,7 +97,7 @@ uint16_t rf12_control(uint16_t cmd);
 
 // Values below based on http://blog.strobotics.com.au/2009/07/27/rfm12-tutorial-part-3a/
 // Note - data rates are approximate. For higher data rates you will need to alter reciever
-// radio bandwidth and transmittor modulator bandwidth
+// radio bandwidth and transmitter modulator bandwidth
 
 enum {
     _RF12_DATA_RATE_COMMAND = 1 << 15 + 1 << 14 + 1 << 10 + 1 << 9,
