@@ -4,7 +4,11 @@
 #ifndef Ports_h
 #define Ports_h
 
-#include <Arduino.h>
+#if ARDUINO>=100
+#include <Arduino.h> // Arduino 1.0
+#else
+#include <Wprogram.h> // Arduino 0022
+#endif
 #include <stdint.h>
 #include <avr/pgmspace.h>
 
