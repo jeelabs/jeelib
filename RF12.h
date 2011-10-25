@@ -96,24 +96,25 @@ void rf12_encrypt(const uint8_t*);
 // http://tools.jeelabs.org/rfm12b is useful for calculating these
 uint16_t rf12_control(uint16_t cmd);
 
-// Values below based on http://blog.strobotics.com.au/2009/07/27/rfm12-tutorial-part-3a/
-// Note - data rates are approximate. For higher data rates you may need to alter reciever
-// radio bandwidth and transmitter modulator bandwidth
-enum {
-    _RF12_DATA_RATE_COMMAND = 0xC600,
-};
-
+// See http://blog.strobotics.com.au/2009/07/27/rfm12-tutorial-part-3a/
+// Transmissions are packetized, don't assume you can sustain these speeds! 
+//
+// Note - data rates are approximate. For higher data rates you may need to
+// alter receiver radio bandwidth and transmitter modulator bandwidth.
+// Note that bit 7 is a prescaler - don't just interpolate rates between
+// RF12_DATA_RATE_3 and RF12_DATA_RATE_2.
 enum rf12DataRates {
-    RF12_DATA_RATE_9 = _RF12_DATA_RATE_COMMAND | 0x02,  // Approx 115200 bps (bits per second) - don't assume you can sustain this speed! 
-    RF12_DATA_RATE_8 = _RF12_DATA_RATE_COMMAND | 0x05,  // Approx  57600 bps
-    RF12_DATA_RATE_7 = _RF12_DATA_RATE_COMMAND | 0x06,  // Approx  49200 bps   -  Default JeeNode Setting
-    RF12_DATA_RATE_6 = _RF12_DATA_RATE_COMMAND | 0x08,  // Approx  38400 bps
-    RF12_DATA_RATE_5 = _RF12_DATA_RATE_COMMAND | 0x11,  // Approx  19200 bps
-    RF12_DATA_RATE_4 = _RF12_DATA_RATE_COMMAND | 0x23,  // Approx   9600 bps
-    RF12_DATA_RATE_3 = _RF12_DATA_RATE_COMMAND | 0x47,  // Approx   4800 bps   *  Note that bit 7 is a prescaler - don't
-    RF12_DATA_RATE_2 = _RF12_DATA_RATE_COMMAND | 0x91,  // Approx   2400 bps   *  just interpolate between RF12_DATA_RATE_3 and 
-    RF12_DATA_RATE_1 = _RF12_DATA_RATE_COMMAND | 0x9E,  // Approx   1200 bps   *  RF12_DATA_RATE_2.
-    RF12_DATA_RATE_JEENODE_DEFAULT = RF12_DATA_RATE_7,
+    RF12_DATA_RATE_CMD = 0xC600,
+    RF12_DATA_RATE_9 = RF12_DATA_RATE_CMD | 0x02,  // Approx 115200 bps
+    RF12_DATA_RATE_8 = RF12_DATA_RATE_CMD | 0x05,  // Approx  57600 bps
+    RF12_DATA_RATE_7 = RF12_DATA_RATE_CMD | 0x06,  // Approx  49200 bps
+    RF12_DATA_RATE_6 = RF12_DATA_RATE_CMD | 0x08,  // Approx  38400 bps
+    RF12_DATA_RATE_5 = RF12_DATA_RATE_CMD | 0x11,  // Approx  19200 bps
+    RF12_DATA_RATE_4 = RF12_DATA_RATE_CMD | 0x23,  // Approx   9600 bps
+    RF12_DATA_RATE_3 = RF12_DATA_RATE_CMD | 0x47,  // Approx   4800 bps
+    RF12_DATA_RATE_2 = RF12_DATA_RATE_CMD | 0x91,  // Approx   2400 bps
+    RF12_DATA_RATE_1 = RF12_DATA_RATE_CMD | 0x9E,  // Approx   1200 bps
+    RF12_DATA_RATE_DEFAULT = RF12_DATA_RATE_7,
 };
 
 #endif
