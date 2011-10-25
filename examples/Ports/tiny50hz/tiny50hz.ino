@@ -35,6 +35,7 @@ static void led (byte on) {
 }
 
 static void setupAdc () {
+#if TEST_CODE
   // 1.1V int ref, C2/B4 + C3/B3 diff, 20x
   ADMUX = bit(REFS1) | bit(MUX2) | bit(MUX1) | bit(MUX0);
   // disable these pins for digital I/O
@@ -43,6 +44,16 @@ static void setupAdc () {
   ADCSRB = bit(BIN);
   // clock/8 i.e. 128 KHz 
   ADCSRA = bit(ADEN) | bit(ADPS1) | bit(ADPS0);
+#else
+  // 1.1V int ref, PA1(+) and PA0(-) diff, 20x
+  ADMUX = bit(REFS1) | bit(MUX5) | bit(MUX3) | bit(MUX0);
+  // disable these pins for digital I/O
+  DIDR0 |= bit(ADC1D) | bit(ADC0D);
+  // bipolar
+  ADCSRB = bit(BIN);
+  // clock/8 i.e. 128 KHz 
+  ADCSRA = bit(ADEN) | bit(ADPS1) | bit(ADPS0);
+#endif
 }
 
 static int readAdc () {
