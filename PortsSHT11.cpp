@@ -7,7 +7,11 @@
 #include <Ports.h>
 #include "PortsSHT11.h"
 #include <avr/pgmspace.h>
-#include <Arduino.h>
+#if ARDUINO>=100
+#include <Arduino.h> // Arduino 1.0
+#else
+#include <Wprogram.h> // Arduino 0022
+#endif
 
 enum {
     MEASURE_TEMP = 0x03,

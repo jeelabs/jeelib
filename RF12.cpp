@@ -6,7 +6,11 @@
 #include <util/crc16.h>
 #include <avr/eeprom.h>
 #include <avr/sleep.h>
-#include <Arduino.h>
+#if ARDUINO>=100
+#include <Arduino.h> // Arduino 1.0
+#else
+#include <Wprogram.h> // Arduino 0022
+#endif
 
 // maximum transmit / receive buffer: 3 header + data + 2 crc bytes
 #define RF_MAX   (RF12_MAXDATA + 5)
