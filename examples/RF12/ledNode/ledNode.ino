@@ -79,9 +79,15 @@ static void saveRamp (byte pos, const void* data) {
 }
 
 void setup () {
+  // fix timer 1 so it also runs in fast PWM mode, to match timer 0
+  bitSet(TCCR1B, WGM12);
+  // set up the default ramps
   for (byte i = 0; i < sizeof stdRamps / sizeof *stdRamps; ++i)
     saveRamp(i, stdRamps + i);
+  // intialize wireless
   rf12_initialize(1, RF12_868MHZ, 19);
+  // test code: start up with ramp #1
+  //loadRamp(1);
 }
 
 void loop () {
