@@ -2,40 +2,18 @@
 // 2010-04-11 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <Arduino.h>
+#include <util/crc16.h>
 
 class DecodeOOK {
 protected:
     byte bits, flip, state, pos, data[25];
+    // the following fields are used to deal with duplicate packets
+    word lastCrc, lastTime;
+    byte repeats, minGap, minCount;
 
     // gets called once per incoming pulse with the width in us
     // return values: 0 = keep going, 1 = done, -1 = no match
     virtual char decode (word width) =0;
-    
-public:
-    enum { UNKNOWN, T0, T1, T2, T3, OK, DONE };
-
-    DecodeOOK () { resetDecoder(); }
-
-    bool nextPulse (word width) {
-        if (state != DONE)
-            switch (decode(width)) {
-                case -1: resetDecoder(); break;
-                case 1:  done(); break;
-            }
-        return isDone();
-    }
-    
-    bool isDone () const { return state == DONE; }
-
-    const byte* getData (byte& count) const {
-        count = pos;
-        return data; 
-    }
-    
-    void resetDecoder () {
-        bits = pos = flip = 0;
-        state = UNKNOWN;
-    }
     
     // add one bit to the packet data buffer
     void gotBit (char value) {
@@ -92,10 +70,53 @@ public:
             data[i] = (data[i] << 4) | (data[i] >> 4);
     }
     
-    void done () {
-        while (bits)
-            gotBit(0); // padding
-        state = DONE;
+    bool checkRepeats () {
+        // calculate the checksum over the current packet
+        word crc = ~0;
+        for (byte i = 0; i < pos; ++i)
+            crc = _crc16_update(crc, data[i]);
+        // how long was it since the last decoded packet
+        word now = millis() / 100; // tenths of seconds
+        word since = now - lastTime;
+        // if different crc or too long ago, this cannot be a repeated packet
+        if (crc != lastCrc || since > minGap)
+            repeats = 0;
+        // save last values and decide whether to report this as a new packet
+        lastCrc = crc;
+        lastTime = now;
+        return repeats++ == minCount;
+    }
+
+public:
+    enum { UNKNOWN, T0, T1, T2, T3, OK, DONE };
+
+    DecodeOOK (byte gap =5, byte count =0) 
+        : lastCrc (0), lastTime (0), repeats (0), minGap (gap), minCount (count)
+        { resetDecoder(); }
+        
+    bool nextPulse (word width) {
+        if (state != DONE)
+            switch (decode(width)) {
+                case -1: // decoding failed
+                    resetDecoder();
+                    break;
+                case 1: // decoding finished
+                    while (bits)
+                        gotBit(0); // padding
+                    state = checkRepeats() ? DONE : UNKNOWN;
+                    break;
+            }
+        return state == DONE;
+    }
+    
+    const byte* getData (byte& count) const {
+        count = pos;
+        return data; 
+    }
+    
+    void resetDecoder () {
+        bits = pos = flip = 0;
+        state = UNKNOWN;
     }
 };
 
@@ -426,7 +447,7 @@ public:
 
 class EMxDecoder : public DecodeOOK {
 public:
-    EMxDecoder () {}
+    EMxDecoder () : DecodeOOK (30) {} // ignore packets repeated within 3 sec
     
     // see also http://fhz4linux.info/tiki-index.php?page=EM+Protocol
     virtual char decode (word width) {
