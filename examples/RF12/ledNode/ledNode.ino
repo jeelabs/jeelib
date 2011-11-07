@@ -27,16 +27,16 @@ byte nextRamp;    // which saved ramp to use next (or none if zero)
 MilliTimer timer; // used as timer for the 0.01s steps
 
 static Ramp stdRamps[] = {
-  {   0,   0,   0, 0, 0    }, // 0: instant off
-  { 255, 100,  50, 0, 0    }, // 1: instant warm white
-  { 255, 200, 150, 0, 0    }, // 2: instant cold white
-  {   0,   0,   0, 0, 300  }, // 3: 3s off
-  { 255, 100,  50, 0, 300  }, // 4: 3s warm white
-  { 255, 200, 150, 0, 300  }, // 5: 3s cold white
-  { 255,   0,   0, 7, 300  }, // 6: 3s red -> green -> blue
-  {   0, 255,   0, 8, 300  }, // 7: 3s green -> blue -> red
-  {   0,   0, 255, 6, 300  }, // 8: 3s blue -> red -> green
-  {   7,   1,   0, 0, 0    }, // 9: instant faint red'ish yellow
+  {   0,   0,   0, 0, 0 }, // 0: instant off
+  { 255,  85,  30, 0, 0 }, // 1: instant warm white
+  { 255, 150,  75, 0, 0 }, // 2: instant cold white
+  {   0,   0,   0, 5, 0 }, // 3: 5s off
+  { 255,  85,  30, 5, 0 }, // 4: 5s warm white
+  { 255, 150,  75, 5, 0 }, // 5: 5s cold white
+  { 255,   0,   0, 5, 7 }, // 6: 5s red -> green -> blue
+  {   0, 255,   0, 5, 8 }, // 7: 5s green -> blue -> red
+  {   0,   0, 255, 5, 6 }, // 8: 5s blue -> red -> green
+  {   7,   1,   0, 0, 0 }, // 9: instant faint red'ish yellow
 };
 
 static void setLeds () {
