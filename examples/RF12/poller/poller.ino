@@ -39,7 +39,7 @@ void loop () {
     if (rf12_recvDone() && rf12_crc == 0 && rf12_len == sizeof (Payload)) {
       // got a good ACK packet, print out its contents
       const Payload* p = (const Payload*) rf12_data;
-      Serial.print(p->node);
+      Serial.print((word) p->node);
       Serial.print(": ");
       Serial.println(p->time);
       break;
