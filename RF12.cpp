@@ -110,7 +110,7 @@ static uint32_t seqNum;             // encrypted send sequence number
 static uint32_t cryptKey[4];        // encryption key to use
 void (*crypter)(uint8_t);           // does en-/decryption (null if disabled)
 
-static void spi_initialize () {
+void rf12_spiInit () {
     bitSet(SS_PORT, SS_BIT);
     bitSet(SS_DDR, SS_BIT);
     digitalWrite(SPI_SS, 1);
@@ -127,10 +127,14 @@ static void spi_initialize () {
     SPCR = _BV(SPE) | _BV(MSTR) | _BV(SPR0);
     SPSR |= _BV(SPI2X);
 #endif
+    // SPCR = _BV(SPE) | _BV(MSTR); // 8 MHz @ 16
+    // SPSR |= _BV(SPI2X);
 #else
     // ATtiny
     USICR = bit(USIWM0);
-#endif
+#endif    
+    pinMode(RFM_IRQ, INPUT);
+    digitalWrite(RFM_IRQ, 1); // pull-up
 }
 
 static uint8_t rf12_byte (uint8_t out) {
@@ -321,10 +325,7 @@ uint8_t rf12_initialize (uint8_t id, uint8_t band, uint8_t g) {
     nodeid = id;
     group = g;
     
-    spi_initialize();
-    
-    pinMode(RFM_IRQ, INPUT);
-    digitalWrite(RFM_IRQ, 1); // pull-up
+    rf12_spiInit();
 
     rf12_xfer(0x0000); // intitial SPI transfer added to avoid power-up problem
 
