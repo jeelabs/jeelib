@@ -8,7 +8,7 @@
 
 #include <JeeLib.h>
 
-const byte NUM_NODES = 1; // poll using node ID from 1 to NUM_NODES 
+const byte NUM_NODES = 3; // poll using node ID from 1 to NUM_NODES 
 
 typedef struct {
   byte node;
@@ -32,9 +32,9 @@ void loop () {
   while (!rf12_canSend())
     rf12_recvDone();
   // send an empty packet to one specific pollee
-  rf12_sendStart(nextId | RF12_HDR_ACK, 0, 0);
+  rf12_sendStart(RF12_HDR_ACK | RF12_HDR_DST | nextId, 0, 0);
   // wait up to 5 milliseconds for a reply
-  timer.set(5);
+  timer.set(10);
   while (!timer.poll())
     if (rf12_recvDone() && rf12_crc == 0 && rf12_len == sizeof (Payload)) {
       // got a good ACK packet, print out its contents

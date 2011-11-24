@@ -18,10 +18,9 @@ Payload payload;
 
 void setup () {
   Serial.begin(57600);
-  Serial.print("\n[pollee] ");
+  Serial.print("\n[pollee]");
   // use the node ID previously stored in EEPROM by RF12demo
   payload.node = rf12_config();
-  Serial.println((word) payload.node);
 }
 
 void loop () {
