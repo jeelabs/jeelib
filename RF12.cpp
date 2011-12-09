@@ -48,6 +48,17 @@
 #define SPI_MOSI    5   // PA5, pin 8
 #define SPI_SCK     6   // PA4, pin 9
 
+#elif defined(__AVR_ATmega644__)
+
+#define RFM_IRQ     10
+#define SS_DDR      DDRB
+#define SS_PORT     PORTB
+#define SS_BIT      4
+#define SPI_SS      4
+#define SPI_MOSI    5
+#define SPI_MISO    6
+#define SPI_SCK     7
+
 #else
 
 // ATmega328, etc.
