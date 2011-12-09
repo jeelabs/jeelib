@@ -48,7 +48,7 @@
 #define SPI_MOSI    5   // PA5, pin 8
 #define SPI_SCK     6   // PA4, pin 9
 
-#elif defined(__AVR_ATmega644__)
+#elif defined(__AVR_ATmega644P__)
 
 #define RFM_IRQ     10
 #define SS_DDR      DDRB
