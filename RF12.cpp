@@ -6,7 +6,7 @@
 #include <util/crc16.h>
 #include <avr/eeprom.h>
 #include <avr/sleep.h>
-#if ARDUINO>=100
+#if ARDUINO >= 100
 #include <Arduino.h> // Arduino 1.0
 #else
 #include <Wprogram.h> // Arduino 0022
@@ -15,38 +15,26 @@
 // maximum transmit / receive buffer: 3 header + data + 2 crc bytes
 #define RF_MAX   (RF12_MAXDATA + 5)
 
-// pins used for the RFM12B interface
-#if defined(__AVR_ATmega2560__)
+// pins used for the RFM12B interface - yes, there *is* logic in this madness:
+//
+//  - leave RFM_IRQ set to the pin which corresponds with INT0, because the
+//    current driver code will use attachInterrupt() to hook into that
+//  - use SS_DDR, SS_PORT, and SS_BIT to define the pin you will be using as
+//    select pin for the RFM12B (you're free to set them to anything you like)
+//  - please leave SPI_SS, SPI_MOSI, SPI_MISO, and SPI_SCK as is, i.e. pointing
+//    to the hardware-supported SPI pins on the ATmega, *including* SPI_SS !
 
-#define RFM_IRQ     2
-#define SS_PORT     PORTB
-#define SS_BIT      0
-#define SPI_SS      53
-#define SPI_MOSI    51
-#define SPI_MISO    50
-#define SPI_SCK     52
-
-#elif defined(__AVR_ATmega1280__)
+#if defined(__AVR_ATmega2560__) || defined(__AVR_ATmega1280__)
 
 #define RFM_IRQ     2
 #define SS_DDR      DDRB
 #define SS_PORT     PORTB
 #define SS_BIT      0
-#define SPI_SS      53
-#define SPI_MOSI    51
-#define SPI_MISO    50
-#define SPI_SCK     52
 
-#elif defined(__AVR_ATtiny84__)
-
-#define RFM_IRQ     2
-#define SS_DDR      DDRB
-#define SS_PORT     PORTB
-#define SS_BIT      1
-#define SPI_SS      1   // PB1, pin 3
-#define SPI_MISO    4   // PA6, pin 7
-#define SPI_MOSI    5   // PA5, pin 8
-#define SPI_SCK     6   // PA4, pin 9
+#define SPI_SS      53    // PB0, pin 19
+#define SPI_MOSI    51    // PB2, pin 21
+#define SPI_MISO    50    // PB3, pin 22
+#define SPI_SCK     52    // PB1, pin 20
 
 #elif defined(__AVR_ATmega644P__)
 
@@ -54,22 +42,36 @@
 #define SS_DDR      DDRB
 #define SS_PORT     PORTB
 #define SS_BIT      4
+
 #define SPI_SS      4
 #define SPI_MOSI    5
 #define SPI_MISO    6
 #define SPI_SCK     7
 
-#else
+#elif defined(__AVR_ATtiny84__)
 
-// ATmega328, etc.
 #define RFM_IRQ     2
 #define SS_DDR      DDRB
 #define SS_PORT     PORTB
-#define SS_BIT      2       // for PORTB: 2 = d.10, 1 = d.9, 0 = d.8
-#define SPI_SS      10      // do not change, must point to h/w SPI pin
-#define SPI_MOSI    11
-#define SPI_MISO    12
-#define SPI_SCK     13
+#define SS_BIT      1
+
+#define SPI_SS      1     // PB1, pin 3
+#define SPI_MISO    4     // PA6, pin 7
+#define SPI_MOSI    5     // PA5, pin 8
+#define SPI_SCK     6     // PA4, pin 9
+
+#else
+
+// ATmega168, ATmega328, etc.
+#define RFM_IRQ     2
+#define SS_DDR      DDRB
+#define SS_PORT     PORTB
+#define SS_BIT      2     // for PORTB: 2 = d.10, 1 = d.9, 0 = d.8
+
+#define SPI_SS      10    // PB2, pin 16
+#define SPI_MOSI    11    // PB3, pin 17
+#define SPI_MISO    12    // PB4, pin 18
+#define SPI_SCK     13    // PB5, pin 19
 
 #endif 
 
