@@ -132,16 +132,11 @@ void rf12_spiInit () {
     pinMode(SPI_MISO, INPUT);
     pinMode(SPI_SCK, OUTPUT);
 #ifdef SPCR    
-#if F_CPU <= 10000000
-    // clk/4 is ok for the RF12's SPI
     SPCR = _BV(SPE) | _BV(MSTR);
-#else
-    // use clk/8 (2x 1/16th) to avoid exceeding RF12's SPI specs of 2.5 MHz
-    SPCR = _BV(SPE) | _BV(MSTR) | _BV(SPR0);
+#if F_CPU > 10000000
+    // use clk/2 (2x 1/4th) for sending (and clk/8 for recv, see rf12_xferRead)
     SPSR |= _BV(SPI2X);
 #endif
-    // SPCR = _BV(SPE) | _BV(MSTR); // 8 MHz @ 16
-    // SPSR |= _BV(SPI2X);
 #else
     // ATtiny
     USICR = bit(USIWM0);
@@ -182,11 +177,26 @@ static uint8_t rf12_byte (uint8_t out) {
 #endif
 }
 
-static uint16_t rf12_xfer (uint16_t cmd) {
+static void rf12_xfer (uint16_t cmd) {
+    // writing can take place at full speed, even 8 MHz works
+    bitClear(SS_PORT, SS_BIT);
+    rf12_byte(cmd >> 8) << 8;
+    rf12_byte(cmd);
+    bitSet(SS_PORT, SS_BIT);
+}
+
+static uint16_t rf12_xferRead (uint16_t cmd) {
+    // slow down to under 2.5 MHz when reading
+#if F_CPU > 10000000
+    bitSet(SPCR, _BV(SPR0));
+#endif
     bitClear(SS_PORT, SS_BIT);
     uint16_t reply = rf12_byte(cmd >> 8) << 8;
     reply |= rf12_byte(cmd);
     bitSet(SS_PORT, SS_BIT);
+#if F_CPU > 10000000
+    bitClear(SPCR, _BV(SPR0));
+#endif
     return reply;
 }
 
@@ -194,12 +204,12 @@ static uint16_t rf12_xfer (uint16_t cmd) {
 uint16_t rf12_control(uint16_t cmd) {
 #ifdef EIMSK
     bitClear(EIMSK, INT0);
-    uint16_t r = rf12_xfer(cmd);
+    uint16_t r = rf12_xferRead(cmd);
     bitSet(EIMSK, INT0);
 #else
     // ATtiny
     bitClear(GIMSK, INT0);
-    uint16_t r = rf12_xfer(cmd);
+    uint16_t r = rf12_xferRead(cmd);
     bitSet(GIMSK, INT0);
 #endif
     return r;
@@ -207,10 +217,11 @@ uint16_t rf12_control(uint16_t cmd) {
 
 static void rf12_interrupt() {
     // a transfer of 2x 16 bits @ 2 MHz over SPI takes 2x 8 us inside this ISR
+    // correction: now takes 2 + 8 µs, since sending can be done at 8 MHz
     rf12_xfer(0x0000);
     
     if (rxstate == TXRECV) {
-        uint8_t in = rf12_xfer(RF_RX_FIFO_READ);
+        uint8_t in = rf12_xferRead(RF_RX_FIFO_READ);
 
         if (rxfill == 0 && group != 0)
             rf12_buf[rxfill++] = group;
