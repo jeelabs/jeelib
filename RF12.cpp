@@ -12,6 +12,8 @@
 #include <Wprogram.h> // Arduino 0022
 #endif
 
+#define OPTIMIZE_SPI 1   // uncomment this to write to the RFM12B @ 8 Mhz
+
 // maximum transmit / receive buffer: 3 header + data + 2 crc bytes
 #define RF_MAX   (RF12_MAXDATA + 5)
 
@@ -134,7 +136,7 @@ void rf12_spiInit () {
 #ifdef SPCR    
     SPCR = _BV(SPE) | _BV(MSTR);
 #if F_CPU > 10000000
-    // use clk/2 (2x 1/4th) for sending (and clk/8 for recv, see rf12_xferRead)
+    // use clk/2 (2x 1/4th) for sending (and clk/8 for recv, see rf12_xferSlow)
     SPSR |= _BV(SPI2X);
 #endif
 #else
@@ -177,6 +179,22 @@ static uint8_t rf12_byte (uint8_t out) {
 #endif
 }
 
+static uint16_t rf12_xferSlow (uint16_t cmd) {
+    // slow down to under 2.5 MHz
+#if F_CPU > 10000000
+    bitSet(SPCR, SPR0);
+#endif
+    bitClear(SS_PORT, SS_BIT);
+    uint16_t reply = rf12_byte(cmd >> 8) << 8;
+    reply |= rf12_byte(cmd);
+    bitSet(SS_PORT, SS_BIT);
+#if F_CPU > 10000000
+    bitClear(SPCR, SPR0);
+#endif
+    return reply;
+}
+
+#if OPTIMIZE_SPI
 static void rf12_xfer (uint16_t cmd) {
     // writing can take place at full speed, even 8 MHz works
     bitClear(SS_PORT, SS_BIT);
@@ -184,32 +202,20 @@ static void rf12_xfer (uint16_t cmd) {
     rf12_byte(cmd);
     bitSet(SS_PORT, SS_BIT);
 }
-
-static uint16_t rf12_xferRead (uint16_t cmd) {
-    // slow down to under 2.5 MHz when reading
-#if F_CPU > 10000000
-    bitSet(SPCR, _BV(SPR0));
+#else
+#define rf12_xfer rf12_xferSlow
 #endif
-    bitClear(SS_PORT, SS_BIT);
-    uint16_t reply = rf12_byte(cmd >> 8) << 8;
-    reply |= rf12_byte(cmd);
-    bitSet(SS_PORT, SS_BIT);
-#if F_CPU > 10000000
-    bitClear(SPCR, _BV(SPR0));
-#endif
-    return reply;
-}
 
 // access to the RFM12B internal registers with interrupts disabled
 uint16_t rf12_control(uint16_t cmd) {
 #ifdef EIMSK
     bitClear(EIMSK, INT0);
-    uint16_t r = rf12_xferRead(cmd);
+    uint16_t r = rf12_xferSlow(cmd);
     bitSet(EIMSK, INT0);
 #else
     // ATtiny
     bitClear(GIMSK, INT0);
-    uint16_t r = rf12_xferRead(cmd);
+    uint16_t r = rf12_xferSlow(cmd);
     bitSet(GIMSK, INT0);
 #endif
     return r;
@@ -221,7 +227,7 @@ static void rf12_interrupt() {
     rf12_xfer(0x0000);
     
     if (rxstate == TXRECV) {
-        uint8_t in = rf12_xferRead(RF_RX_FIFO_READ);
+        uint8_t in = rf12_xferSlow(RF_RX_FIFO_READ);
 
         if (rxfill == 0 && group != 0)
             rf12_buf[rxfill++] = group;
