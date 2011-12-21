@@ -1,7 +1,7 @@
 // Demo sketch for an LCD connected to I2C port via MCP23008 I/O expander
 // 2009-10-31 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
-#include <JeeLib.h>
+#include <PortsLCD.h>
 
 PortI2C myI2C (1);
 LiquidCrystalI2C lcd (myI2C);
