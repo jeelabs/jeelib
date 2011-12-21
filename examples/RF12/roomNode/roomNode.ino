@@ -31,8 +31,6 @@
 // mode 3 (full powerdown) can only be used with 258 CK startup fuses
 #define RADIO_SYNC_MODE 2
 
-#define rf12_sleep(x)
-
 // The scheduler makes it easy to perform various tasks at various times:
 
 enum { MEASURE, REPORT, TASK_END };
@@ -68,7 +66,7 @@ struct {
 #if PIR_PORT
     #define PIR_HOLD_TIME   30  // hold PIR value this many seconds after change
     #define PIR_PULLUP      1   // set to one to pull-up the PIR input pin
-    #define PIR_FLIP        1   // 0 or 1, to match PIR reporting high or low
+    #define PIR_FLIP        0   // 0 or 1, to match PIR reporting high or low
     
     class PIR : public Port {
         volatile byte value, changed;
