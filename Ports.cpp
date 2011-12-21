@@ -821,7 +821,7 @@ void Sleepy::watchdogEvent() {
     ++watchdogCounter;
 }
 
-Scheduler::Scheduler (byte size) : maxTasks (size), remaining(~0) {
+Scheduler::Scheduler (byte size) : maxTasks (size), remaining (~0) {
     byte bytes = size * sizeof *tasks;
     tasks = (word*) malloc(bytes);
     memset(tasks, 0xFF, bytes);
@@ -855,7 +855,7 @@ char Scheduler::poll() {
         remaining = lowest;
     } else if (remaining == ~0) //remaining == ~0 means nothing running
         return -2;
-    else if ( ms100.poll(100))
+    else if (ms100.poll(100))
         --remaining;
     return -1;
 }

@@ -17,8 +17,8 @@
 #define DEBUG   0   // set to 1 to display each loop() run and PIR trigger
 
 #define SHT11_PORT  1   // defined if SHT11 is connected to a port
-//#define LDR_PORT    4   // defined if LDR is connected to a port's AIO pin
-//#define PIR_PORT    4   // defined if PIR is connected to a port's DIO pin
+#define LDR_PORT    4   // defined if LDR is connected to a port's AIO pin
+#define PIR_PORT    4   // defined if PIR is connected to a port's DIO pin
 
 #define MEASURE_PERIOD  600 // how often to measure, in tenths of seconds
 #define RETRY_PERIOD    10  // how soon to retry if ACK didn't come in
@@ -248,24 +248,7 @@ void setup () {
         Serial.print("\n[roomNode.3]");
         myNodeID = rf12_config();
     #else
-        // myNodeID = rf12_config(0); // don't report info on the serial port
-        pinMode(0, OUTPUT);
-        pinMode(1, OUTPUT);
-        pinMode(8, OUTPUT);
-        pinMode(9, OUTPUT);
-        digitalWrite(8, 1);
-        digitalWrite(9, 1);
-        delay(1000);
-        myNodeID = 25;
-        rf12_initialize(myNodeID, RF12_868MHZ, 5);
-        blink(1);
-        rf12_recvDone();
-        rf12_recvDone();
-        rf12_recvDone();
-        MilliTimer t;
-        while (!t.poll(1000))
-            ;
-        blink(0);
+        myNodeID = rf12_config(0); // don't report info on the serial port
     #endif
     
     rf12_sleep(RF12_SLEEP); // power down
