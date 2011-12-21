@@ -865,9 +865,10 @@ char Scheduler::pollWaiting() {
         return -2;
     // first wait until the remaining time we need to wait is less than 0.1s
     while (remaining > 0) {
-        if (!Sleepy::loseSomeTime(100)) // approximate, actually waits 96 ms
+        word step = remaining > 600 ? 600 : remaining;
+        if (!Sleepy::loseSomeTime(100 * step)) // uses least amount of power
             return -1;
-        --remaining;
+        remaining -= step;
     }
     // now lose some more time until that 0.1s mark
     if (!Sleepy::loseSomeTime(ms100.remaining()))
