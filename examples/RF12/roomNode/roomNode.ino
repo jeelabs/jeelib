@@ -13,8 +13,8 @@
 #include <avr/sleep.h>
 #include <util/atomic.h>
 
-#define SERIAL  0   // set to 1 to also report readings on the serial port
-#define DEBUG   0   // set to 1 to display each loop() run and PIR trigger
+#define SERIAL  1   // set to 1 to also report readings on the serial port
+#define DEBUG   1   // set to 1 to display each loop() run and PIR trigger
 
 #define SHT11_PORT  1   // defined if SHT11 is connected to a port
 #define LDR_PORT    4   // defined if LDR is connected to a port's AIO pin
@@ -175,6 +175,13 @@ static void doMeasure() {
     #endif
 }
 
+static void serialFlush () {
+    #if ARDUINO >= 100
+        Serial.flush();
+    #endif  
+    delay(2); // make sure tx buf is empty before going back to sleep
+}
+
 // periodic report, i.e. send out a packet and optionally report on serial port
 static void doReport() {
     rf12_sleep(RF12_WAKEUP);
@@ -195,7 +202,7 @@ static void doReport() {
         Serial.print(' ');
         Serial.print((int) payload.lobat);
         Serial.println();
-        delay(2); // make sure tx buf is empty before going back to sleep
+        serialFlush();
     #endif
 }
 
@@ -204,7 +211,7 @@ static void doTrigger() {
     #if DEBUG
         Serial.print("PIR ");
         Serial.print((int) payload.moved);
-        delay(2);
+        serialFlush();
     #endif
 
     for (byte i = 0; i < RETRY_LIMIT; ++i) {
@@ -219,7 +226,7 @@ static void doTrigger() {
             #if DEBUG
                 Serial.print(" ack ");
                 Serial.println((int) i);
-                delay(2);
+                serialFlush();
             #endif
             // reset scheduling to start a fresh measurement cycle
             scheduler.timer(MEASURE, MEASURE_PERIOD);
@@ -231,7 +238,7 @@ static void doTrigger() {
     scheduler.timer(MEASURE, MEASURE_PERIOD);
     #if DEBUG
         Serial.println(" no ack!");
-        delay(2);
+        serialFlush();
     #endif
 }
 
@@ -247,6 +254,7 @@ void setup () {
         Serial.begin(57600);
         Serial.print("\n[roomNode.3]");
         myNodeID = rf12_config();
+        serialFlush();
     #else
         myNodeID = rf12_config(0); // don't report info on the serial port
     #endif
@@ -270,7 +278,7 @@ void setup () {
 void loop () {
     #if DEBUG
         Serial.print('.');
-        delay(2);
+        serialFlush();
     #endif
 
     #if PIR_PORT
