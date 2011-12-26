@@ -19,6 +19,7 @@ set bytes {}
 foreach a $argv {
   set start [llength $bytes]
   set mtime [clock format [file mtime $a] -format "%Y-%m-%d"]
+  puts stderr $a:
   set fd [open $a]
   while {[gets $fd line] > 0} {
     if {[scan $line {:%2x%4x%2x%s} count addr type data]} {
@@ -26,6 +27,10 @@ foreach a $argv {
         if {![info exists next]} {
           set first [format 0x%04X $addr]
           set next $addr
+        }
+        while {$next < $addr} {
+          lappend bytes 255 ;# pad with unset bytes if there is a gap
+          incr next
         }
         if {$next != $addr} {
           puts stderr "non-contiguous data ($next vs $addr)"

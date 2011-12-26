@@ -35,7 +35,7 @@
 #include <avr/pgmspace.h>
 #include <avr/sleep.h>
 
-#define OPTIBOOT    1   // 1 = optiboot, 0 = original bootstrap code
+#define OPTIBOOT    1   // 1 = OptiBoot, 0 = Duemilanove boot loader
 
 // pin definitions
 #define SCK         14  // PC0 - AIO1 - serial clock to target avr
@@ -55,10 +55,11 @@
 #endif
 #define FUSE_EXTENDED   0x05
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-// Include data from a file generated in isp_prepare/ dir with this cmd:
-//      ./hex2c.tcl Blink.cpp.hex optiboot_atmega328_1s.hex \
-//                  ATmegaBOOT_168_atmega328.hex >../isp_repair/data.h
+/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+   Include data from a file generated in isp_prepare/ dir with this cmd:
+        ./hex2c.tcl Blink.cpp.hex optiboot_atmega328.hex \
+                    ATmegaBOOT_168_atmega328.hex >../isp_repair/data.h
+*/
 
 #include "data.h"
 
@@ -203,7 +204,7 @@ static byte programSection (byte index) {
 
 void setup () {
     Serial.begin(57600);
-    Serial.println("\n[isp_repair]");
+    Serial.println("\n[isp_repair.2]");
     blink();
 
     digitalWrite(SCK, 1);

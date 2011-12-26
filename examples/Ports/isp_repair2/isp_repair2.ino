@@ -29,6 +29,12 @@
 // adapted from http://www.arduino.cc/playground/BootCloner/BootCloner
 // original copyright notice: 2007 by Amplificar <mailto:amplificar@gmail.com>
 
+#define DISABLE_RF12  1   // comment out to remove dependency on JeeLib
+#define FAST_SPI      1   // comment out to revert to digitalWrite() calls
+
+#if DISABLE_RF12
+#include <JeeLib.h>
+#endif
 #include <avr/pgmspace.h>
 #include <avr/sleep.h>
 
@@ -64,8 +70,8 @@
                     Blink.cpp.hex \
                     optiboot_atmega328.hex \
                     ATmegaBOOT_168_atmega328.hex \
-                    optiboot_atmega328.hex \
-                    optiboot_atmega328_1s.hex >../isp_repair2/data.h
+                    optiboot_atmega328_1s.hex \
+                    optiboot_atmega328.hex >../isp_repair2/data.h
 
     Code choices are fixed: section 0 is RF12demo, section 1 is blink
     Boot choices are entries 2..5 in the sections[] array in data.h
@@ -98,15 +104,28 @@
 #define CMD_Read_Fuse_High      0x5808
 #define CMD_Read_Calibration    0x3800
 
+static bool fastSPI = false; // don't start in fast mode right away
+
+// transfer a byte using software SPI, using a faster mode when possible
 static byte XferByte(byte v) {
     byte result = 0;
-    for (byte i = 0; i < 8; ++i) {
-        digitalWrite(PIN_MOSI, v & 0x80);
-        digitalWrite(PIN_SCK, 0); // slow pulse, max 60KHz
-        digitalWrite(PIN_SCK, 1);
-        v <<= 1;
-        result = (result << 1) | digitalRead(PIN_MISO);
-    }
+    if (fastSPI)
+        for (byte i = 0; i < 8; ++i) {
+            bitWrite(PORTC, 3, v & 0x80);
+            v <<= 1;
+            bitClear(PORTC, 0);
+            result <<= 1;
+            bitSet(PORTC, 0);
+            result |= bitRead(PIND, 4);
+        }
+    else
+        for (byte i = 0; i < 8; ++i) {
+            digitalWrite(PIN_MOSI, v & 0x80);
+            digitalWrite(PIN_SCK, 0); // slow pulse, max 60KHz
+            digitalWrite(PIN_SCK, 1);
+            v <<= 1;
+            result = (result << 1) | digitalRead(PIN_MISO);
+        }
     return result;
 }
 
@@ -118,12 +137,14 @@ static byte Send_ISP (word v01, byte v2 =0, byte v3 =0) {
     return XferByte(v3);
 }
 
+// send 4 bytes to target microcontroller and wait for completion
 static void Send_ISP_wait (word v01, byte v2 =0, byte v3 =0) {
     Send_ISP(v01, v2, v3);
     while (Send_ISP(CMD_Poll) & 1)
         ;
 }
 
+// reset the target microcontroller
 static void Reset_Target() {
     digitalWrite(RESET, 1);
     digitalWrite(PIN_SCK, 0); // has to be set LOW at startup, or PE fails
@@ -132,7 +153,7 @@ static void Reset_Target() {
     delay(30); // minimum delay here is 20ms for the ATmega8
 }
 
-// prints the 16 signature bytes (device codes)
+// print the 16 signature bytes (device codes)
 static void Read_Signature() {
     Serial.print("Signatures:");
     for (byte x = 0 ; x < 8 ; ++x) {
@@ -217,15 +238,18 @@ static byte readConfig () {
 static byte programSection (byte index) {
     Serial.print(index, DEC);
     byte f = EnableProgramming();
-    if (f)
+    if (f) {
+        fastSPI = FAST_SPI && PIN_SCK == 14 && PIN_MISO == 4 && PIN_MOSI == 17;
         WriteData(sections[index].start, progdata + sections[index].off,
                       sections[index].count);
+        fastSPI = false;
+    }
     return f;
 }
 
 void setup () {
     Serial.begin(57600);
-    Serial.println("\n[isp_repair2]");
+    Serial.println("\n[isp_repair2.2]");
     blink();
 
     digitalWrite(PIN_SCK, 1);
@@ -270,7 +294,7 @@ void setup () {
             Send_ISP_wait(CMD_Write_Fuse_High, 0, fuseHi);
             Send_ISP_wait(CMD_Write_Fuse_Extended, 0, FUSE_EXTENDED);
             Send_ISP_wait(CMD_Write_Lock, 0, LOCK_BITS);
-    
+
             // burn the sketch and bootstrap code
             if (programSection(sketch) && programSection(bootld)) {
                 Read_Signature();
@@ -290,8 +314,16 @@ void setup () {
     digitalWrite(PIN_SCK, 0);
     digitalWrite(PIN_MOSI, 0);
     digitalWrite(RESET, 0);
-    
+
+#if ARDUINO >= 100
+    Serial.flush();
+#endif
     delay(10); // let the serial port finish
+#if DISABLE_RF12
+    // disable the radio for deep power power down on a JeeNode
+    rf12_initialize(1, RF12_868MHZ);
+    rf12_sleep(RF12_SLEEP);
+#endif
     cli(); // stop responding to interrupts
     ADCSRA &= ~ bit(ADEN); // disable the ADC
     PRR = 0xFF; // disable all subsystems
