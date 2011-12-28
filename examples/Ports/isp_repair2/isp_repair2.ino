@@ -66,8 +66,8 @@
 
 /* Include code using a file generated in isp_prepare/ dir with this cmd:
 
-        ./hex2c.tcl RF12demo.cpp.hex \
-                    Blink.cpp.hex \
+        ./hex2c.tcl Blink.cpp.hex \
+                    RF12demo.cpp.hex \
                     optiboot_atmega328.hex \
                     ATmegaBOOT_168_atmega328.hex \
                     optiboot_atmega328_1s.hex \
@@ -267,7 +267,7 @@ void setup () {
     
     Serial.print("Configuration: ");
     Serial.print(config, HEX);
-    Serial.println(xspeed ? " (crystal)" : " (resonator)");
+    Serial.println(xspeed ? " (resonator)" : " (crystal)");
     Serial.println();
     Serial.println(sections[sketch].title);
     Serial.println(sections[bootld].title);
@@ -278,7 +278,7 @@ void setup () {
         Send_ISP_wait(CMD_Erase_Flash, 0x22, 0x22);
 
         if (EnableProgramming()) {
-            byte fuseLo = xspeed ? FUSE_LOW_XTAL : FUSE_LOW_FAST;
+            byte fuseLo = xspeed ? FUSE_LOW_FAST : FUSE_LOW_XTAL;
             // derive the boot size from its starting address
             byte fuseHi = FUSE_HIGH_2048;
             switch (sections[bootld].start & 0x0FFF) {

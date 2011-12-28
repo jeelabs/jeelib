@@ -11,6 +11,7 @@
 #endif
 #include <stdint.h>
 #include <avr/pgmspace.h>
+//#include <util/delay.h>
 
 // keep the ATtiny85 on the "old" conventions until arduino-tiny gets fixed
 #if ARDUINO >= 100 && !defined(__AVR_ATtiny84__) && !defined(__AVR_ATtiny85__)
@@ -136,6 +137,19 @@ public:
 class PortI2C : public Port {
     uint8_t uswait;
     
+#if 0
+// speed test with fast hard-coded version for Port 1:
+    inline void hold() const
+        { _delay_us(1); }
+    inline void sdaOut(uint8_t value) const
+        { bitWrite(DDRD, 4, !value); bitWrite(PORTD, 4, value); }
+    inline uint8_t sdaIn() const
+        { return bitRead(PORTD, 4); }
+    inline void sclHi() const
+        { hold(); bitWrite(PORTC, 0, 1); }
+    inline void sclLo() const
+        { hold(); bitWrite(PORTC, 0, 0); }
+#else
     inline void hold() const
         { delayMicroseconds(uswait); }
     inline void sdaOut(uint8_t value) const
@@ -146,8 +160,9 @@ class PortI2C : public Port {
         { hold(); digiWrite2(1); }
     inline void sclLo() const
         { hold(); digiWrite2(0); }
+#endif
 public:
-    enum { KHZMAX = 1, KHZ400 = 2, KHZ100 = 9 };
+    enum { KHZMAX, KHZ400, KHZ100, KHZ_SLOW };
     
     PortI2C (uint8_t num, uint8_t rate =KHZMAX);
     
