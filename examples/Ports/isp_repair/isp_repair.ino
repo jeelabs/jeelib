@@ -34,6 +34,7 @@
 
 #include <avr/pgmspace.h>
 #include <avr/sleep.h>
+#include <JeeLib.h>
 
 #define OPTIBOOT    1   // 1 = OptiBoot, 0 = Duemilanove boot loader
 
