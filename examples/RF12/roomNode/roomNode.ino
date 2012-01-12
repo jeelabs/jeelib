@@ -94,7 +94,7 @@ struct {
             if (lastOn > 0)
                 ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
                     if (millis() - lastOn < 1000 * PIR_HOLD_TIME)
-                        f = 1;
+                        f = 1 ^ PIR_FLIP;
                 }
             return f;
         }
