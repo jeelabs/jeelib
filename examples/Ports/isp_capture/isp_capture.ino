@@ -28,7 +28,6 @@
 //    what they were previously set to (can use serial hookup to see details).
 
 #include <JeeLib.h>
-#include <avr/sleep.h>
 
 // set to 1 to get some more output on the serial port during playback
 #define DEBUG 1
@@ -194,9 +193,11 @@ static void successBlink () {
                 return;
     }
     // power down completely after 4 minutes
+    Serial.flush();
+    rf12_initialize(1, RF12_868MHZ);
+    rf12_sleep(RF12_SLEEP);
     cli();
-    set_sleep_mode(SLEEP_MODE_PWR_DOWN);
-    sleep_mode();
+    Sleepy::powerDown();
     // never returns, needs hard reset to start up again
 }
 
