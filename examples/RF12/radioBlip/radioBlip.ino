@@ -15,14 +15,11 @@ void setup() {
     CLKPR = 0; // div 1, i.e. speed up to 8 MHz
     sei();
 #endif
-    rf12_initialize(18, RF12_868MHZ, 5);
-    rf12_sleep(RF12_SLEEP);
+    rf12_initialize(17, RF12_868MHZ, 5);
 }
 
 void loop() {
     ++payload;
-
-    rf12_sleep(RF12_WAKEUP);
     
     while (!rf12_canSend())
         rf12_recvDone();
@@ -34,4 +31,5 @@ void loop() {
     
     rf12_sleep(RF12_SLEEP);
     Sleepy::loseSomeTime(60000);
+    rf12_sleep(RF12_WAKEUP);
 }
