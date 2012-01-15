@@ -9,12 +9,14 @@ static long payload;
 ISR(WDT_vect) { Sleepy::watchdogEvent(); }
 
 void setup() {
-    rf12_initialize(4, RF12_868MHZ, 5);
+#if defined(__AVR_ATtiny84__)
+    cli();
+    CLKPR = bit(CLKPCE);
+    CLKPR = 0; // div 1, i.e. speed up to 8 MHz
+    sei();
+#endif
+    rf12_initialize(18, RF12_868MHZ, 5);
     rf12_sleep(RF12_SLEEP);
-    
-    // stay off  3 minutes after reset, to make sure that power is stable
-    for (byte i = 0; i < 3; ++i)
-        Sleepy::loseSomeTime(60000);
 }
 
 void loop() {
