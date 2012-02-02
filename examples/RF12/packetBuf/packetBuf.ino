@@ -18,8 +18,18 @@ public:
     byte length() { return fill; }
     void reset() { fill = 0; }
 
+#if ARDUINO < 100
     virtual void write(uint8_t ch)
         { if (fill < sizeof buf) buf[fill++] = ch; }
+#else
+    virtual size_t write(uint8_t ch) {
+        if (fill < sizeof buf) {
+            buf[fill++] = ch;
+            return 1;
+        }
+        return 0;
+    }
+#endif
     
 private:
     byte fill, buf[RF12_MAXDATA];
