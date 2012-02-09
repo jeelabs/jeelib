@@ -378,6 +378,7 @@ public:
     GravityPlug (PortI2C& port) : DeviceI2C (port, 0x38) {}
     
     void begin() {}
+    void sensitivity(byte range, byte bw =0); // range 2,4,8 and bandwidth 0..6
     
     const int* getAxes();
 };
