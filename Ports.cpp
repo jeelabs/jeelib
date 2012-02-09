@@ -480,6 +480,20 @@ word LuxPlug::calcLux(byte iGain, byte tInt) const
     return temp >> LUX_SCALE;
 }
 
+void GravityPlug::sensitivity(byte range, word bandwidth) {
+    send();
+    write(0x14);
+    byte bwcode = bandwidth <= 25 ? 0 :
+                    bandwidth <= 50 ? 1 :
+                      bandwidth <= 100 ? 2 :
+                        bandwidth <= 190 ? 3 :
+                          bandwidth <= 375 ? 4 :
+                            bandwidth <= 750 ? 5 : 6;
+    // this only works correctly if range is 2, 4, or 8
+    write(((range & 0x0C) << 1) | bwcode);
+    stop();
+}
+
 const int* GravityPlug::getAxes() {
     send();
     write(0x02);
