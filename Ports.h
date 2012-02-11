@@ -364,6 +364,13 @@ public:
         stop();
     }
     
+    void poweroff() {
+        send();
+        write(0xC0 | CONTROL);
+        write(0); // power down
+        stop();
+    }
+    
     void setGain(byte high);
     
     const word* getData();
