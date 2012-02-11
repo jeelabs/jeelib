@@ -247,6 +247,82 @@ public:
     }
 };
 
+class KakuADecoder : public DecodeOOK {
+    enum { Pu, P1, P5, P10 }; //pulsetypes: Pu = unknown, P1 = between 100 and 600uS, P5 = between 800 and 1800uS, P10 = between 2 and 3 mS
+    uint8_t backBuffer[4]; //we need to keep a 4 bit history
+    byte pulse;  
+
+  public:
+    KakuADecoder () {
+      clearBackBuffer();
+    }
+    
+    void clearBackBuffer()
+    {
+      backBuffer[0] = Pu;
+      backBuffer[1] = Pu;
+      backBuffer[2] = Pu;
+      backBuffer[3] = Pu;
+    }
+    
+    virtual char decode (word width) {
+        if ((width >= 100) && (width <= 600))
+          pulse = P1;
+        else if ((width >=800) && (width <= 1800))
+          pulse = P5;
+        else if ((width >=2000) && (width <= 3000))
+          pulse = P10;
+        else 
+        {
+          clearBackBuffer();//out-of-protocol pulsewidth, abort;
+          return -1; //reset decoder
+        }
+        
+        backBuffer[3] = backBuffer[2];
+        backBuffer[2] = backBuffer[1];
+        backBuffer[1] = backBuffer[0];
+        backBuffer[0] = pulse;
+        
+        switch(state)
+        {
+          case UNKNOWN:
+          if( backBuffer[2] == P1 && backBuffer[1] == P10 && backBuffer[0] == P1 ) //received start/sync signal
+          {
+            state = T0;
+            clearBackBuffer();
+          }
+          break;
+          case OK: //returning after receiving a good bit
+          case T0:
+          if( pulse == P10 ) //received start/sync signal
+          {
+            clearBackBuffer();
+            return -1; //reset decoder
+          } 
+          if( backBuffer[3] != Pu ) //depending on the preceding pulsetypes we received a 1 or 0
+          {
+            if ( (backBuffer[3] == P5) && (backBuffer[2] == P1) && (backBuffer[1] == P1) && (backBuffer[0] == P1))
+              gotBit(1);
+            else
+            if ( (backBuffer[3] == P1) && (backBuffer[2] == P1) && (backBuffer[1] == P5) && (backBuffer[0] == P1))
+              gotBit(0);
+            else
+            { 
+              state = UNKNOWN;
+              break;
+            }
+            clearBackBuffer();            
+            if( pos >= 4 ) //we expect 4 bytes
+              return 1;
+          }
+          break;
+          default:
+          break;
+        }
+        return 0;
+    }
+};
+
 class XrfDecoder : public DecodeOOK {
 public:
     XrfDecoder () {}
