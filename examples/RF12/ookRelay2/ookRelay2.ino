@@ -53,6 +53,7 @@ ISR(ANALOG_COMP_vect) {
 OregonDecoder orsc;
 CrestaDecoder cres;
 KakuDecoder kaku;
+KakuADecoder kakuA; //WvD
 XrfDecoder xrf;
 HezDecoder hez;
 FlamingoDecoder fmgo;
@@ -70,6 +71,7 @@ DecoderInfo di_433[] = {
     { 11, "FMGO", &fmgo },
     { 12, "SMK", &smk },
     { 13, "BYR", &byr },
+    { 14, "KAKUA", &kakuA },
     { -1, 0, 0 }
 };
 
