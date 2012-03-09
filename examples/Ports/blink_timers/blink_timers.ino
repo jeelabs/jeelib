@@ -3,7 +3,7 @@
 
 #include <JeeLib.h>
 
-BlinkPlug myPlug (1); // needs a Blink Plug attached to port 1
+BlinkPlug myPlug (1); // expects a Blink Plug on port 1
 MilliTimer timer1, timer2;
 
 void setup () {
