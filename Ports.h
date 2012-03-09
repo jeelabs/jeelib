@@ -271,6 +271,8 @@ public:
     
     void ledOn(byte mask);
     void ledOff(byte mask);
+    byte ledState() const { return leds; }
+    
     byte state();
     byte pushed(); // deprecated, don't use in combination with buttonCheck
     byte buttonCheck();
