@@ -19,6 +19,6 @@ void loop () {
     int t = tplug.anaRead();
     Serial.print(t);
     Serial.print(' ');
-    Serial.println(map(t, 0, 1024, 0, 3300)); // 10 mv/C
+    Serial.println(map(t, 0, 1023, 0, 330)); // 10 mv/C
     delay(500);
 }
