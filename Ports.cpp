@@ -5,6 +5,14 @@
 #include <avr/sleep.h>
 #include <util/atomic.h>
 
+// ATtiny84 has BODS and BODSE for ATtiny84, revision B, and newer, even though
+// the iotnx4.h header doesn't list it, so we *can* disable brown-out detection!
+// See the ATtiny24/44/84 datasheet reference, section 7.2.1, page 34.
+#if defined(__AVR_ATtiny84__) && !defined(BODSE) && !defined(BODS)
+#define BODSE 2
+#define BODS  7
+#endif
+
 // flag bits sent to the receiver
 #define MODE_CHANGE 0x80    // a pin mode was changed
 #define DIG_CHANGE  0x40    // a digital output was changed
@@ -795,11 +803,11 @@ void Sleepy::powerDown (byte prrOff) {
     // see http://www.nongnu.org/avr-libc/user-manual/group__avr__sleep.html
     set_sleep_mode(SLEEP_MODE_PWR_DOWN);
     ATOMIC_BLOCK(ATOMIC_FORCEON) {
-    sleep_enable();
-    // sleep_bod_disable(); // can't use this - not in my avr-libc version!
+        sleep_enable();
+        // sleep_bod_disable(); // can't use this - not in my avr-libc version!
 #ifdef BODSE
-    MCUCR = MCUCR | bit(BODSE) | bit(BODS); // timed sequence
-    MCUCR = MCUCR & ~ bit(BODSE) | bit(BODS);
+        MCUCR = MCUCR | bit(BODSE) | bit(BODS); // timed sequence
+        MCUCR = MCUCR & ~ bit(BODSE) | bit(BODS);
 #endif
     }
     sleep_cpu();
