@@ -818,7 +818,7 @@ byte Sleepy::loseSomeTime (word msecs) {
     while (msleft >= 16) {
         char wdp = 0; // wdp 0..9 corresponds to roughly 16..8192 ms
         // calc wdp as log2(msleft/16), i.e. loop & inc while next value is ok
-        for (word m = msecs; m >= 32; m >>= 1)
+        for (word m = msleft; m >= 32; m >>= 1)
             if (++wdp >= 9)
                 break;
         watchdogCounter = 0;
