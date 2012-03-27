@@ -812,28 +812,34 @@ void Sleepy::powerDown (byte prrOff) {
 }
 
 byte Sleepy::loseSomeTime (word msecs) {
+    byte ok = 1;
+    word msleft = msecs;
     // only slow down for periods longer than the watchdog granularity
-    while (msecs >= 16) {
+    while (msleft >= 16) {
         char wdp = 0; // wdp 0..9 corresponds to roughly 16..8192 ms
-        while (msecs >= (32 << wdp) && wdp < 9)
-            ++wdp;
+        // calc wdp as log2(msleft/16), i.e. loop & inc while next value is ok
+        for (word m = msecs; m >= 32; m >>= 1)
+            if (++wdp >= 9)
+                break;
         watchdogCounter = 0;
         watchdogInterrupts(wdp);
         powerDown();
         watchdogInterrupts(-1); // off
-        if (watchdogCounter == 0)
-            return 0; // lost some time, but got interrupted
-        // adjust the milli ticks, since we will have missed several
-#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny85__)
-        extern volatile unsigned long millis_timer_millis;
-        millis_timer_millis += 16 << wdp;
-#else
-        extern volatile unsigned long timer0_millis;
-        timer0_millis += 16 << wdp;
-#endif
-        msecs -= 16 << wdp;
+        if (watchdogCounter == 0) {
+            ok = 0; // lost some time, but got interrupted
+            break;
+        }
+        msleft -= 16 << wdp;
     }
-    return 1; // lost some time as planned
+    // adjust the milli ticks, since we will have missed several
+#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny85__)
+    extern volatile unsigned long millis_timer_millis;
+    millis_timer_millis += msecs - msleft;
+#else
+    extern volatile unsigned long timer0_millis;
+    timer0_millis += msecs - msleft;
+#endif
+    return ok; // true if we lost approx the time planned
 }
 
 void Sleepy::watchdogEvent() {
