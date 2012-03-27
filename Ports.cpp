@@ -825,11 +825,14 @@ byte Sleepy::loseSomeTime (word msecs) {
         watchdogInterrupts(wdp);
         powerDown();
         watchdogInterrupts(-1); // off
+        // when interrupted, our best guess is that half the time has passed
+        word halfms = 8 << wdp;
+        msleft -= halfms;
         if (watchdogCounter == 0) {
             ok = 0; // lost some time, but got interrupted
             break;
         }
-        msleft -= 16 << wdp;
+        msleft -= halfms;
     }
     // adjust the milli ticks, since we will have missed several
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny85__)
