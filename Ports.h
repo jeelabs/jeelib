@@ -453,6 +453,16 @@ public:
     void heading(int& xaxis, int& yaxis);
 };
 
+// interface for the Modern Device 3-axis Compass board
+// see http://shop.moderndevice.com/products/3-axis-compass
+class CompassBoard : public DeviceI2C {
+    int read2 (byte last);
+public:
+    CompassBoard (PortI2C& port) : DeviceI2C (port, 0x1E) {}
+
+    float heading();
+};
+
 // interface for the Proximity Plug - see http://jeelabs.org/yp1
 class ProximityPlug : public DeviceI2C {
 public:

@@ -655,6 +655,30 @@ void HeadingBoard::heading(int& xaxis, int& yaxis) {
     compass.stop();
 }
 
+int CompassBoard::read2 (byte last) {
+    byte b = read(0);
+    return (b << 8) | read(last);
+}
+
+float CompassBoard::heading () {
+    send();     
+    write(0x01); // Configuration Register B
+    write(0x40); // Reg B: +/- 1.9 Ga
+    stop();
+
+    send();
+    write(0x02); // Data Output X MSB Register
+    write(0x00); // Mode: Continuous-Measurement Mode
+    receive();
+    int x = read2(0);
+    int z = read2(0);
+    int y = read2(1);
+    stop();
+    
+    return degrees(atan2(y, x));
+}
+
+
 InfraredPlug::InfraredPlug (uint8_t num)
         : Port (num), slot (140), gap (80), fill (-1), prev (0) {
     digiWrite(0);
