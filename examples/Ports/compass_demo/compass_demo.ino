@@ -6,12 +6,12 @@
 PortI2C myBus (1);
 CompassBoard compass (myBus);
 
-void setup(){
+void setup() {
     Serial.begin(57600);
     Serial.println("\n[compass_demo]");
 }
 
-void loop(){
+void loop() {
     Serial.println(compass.heading());
     delay(500);
 }
