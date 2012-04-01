@@ -482,6 +482,21 @@ public:
     byte getReg(byte reg) const;
 };
 
+// interface for the Analog Plug - see http://jeelabs.org/ap2
+class AnalogPlug : public DeviceI2C {
+  byte config;
+public:
+  AnalogPlug (const PortI2C& port, byte addr =0x69)
+    : DeviceI2C (port, addr), config (0x1C) {}
+  
+  // default mode is channel 1, continuous, 18-bit, gain x1
+  void begin (byte mode =0x1C);
+  // select a channel (1..4), must wait to read it out (up to 270 ms for 18-bit)
+  void select (byte channel);
+  // read out 4 bytes, caller will need to shift out the irrelevant lower bits
+  long reading ();
+};
+
 #ifdef Stream_h // only available in recent Arduino IDE versions
 
 // simple parser for input data and one-letter commands

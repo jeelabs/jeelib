@@ -796,6 +796,29 @@ byte ProximityPlug::getReg(byte reg) const {
     return result;
 }
 
+void AnalogPlug::begin (byte mode) {
+  // default mode is channel 1, continuous, 18-bit, gain x1
+  config = mode;
+  select(1);
+}
+
+void AnalogPlug::select (byte channel) {
+  send();
+  write(0x80 | ((channel - 1) << 5) | (config & 0x1F));
+  stop();    
+}
+
+long AnalogPlug::reading () {
+  // read out 4 bytes, caller will need to shift out the irrelevant lower bits
+  receive();
+  long raw = read(0) << 8;
+  raw |= read(0);
+  raw = (raw << 16) | (read(0) << 8);
+  raw |= read(1);
+  stop();
+  return raw;
+}
+
 // ISR(WDT_vect) { Sleepy::watchdogEvent(); }
 
 static volatile byte watchdogCounter;
