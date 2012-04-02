@@ -12,11 +12,12 @@ void setup () {
 
 void loop () {
   int t, h;
-  dht.reading(t, h);
-  Serial.print("temperature = ");
-  Serial.println(t);
-  Serial.print("humidity = ");
-  Serial.println(h);
-  Serial.println();
+  if (dht.reading(t, h)) {
+    Serial.print("temperature = ");
+    Serial.println(t);
+    Serial.print("humidity = ");
+    Serial.println(h);
+    Serial.println();
+  }
   delay(3000);
 }
