@@ -497,6 +497,15 @@ public:
   long reading ();
 };
 
+// interface for the DHT11 and DHT22 sensors, does not use floating point
+class DHTxx {
+  byte pin;
+public:
+  DHTxx (byte pinNum);
+  // results are returned in tenths of a degree and percent, respectively
+  bool reading (int& temp, int &humi);
+};
+
 #ifdef Stream_h // only available in recent Arduino IDE versions
 
 // simple parser for input data and one-letter commands
