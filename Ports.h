@@ -223,7 +223,7 @@ public:
     static void watchdogInterrupts (char mode);
     
     // enter low-power mode, wake up with watchdog, INT0/1, or pin-change
-    static void powerDown (byte prrOff =0xFF);
+    static void powerDown ();
     
     // spend some time in low-power mode, the timing is only approximate
     // returns 1 if all went normally, or 0 if some other interrupt occurred
