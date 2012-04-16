@@ -252,7 +252,7 @@ static void rf12_interrupt() {
         } else
             switch (rxstate++) {
                 case TXSYN1: out = 0x2D; break;
-                case TXSYN2: out = rf12_grp; rxstate = - (2 + rf12_len); break;
+                case TXSYN2: out = group; rxstate = - (2 + rf12_len); break;
                 case TXCRC1: out = rf12_crc; break;
                 case TXCRC2: out = rf12_crc >> 8; break;
                 case TXDONE: rf12_xfer(RF_IDLE_MODE); // fall through
@@ -313,7 +313,6 @@ uint8_t rf12_canSend () {
         // rf12_xfer(0x0000); // status register
         // rf12_xfer(RF_RX_FIFO_READ); // fifo read
         rxstate = TXIDLE;
-        rf12_grp = group;
         return 1;
     }
     return 0;
@@ -327,7 +326,7 @@ void rf12_sendStart (uint8_t hdr) {
     
     rf12_crc = ~0;
 #if RF12_VERSION >= 2
-    rf12_crc = _crc16_update(rf12_crc, rf12_grp);
+    rf12_crc = _crc16_update(rf12_crc, group);
 #endif
     rxstate = TXPRE1;
     rf12_xfer(RF_XMITTER_ON); // bytes will be fed via interrupts
