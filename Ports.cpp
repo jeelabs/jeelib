@@ -10,7 +10,7 @@
 // ATtiny84 has BODS and BODSE for ATtiny84, revision B, and newer, even though
 // the iotnx4.h header doesn't list it, so we *can* disable brown-out detection!
 // See the ATtiny24/44/84 datasheet reference, section 7.2.1, page 34.
-#if defined(__AVR_ATtiny84__) && !defined(BODSE) && !defined(BODS)
+#if (defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)) && !defined(BODSE) && !defined(BODS)
 #define BODSE 2
 #define BODS  7
 #endif
@@ -393,7 +393,7 @@ void UartPlug::flush () {
 WRITE_RESULT UartPlug::write (byte data) {
     regSet(THR, data);
     dev.stop();
-#if ARDUINO >= 100 && !defined(__AVR_ATtiny84__) && !defined(__AVR_ATtiny85__)
+#if ARDUINO >= 100 && !defined(__AVR_ATtiny84__) && !defined(__AVR_ATtiny85__) && !defined(__AVR_ATtiny44__)
     return 1;
 #endif
 }
@@ -963,7 +963,7 @@ byte Sleepy::loseSomeTime (word msecs) {
         msleft -= halfms;
     }
     // adjust the milli ticks, since we will have missed several
-#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny85__)
+#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny85__) || defined (__AVR_ATtiny44__)
     extern volatile unsigned long millis_timer_millis;
     millis_timer_millis += msecs - msleft;
 #else
