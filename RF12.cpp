@@ -55,7 +55,7 @@
 #define SPI_MISO    6
 #define SPI_SCK     7
 
-#elif defined(__AVR_ATtiny84__)
+#elif defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
 
 #define RFM_IRQ     2
 #define SS_DDR      DDRB

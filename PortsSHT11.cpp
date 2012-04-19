@@ -177,7 +177,7 @@ uint8_t SHT11::measure(uint8_t type, void (*delayFun)()) {
     return 1;
 }
 
-#ifndef __AVR_ATtiny84__
+#ifndef __AVR_ATtiny84__ || __AVR_ATtiny44__
 void SHT11::calculate(float& rh_true, float& t_C) const {
     const float C1=-2.0468;
     const float C2= 0.0367;
