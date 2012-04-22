@@ -9,13 +9,17 @@ static long payload;
 ISR(WDT_vect) { Sleepy::watchdogEvent(); }
 
 void setup() {
-#if defined(__AVR_ATtiny84__)
     cli();
     CLKPR = bit(CLKPCE);
+#if defined(__AVR_ATtiny84__)
     CLKPR = 0; // div 1, i.e. speed up to 8 MHz
-    sei();
+#else
+    CLKPR = 1; // div 2, i.e. slow down to 8 MHz
 #endif
+    sei();
     rf12_initialize(17, RF12_868MHZ, 5);
+    // see http://tools.jeelabs.org/rfm12b
+    rf12_config(0xC040); // set low-battery level to 2.2V i.s.o. 3.1V
 }
 
 void loop() {
