@@ -10,11 +10,11 @@ ISR(WDT_vect) { Sleepy::watchdogEvent(); }
 
 ISR(ADC_vect) { adcDone = true; }
 
-static byte vccRead () {
+static byte vccRead (byte count =4) {
   set_sleep_mode(SLEEP_MODE_ADC);
   ADMUX = bit(REFS0) | 14; // use VCC and internal bandgap
   bitSet(ADCSRA, ADIE);
-  for (byte i = 0; i < 4; ++i) {
+  while (count-- > 0) {
     adcDone = false;
     while (!adcDone)
       sleep_mode();
