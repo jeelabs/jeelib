@@ -10,7 +10,7 @@ ISR(WDT_vect) { Sleepy::watchdogEvent(); }
 
 ISR(ADC_vect) { adcDone = true; }
 
-static int vccRead () {
+static byte vccRead () {
   set_sleep_mode(SLEEP_MODE_ADC);
   ADMUX = bit(REFS0) | 14; // use VCC and internal bandgap
   bitSet(ADCSRA, ADIE);
@@ -20,8 +20,9 @@ static int vccRead () {
       sleep_mode();
   }
   bitClear(ADCSRA, ADIE);  
-  word x = ADC;
-  return x ? (1100L * 1023) / x : -1;
+  // convert ADC readings to fit in one byte, i.e. 20 mV steps:
+  //  1.0V = 0, 1.8V = 40, 3.3V = 115, 5.0V = 200, 6.0V = 250
+  return (55U * 1023U) / (ADC + 1) - 50;
 }
 
 void setup() {
@@ -29,9 +30,7 @@ void setup() {
 }
 
 void loop() {  
-  // convert millivolts to fit within a byte, i.e. 20 mV steps:
-  //  1.0V = 0, 1.8V = 40, 3.3V = 115, 5.0V = 200, 6.0V = 250
-  byte x = map(vccRead(), 1000, 6000, 0, 250);
+  byte x = vccRead();
   Sleepy::loseSomeTime(16);
 
   rf12_sleep(RF12_WAKEUP);
