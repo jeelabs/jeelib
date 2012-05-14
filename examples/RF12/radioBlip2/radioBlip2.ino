@@ -9,7 +9,8 @@
 struct {
   long ping;  // 32-bit counter
   byte id;    // identity, should be different for each node
-  byte vcc;   // measured BCC, 1.0V = 0 .. 6.0V = 250
+  byte vcc1;  // VCC before transmit, 1.0V = 0 .. 6.0V = 250
+  byte vcc2;  // VCC after transmit, will be sent in next cycle
 } payload;
 
 volatile bool adcDone;
@@ -36,33 +37,36 @@ static byte vccRead (byte count =4) {
 }
 
 void setup() {
-    cli();
-    CLKPR = bit(CLKPCE);
+  cli();
+  CLKPR = bit(CLKPCE);
 #if defined(__AVR_ATtiny84__)
-    CLKPR = 0; // div 1, i.e. speed up to 8 MHz
+  CLKPR = 0; // div 1, i.e. speed up to 8 MHz
 #else
-    CLKPR = 1; // div 2, i.e. slow down to 8 MHz
+  CLKPR = 1; // div 2, i.e. slow down to 8 MHz
 #endif
-    sei();
-    rf12_initialize(17, RF12_868MHZ, 5);
-    // see http://tools.jeelabs.org/rfm12b
-    rf12_control(0xC040); // set low-battery level to 2.2V i.s.o. 3.1V
-    payload.id = BLIP_ID;
+  sei();
+  rf12_initialize(17, RF12_868MHZ, 5);
+  // see http://tools.jeelabs.org/rfm12b
+  rf12_control(0xC040); // set low-battery level to 2.2V i.s.o. 3.1V
+  payload.id = BLIP_ID;
 }
 
 void loop() {
-    ++payload.ping;
-    payload.vcc = vccRead();
-    
-    while (!rf12_canSend())
-        rf12_recvDone();
-    
-    rf12_sendStart(0, &payload, sizeof payload);
-    // set the sync mode to 2 if the fuses are still the Arduino default
-    // mode 3 (full powerdown) can only be used with 258 CK startup fuses
-    rf12_sendWait(2);
-    
-    rf12_sleep(RF12_SLEEP);
-    Sleepy::loseSomeTime(60000);
-    rf12_sleep(RF12_WAKEUP);
+  payload.vcc1 = vccRead();
+
+  ++payload.ping;
+
+  while (!rf12_canSend())
+    rf12_recvDone();
+  
+  rf12_sendStart(0, &payload, sizeof payload);
+  // set the sync mode to 2 if the fuses are still the Arduino default
+  // mode 3 (full powerdown) can only be used with 258 CK startup fuses
+  rf12_sendWait(2);
+
+  payload.vcc2 = vccRead();
+  
+  rf12_sleep(RF12_SLEEP);
+  Sleepy::loseSomeTime(60000);
+  rf12_sleep(RF12_WAKEUP);
 }
