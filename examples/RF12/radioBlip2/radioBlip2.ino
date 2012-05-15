@@ -34,7 +34,7 @@ static byte vccRead (byte count =4) {
   bitClear(ADCSRA, ADIE);  
   // convert ADC readings to fit in one byte, i.e. 20 mV steps:
   //  1.0V = 0, 1.8V = 40, 3.3V = 115, 5.0V = 200, 6.0V = 250
-  return (55U * 1023U) / (ADC + 1) - 50;
+  return (55U * 1024U) / (ADC + 1) - 50;
 }
 
 void setup() {
