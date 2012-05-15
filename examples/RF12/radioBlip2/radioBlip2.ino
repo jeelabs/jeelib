@@ -67,18 +67,18 @@ static byte sendPayload () {
 // don't transmit - when power is even lower, don't read out the VCC level.
 //
 // With a 100 µF cap, normal packet sends can cause VCC to drop by some 0.6V,
-// hence the choices below: sending at >= 2.8V should be ok most of the time.
+// hence the choices below: sending at >= 2.7V should be ok most of the time.
 
-#define VCC_OK    90  // >= 2.8V - enough power for normal 1-minute sends
+#define VCC_OK    85  // >= 2.7V - enough power for normal 1-minute sends
 #define VCC_LOW   80  // >= 2.6V - sleep for 1 minute, then try again
-#define VCC_DOZE  60  // >= 2.2V - sleep for 5 minutes, then try again
-                      //  < 2.2V - sleep for 60 minutes, then try again
+#define VCC_DOZE  75  // >= 2.5V - sleep for 5 minutes, then try again
+                      //  < 2.5V - sleep for 60 minutes, then try again
 #define VCC_SLEEP_MINS(x) ((x) >= VCC_LOW ? 1 : (x) >= VCC_DOZE ? 5 : 60)
 
 // Reasoning is that when we're about to try sending and find out that VCC
 // is far too low, then let's just send anyway, as one final sign of life.
 
-#define VCC_FINAL 70  // <= 2.4V - send one last packet, our swan song
+#define VCC_FINAL 70  // <= 2.4V - send anyway, might be our last swan song
 
 void loop() {
   byte vcc = payload.vcc1 = vccRead();
