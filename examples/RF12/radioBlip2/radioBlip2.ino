@@ -4,7 +4,8 @@
 #include <JeeLib.h>
 #include <avr/sleep.h>
 
-#define BLIP_ID 1  // set this to a unique ID to disambiguate multiple nodes
+#define BLIP_ID   2 // set this to a unique ID to disambiguate multiple nodes
+#define SEND_MODE 3 // set to 3 if fuses are e=06/h=DE/l=CE, else set to 2
 
 struct {
   long ping;  // 32-bit counter
@@ -15,15 +16,15 @@ struct {
 
 volatile bool adcDone;
 
-// this must be added since we're using the watchdog for low-power waiting
-ISR(WDT_vect) { Sleepy::watchdogEvent(); }
-
-// for low-noise/-power ADC readouts, we'll use interrupts
+// for low-noise/-power ADC readouts, we'll use ADC completion interrupts
 ISR(ADC_vect) { adcDone = true; }
+
+// this must be defined since we're using the watchdog for low-power waiting
+ISR(WDT_vect) { Sleepy::watchdogEvent(); }
 
 static byte vccRead (byte count =4) {
   set_sleep_mode(SLEEP_MODE_ADC);
-  ADMUX = bit(REFS0) | 14; // use VCC and internal bandgap
+  ADMUX = bit(REFS0) | 14; // use VCC as AREF and internal bandgap as input
   bitSet(ADCSRA, ADIE);
   while (count-- > 0) {
     adcDone = false;
@@ -48,25 +49,51 @@ void setup() {
   rf12_initialize(17, RF12_868MHZ, 5);
   // see http://tools.jeelabs.org/rfm12b
   rf12_control(0xC040); // set low-battery level to 2.2V i.s.o. 3.1V
+  rf12_sleep(RF12_SLEEP);
+
   payload.id = BLIP_ID;
 }
 
-void loop() {
-  payload.vcc1 = vccRead();
-
+static byte sendPayload () {
   ++payload.ping;
 
-  while (!rf12_canSend())
-    rf12_recvDone();
-  
-  rf12_sendStart(0, &payload, sizeof payload);
-  // set the sync mode to 2 if the fuses are still the Arduino default
-  // mode 3 (full powerdown) can only be used with 258 CK startup fuses
-  rf12_sendWait(2);
-
-  payload.vcc2 = vccRead();
-  
-  rf12_sleep(RF12_SLEEP);
-  Sleepy::loseSomeTime(60000);
   rf12_sleep(RF12_WAKEUP);
+  rf12_sendStart(0, &payload, sizeof payload);
+  rf12_sendWait(SEND_MODE);
+  rf12_sleep(RF12_SLEEP);
+}
+
+// This code tries to implement a good survival strategy: when power is low,
+// don't transmit - when power is even lower, don't read out the VCC level.
+//
+// With a 100 µF cap, normal packet sends can cause VCC to drop by some 0.6V,
+// hence the choices below: sending at >= 2.8V should be ok most of the time.
+
+#define VCC_OK    90  // >= 2.8V - enough power for normal 1-minute sends
+#define VCC_LOW   80  // >= 2.6V - sleep for 1 minute, then try again
+#define VCC_DOZE  60  // >= 2.2V - sleep for 5 minutes, then try again
+                      //  < 2.2V - sleep for 60 minutes, then try again
+#define VCC_SLEEP_MINS(x) ((x) >= VCC_LOW ? 1 : (x) >= VCC_DOZE ? 5 : 60)
+
+// Reasoning is that when we're about to try sending and find out that VCC
+// is far too low, then let's just send anyway, as one final sign of life.
+
+#define VCC_FINAL 70  // <= 2.4V - send one last packet, our swan song
+
+void loop() {
+  byte vcc = payload.vcc1 = vccRead();
+  
+  if (vcc <= VCC_FINAL) { // hopeless, maybe we can get one last packet out
+    sendPayload();
+    vcc = payload.vcc2 = 1; // don't even try reading VCC after this send
+  }
+
+  if (vcc >= VCC_OK) { // enough energy for normal operation
+    sendPayload();
+    vcc = payload.vcc2 = vccRead(); // measure and remember the VCC drop
+  }
+
+  byte minutes = VCC_SLEEP_MINS(vcc);
+  while (minutes-- > 0)
+    Sleepy::loseSomeTime(60000);
 }
