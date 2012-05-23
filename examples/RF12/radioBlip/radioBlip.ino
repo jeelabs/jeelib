@@ -17,7 +17,7 @@ void setup() {
     CLKPR = 1; // div 2, i.e. slow down to 8 MHz
 #endif
     sei();
-    rf12_initialize(17, RF12_868MHZ, 5);
+    rf12_initialize(22, RF12_868MHZ, 5);
     // see http://tools.jeelabs.org/rfm12b
     rf12_control(0xC040); // set low-battery level to 2.2V i.s.o. 3.1V
 }

@@ -4,8 +4,10 @@
 #include <JeeLib.h>
 #include <avr/sleep.h>
 
-#define BLIP_ID   2 // set this to a unique ID to disambiguate multiple nodes
-#define SEND_MODE 3 // set to 3 if fuses are e=06/h=DE/l=CE, else set to 2
+#define BLIP_NODE 22  // wireless node ID to use for sending blips
+#define BLIP_GRP  5   // wireless net group to use for sending blips
+#define BLIP_ID   1   // set this to a unique ID to disambiguate multiple nodes
+#define SEND_MODE 3   // set to 3 if fuses are e=06/h=DE/l=CE, else set to 2
 
 struct {
   long ping;  // 32-bit counter
@@ -46,7 +48,7 @@ void setup() {
   CLKPR = 1; // div 2, i.e. slow down to 8 MHz
 #endif
   sei();
-  rf12_initialize(17, RF12_868MHZ, 5);
+  rf12_initialize(BLIP_NODE, RF12_868MHZ, BLIP_GRP);
   // see http://tools.jeelabs.org/rfm12b
   rf12_control(0xC040); // set low-battery level to 2.2V i.s.o. 3.1V
   rf12_sleep(RF12_SLEEP);
