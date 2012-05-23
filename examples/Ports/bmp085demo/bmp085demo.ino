@@ -104,6 +104,7 @@ void loop() {
     Serial.print(payload.temp);
     Serial.print(' ');
     Serial.print(payload.pres);
+    Serial.flush();
     
     rf12_sleep(RF12_WAKEUP);         // turn radio back on at the last moment
     
