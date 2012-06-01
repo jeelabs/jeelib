@@ -67,6 +67,18 @@
 #define SPI_MOSI    5     // PA5, pin 8
 #define SPI_SCK     6     // PA4, pin 9
 
+#elif defined(__AVR_ATmega32U4__) //Arduino Leonardo 
+
+#define RFM_IRQ     0	   //PD0, INT0, Digital3 
+#define SS_DDR      DDRB
+#define SS_PORT     PORTB
+#define SS_BIT      6	   //Dig10, PB6
+
+#define SPI_SS      17     // PB0, pin 8, Digital17
+#define SPI_MISO    14     // PB3, pin 11, Digital14
+#define SPI_MOSI    16     // PB2, pin 10, Digital16
+#define SPI_SCK     15     // PB1, pin 9, Digital15
+
 #else
 
 // ATmega168, ATmega328, etc.
