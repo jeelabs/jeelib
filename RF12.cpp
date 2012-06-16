@@ -277,11 +277,20 @@ static void rf12_interrupt() {
 
 #if PINCHG_IRQ
     #if RFM_IRQ < 8
-        ISR(PCINT2_vect) { if (!bitRead(PIND, RFM_IRQ)) rf12_interrupt(); }
+        ISR(PCINT2_vect) {
+            while (!bitRead(PIND, RFM_IRQ))
+                rf12_interrupt();
+        }
     #elif RFM_IRQ < 14
-        ISR(PCINT0_vect) { if (!bitRead(PINB, RFM_IRQ - 8)) rf12_interrupt(); }
+        ISR(PCINT0_vect) { 
+            while (!bitRead(PINB, RFM_IRQ - 8))
+                rf12_interrupt();
+        }
     #else
-        ISR(PCINT1_vect) { if (!bitRead(PINC, RFM_IRQ - 14)) rf12_interrupt(); }
+        ISR(PCINT1_vect) {
+            while (!bitRead(PINC, RFM_IRQ - 14))
+                rf12_interrupt();
+        }
     #endif
 #endif
 
