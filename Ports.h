@@ -14,7 +14,7 @@
 //#include <util/delay.h>
 
 // keep the ATtiny85 on the "old" conventions until arduino-tiny gets fixed
-#if ARDUINO >= 100 && !defined(__AVR_ATtiny84__) && !defined(__AVR_ATtiny85__) && !defined(__AVR_ATtiny44__)
+#if ARDUINO >= 100 && !defined(__AVR_ATtiny84__) && !defined(__AVR_ATtiny85__) && !defined(__AVR_ATtiny44__) && !defined(__AVR_ATtiny45__)
 #define WRITE_RESULT size_t
 #else
 #define WRITE_RESULT void
@@ -24,7 +24,7 @@ class Port {
 protected:
     uint8_t portNum;
 
-#if defined(__AVR_ATtiny85__)
+#if defined(__AVR_ATtiny85__) || defined(__AVR_ATtiny45__)
     inline uint8_t digiPin() const
         { return 0; }
     inline uint8_t digiPin2() const

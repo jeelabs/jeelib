@@ -183,7 +183,7 @@ inline void LiquidCrystalBase::command(byte value) {
 
 inline WRITE_RESULT LiquidCrystalBase::write(byte value) {
   send(value, HIGH);
-#if ARDUINO >= 100 && !defined(__AVR_ATtiny84__) && !defined(__AVR_ATtiny85__) && !defined(__AVR_ATtiny44__)
+#if ARDUINO >= 100 && !defined(__AVR_ATtiny84__) && !defined(__AVR_ATtiny85__) && !defined(__AVR_ATtiny44__) && !defined(__AVR_ATtiny45__)
   return 1;
 #endif
 }
