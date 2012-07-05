@@ -9,10 +9,19 @@
 #include <avr/eeprom.h>
 #include <avr/pgmspace.h>
 
+// ATtiny's only support outbound serial @ 38400 baud, and no DataFlash logging
+
+#if defined(__AVR_ATtiny84__) ||defined(__AVR_ATtiny44__)
+#define SERIAL_BAUD 38400
+#else
+#define SERIAL_BAUD 57600
+
 #define DATAFLASH   1   // check for presence of DataFlash memory on JeeLink
 #define FLASH_MBIT  16  // support for various dataflash sizes: 4/8/16 Mbit
 
 #define LED_PIN     9   // activity LED, comment out to disable
+
+#endif
 
 #define COLLECT 0x20 // collect mode, i.e. pass incoming without sending acks
 
@@ -668,15 +677,15 @@ static void handleInput (char c) {
 }
 
 void setup() {
-    Serial.begin(57600);
+    Serial.begin(SERIAL_BAUD);
     Serial.print("\n[RF12demo.8]");
 
     if (rf12_config()) {
         config.nodeId = eeprom_read_byte(RF12_EEPROM_ADDR);
         config.group = eeprom_read_byte(RF12_EEPROM_ADDR + 1);
     } else {
-        config.nodeId = 0x41; // node A1 @ 433 MHz
-        config.group = 0xD4;
+        config.nodeId = 0x41; // 433 MHz, node 1
+        config.group = 0xD4;  // default group 212
         saveConfig();
     }
 
