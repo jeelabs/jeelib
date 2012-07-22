@@ -50,10 +50,13 @@ public:
     // DIO pin
     inline void mode(uint8_t value) const
         { pinMode(digiPin(), value); }
+    /**Reads the value of a Port's D pin. @return High or Low. */
     inline uint8_t digiRead() const
         { return digitalRead(digiPin()); }
+	/**Write High or Low to a Port's D pin. @param value High or Low. */
     inline void digiWrite(uint8_t value) const
         { return digitalWrite(digiPin(), value); }
+    /**Writes a PWM value to a Port's D pin. */
     inline void anaWrite(uint8_t val) const
         { analogWrite(digiPin(), val); }
     inline uint32_t pulse(uint8_t state, uint32_t timeout =1000000L) const
@@ -62,10 +65,13 @@ public:
     // AIO pin
     inline void mode2(uint8_t value) const
         { pinMode(digiPin2(), value); }
+    /**Reads an analog value from a Port's A pin. @return int [0..1023] */
     inline uint16_t anaRead() const
         { return analogRead(anaPin()); }        
+	/**Reads the value of a Port's A pin. @return High or Low. */
     inline uint8_t digiRead2() const
         { return digitalRead(digiPin2()); }
+    /**Write High or Low to a Port's A pin. @param value High or Low. */
     inline void digiWrite2(uint8_t value) const
         { return digitalWrite(digiPin2(), value); }
     inline uint32_t pulse2(uint8_t state, uint32_t timeout =1000000L) const
@@ -74,10 +80,13 @@ public:
     // IRQ pin (INT1, shared across all ports)
     static void mode3(uint8_t value)
         { pinMode(digiPin3(), value); }
+    /**Reads the value of the I pin on all Ports. @return High or Low. */
     static uint8_t digiRead3()
         { return digitalRead(digiPin3()); }
+    /**Writes the value of the I pin on all Ports. @param value High or Low. */
     static void digiWrite3(uint8_t value)
         { return digitalWrite(digiPin3(), value); }
+    /**Writes a PWM value to the I pin of all Ports. */
     static void anaWrite3(uint8_t val)
         { analogWrite(digiPin3(), val); }
         
