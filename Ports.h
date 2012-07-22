@@ -20,6 +20,7 @@
 #define WRITE_RESULT void
 #endif
 
+/// Interface for JeeNode Ports - see http://jeelabs.net/projects/hardware/wiki/JeeNode
 class Port {
 protected:
 	///A Port's number.
@@ -330,7 +331,7 @@ public:
     void reset();
 };
 
-// interface for the UART Plug - see http://jeelabs.org/up1
+/// interface for the UART Plug - see http://jeelabs.org/up1
 class UartPlug : public Print {
     DeviceI2C dev;
     // avoid per-byte access, fill entire buffer instead to reduce I2C overhead
@@ -371,7 +372,7 @@ public:
     void setMulti(byte reg, ...) const;
 };
 
-// interface for the Lux Plug - see http://jeelabs.org/xp1
+/// Interface for the Lux Plug - see http://jeelabs.org/xp1
 class LuxPlug : public DeviceI2C {
     union { byte b[4]; word w[2]; } data;
 public:
@@ -407,15 +408,20 @@ public:
     word calcLux(byte iGain =0, byte tInt =2) const;
 };
 
-// interface for the Gravity Plug - see http://jeelabs.org/gp1
+/// Interface for the Gravity Plug - see http://jeelabs.org/gp1
 class GravityPlug : public DeviceI2C {
+    ///Data storage for getAxes() and sensitivity()
     union { byte b[6]; int w[3]; } data;
 public:
+    ///Constructor for Gravity Plug.
     GravityPlug (PortI2C& port) : DeviceI2C (port, 0x38) {}
-    
+
+    ///Setup GravityPlug. Call during setup()
     void begin() {}
-    void sensitivity(byte range, word bw =0); // range 2,4,8 and optional bw
-    
+    ///Set GravityPlug sensitivity. @param range 2,4,8 @param bw (optional) bandwidth.
+    void sensitivity(byte range, word bw =0);
+
+    ///Get accelleration data from GravityPlug. @return An array with 3 integers. (x,y,z) respectively.
     const int* getAxes();
 };
 
