@@ -343,8 +343,8 @@ void MemoryStream::reset () {
 #define RXLVL   (9 << 3)
 
 /**Set a UartPlug register.
- * @param reg The register to set.
- * @param value The value to write to the register.
+ * @param reg	The register to set.
+ * @param value	The value to write to the register.
  */
 void UartPlug::regSet (byte reg, byte value) {
   dev.send();
@@ -362,7 +362,7 @@ void UartPlug::regRead (byte reg) {
 }
 
 /**Initialize a UartPlug.
- * @param baud Baud rate for the serial port.
+ * @param baud	Baud rate for the serial port.
  */
 void UartPlug::begin (long baud) {
     word divisor = 230400 / baud;
@@ -409,7 +409,7 @@ void UartPlug::flush () {
 }
 
 /**Write data on the serial port of the UartPlug.
- * @param data Byte of data to send out.
+ * @param data	Byte of data to send out.
  */
 WRITE_RESULT UartPlug::write (byte data) {
     regSet(THR, data);
@@ -455,6 +455,9 @@ void DimmerPlug::setMulti(byte reg, ...) const {
     stop();
 }
 
+/**Set the gain mode of the 16x multiplier in the LuxPlug.
+ * @param high	Multiplier is off if 0, otherwise on.
+ */
 void LuxPlug::setGain(byte high) {
     send();
     write(0x81); // write to Timing regiser
@@ -462,6 +465,9 @@ void LuxPlug::setGain(byte high) {
     stop();
 }
 
+/**Read the raw data from the photodiodes.
+ * @return Two bytes containing the raw data read from the sensor.
+ */
 const word* LuxPlug::getData() {
     send();
     write(0xA0 | DATA0LOW);
@@ -478,6 +484,11 @@ const word* LuxPlug::getData() {
 #define RATIO_SCALE 9	// scale ratio by 2^9
 #define CH_SCALE    10	// scale channel values by 2^10 
 
+/**Calculate Lux value from the raw data retreived.
+ * @param iGain	gain, where 0:1X, 1:16X.
+ * @param tInt	Integration time, where 0:13.7mS, 1:100mS, 2:402mS, 3:Manual
+ * @return A 2 byte unsigned number containing the Lux value calculated.
+ */
 word LuxPlug::calcLux(byte iGain, byte tInt) const
 {
     unsigned long chScale; 

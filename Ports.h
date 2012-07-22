@@ -358,14 +358,16 @@ public:
     };
 
     LuxPlug (PortI2C& port, byte addr) : DeviceI2C (port, addr) {}
-    
+
+    /**Initialize the LuxPlug. Wait at least 1000 ms after calling this! */
     void begin() {
         send();
         write(0xC0 | CONTROL);
         write(3); // power up
         stop();
     }
-    
+
+    /**Power down the lux plug for low power usage.  */
     void poweroff() {
         send();
         write(0xC0 | CONTROL);
