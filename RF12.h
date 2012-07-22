@@ -41,9 +41,12 @@
 #define RF12_SLEEP 0
 #define RF12_WAKEUP -1
 
-extern volatile uint16_t rf12_crc;  // running crc value, should be zero at end
-extern volatile uint8_t rf12_buf[]; // recv/xmit buf including hdr & crc bytes
-extern long rf12_seq;               // seq number of encrypted packet (or -1)
+/// Running crc value, should be zero at end.
+extern volatile uint16_t rf12_crc;
+/// Recv/xmit buf including hdr & crc bytes
+extern volatile uint8_t rf12_buf[];
+/// Seq number of encrypted packet (or -1)
+extern long rf12_seq;
 
 // only needed if you want to init the SPI bus before rf12_initialize does it
 void rf12_spiInit(void);
