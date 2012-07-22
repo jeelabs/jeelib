@@ -25,21 +25,29 @@ protected:
     uint8_t portNum;
 
 #if defined(__AVR_ATtiny85__) || defined(__AVR_ATtiny45__)
+	/**@return Arduino digital pin number of a Port's D pin (uint8_t). */
     inline uint8_t digiPin() const
         { return 0; }
+	/**@return Arduino digital pin number of a Port's A pin (uint8_t). */
     inline uint8_t digiPin2() const
         { return 2; }
+	/**@return Arduino digital pin number of the I pin on all Ports (uint8_t). */
     static uint8_t digiPin3()
         { return 1; }
+    /**@return Arduino analog pin number of a Port's A pin (uint8_t). */
     inline uint8_t anaPin() const
         { return 0; }
 #else
+	/**@return Arduino digital pin number of a Port's D pin (uint8_t). */
     inline uint8_t digiPin() const
         { return portNum ? portNum + 3 : 18; }
+	/**@return Arduino digital pin number of a Port's A pin (uint8_t). */
     inline uint8_t digiPin2() const
         { return portNum ? portNum + 13 : 19; }
+	/**@return Arduino digital pin number of the I pin on all Ports (uint8_t). */
     static uint8_t digiPin3()
         { return 3; }
+    /**@return Arduino analog pin number of a Port's A pin (uint8_t). */
     inline uint8_t anaPin() const
         { return portNum - 1; }
 #endif
@@ -48,6 +56,7 @@ public:
     inline Port (uint8_t num) : portNum (num) {}
 
     // DIO pin
+    /**Set the pin mode of a Port's D pin. @param value Input or Output. */
     inline void mode(uint8_t value) const
         { pinMode(digiPin(), value); }
     /**Reads the value of a Port's D pin. @return High or Low. */
@@ -59,10 +68,13 @@ public:
     /**Writes a PWM value to a Port's D pin. */
     inline void anaWrite(uint8_t val) const
         { analogWrite(digiPin(), val); }
+    /**Applies the Arduino pulseIn() function on a Port's D pin. See: http://arduino.cc/en/Reference/pulseIn for more details.
+     */
     inline uint32_t pulse(uint8_t state, uint32_t timeout =1000000L) const
         { return pulseIn(digiPin(), state, timeout); }
     
     // AIO pin
+    /**Set the pin mode of a Port's A pin. @param value Input or Output. */
     inline void mode2(uint8_t value) const
         { pinMode(digiPin2(), value); }
     /**Reads an analog value from a Port's A pin. @return int [0..1023] */
@@ -74,10 +86,13 @@ public:
     /**Write High or Low to a Port's A pin. @param value High or Low. */
     inline void digiWrite2(uint8_t value) const
         { return digitalWrite(digiPin2(), value); }
+	/**Applies the Arduino pulseIn() function on a Port's A pin. See: http://arduino.cc/en/Reference/pulseIn for more details.
+     */
     inline uint32_t pulse2(uint8_t state, uint32_t timeout =1000000L) const
         { return pulseIn(digiPin2(), state, timeout); }
         
     // IRQ pin (INT1, shared across all ports)
+    /**Set the pin mode of the I pin on all Ports. @param value Input or Output. */
     static void mode3(uint8_t value)
         { pinMode(digiPin3(), value); }
     /**Reads the value of the I pin on all Ports. @return High or Low. */
@@ -89,8 +104,9 @@ public:
     /**Writes a PWM value to the I pin of all Ports. */
     static void anaWrite3(uint8_t val)
         { analogWrite(digiPin3(), val); }
-        
+    
     // both pins: data on DIO, clock on AIO
+    /**Applies Arduino shiftOut() on a with data on the D and clock on A pin of the Port. See: http://arduino.cc/en/Tutorial/ShiftOut */
     inline void shift(uint8_t bitOrder, uint8_t value) const
         { shiftOut(digiPin(), digiPin2(), bitOrder, value); }
     uint16_t shiftRead(uint8_t bitOrder, uint8_t count =8) const;
