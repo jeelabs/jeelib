@@ -342,18 +342,28 @@ void MemoryStream::reset () {
 #define LCR     (3 << 3)
 #define RXLVL   (9 << 3)
 
+/**Set a UartPlug register.
+ * @param reg The register to set.
+ * @param value The value to write to the register.
+ */
 void UartPlug::regSet (byte reg, byte value) {
   dev.send();
   dev.write(reg);
   dev.write(value);
 }
 
+/**Read a UartPlug register.
+ * @return reg The contents of the register read. 
+ */
 void UartPlug::regRead (byte reg) {
   dev.send();
   dev.write(reg);
   dev.receive();
 }
 
+/**Initialize a UartPlug.
+ * @param baud Baud rate for the serial port.
+ */
 void UartPlug::begin (long baud) {
     word divisor = 230400 / baud;
     regSet(LCR, 0x80);          // divisor latch enable
@@ -364,6 +374,9 @@ void UartPlug::begin (long baud) {
     dev.stop();
 }
 
+/**Test if UartPlug has incoming data.
+ * @return True if data in device buffer. False if no data in device buffer.
+ */
 byte UartPlug::available () {
     if (in != out)
         return 1;
@@ -380,16 +393,24 @@ byte UartPlug::available () {
     return 1;
 }
 
+/**Read two bytes from the UartPlug's serial input.
+ * @return Two bytes with the data read. 
+ */
 int UartPlug::read () {
     return available() ? rxbuf[out++] : -1;
 }
 
+/**Clear the RX and TX queues.
+ */
 void UartPlug::flush () {
     regSet(FCR, 0x07); // flush both RX and TX queues
     dev.stop();
     in = out;
 }
 
+/**Write data on the serial port of the UartPlug.
+ * @param data Byte of data to send out.
+ */
 WRITE_RESULT UartPlug::write (byte data) {
     regSet(THR, data);
     dev.stop();
