@@ -22,6 +22,7 @@
 
 class Port {
 protected:
+	/**A Port's number. */
     uint8_t portNum;
 
 #if defined(__AVR_ATtiny85__) || defined(__AVR_ATtiny45__)
@@ -53,6 +54,7 @@ protected:
 #endif
 
 public:
+	/**Contructor for a Port. */
     inline Port (uint8_t num) : portNum (num) {}
 
     // DIO pin
