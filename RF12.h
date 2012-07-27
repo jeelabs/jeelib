@@ -7,13 +7,18 @@
 
 #include <stdint.h>
 
-/// version 1 did not include the group code in the crc
-/// version 2 does include the group code in the crc
+// Version 1 did not include the group code in the crc
+// Version 2 does include the group code in the crc
+/// RF12 Protocol version.
 #define RF12_VERSION    2
 
+/// Shorthand for RF12 group byte in rf12_buf.
 #define rf12_grp        rf12_buf[0]
+/// Shorthand for RF12 header byte in rf12_buf.
 #define rf12_hdr        rf12_buf[1]
+/// Shorthand for RF12 length byte in rf12_buf.
 #define rf12_len        rf12_buf[2]
+/// Shorthand for first RF12 data byte in rf12_buf.
 #define rf12_data       (rf12_buf + 3)
 
 /// RF12 CTL bit mask.
@@ -49,60 +54,60 @@
 
 /// Running crc value, should be zero at end.
 extern volatile uint16_t rf12_crc;
-/// Recv/xmit buf including hdr & crc bytes
+/// Recv/xmit buf including hdr & crc bytes.
 extern volatile uint8_t rf12_buf[];
-/// Seq number of encrypted packet (or -1)
+/// Seq number of encrypted packet (or -1).
 extern long rf12_seq;
 
-/// Only needed if you want to init the SPI bus before rf12_initialize does it
+/// Only needed if you want to init the SPI bus before rf12_initialize does it.
 void rf12_spiInit(void);
 
-/// Call this once with the node ID, frequency band, and optional group
+/// Call this once with the node ID, frequency band, and optional group.
 uint8_t rf12_initialize(uint8_t id, uint8_t band, uint8_t group=0xD4);
 
 /// Initialize the RF12 module from settings stored in EEPROM by "RF12demo"
-/// don't call rf12_initialize() if you init the hardware with rf12_config()
-/// @return the node ID as 1..31 value (1..26 correspond to nodes 'A'..'Z')
+/// don't call rf12_initialize() if you init the hardware with rf12_config().
+/// @return the node ID as 1..31 value (1..26 correspond to nodes 'A'..'Z').
 uint8_t rf12_config(uint8_t show =1);
 
-/// Call this frequently, returns true if a packet has been received
+/// Call this frequently, returns true if a packet has been received.
 uint8_t rf12_recvDone(void);
 
-/// call this to check whether a new transmission can be started
-/// @return true when a new transmission may be started with rf12_sendStart()
+/// Call this to check whether a new transmission can be started.
+/// @return true when a new transmission may be started with rf12_sendStart().
 uint8_t rf12_canSend(void);
 
-/// Call this only when rf12_recvDone() or rf12_canSend() return true
+/// Call this only when rf12_recvDone() or rf12_canSend() return true.
 void rf12_sendStart(uint8_t hdr);
-/// Call this only when rf12_recvDone() or rf12_canSend() return true
+/// Call this only when rf12_recvDone() or rf12_canSend() return true.
 void rf12_sendStart(uint8_t hdr, const void* ptr, uint8_t len);
-/// Deprecated: use rf12_sendStart(hdr,ptr,len) followed by rf12_sendWait(sync)
+/// Deprecated: use rf12_sendStart(hdr,ptr,len) followed by rf12_sendWait(sync).
 void rf12_sendStart(uint8_t hdr, const void* ptr, uint8_t len, uint8_t sync);
 
-/// Wait for send to finish. @param mode sleep mode 0=none, 1=idle, 2=standby, 3=powerdown
+/// Wait for send to finish. @param mode sleep mode 0=none, 1=idle, 2=standby, 3=powerdown.
 void rf12_sendWait(uint8_t mode);
 
 /// This simulates OOK by turning the transmitter on and off via SPI commands.
 /// Use this only when the radio was initialized with a fake zero node ID.
 void rf12_onOff(uint8_t value);
 
-/// power off the RF12, ms > 0 sets watchdog to wake up again after N * 32 ms
-/// note: once off, calling this with -1 can be used to bring the RF12 back up
+/// Power off the RF12, ms > 0 sets watchdog to wake up again after N * 32 ms.
+/// @note once off, calling this with -1 can be used to bring the RF12 back up.
 void rf12_sleep(char n);
 
-/// @return true if the supply voltage is below 3.1V
+/// @return true if the supply voltage is below 3.1V.
 char rf12_lowbat(void);
 
-/// Set up the easy tranmission mode, arg is number of seconds between packets
+/// Set up the easy tranmission mode, arg is number of seconds between packets.
 void rf12_easyInit(uint8_t secs);
 
-/// Call this often to keep the easy transmission mode going
+/// Call this often to keep the easy transmission mode going.
 char rf12_easyPoll(void);
 
-/// Send new data using the easy transmission mode, buffer gets copied to driver
+/// Send new data using the easy transmission mode, buffer gets copied to driver.
 char rf12_easySend(const void* data, uint8_t size);
 
-/// Enable encryption (null arg disables it again)
+/// Enable encryption (null arg disables it again).
 void rf12_encrypt(const uint8_t*);
 
 /// Low-level control of the RFM12B via direct register access.
@@ -112,7 +117,7 @@ uint16_t rf12_control(uint16_t cmd);
 /// See http://blog.strobotics.com.au/2009/07/27/rfm12-tutorial-part-3a/
 /// Transmissions are packetized, don't assume you can sustain these speeds! 
 ///
-/// Note - data rates are approximate. For higher data rates you may need to
+/// @note Data rates are approximate. For higher data rates you may need to
 /// alter receiver radio bandwidth and transmitter modulator bandwidth.
 /// Note that bit 7 is a prescaler - don't just interpolate rates between
 /// RF12_DATA_RATE_3 and RF12_DATA_RATE_2.
