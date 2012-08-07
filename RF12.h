@@ -45,6 +45,8 @@ extern volatile uint16_t rf12_crc;  // running crc value, should be zero at end
 extern volatile uint8_t rf12_buf[]; // recv/xmit buf including hdr & crc bytes
 extern long rf12_seq;               // seq number of encrypted packet (or -1)
 
+void rf12_set_cs(uint8_t pin);
+
 // only needed if you want to init the SPI bus before rf12_initialize does it
 void rf12_spiInit(void);
 

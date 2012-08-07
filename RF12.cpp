@@ -120,6 +120,8 @@ enum {
     TXPRE1, TXPRE2, TXPRE3, TXSYN1, TXSYN2,
 };
 
+static uint8_t cs_pin = SS_BIT;     // address of this node
+
 static uint8_t nodeid;              // address of this node
 static uint8_t group;               // network group
 static volatile uint8_t rxfill;     // number of data bytes in rf12_buf
@@ -142,9 +144,17 @@ static uint32_t seqNum;             // encrypted send sequence number
 static uint32_t cryptKey[4];        // encryption key to use
 void (*crypter)(uint8_t);           // does en-/decryption (null if disabled)
 
+void rf12_set_cs(uint8_t pin)
+{
+  if (pin==10) cs_pin = 2;
+  if (pin==9) cs_pin = 1;
+  if (pin==8) cs_pin = 0;
+}
+
+
 void rf12_spiInit () {
-    bitSet(SS_PORT, SS_BIT);
-    bitSet(SS_DDR, SS_BIT);
+    bitSet(SS_PORT, cs_pin);
+    bitSet(SS_DDR, cs_pin);
     digitalWrite(SPI_SS, 1);
     pinMode(SPI_SS, OUTPUT);
     pinMode(SPI_MOSI, OUTPUT);
@@ -201,10 +211,10 @@ static uint16_t rf12_xferSlow (uint16_t cmd) {
 #if F_CPU > 10000000
     bitSet(SPCR, SPR0);
 #endif
-    bitClear(SS_PORT, SS_BIT);
+    bitClear(SS_PORT, cs_pin);
     uint16_t reply = rf12_byte(cmd >> 8) << 8;
     reply |= rf12_byte(cmd);
-    bitSet(SS_PORT, SS_BIT);
+    bitSet(SS_PORT, cs_pin);
 #if F_CPU > 10000000
     bitClear(SPCR, SPR0);
 #endif
@@ -214,10 +224,10 @@ static uint16_t rf12_xferSlow (uint16_t cmd) {
 #if OPTIMIZE_SPI
 static void rf12_xfer (uint16_t cmd) {
     // writing can take place at full speed, even 8 MHz works
-    bitClear(SS_PORT, SS_BIT);
+    bitClear(SS_PORT, cs_pin);
     rf12_byte(cmd >> 8) << 8;
     rf12_byte(cmd);
-    bitSet(SS_PORT, SS_BIT);
+    bitSet(SS_PORT, cs_pin);
 }
 #else
 #define rf12_xfer rf12_xferSlow
