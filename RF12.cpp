@@ -120,7 +120,7 @@ enum {
     TXPRE1, TXPRE2, TXPRE3, TXSYN1, TXSYN2,
 };
 
-static uint8_t cs_pin = SS_BIT;     // address of this node
+static uint8_t cs_pin = SS_BIT;     // chip select pin
 
 static uint8_t nodeid;              // address of this node
 static uint8_t group;               // network group
@@ -144,6 +144,7 @@ static uint32_t seqNum;             // encrypted send sequence number
 static uint32_t cryptKey[4];        // encryption key to use
 void (*crypter)(uint8_t);           // does en-/decryption (null if disabled)
 
+// function to set chip select
 void rf12_set_cs(uint8_t pin)
 {
   if (pin==10) cs_pin = 2;
