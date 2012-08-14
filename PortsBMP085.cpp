@@ -32,6 +32,7 @@ int32_t BMP085::getResult(uint8_t type) {
     return meas[type];
 }
 
+///Call this during setup() if you want to use calculate() later on.
 void BMP085::getCalibData() {
     readFromReg(0xAA);
     ac1 = readWord(0);
@@ -47,6 +48,10 @@ void BMP085::getCalibData() {
     md = readWord(1);
 }
 
+/**Calculate the temperature and pressure based on the values stored by the last call to measure().
+ * @param tval Variable temperature value.
+ * @param pval Raw pressure value.
+ */
 void BMP085::calculate(int16_t& tval, int32_t& pval) const {
     int32_t ut = meas[TEMP], up = meas[PRES];
     int32_t x1, x2, x3, b3, b5, b6, p;

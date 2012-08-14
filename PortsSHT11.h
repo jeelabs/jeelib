@@ -1,4 +1,4 @@
-// Port library interface to SHT11 sensors connected via "something like I2C"
+/// Port library interface to SHT11 sensors connected via "something like I2C" - see: http://jeelabs.net/projects/hardware/wiki/rb2
 // 2009-02-16 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 class SHT11 : public Port {

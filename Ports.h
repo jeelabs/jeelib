@@ -223,11 +223,11 @@ public:
         { addr = me << 1; }
 };
 
-// The millisecond timer can be used for timeouts up to 60000 milliseconds.
-// Setting the timeout to zero disables the timer.
-//
-// for periodic timeouts, poll the timer object with "if (timer.poll(123)) ..."
-// for one-shot timeouts, call "timer.set(123)" and poll as "if (timer.poll())"
+/// The millisecond timer can be used for timeouts up to 60000 milliseconds.
+/// Setting the timeout to zero disables the timer.
+///
+/// for periodic timeouts, poll the timer object with "if (timer.poll(123)) ..."
+/// for one-shot timeouts, call "timer.set(123)" and poll as "if (timer.poll())"
 
 class MilliTimer {
     word next;
@@ -241,47 +241,47 @@ public:
     void set(word ms);
 };
 
-// Low-power utility code using the Watchdog Timer (WDT). Requires a WDT interrupt handler, e.g.
-// EMPTY_INTERRUPT(WDT_vect);
+/// Low-power utility code using the Watchdog Timer (WDT). Requires a WDT interrupt handler, e.g.
+/// EMPTY_INTERRUPT(WDT_vect);
 class Sleepy {
 public:
-    // start the watchdog timer (or disable it if mode < 0)
+    /// start the watchdog timer (or disable it if mode < 0)
     static void watchdogInterrupts (char mode);
     
-    // enter low-power mode, wake up with watchdog, INT0/1, or pin-change
+    /// enter low-power mode, wake up with watchdog, INT0/1, or pin-change
     static void powerDown ();
     
-    // spend some time in low-power mode, the timing is only approximate
-    // returns 1 if all went normally, or 0 if some other interrupt occurred
+    /// spend some time in low-power mode, the timing is only approximate
+    /// returns 1 if all went normally, or 0 if some other interrupt occurred
     static byte loseSomeTime (word msecs);
 
-    // this must be called from your watchdog interrupt code
+    /// this must be called from your watchdog interrupt code
     static void watchdogEvent();
 };
 
-// simple task scheduler for times up to 6000 seconds
+/// simple task scheduler for times up to 6000 seconds
 class Scheduler {
     word* tasks;
     word remaining;
     byte maxTasks;
     MilliTimer ms100;
 public:
-    // initialize for a specified maximum number of tasks
+    /// initialize for a specified maximum number of tasks
     Scheduler (byte max);
     Scheduler (word* buf, byte max);
 
-    // return next task to run, -1 if there are none ready to run, but there are tasks waiting, or -2 if there are no tasks waiting (i.e. all are idle)
+    /// return next task to run, -1 if there are none ready to run, but there are tasks waiting, or -2 if there are no tasks waiting (i.e. all are idle)
     char poll();
-    // same as poll, but wait for event in power-down mode.
-    // Uses Sleepy::loseSomeTime() - see comments there re requiring the watchdog timer. 
+    /// same as poll, but wait for event in power-down mode.
+    /// Uses Sleepy::loseSomeTime() - see comments there re requiring the watchdog timer. 
     char pollWaiting();
     
-    // set a task timer, in tenths of seconds
+    /// set a task timer, in tenths of seconds
     void timer(byte task, word tenths);
-    // cancel a task timer
+    /// cancel a task timer
     void cancel(byte task);
     
-    // return true if a task timer is not running
+    /// return true if a task timer is not running
     byte idle(byte task) { return tasks[task] == ~0; }
 };
 
@@ -307,7 +307,7 @@ public:
     byte buttonCheck();
 };
 
-// interface for the Memory Plug - see http://jeelabs.org/mp1
+///Interface for the Memory Plug - see http://jeelabs.org/mp1
 class MemoryPlug : public DeviceI2C {
     uint32_t nextSave;
 public:
@@ -354,7 +354,7 @@ public:
     virtual WRITE_RESULT write(byte);
 };
 
-// interface for the Dimmer Plug - see http://jeelabs.org/dp1
+/// Interface for the Dimmer Plug - see http://jeelabs.org/dp1
 class DimmerPlug : public DeviceI2C {
 public:
     enum {
@@ -467,7 +467,7 @@ public:
     void send(const uint8_t* data, uint16_t bits);
 };
 
-// interface for the Heading Board - see http://jeelabs.org/hb1
+/// Interface for the Heading Board - see http://jeelabs.org/hb1
 class HeadingBoard : public PortI2C {
     DeviceI2C eeprom, adc, compass;
     Port aux;
@@ -489,8 +489,8 @@ public:
     void heading(int& xaxis, int& yaxis);
 };
 
-// interface for the Modern Device 3-axis Compass board
-// see http://shop.moderndevice.com/products/3-axis-compass
+/// Interface for the Modern Device 3-axis Compass board
+/// see http://shop.moderndevice.com/products/3-axis-compass
 class CompassBoard : public DeviceI2C {
     int read2 (byte last);
 public:
@@ -499,7 +499,7 @@ public:
     float heading();
 };
 
-// interface for the Proximity Plug - see http://jeelabs.org/yp1
+/// Interface for the Proximity Plug - see http://jeelabs.org/yp1
 class ProximityPlug : public DeviceI2C {
 public:
     enum {
@@ -518,33 +518,33 @@ public:
     byte getReg(byte reg) const;
 };
 
-// interface for the Analog Plug - see http://jeelabs.org/ap2
+/// Interface for the Analog Plug - see http://jeelabs.org/ap2
 class AnalogPlug : public DeviceI2C {
   byte config;
 public:
   AnalogPlug (const PortI2C& port, byte addr =0x69)
     : DeviceI2C (port, addr), config (0x1C) {}
   
-  // default mode is channel 1, continuous, 18-bit, gain x1
+  /// Default mode is channel 1, continuous, 18-bit, gain x1
   void begin (byte mode =0x1C);
-  // select a channel (1..4), must wait to read it out (up to 270 ms for 18-bit)
+  /// Select a channel (1..4), must wait to read it out (up to 270 ms for 18-bit)
   void select (byte channel);
-  // read out 4 bytes, caller will need to shift out the irrelevant lower bits
+  /// Read out 4 bytes, caller will need to shift out the irrelevant lower bits
   long reading ();
 };
 
-// interface for the DHT11 and DHT22 sensors, does not use floating point
+/// Interface for the DHT11 and DHT22 sensors, does not use floating point
 class DHTxx {
   byte pin;
 public:
   DHTxx (byte pinNum);
-  // results are returned in tenths of a degree and percent, respectively
+  /// Results are returned in tenths of a degree and percent, respectively
   bool reading (int& temp, int &humi);
 };
 
 #ifdef Stream_h // only available in recent Arduino IDE versions
 
-// simple parser for input data and one-letter commands
+/// Simple parser for input data and one-letter commands
 class InputParser {
 public:
     typedef struct {
@@ -553,14 +553,14 @@ public:
         void (*fun)();  // code to call for this command
     } Commands;
     
-    // set up with a buffer of specified size
+    /// Set up with a buffer of specified size
     InputParser (byte size, Commands PROGMEM*, Stream& =Serial);
     InputParser (byte* buf, byte size, Commands PROGMEM*, Stream& =Serial);
     
-    // number of data bytes
+    /// Number of data bytes
     byte count() { return fill; }
     
-    // call this frequently to check for incoming data
+    /// Call this frequently to check for incoming data
     void poll();
     
     InputParser& operator >> (char& v)      { return get(&v, 1); }
