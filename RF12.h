@@ -1,15 +1,14 @@
-/** RFM12B driver definitions
- *  2009-02-09 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
- */
+// RFM12B driver definitions
+// 2009-02-09 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #ifndef RF12_h
 #define RF12_h
 
 #include <stdint.h>
 
-// Version 1 did not include the group code in the crc
-// Version 2 does include the group code in the crc
 /// RF12 Protocol version.
+/// Version 1 did not include the group code in the crc.
+/// Version 2 does include the group code in the crc.
 #define RF12_VERSION    2
 
 /// Shorthand for RF12 group byte in rf12_buf.
@@ -43,7 +42,7 @@
 #define RF12_EEPROM_EKEY (RF12_EEPROM_ADDR + RF12_EEPROM_SIZE)
 #define RF12_EEPROM_ELEN 16
 
-// shorthand to simplify sending out the proper ACK when requested
+// shorthands to simplify sending out the proper ACK when requested
 #define RF12_WANTS_ACK ((rf12_hdr & RF12_HDR_ACK) && !(rf12_hdr & RF12_HDR_CTL))
 #define RF12_ACK_REPLY (rf12_hdr & RF12_HDR_DST ? RF12_HDR_CTL : \
             RF12_HDR_CTL | RF12_HDR_DST | (rf12_hdr & RF12_HDR_MASK))

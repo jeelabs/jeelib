@@ -285,18 +285,21 @@ public:
     byte idle(byte task) { return tasks[task] == ~0; }
 };
 
-// interface for the Blink Plug - see http://jeelabs.org/bp1
+///Interface for the Blink Plug - see http://jeelabs.org/bp1
 class BlinkPlug : public Port {
     MilliTimer debounce;
     byte leds, lastState, checkFlags;
 public:
+	///Enum containing shorthands for BlinkPlug button states.
     enum { ALL_OFF, ON1, OFF1, ON2, OFF2, SOME_ON, ALL_ON }; // for buttonCheck
-    
+
+    ///Constructor for the BlinkPlug class. @param port Portnumber the blinkplug is connected to.
     BlinkPlug (byte port)
         : Port (port), leds (0), lastState (0), checkFlags (0) {}
     
     void ledOn(byte mask);
     void ledOff(byte mask);
+    /// @return One byte containing the state of both leds.
     byte ledState() const { return leds; }
     
     byte state();
@@ -331,7 +334,7 @@ public:
     void reset();
 };
 
-/// interface for the UART Plug - see http://jeelabs.org/up1
+/// Interface for the UART Plug - see http://jeelabs.org/up1
 class UartPlug : public Print {
     DeviceI2C dev;
     // avoid per-byte access, fill entire buffer instead to reduce I2C overhead
@@ -425,7 +428,7 @@ public:
     const int* getAxes();
 };
 
-// interface for the Input Plug - see http://jeelabs.org/ip1
+/// Interface for the Input Plug - see http://jeelabs.org/ip1
 class InputPlug : public Port {
     uint8_t slow;
 public:
@@ -434,33 +437,33 @@ public:
     void select(uint8_t channel);
 };
 
-// interface for the Infrared Plug - see http://jeelabs.org/ir1
+///Interface for the Infrared Plug - see http://jeelabs.org/ir1
 class InfraredPlug : public Port {
     uint8_t slot, gap, buf [40];
     char fill;
     uint32_t prev;
 public:
-    // initialize with default values for NEC protocol
+    ///Initialize with default values for NEC protocol
     InfraredPlug (uint8_t num);
     
-    // set slot size (us*4) and end-of-data gap (us*256)
+    ///Set slot size (us*4) and end-of-data gap (us*256)
     void configure(uint8_t slot4, uint8_t gap256 =80);
     
-    // call this continuously or at least right after a pin change
+    ///Call this continuously or at least right after a pin change
     void poll();
     
-    // returns number of nibbles read, or 0 if not yet ready
+    ///Returns number of nibbles read, or 0 if not yet ready
     uint8_t done();
-    
-    // try to decode a received packet, return type of packet
-    // if recognized, the receive buffer will be overwritten with the results
+
     enum { UNKNOWN, NEC, NEC_REP };
+    ///Try to decode a received packet, return type of packet
+    ///if recognized, the receive buffer will be overwritten with the results
     uint8_t decoder(uint8_t nibbles);
     
-    // access to the receive buffer
+    ///Access to the receive buffer
     const uint8_t* buffer() { return buf; }
     
-    // send out a bit pattern, cycle time is the "slot4" config value
+    ///Send out a bit pattern, cycle time is the "slot4" config value
     void send(const uint8_t* data, uint16_t bits);
 };
 

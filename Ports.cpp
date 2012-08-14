@@ -192,6 +192,9 @@ void MilliTimer::set(word ms) {
         next = millis() + ms - 1;
 }
 
+/**Turn on the corresponding leds.
+ * @param mask 0 for neither led, 1 for the first led, 2 for the second led or 3 for both leds.
+ */
 void BlinkPlug::ledOn (byte mask) {
     if (mask & 1) {
         digiWrite(0);
@@ -204,6 +207,9 @@ void BlinkPlug::ledOn (byte mask) {
     leds |= mask; //TODO could be read back from pins, i.s.o. saving here
 }
 
+/**Turn off the corresponding leds.
+ * @param mask 0 for neither led, 1 for the first led, 2 for the second led or 3 for both leds.
+ */
 void BlinkPlug::ledOff (byte mask) {
     if (mask & 1) {
         mode(INPUT);
@@ -216,6 +222,10 @@ void BlinkPlug::ledOff (byte mask) {
     leds &= ~ mask; //TODO could be read back from pins, i.s.o. saving here
 }
 
+/**Read entire BlinkPlug state.
+ * @return One byte with the state of the leds on the 1st and 2nd least significant
+ * bits and the state of the buttons on the 3rd and 4th least significant bits.
+ */
 byte BlinkPlug::state () {
     byte saved = leds;
     ledOff(1+2);
@@ -224,7 +234,7 @@ byte BlinkPlug::state () {
     return result;
 }
 
-//TODO deprecated, use buttonCheck() !
+///@deprecated TODO deprecated, use buttonCheck() !
 byte BlinkPlug::pushed () {
     if (debounce.idle() || debounce.poll()) {
         byte newState = state();
@@ -238,6 +248,9 @@ byte BlinkPlug::pushed () {
     return 0;
 }
 
+/**Check the state of the buttons.
+ * @return The corresponding enum state.
+ */
 byte BlinkPlug::buttonCheck () {
     // collect button changes in the checkFlags bits, with proper debouncing
     if (debounce.idle() || debounce.poll()) {
@@ -552,6 +565,9 @@ const int* GravityPlug::getAxes() {
     return data.w;
 }
 
+/**Select the channel on the multiplexer.
+ * @param channel A number between 0..15.
+ */
 void InputPlug::select(uint8_t channel) {
     digiWrite(0);
     mode(OUTPUT);
