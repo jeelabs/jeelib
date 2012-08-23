@@ -76,7 +76,7 @@ public:
 
   void createChar(byte, byte[]);
   void setCursor(byte, byte); 
-  virtual WRITE_RESULT write(byte);
+  virtual size_t write(byte);
   void command(byte);
 protected:
   virtual void config() =0;

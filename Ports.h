@@ -13,13 +13,6 @@
 #include <avr/pgmspace.h>
 //#include <util/delay.h>
 
-// keep the ATtiny85 on the "old" conventions until arduino-tiny gets fixed
-#if ARDUINO >= 100 && !defined(__AVR_ATtiny84__) && !defined(__AVR_ATtiny85__) && !defined(__AVR_ATtiny44__) && !defined(__AVR_ATtiny45__)
-#define WRITE_RESULT size_t
-#else
-#define WRITE_RESULT void
-#endif
-
 class Port {
 protected:
     uint8_t portNum;
@@ -322,7 +315,7 @@ public:
     byte available();
     int read();
     void flush();
-    virtual WRITE_RESULT write(byte);
+    virtual size_t write(byte);
 };
 
 // interface for the Dimmer Plug - see http://jeelabs.org/dp1
