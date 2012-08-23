@@ -390,7 +390,7 @@ void UartPlug::flush () {
     in = out;
 }
 
-WRITE_RESULT UartPlug::write (byte data) {
+size_t UartPlug::write (byte data) {
     regSet(THR, data);
     dev.stop();
 #if ARDUINO >= 100 && !defined(__AVR_ATtiny84__) && !defined(__AVR_ATtiny85__) && !defined(__AVR_ATtiny44__) && !defined(__AVR_ATtiny45__)
