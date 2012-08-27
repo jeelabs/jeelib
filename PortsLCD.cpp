@@ -103,7 +103,7 @@ void LiquidCrystalBase::setCursor(byte col, byte row)
   command(LCD_SETDDRAMADDR | (col + row_offsets[row]));
 }
 
-// Turn the display on/off (quickly)
+/// Turn the display on/off (quickly)
 void LiquidCrystalBase::noDisplay() {
   _displaycontrol &= ~LCD_DISPLAYON;
   command(LCD_DISPLAYCONTROL | _displaycontrol);
@@ -113,7 +113,7 @@ void LiquidCrystalBase::display() {
   command(LCD_DISPLAYCONTROL | _displaycontrol);
 }
 
-// Turns the underline cursor on/off
+/// Turns the underline cursor on/off
 void LiquidCrystalBase::noCursor() {
   _displaycontrol &= ~LCD_CURSORON;
   command(LCD_DISPLAYCONTROL | _displaycontrol);
@@ -123,7 +123,7 @@ void LiquidCrystalBase::cursor() {
   command(LCD_DISPLAYCONTROL | _displaycontrol);
 }
 
-// Turn on and off the blinking cursor
+/// Turn on and off the blinking cursor
 void LiquidCrystalBase::noBlink() {
   _displaycontrol &= ~LCD_BLINKON;
   command(LCD_DISPLAYCONTROL | _displaycontrol);
@@ -133,7 +133,7 @@ void LiquidCrystalBase::blink() {
   command(LCD_DISPLAYCONTROL | _displaycontrol);
 }
 
-// These commands scroll the display without changing the RAM
+/// These commands scroll the display without changing the RAM
 void LiquidCrystalBase::scrollDisplayLeft(void) {
   command(LCD_CURSORSHIFT | LCD_DISPLAYMOVE | LCD_MOVELEFT);
 }
@@ -141,32 +141,32 @@ void LiquidCrystalBase::scrollDisplayRight(void) {
   command(LCD_CURSORSHIFT | LCD_DISPLAYMOVE | LCD_MOVERIGHT);
 }
 
-// This is for text that flows Left to Right
+/// This is for text that flows Left to Right
 void LiquidCrystalBase::leftToRight(void) {
   _displaymode |= LCD_ENTRYLEFT;
   command(LCD_ENTRYMODESET | _displaymode);
 }
 
-// This is for text that flows Right to Left
+/// This is for text that flows Right to Left
 void LiquidCrystalBase::rightToLeft(void) {
   _displaymode &= ~LCD_ENTRYLEFT;
   command(LCD_ENTRYMODESET | _displaymode);
 }
 
-// This will 'right justify' text from the cursor
+/// This will 'right justify' text from the cursor
 void LiquidCrystalBase::autoscroll(void) {
   _displaymode |= LCD_ENTRYSHIFTINCREMENT;
   command(LCD_ENTRYMODESET | _displaymode);
 }
 
-// This will 'left justify' text from the cursor
+/// This will 'left justify' text from the cursor
 void LiquidCrystalBase::noAutoscroll(void) {
   _displaymode &= ~LCD_ENTRYSHIFTINCREMENT;
   command(LCD_ENTRYMODESET | _displaymode);
 }
 
-// Allows us to fill the first 8 CGRAM locations
-// with custom characters
+/// Allows us to fill the first 8 CGRAM locations
+/// with custom characters
 void LiquidCrystalBase::createChar(byte location, byte charmap[]) {
   location &= 0x7; // we only have 8 locations 0-7
   command(LCD_SETCGRAMADDR | (location << 3));
@@ -277,7 +277,7 @@ void LiquidCrystal::config() {
   }
 }
 
-// write either command or data, with automatic 4/8-bit selection
+/// write either command or data, with automatic 4/8-bit selection
 void LiquidCrystal::send(byte value, byte mode) {
   digitalWrite(_rs_pin, mode);
 
@@ -363,7 +363,7 @@ void LiquidCrystalI2C::config() {
   backlight(); // start with backlight on
 }
 
-// write either command or data, with automatic 4/8-bit selection
+/// write either command or data, with automatic 4/8-bit selection
 void LiquidCrystalI2C::send(byte value, byte mode) {
   if (mode != 0)
     mode = MCP_REGSEL;

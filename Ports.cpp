@@ -192,6 +192,9 @@ void MilliTimer::set(word ms) {
         next = millis() + ms - 1;
 }
 
+/**Turn on the corresponding leds.
+ * @param mask 0 for neither led, 1 for the first led, 2 for the second led or 3 for both leds.
+ */
 void BlinkPlug::ledOn (byte mask) {
     if (mask & 1) {
         digiWrite(0);
@@ -204,6 +207,9 @@ void BlinkPlug::ledOn (byte mask) {
     leds |= mask; //TODO could be read back from pins, i.s.o. saving here
 }
 
+/**Turn off the corresponding leds.
+ * @param mask 0 for neither led, 1 for the first led, 2 for the second led or 3 for both leds.
+ */
 void BlinkPlug::ledOff (byte mask) {
     if (mask & 1) {
         mode(INPUT);
@@ -216,6 +222,10 @@ void BlinkPlug::ledOff (byte mask) {
     leds &= ~ mask; //TODO could be read back from pins, i.s.o. saving here
 }
 
+/**Read entire BlinkPlug state.
+ * @return One byte with the state of the leds on the 1st and 2nd least significant
+ * bits and the state of the buttons on the 3rd and 4th least significant bits.
+ */
 byte BlinkPlug::state () {
     byte saved = leds;
     ledOff(1+2);
@@ -224,7 +234,7 @@ byte BlinkPlug::state () {
     return result;
 }
 
-//TODO deprecated, use buttonCheck() !
+///@deprecated TODO deprecated, use buttonCheck() !
 byte BlinkPlug::pushed () {
     if (debounce.idle() || debounce.poll()) {
         byte newState = state();
@@ -238,6 +248,9 @@ byte BlinkPlug::pushed () {
     return 0;
 }
 
+/**Check the state of the buttons.
+ * @return The corresponding enum state.
+ */
 byte BlinkPlug::buttonCheck () {
     // collect button changes in the checkFlags bits, with proper debouncing
     if (debounce.idle() || debounce.poll()) {
@@ -342,18 +355,28 @@ void MemoryStream::reset () {
 #define LCR     (3 << 3)
 #define RXLVL   (9 << 3)
 
+/**Set a UartPlug register.
+ * @param reg	The register to set.
+ * @param value	The value to write to the register.
+ */
 void UartPlug::regSet (byte reg, byte value) {
   dev.send();
   dev.write(reg);
   dev.write(value);
 }
 
+/**Read a UartPlug register.
+ * @return reg The contents of the register read. 
+ */
 void UartPlug::regRead (byte reg) {
   dev.send();
   dev.write(reg);
   dev.receive();
 }
 
+/**Initialize a UartPlug.
+ * @param baud	Baud rate for the serial port.
+ */
 void UartPlug::begin (long baud) {
     word divisor = 230400 / baud;
     regSet(LCR, 0x80);          // divisor latch enable
@@ -364,6 +387,9 @@ void UartPlug::begin (long baud) {
     dev.stop();
 }
 
+/**Test if UartPlug has incoming data.
+ * @return True if data in device buffer. False if no data in device buffer.
+ */
 byte UartPlug::available () {
     if (in != out)
         return 1;
@@ -380,16 +406,24 @@ byte UartPlug::available () {
     return 1;
 }
 
+/**Read two bytes from the UartPlug's serial input.
+ * @return Two bytes with the data read. 
+ */
 int UartPlug::read () {
     return available() ? rxbuf[out++] : -1;
 }
 
+/**Clear the RX and TX queues.
+ */
 void UartPlug::flush () {
     regSet(FCR, 0x07); // flush both RX and TX queues
     dev.stop();
     in = out;
 }
 
+/**Write data on the serial port of the UartPlug.
+ * @param data	Byte of data to send out.
+ */
 WRITE_RESULT UartPlug::write (byte data) {
     regSet(THR, data);
     dev.stop();
@@ -434,6 +468,9 @@ void DimmerPlug::setMulti(byte reg, ...) const {
     stop();
 }
 
+/**Set the gain mode of the 16x multiplier in the LuxPlug.
+ * @param high	Multiplier is off if 0, otherwise on.
+ */
 void LuxPlug::setGain(byte high) {
     send();
     write(0x81); // write to Timing regiser
@@ -441,6 +478,9 @@ void LuxPlug::setGain(byte high) {
     stop();
 }
 
+/**Read the raw data from the photodiodes.
+ * @return Two bytes containing the raw data read from the sensor.
+ */
 const word* LuxPlug::getData() {
     send();
     write(0xA0 | DATA0LOW);
@@ -457,6 +497,11 @@ const word* LuxPlug::getData() {
 #define RATIO_SCALE 9	// scale ratio by 2^9
 #define CH_SCALE    10	// scale channel values by 2^10 
 
+/**Calculate Lux value from the raw data retreived.
+ * @param iGain	gain, where 0:1X, 1:16X.
+ * @param tInt	Integration time, where 0:13.7mS, 1:100mS, 2:402mS, 3:Manual
+ * @return A 2 byte unsigned number containing the Lux value calculated.
+ */
 word LuxPlug::calcLux(byte iGain, byte tInt) const
 {
     unsigned long chScale; 
@@ -520,6 +565,9 @@ const int* GravityPlug::getAxes() {
     return data.w;
 }
 
+/**Select the channel on the multiplexer.
+ * @param channel A number between 0..15.
+ */
 void InputPlug::select(uint8_t channel) {
     digiWrite(0);
     mode(OUTPUT);
