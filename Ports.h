@@ -13,8 +13,8 @@
 #include <avr/pgmspace.h>
 //#include <util/delay.h>
 
-// keep the ATtiny85 on the "old" conventions until arduino-tiny gets fixed
-#if ARDUINO >= 100 && !defined(__AVR_ATtiny84__) && !defined(__AVR_ATtiny85__) && !defined(__AVR_ATtiny44__) && !defined(__AVR_ATtiny45__)
+#if ARDUINO >= 100 
+// && !defined(__AVR_ATtiny84__) && !defined(__AVR_ATtiny85__) && !defined(__AVR_ATtiny44__) && !defined(__AVR_ATtiny45__) - un-comment to revert ATtiny85 back to "old conventions" -http://arduino.cc/forum/index.php/topic,51984.msg371307.html#msg371307
 #define WRITE_RESULT size_t
 #else
 #define WRITE_RESULT void
