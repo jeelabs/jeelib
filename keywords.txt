@@ -18,6 +18,7 @@
 #######################################
 # Methods and functions (KEYWORD2)
 #######################################
+rf12_set_cs	KEYWORD2
 rf12_initialize	KEYWORD2
 rf12_config	KEYWORD2
 rf12_recvDone	KEYWORD2

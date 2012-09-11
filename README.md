@@ -1,9 +1,9 @@
-Work in progress - see <http://forum.jeelabs.net/node/457>
+From github.com/jcw/jeelib
 
-You can download this project in either
-[zip](https://github.com/jcw/jeelib/zipball/master) or
-[tar](https://github.com/jcw/jeelib/tarball/master) formats.
+Added function to set RFM12B CS pin in a sketch. Usfull when using alternative hardware setups like the Open Kontrol Gateway
 
-Unpack the archive and rename the result to `JeeLib`.  
-Put it in the `libraries` folder in your Arduino sketches area.  
-Restart the Arduino IDE to make sure it sees the new files.
+When using this library the line
+
+rf12_set_cs(9) //9 for Kontrol Gateway - change to (10) for JeeNode/emonTx and NanodeRF
+
+must be added in setup before rf12initialize. 
