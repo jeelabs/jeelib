@@ -20,68 +20,94 @@
 #define WRITE_RESULT void
 #endif
 
+/// Interface for JeeNode Ports - see http://jeelabs.net/projects/hardware/wiki/JeeNode
 class Port {
 protected:
+	///A Port's number.
     uint8_t portNum;
 
 #if defined(__AVR_ATtiny85__) || defined(__AVR_ATtiny45__)
+	///@return Arduino digital pin number of a Port's D pin (uint8_t).
     inline uint8_t digiPin() const
         { return 0; }
+	///@return Arduino digital pin number of a Port's A pin (uint8_t).
     inline uint8_t digiPin2() const
         { return 2; }
+	///@return Arduino digital pin number of the I pin on all Ports (uint8_t).
     static uint8_t digiPin3()
         { return 1; }
+    ///@return Arduino analog pin number of a Port's A pin (uint8_t).
     inline uint8_t anaPin() const
         { return 0; }
 #else
+	///@return Arduino digital pin number of a Port's D pin (uint8_t).
     inline uint8_t digiPin() const
         { return portNum ? portNum + 3 : 18; }
+	///@return Arduino digital pin number of a Port's A pin (uint8_t).
     inline uint8_t digiPin2() const
         { return portNum ? portNum + 13 : 19; }
+	///@return Arduino digital pin number of the I pin on all Ports (uint8_t).
     static uint8_t digiPin3()
         { return 3; }
+    ///@return Arduino analog pin number of a Port's A pin (uint8_t).
     inline uint8_t anaPin() const
         { return portNum - 1; }
 #endif
 
 public:
+	///Contructor for a Port.
     inline Port (uint8_t num) : portNum (num) {}
 
     // DIO pin
+    ///Set the pin mode of a Port's D pin. @param value Input or Output.
     inline void mode(uint8_t value) const
         { pinMode(digiPin(), value); }
+    ///Reads the value of a Port's D pin. @return High or Low.
     inline uint8_t digiRead() const
         { return digitalRead(digiPin()); }
+	///Write High or Low to a Port's D pin. @param value High or Low.
     inline void digiWrite(uint8_t value) const
         { return digitalWrite(digiPin(), value); }
+    ///Writes a PWM value to a Port's D pin.
     inline void anaWrite(uint8_t val) const
         { analogWrite(digiPin(), val); }
+    ///Applies the Arduino pulseIn() function on a Port's D pin. See: http://arduino.cc/en/Reference/pulseIn for more details.
     inline uint32_t pulse(uint8_t state, uint32_t timeout =1000000L) const
         { return pulseIn(digiPin(), state, timeout); }
     
     // AIO pin
+    ///Set the pin mode of a Port's A pin. @param value Input or Output.
     inline void mode2(uint8_t value) const
         { pinMode(digiPin2(), value); }
+    ///Reads an analog value from a Port's A pin. @return int [0..1023]
     inline uint16_t anaRead() const
         { return analogRead(anaPin()); }        
+	///Reads the value of a Port's A pin. @return High or Low.
     inline uint8_t digiRead2() const
         { return digitalRead(digiPin2()); }
+    ///Write High or Low to a Port's A pin. @param value High or Low.
     inline void digiWrite2(uint8_t value) const
         { return digitalWrite(digiPin2(), value); }
+	///Applies the Arduino pulseIn() function on a Port's A pin. See: http://arduino.cc/en/Reference/pulseIn for more details.
     inline uint32_t pulse2(uint8_t state, uint32_t timeout =1000000L) const
         { return pulseIn(digiPin2(), state, timeout); }
         
     // IRQ pin (INT1, shared across all ports)
+    ///Set the pin mode of the I pin on all Ports. @param value Input or Output.
     static void mode3(uint8_t value)
         { pinMode(digiPin3(), value); }
+    ///Reads the value of the I pin on all Ports. @return High or Low.
     static uint8_t digiRead3()
         { return digitalRead(digiPin3()); }
+    ///Writes the value of the I pin on all Ports. @param value High or Low.
     static void digiWrite3(uint8_t value)
         { return digitalWrite(digiPin3(), value); }
+    ///Writes a PWM value to the I pin of all Ports.
     static void anaWrite3(uint8_t val)
         { analogWrite(digiPin3(), val); }
-        
+    
     // both pins: data on DIO, clock on AIO
+    ///Applies Arduino shiftOut() on a with data on the D and clock on A pin of the Port. See: http://arduino.cc/en/Tutorial/ShiftOut
     inline void shift(uint8_t bitOrder, uint8_t value) const
         { shiftOut(digiPin(), digiPin2(), bitOrder, value); }
     uint16_t shiftRead(uint8_t bitOrder, uint8_t count =8) const;
@@ -197,11 +223,11 @@ public:
         { addr = me << 1; }
 };
 
-// The millisecond timer can be used for timeouts up to 60000 milliseconds.
-// Setting the timeout to zero disables the timer.
-//
-// for periodic timeouts, poll the timer object with "if (timer.poll(123)) ..."
-// for one-shot timeouts, call "timer.set(123)" and poll as "if (timer.poll())"
+/// The millisecond timer can be used for timeouts up to 60000 milliseconds.
+/// Setting the timeout to zero disables the timer.
+///
+/// for periodic timeouts, poll the timer object with "if (timer.poll(123)) ..."
+/// for one-shot timeouts, call "timer.set(123)" and poll as "if (timer.poll())"
 
 class MilliTimer {
     word next;
@@ -215,62 +241,65 @@ public:
     void set(word ms);
 };
 
-// Low-power utility code using the Watchdog Timer (WDT). Requires a WDT interrupt handler, e.g.
-// EMPTY_INTERRUPT(WDT_vect);
+/// Low-power utility code using the Watchdog Timer (WDT). Requires a WDT interrupt handler, e.g.
+/// EMPTY_INTERRUPT(WDT_vect);
 class Sleepy {
 public:
-    // start the watchdog timer (or disable it if mode < 0)
+    /// start the watchdog timer (or disable it if mode < 0)
     static void watchdogInterrupts (char mode);
     
-    // enter low-power mode, wake up with watchdog, INT0/1, or pin-change
+    /// enter low-power mode, wake up with watchdog, INT0/1, or pin-change
     static void powerDown ();
     
-    // spend some time in low-power mode, the timing is only approximate
-    // returns 1 if all went normally, or 0 if some other interrupt occurred
+    /// spend some time in low-power mode, the timing is only approximate
+    /// returns 1 if all went normally, or 0 if some other interrupt occurred
     static byte loseSomeTime (word msecs);
 
-    // this must be called from your watchdog interrupt code
+    /// this must be called from your watchdog interrupt code
     static void watchdogEvent();
 };
 
-// simple task scheduler for times up to 6000 seconds
+/// simple task scheduler for times up to 6000 seconds
 class Scheduler {
     word* tasks;
     word remaining;
     byte maxTasks;
     MilliTimer ms100;
 public:
-    // initialize for a specified maximum number of tasks
+    /// initialize for a specified maximum number of tasks
     Scheduler (byte max);
     Scheduler (word* buf, byte max);
 
-    // return next task to run, -1 if there are none ready to run, but there are tasks waiting, or -2 if there are no tasks waiting (i.e. all are idle)
+    /// return next task to run, -1 if there are none ready to run, but there are tasks waiting, or -2 if there are no tasks waiting (i.e. all are idle)
     char poll();
-    // same as poll, but wait for event in power-down mode.
-    // Uses Sleepy::loseSomeTime() - see comments there re requiring the watchdog timer. 
+    /// same as poll, but wait for event in power-down mode.
+    /// Uses Sleepy::loseSomeTime() - see comments there re requiring the watchdog timer. 
     char pollWaiting();
     
-    // set a task timer, in tenths of seconds
+    /// set a task timer, in tenths of seconds
     void timer(byte task, word tenths);
-    // cancel a task timer
+    /// cancel a task timer
     void cancel(byte task);
     
-    // return true if a task timer is not running
+    /// return true if a task timer is not running
     byte idle(byte task) { return tasks[task] == ~0; }
 };
 
-// interface for the Blink Plug - see http://jeelabs.org/bp1
+///Interface for the Blink Plug - see http://jeelabs.org/bp1
 class BlinkPlug : public Port {
     MilliTimer debounce;
     byte leds, lastState, checkFlags;
 public:
+	///Enum containing shorthands for BlinkPlug button states.
     enum { ALL_OFF, ON1, OFF1, ON2, OFF2, SOME_ON, ALL_ON }; // for buttonCheck
-    
+
+    ///Constructor for the BlinkPlug class. @param port Portnumber the blinkplug is connected to.
     BlinkPlug (byte port)
         : Port (port), leds (0), lastState (0), checkFlags (0) {}
     
     void ledOn(byte mask);
     void ledOff(byte mask);
+    /// @return One byte containing the state of both leds.
     byte ledState() const { return leds; }
     
     byte state();
@@ -278,7 +307,7 @@ public:
     byte buttonCheck();
 };
 
-// interface for the Memory Plug - see http://jeelabs.org/mp1
+///Interface for the Memory Plug - see http://jeelabs.org/mp1
 class MemoryPlug : public DeviceI2C {
     uint32_t nextSave;
 public:
@@ -305,7 +334,7 @@ public:
     void reset();
 };
 
-// interface for the UART Plug - see http://jeelabs.org/up1
+/// Interface for the UART Plug - see http://jeelabs.org/up1
 class UartPlug : public Print {
     DeviceI2C dev;
     // avoid per-byte access, fill entire buffer instead to reduce I2C overhead
@@ -325,7 +354,7 @@ public:
     virtual WRITE_RESULT write(byte);
 };
 
-// interface for the Dimmer Plug - see http://jeelabs.org/dp1
+/// Interface for the Dimmer Plug - see http://jeelabs.org/dp1
 class DimmerPlug : public DeviceI2C {
 public:
     enum {
@@ -346,7 +375,7 @@ public:
     void setMulti(byte reg, ...) const;
 };
 
-// interface for the Lux Plug - see http://jeelabs.org/xp1
+/// Interface for the Lux Plug - see http://jeelabs.org/xp1
 class LuxPlug : public DeviceI2C {
     union { byte b[4]; word w[2]; } data;
 public:
@@ -358,14 +387,16 @@ public:
     };
 
     LuxPlug (PortI2C& port, byte addr) : DeviceI2C (port, addr) {}
-    
+
+    ///Initialize the LuxPlug. Wait at least 1000 ms after calling this!
     void begin() {
         send();
         write(0xC0 | CONTROL);
         write(3); // power up
         stop();
     }
-    
+
+    ///Power down the lux plug for low power usage.
     void poweroff() {
         send();
         write(0xC0 | CONTROL);
@@ -380,19 +411,24 @@ public:
     word calcLux(byte iGain =0, byte tInt =2) const;
 };
 
-// interface for the Gravity Plug - see http://jeelabs.org/gp1
+/// Interface for the Gravity Plug - see http://jeelabs.org/gp1
 class GravityPlug : public DeviceI2C {
+    ///Data storage for getAxes() and sensitivity()
     union { byte b[6]; int w[3]; } data;
 public:
+    ///Constructor for Gravity Plug.
     GravityPlug (PortI2C& port) : DeviceI2C (port, 0x38) {}
-    
+
+    ///Setup GravityPlug. Call during setup()
     void begin() {}
-    void sensitivity(byte range, word bw =0); // range 2,4,8 and optional bw
-    
+    ///Set GravityPlug sensitivity. @param range 2,4,8 @param bw (optional) bandwidth.
+    void sensitivity(byte range, word bw =0);
+
+    ///Get accelleration data from GravityPlug. @return An array with 3 integers. (x,y,z) respectively.
     const int* getAxes();
 };
 
-// interface for the Input Plug - see http://jeelabs.org/ip1
+/// Interface for the Input Plug - see http://jeelabs.org/ip1
 class InputPlug : public Port {
     uint8_t slow;
 public:
@@ -401,37 +437,37 @@ public:
     void select(uint8_t channel);
 };
 
-// interface for the Infrared Plug - see http://jeelabs.org/ir1
+///Interface for the Infrared Plug - see http://jeelabs.org/ir1
 class InfraredPlug : public Port {
     uint8_t slot, gap, buf [40];
     char fill;
     uint32_t prev;
 public:
-    // initialize with default values for NEC protocol
+    ///Initialize with default values for NEC protocol
     InfraredPlug (uint8_t num);
     
-    // set slot size (us*4) and end-of-data gap (us*256)
+    ///Set slot size (us*4) and end-of-data gap (us*256)
     void configure(uint8_t slot4, uint8_t gap256 =80);
     
-    // call this continuously or at least right after a pin change
+    ///Call this continuously or at least right after a pin change
     void poll();
     
-    // returns number of nibbles read, or 0 if not yet ready
+    ///Returns number of nibbles read, or 0 if not yet ready
     uint8_t done();
-    
-    // try to decode a received packet, return type of packet
-    // if recognized, the receive buffer will be overwritten with the results
+
     enum { UNKNOWN, NEC, NEC_REP };
+    ///Try to decode a received packet, return type of packet
+    ///if recognized, the receive buffer will be overwritten with the results
     uint8_t decoder(uint8_t nibbles);
     
-    // access to the receive buffer
+    ///Access to the receive buffer
     const uint8_t* buffer() { return buf; }
     
-    // send out a bit pattern, cycle time is the "slot4" config value
+    ///Send out a bit pattern, cycle time is the "slot4" config value
     void send(const uint8_t* data, uint16_t bits);
 };
 
-// interface for the Heading Board - see http://jeelabs.org/hb1
+/// Interface for the Heading Board - see http://jeelabs.org/hb1
 class HeadingBoard : public PortI2C {
     DeviceI2C eeprom, adc, compass;
     Port aux;
@@ -453,8 +489,8 @@ public:
     void heading(int& xaxis, int& yaxis);
 };
 
-// interface for the Modern Device 3-axis Compass board
-// see http://shop.moderndevice.com/products/3-axis-compass
+/// Interface for the Modern Device 3-axis Compass board
+/// see http://shop.moderndevice.com/products/3-axis-compass
 class CompassBoard : public DeviceI2C {
     int read2 (byte last);
 public:
@@ -463,7 +499,7 @@ public:
     float heading();
 };
 
-// interface for the Proximity Plug - see http://jeelabs.org/yp1
+/// Interface for the Proximity Plug - see http://jeelabs.org/yp1
 class ProximityPlug : public DeviceI2C {
 public:
     enum {
@@ -482,33 +518,33 @@ public:
     byte getReg(byte reg) const;
 };
 
-// interface for the Analog Plug - see http://jeelabs.org/ap2
+/// Interface for the Analog Plug - see http://jeelabs.org/ap2
 class AnalogPlug : public DeviceI2C {
   byte config;
 public:
   AnalogPlug (const PortI2C& port, byte addr =0x69)
     : DeviceI2C (port, addr), config (0x1C) {}
   
-  // default mode is channel 1, continuous, 18-bit, gain x1
+  /// Default mode is channel 1, continuous, 18-bit, gain x1
   void begin (byte mode =0x1C);
-  // select a channel (1..4), must wait to read it out (up to 270 ms for 18-bit)
+  /// Select a channel (1..4), must wait to read it out (up to 270 ms for 18-bit)
   void select (byte channel);
-  // read out 4 bytes, caller will need to shift out the irrelevant lower bits
+  /// Read out 4 bytes, caller will need to shift out the irrelevant lower bits
   long reading ();
 };
 
-// interface for the DHT11 and DHT22 sensors, does not use floating point
+/// Interface for the DHT11 and DHT22 sensors, does not use floating point
 class DHTxx {
   byte pin;
 public:
   DHTxx (byte pinNum);
-  // results are returned in tenths of a degree and percent, respectively
+  /// Results are returned in tenths of a degree and percent, respectively
   bool reading (int& temp, int &humi);
 };
 
 #ifdef Stream_h // only available in recent Arduino IDE versions
 
-// simple parser for input data and one-letter commands
+/// Simple parser for input data and one-letter commands
 class InputParser {
 public:
     typedef struct {
@@ -517,14 +553,14 @@ public:
         void (*fun)();  // code to call for this command
     } Commands;
     
-    // set up with a buffer of specified size
+    /// Set up with a buffer of specified size
     InputParser (byte size, Commands PROGMEM*, Stream& =Serial);
     InputParser (byte* buf, byte size, Commands PROGMEM*, Stream& =Serial);
     
-    // number of data bytes
+    /// Number of data bytes
     byte count() { return fill; }
     
-    // call this frequently to check for incoming data
+    /// Call this frequently to check for incoming data
     void poll();
     
     InputParser& operator >> (char& v)      { return get(&v, 1); }
