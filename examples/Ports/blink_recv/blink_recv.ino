@@ -1,5 +1,6 @@
 /// @dir blink_recv
 /// Ports library demo, this is the receiver, see also the blink_xmit example
+/// @see http://jeelabs.org/2010/12/11/rf12-acknowledgements/
 // 2009-02-14 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>

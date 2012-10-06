@@ -1,5 +1,6 @@
 /// @dir  dcf77demo
 /// Port demo, DCF77 radio signal decoder.
+/// @see http://jeelabs.org/2009/03/06/dcf77-clock-reception/
 // 2009-02-26 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>

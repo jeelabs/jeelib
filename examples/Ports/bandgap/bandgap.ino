@@ -1,5 +1,6 @@
 /// @dir bandgap
 /// Try reading the bandgap reference voltage to measure current VCC voltage.
+/// @see http://jeelabs.org/2012/05/12/improved-vcc-measurement/
 // 2012-04-22 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>

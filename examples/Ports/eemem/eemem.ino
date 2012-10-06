@@ -1,5 +1,6 @@
 /// @dir eemem
 /// Hooking up an 64 kbyte AT24C512B serial EEPROM via I2C.
+/// @see http://jeelabs.org/2009/09/19/memory-plug-v1/
 // 2009-07-03 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 //
 // see http://www.jeelabs.org/2009/07/06/external-memory/

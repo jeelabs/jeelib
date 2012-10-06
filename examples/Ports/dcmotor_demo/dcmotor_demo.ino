@@ -1,5 +1,6 @@
 /// @dir dcmotor_demo
 /// Demo for the DC Motor Plug.
+/// @see http://jeelabs.org/2010/11/30/meet-the-dc-motor-plug/
 // 2010-11-18 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>

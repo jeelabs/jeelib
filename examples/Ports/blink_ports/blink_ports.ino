@@ -1,5 +1,6 @@
 /// @dir blink_ports
 /// Ports library demo, blinks leds on all 4 ports in slightly different ways.
+/// @see http://jeelabs.org/2009/02/14/ports-library-for-arduino/
 // 2009-02-13 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>

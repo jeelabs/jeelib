@@ -1,5 +1,6 @@
 /// @dir blink_timers
 /// Blink two LEDs independently.
+/// @see http://jeelabs.org/2012/03/16/millitimer-example/
 // 2012-03-09 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>
