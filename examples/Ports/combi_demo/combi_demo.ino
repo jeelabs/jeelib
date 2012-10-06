@@ -1,4 +1,5 @@
-// Ports demo, interfacing to lots of things at the same time
+/// @dir  combi_demo
+/// Ports demo, interfacing to lots of things at the same time.
 // 2009-02-17 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 // this code is the combination of all sht11demo, bmp085demo, pir_demo, and

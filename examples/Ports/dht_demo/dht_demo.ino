@@ -1,4 +1,5 @@
-// Demo readout of the DHT11 or DHT22 temperature/humidity sensors.
+/// @dir dht_demo
+/// Demo readout of the DHT11 or DHT22 temperature/humidity sensors.
 // 2012-04-02 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>

@@ -1,4 +1,5 @@
-// Example indoor temp + humidty + barometer, mounted on a Graphics Board
+/// @dir indoor
+/// Example indoor temp + humidty + barometer, mounted on a Graphics Board.
 // 2010-11-17 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <ST7565.h>

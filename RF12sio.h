@@ -1,6 +1,9 @@
-// Streaming I/O layer on top of RF12 driver
 // 2009-05-07 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
+/// @file
+/// Streaming I/O layer on top of RF12 driver
+
+/// This class is NOT the %RF12 driver. It provides a way to construct packets.
 class RF12 {
     enum { F_EXT = -6, F_STR, F_8, F_4, F_2, F_1 };
     

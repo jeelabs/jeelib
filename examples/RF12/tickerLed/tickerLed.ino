@@ -1,4 +1,5 @@
-// Driver for the Conrad "lichtkrant" unit, i.e. scrolling LED ticker display
+/// @dir tickerLed
+/// Driver for the Conrad "lichtkrant" unit, i.e. scrolling LED ticker display.
 // 2011-10-25 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>

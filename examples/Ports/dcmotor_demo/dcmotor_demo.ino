@@ -1,4 +1,5 @@
-// Demo for the DC Motor Plug
+/// @dir dcmotor_demo
+/// Demo for the DC Motor Plug.
 // 2010-11-18 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>

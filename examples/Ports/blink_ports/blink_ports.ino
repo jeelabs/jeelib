@@ -1,4 +1,5 @@
-// Ports library demo, blinks leds on all 4 ports in slightly different ways
+/// @dir blink_ports
+/// Ports library demo, blinks leds on all 4 ports in slightly different ways.
 // 2009-02-13 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>

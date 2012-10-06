@@ -1,4 +1,5 @@
-// Demo for the SC16IS740 UART, connected via I2C
+/// @dir uart_demo
+/// Demo for the SC16IS740 UART, connected via I2C.
 // 2009-10-01 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>

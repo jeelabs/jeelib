@@ -1,4 +1,5 @@
-// Demo of the Proximity Plug, based on ProximityPlug class in the Ports library
+/// @dir proximity_demo
+/// Demo of the Proximity Plug, based on ProximityPlug class in Ports library.
 // 2010-03-19 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>

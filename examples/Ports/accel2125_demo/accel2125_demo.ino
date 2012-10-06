@@ -1,4 +1,5 @@
-// Port interface to the Parallax Memsic 2125 Accelerometer #28017
+/// @dir accel2125_demo
+/// Port interface to the Parallax Memsic 2125 Accelerometer # 28017.
 // 2009-02-18 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>

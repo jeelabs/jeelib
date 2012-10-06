@@ -1,4 +1,5 @@
-// Test encrypted communication, sender side
+/// @dir crypSend
+/// Test encrypted communication, sender side.
 // 2010-02-21 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>

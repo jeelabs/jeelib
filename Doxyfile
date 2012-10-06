@@ -938,7 +938,7 @@ HTML_FOOTER            =
 # HTML_EXTRA_STYLESHEET instead of this one, as it is more robust and this
 # tag will in the future become obsolete.
 
-HTML_STYLESHEET        = Doxygen.css
+HTML_STYLESHEET        = 
 
 # The HTML_EXTRA_STYLESHEET tag can be used to specify an additional
 # user-defined cascading style sheet that is included after the standard
@@ -948,7 +948,7 @@ HTML_STYLESHEET        = Doxygen.css
 # robust against future updates. Doxygen will copy the style sheet file to
 # the output directory.
 
-HTML_EXTRA_STYLESHEET  =
+HTML_EXTRA_STYLESHEET  = Doxymods.css
 
 # The HTML_EXTRA_FILES tag can be used to specify one or more extra images or
 # other source files which should be copied to the HTML output directory. Note
@@ -1189,7 +1189,7 @@ ENUM_VALUES_PER_LINE   = 4
 # used to set the initial width (in pixels) of the frame in which the tree
 # is shown.
 
-TREEVIEW_WIDTH         = 250
+TREEVIEW_WIDTH         = 200
 
 # When the EXT_LINKS_IN_WINDOW option is set to YES doxygen will open
 # links to external symbols imported via tag files in a separate window.

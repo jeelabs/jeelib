@@ -1,4 +1,5 @@
-// Experiment with time-controlled periodic reception.
+/// @dir timedRecv
+/// Experiment with time-controlled periodic reception.
 // 2011-06-24 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>

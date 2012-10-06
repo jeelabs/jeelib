@@ -370,7 +370,7 @@ void rf12_sendStart (uint8_t hdr, const void* ptr, uint8_t len) {
     rf12_sendStart(hdr);
 }
 
-// deprecated
+/// @deprecated Use the 3-arg version, followed by a call to rf12_sendWait.
 void rf12_sendStart (uint8_t hdr, const void* ptr, uint8_t len, uint8_t sync) {
     rf12_sendStart(hdr, ptr, len);
     rf12_sendWait(sync);

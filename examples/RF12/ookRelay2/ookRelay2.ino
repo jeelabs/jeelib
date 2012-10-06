@@ -1,4 +1,5 @@
-// Generalized decoder and relay for 868 MHz and 433 MHz OOK signals.
+/// @dir ookRelay2
+/// Generalized decoder and relay for 868 MHz and 433 MHz OOK signals.
 // 2010-04-11 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>

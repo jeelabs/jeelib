@@ -1,4 +1,5 @@
-// Send a remote command to take a snapshot on a Nikon camera, using infrared
+/// @dir snapNikon
+/// Send a remote command to take a snapshot on a Nikon camera, using infrared.
 // 2010-06-10 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 // IR LED connected between DIO1 and GND with a 33 ohm resistor in series

@@ -1,4 +1,5 @@
-// Send out a radio packet every minute, consuming as little power as possible
+/// @dir radioBlip
+/// Send out a radio packet every minute, consuming as little power as possible.
 // 2010-08-29 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>

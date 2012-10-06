@@ -1,4 +1,6 @@
-// Variant of isp_flash which supports the Flash Board with on-board EEPROM
+/// @dir isp_capture
+/// Variant of isp_flash which supports the Flash Board with on-board EEPROM.
+
 // Originally derived from http://arduino.cc/en/Tutorial/ArduinoISP
 // see http://news.jeelabs.org/2010/04/24/isp-plug/
 

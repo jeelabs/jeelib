@@ -2,7 +2,7 @@ JeeLib  {#index}
 ======
 
 JeeLib is an Arduino [IDE][1] library for the "ports" on [JeeNodes][2], the  
-RF12 wireless driver library, timers, low-power code, and several interface  
+%RF12 wireless driver library, timers, low-power code, and several interface  
 classes. With examples for many sensor & interface boards made by [JeeLabs][3].
 
 The latest source code for this project is maintained on [GitHub][6].  

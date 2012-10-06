@@ -1,4 +1,5 @@
-// Ports library demo, this is the transmitter, see also the blink_recv example
+/// @dir blink_xmit
+/// Ports library demo, this is the transmitter, see also blink_recv example.
 // 2009-02-14 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>

@@ -1,4 +1,5 @@
-// Tone generator based on a discrete DAC.
+/// @dir toneGen
+/// Tone generator based on a discrete DAC.
 // 2010-11-18 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>

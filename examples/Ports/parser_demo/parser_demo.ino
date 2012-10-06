@@ -1,4 +1,5 @@
-// Example o how to use the InputParser class
+/// @dir parser_demo
+/// Example o how to use the InputParser class.
 // 2010-10-23 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>

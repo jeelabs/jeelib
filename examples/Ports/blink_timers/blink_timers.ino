@@ -1,4 +1,5 @@
-// Blink two LEDs independently
+/// @dir blink_timers
+/// Blink two LEDs independently.
 // 2012-03-09 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>

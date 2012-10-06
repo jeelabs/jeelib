@@ -1,4 +1,5 @@
-// Experimental code to control four high-side DC power switches.
+/// @dir highside
+/// Experimental code to control four high-side DC power switches.
 // 2011-06-05 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>

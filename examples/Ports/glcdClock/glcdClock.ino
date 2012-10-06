@@ -1,4 +1,5 @@
-// Demo clock for the Graphics Board, this version runs on the internal clock.
+/// @dir glcdClock
+/// Demo clock for the Graphics Board, this version runs on the internal clock.
 // 2010-11-18 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <ST7565.h>

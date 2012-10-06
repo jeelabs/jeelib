@@ -1,4 +1,5 @@
-// Configure some values in EEPROM for easy config of the RF12 later on.
+/// @dir RF12_1byte
+/// Configure some values in EEPROM for easy config of the RF12 later on.
 // 2009-05-06 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 // this version adds flash memory support, 2009-11-19
@@ -29,6 +30,8 @@ static void activityLed (byte on) {
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 // RF12 configuration setup code
 
+// @struct RF12Config
+/// Definition of the data stored in EEPROM to remember the %RF12 configuration.
 typedef struct {
     byte nodeId;
     byte group;
@@ -168,7 +171,8 @@ static void kakuSend(char addr, byte device, byte on) {
 #define DF_DEVICE_ID    0x1F44      // see AT25DF041A datasheet
 #endif
 
-// structure of each page in the log buffer, size must be exactly 256 bytes
+/// @struct FlashPage
+/// Structure of each page in the log buffer, size must be exactly 256 bytes.
 typedef struct {
     byte data [248];
     word seqnum;
@@ -176,7 +180,8 @@ typedef struct {
     word crc;
 } FlashPage;
 
-// structure of consecutive entries in the data area of each FlashPage
+/// @struct FlashEntry
+/// Structure of consecutive entries in the data area of each FlashPage.
 typedef struct {
     byte length;
     byte offset;
@@ -520,6 +525,7 @@ char helpText1[] PROGMEM =
     "  <hchi>,<hclo>,<addr>,<cmd> f     - FS20 command (868 MHz)" "\n"
     "  <addr>,<dev>,<on> k              - KAKU command (433 MHz)" "\n"
 ;
+
 char helpText2[] PROGMEM = 
     "Flash storage (JeeLink v2 only):" "\n"
     "  d                                - dump all log markers" "\n"

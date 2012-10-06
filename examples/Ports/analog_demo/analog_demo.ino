@@ -1,4 +1,5 @@
-// Demo readout of the 4-channel 18-bit MCP3424 on the Analog Plug v2.
+/// @dir analog_demo
+/// Demo readout of the 4-channel 18-bit MCP3424 on the Analog Plug v2.
 // 2009-09-28 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>

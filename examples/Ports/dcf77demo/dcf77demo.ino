@@ -1,4 +1,5 @@
-// Port demo, DCF77 radio signal decoder
+/// @dir  dcf77demo
+/// Port demo, DCF77 radio signal decoder.
 // 2009-02-26 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>

@@ -152,10 +152,11 @@ void SHT11::writeStatus(uint8_t value) const {
     writeByte(value);
 }
 
-/**Take a measurement.
- * @param type SHT11::TEMP or SHT11::HUMI
- * @param delayFun Optional: Function used to wait a certain period before resetting the connection.
- * @return raw sensor value
+/** Take a measurement.
+ *  @param type SHT11::TEMP or SHT11::HUMI
+ *  @param delayFun Optional: Function used to wait a certain period before
+ *                              resetting the connection.
+ *  @return raw sensor value
  */
 uint8_t SHT11::measure(uint8_t type, void (*delayFun)()) {
     start();
@@ -184,9 +185,9 @@ uint8_t SHT11::measure(uint8_t type, void (*delayFun)()) {
 }
 
 #ifndef __AVR_ATtiny84__ || __AVR_ATtiny44__
-/**Calculate the current relative humidity and temperature.
- * @param rh_true Variable to store the true relative humidity into.
- * @param t_c Variable to store the temperature in degree celcius into.
+/** Calculate the current relative humidity and temperature.
+ *  @param rh_true Variable to store the true relative humidity into.
+ *  @param t_C Variable to store the temperature in degree celcius into.
  */
 void SHT11::calculate(float& rh_true, float& t_C) const {
     const float C1=-2.0468;
@@ -203,10 +204,10 @@ void SHT11::calculate(float& rh_true, float& t_C) const {
     if (rh_true < 0.1) rh_true = 0.1;
 } 
 
-/**Calculate the current dewpoint based on h and t.
- * @param h The relative humidity.
- * @param t The temperature.
- * @return The dewpoint in degrees C.
+/** Calculate the current dewpoint based on h and t.
+ *  @param h The relative humidity.
+ *  @param t The temperature.
+ *  @return The dewpoint in degrees C.
  */
 float SHT11::dewpoint(float h, float t) {
     float k = (log10(h)-2)/0.4343 + (17.62*t)/(243.12+t); 

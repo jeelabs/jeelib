@@ -1,9 +1,11 @@
-// Generalized decoder framework for 868 MHz and 433 MHz OOK signals.
+/// @file
+/// Generalized decoder framework for 868 MHz and 433 MHz OOK signals.
 // 2010-04-11 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <Arduino.h>
 #include <util/crc16.h>
 
+/// This is the general base class for implementing OOK decoders.
 class DecodeOOK {
 protected:
     byte bits, flip, state, pos, data[25];
@@ -122,6 +124,7 @@ public:
 
 // 433 MHz decoders
 
+/// OOK decoder for Oregon Scientific devices.
 class OregonDecoder : public DecodeOOK {
 public:
     OregonDecoder () {}
@@ -160,6 +163,7 @@ public:
     }
 };
 
+/// OOK decoder for Cresta devices.
 class CrestaDecoder : public DecodeOOK {
   // http://members.upc.nl/m.beukelaar/Crestaprotocol.pdf
 public:
@@ -198,6 +202,7 @@ public:
     }
 };
 
+/// OOK decoder for Klik-Aan-Klik-Uit devices.
 class KakuDecoder : public DecodeOOK {
 public:
     KakuDecoder () {}
@@ -247,6 +252,7 @@ public:
     }
 };
 
+/// OOK decoder for Klik-Aan-Klik-Uit type A devices.
 class KakuADecoder : public DecodeOOK {
     enum { Pu, P1, P5, P10 }; //pulsetypes: Pu = unknown, P1 = between 100 and 600uS, P5 = between 800 and 1800uS, P10 = between 2 and 3 mS
     uint8_t backBuffer[4]; //we need to keep a 4 bit history
@@ -323,6 +329,7 @@ class KakuADecoder : public DecodeOOK {
     }
 };
 
+/// OOK decoder for X11 over RF devices.
 class XrfDecoder : public DecodeOOK {
 public:
     XrfDecoder () {}
@@ -356,6 +363,7 @@ public:
     }
 };
 
+/// OOK decoder for FS20 type HEZ devices.
 class HezDecoder : public DecodeOOK {
 public:
     HezDecoder () {}
@@ -376,6 +384,7 @@ public:
     }
 };
 
+/// OOK decoder for Elro devices.
 class ElroDecoder : public DecodeOOK {
 public:
     ElroDecoder () {}
@@ -428,6 +437,7 @@ public:
 // see http://www.domoticaforum.eu/viewtopic.php?f=17&t=4960&start=90#p51118
 // there's some weirdness in this code, I've edited it a bit -jcw, 2011-10-16
 
+/// OOK decoder for Flamingo devices.
 class FlamingoDecoder : public DecodeOOK {
 public:
     FlamingoDecoder () {}
@@ -446,6 +456,7 @@ public:
     }
 };
 
+/// OOK decoder for Flamingo smoke devices.
 class SmokeDecoder : public DecodeOOK {
 public:
     SmokeDecoder () {}
@@ -464,6 +475,7 @@ public:
     }
 };
 
+/// OOK decoder for Byronbell devices.
 class ByronbellDecoder : public DecodeOOK {
 public:
     ByronbellDecoder () {}
@@ -481,6 +493,7 @@ public:
 
 // 868 MHz decoders
 
+/// OOK decoder for Visonic devices.
 class VisonicDecoder : public DecodeOOK {
 public:
     VisonicDecoder () {}
@@ -521,6 +534,7 @@ public:
     }
 };
 
+/// OOK decoder for FS20 type EM devices.
 class EMxDecoder : public DecodeOOK {
 public:
     EMxDecoder () : DecodeOOK (30) {} // ignore packets repeated within 3 sec
@@ -556,6 +570,7 @@ public:
     }
 };
 
+/// OOK decoder for FS20 type KS devices.
 class KSxDecoder : public DecodeOOK {
 public:
     KSxDecoder () {}
@@ -593,6 +608,7 @@ public:
     }
 };
 
+/// OOK decoder for FS20 type FS devices.
 class FSxDecoder : public DecodeOOK {
 public:
     FSxDecoder () {}
@@ -633,6 +649,7 @@ public:
 };
 
 // Dumb Arduino IDE pre-processing bug - can't put this in the main source file!
+/// Structure used to defined each entry in the decoder table.
 typedef struct {
     char typecode;
     const char* name;

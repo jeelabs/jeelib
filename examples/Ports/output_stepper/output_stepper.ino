@@ -1,4 +1,5 @@
-// Use Output Plug as a unipolar stepper motor driver.
+/// @dir output_stepper
+/// Use Output Plug as a unipolar stepper motor driver.
 // 2009-11-12 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 // see http://jeelabs.org/2009/11/17/meet-the-output-plug/
 

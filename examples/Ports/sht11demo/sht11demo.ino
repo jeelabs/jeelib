@@ -1,4 +1,5 @@
-// Ports demo, reads out a SHT11 sensor connected via "something like I2C"
+/// @dir sht11demo
+/// Ports demo, reads out a SHT11 sensor connected via "something like I2C".
 // 2009-02-16 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>

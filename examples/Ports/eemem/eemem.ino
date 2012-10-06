@@ -1,4 +1,5 @@
-// Hooking up an 64 kbyte AT24C512B serial EEPROM via I2C.
+/// @dir eemem
+/// Hooking up an 64 kbyte AT24C512B serial EEPROM via I2C.
 // 2009-07-03 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 //
 // see http://www.jeelabs.org/2009/07/06/external-memory/

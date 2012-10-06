@@ -1,4 +1,5 @@
-// Sample code to power down a JeeNode completely
+/// @dir powerdown_demo
+/// Sample code to power down a JeeNode completely.
 // 2010-08-16 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>

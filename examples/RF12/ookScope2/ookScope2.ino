@@ -1,4 +1,5 @@
-// Examine the pulse patterns coming from an OOK receiver (see also peekrf.pde)
+/// @dir ookScope2
+/// Examine the pulse patterns coming from an OOK receiver (see also peekrf).
 // 2010-04-10 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
 //
 // see http://news.jeelabs.org/2010/04/13/an-ook-scope/

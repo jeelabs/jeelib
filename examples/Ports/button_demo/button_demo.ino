@@ -1,4 +1,5 @@
-// Show how the BlinkPlug's buttonCheck function works
+/// @dir button_demo
+/// Show how the BlinkPlug's buttonCheck function works.
 // 2010-08-23 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>

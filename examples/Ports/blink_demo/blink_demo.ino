@@ -1,4 +1,5 @@
-// Demo of the BlinkPlug class
+/// @dir blink_demo
+/// Demo of the BlinkPlug class.
 // 2009-12-09 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>

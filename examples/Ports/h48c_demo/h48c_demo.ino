@@ -1,8 +1,10 @@
-// Ports demo, reads out the Parallax H48C 3-axis accelerometer #29123
+/// @dir h48c_demo
+/// Ports demo, reads out the Parallax H48C 3-axis accelerometer # 29123.
 // 2009-02-19 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>
 
+/// Interface to the Parallax H48C 3-axis accelerometer.
 class H48C : private Port {
     Port enable;
     

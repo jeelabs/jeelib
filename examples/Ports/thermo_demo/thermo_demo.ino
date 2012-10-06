@@ -1,4 +1,5 @@
-// Demo sketch for the Thermo Plug v1
+/// @dir thermo_demo
+/// Demo sketch for the Thermo Plug.
 // 2009-09-17 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>

@@ -1,8 +1,10 @@
-// Ports demo, reads out the Parallax HM55B compass module #29123
+/// @dir hm55b_demo
+/// Ports demo, reads out the Parallax HM55B compass module # 29123.
 // 2009-02-19 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>
 
+/// Interface to the Parallax HM55B compass module.
 class HM55B : private Port {
     Port enable;
     

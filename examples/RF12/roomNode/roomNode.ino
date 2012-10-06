@@ -1,4 +1,5 @@
-// New version of the Room Node, derived from rooms.pde
+/// @dir roomNode
+/// New version of the Room Node (derived from rooms.pde).
 // 2010-10-19 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 // see http://jeelabs.org/2010/10/20/new-roomnode-code/
@@ -68,6 +69,7 @@ struct {
     #define PIR_PULLUP      1   // set to one to pull-up the PIR input pin
     #define PIR_FLIP        0   // 0 or 1, to match PIR reporting high or low
     
+    /// Interface to a Passive Infrared motion sensor.
     class PIR : public Port {
         volatile byte value, changed;
         volatile uint32_t lastOn;

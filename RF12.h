@@ -1,8 +1,10 @@
-// RFM12B driver definitions
 // 2009-02-09 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #ifndef RF12_h
 #define RF12_h
+
+/// @file
+/// RFM12B driver definitions
 
 #include <stdint.h>
 
@@ -58,7 +60,8 @@ extern volatile uint8_t rf12_buf[];
 /// Seq number of encrypted packet (or -1).
 extern long rf12_seq;
 
-//Option to set RFM12 CS (or SS) pin for use on different hardware setups. Set to Dig10 by default for JeeNode. Can be Dig10, Dig9 or Dig8
+/// Option to set RFM12 CS (or SS) pin for use on different hardware setups.
+/// Set to Dig10 by default for JeeNode. Can be Dig10, Dig9 or Dig8
 void rf12_set_cs(uint8_t pin);
 
 /// Only needed if you want to init the SPI bus before rf12_initialize does it.
@@ -86,7 +89,8 @@ void rf12_sendStart(uint8_t hdr, const void* ptr, uint8_t len);
 /// Deprecated: use rf12_sendStart(hdr,ptr,len) followed by rf12_sendWait(sync).
 void rf12_sendStart(uint8_t hdr, const void* ptr, uint8_t len, uint8_t sync);
 
-/// Wait for send to finish. @param mode sleep mode 0=none, 1=idle, 2=standby, 3=powerdown.
+/// Wait for send to finish.
+/// @param mode sleep mode 0=none, 1=idle, 2=standby, 3=powerdown.
 void rf12_sendWait(uint8_t mode);
 
 /// This simulates OOK by turning the transmitter on and off via SPI commands.
@@ -106,7 +110,7 @@ void rf12_easyInit(uint8_t secs);
 /// Call this often to keep the easy transmission mode going.
 char rf12_easyPoll(void);
 
-/// Send new data using the easy transmission mode, buffer gets copied to driver.
+/// Send new data using easy transmission mode, buffer gets copied to driver.
 char rf12_easySend(const void* data, uint8_t size);
 
 /// Enable encryption (null arg disables it again).
