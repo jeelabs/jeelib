@@ -1,4 +1,5 @@
-// RFM12B driver implementation
+/// @file
+/// RFM12B driver implementation
 // 2009-02-09 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include "RF12.h"
@@ -234,7 +235,17 @@ static void rf12_xfer (uint16_t cmd) {
 #define rf12_xfer rf12_xferSlow
 #endif
 
-// access to the RFM12B internal registers with interrupts disabled
+/// @details
+/// This call provides direct access to the RFM12B registers. If you're careful
+/// to avoid configuring the wireless module in a way which stops the driver
+/// from functioning, this can be used to adjust frequencies, power levels,
+/// RSSI threshold, etc. See the RFM12B wireless module documentation.
+///
+/// This call will briefly disable interrupts to avoid clashes on the SPI bus.
+///
+/// Returns the 16-bit value returned by SPI. Probably only useful with a 
+/// "0x0000" status poll command.
+/// @param cmd RF12 command, topmost bits determines which register is affected.
 uint16_t rf12_control(uint16_t cmd) {
 #ifdef EIMSK
     bitClear(EIMSK, INT0);
@@ -316,6 +327,37 @@ static void rf12_recvStart () {
     rf12_xfer(RF_RECEIVER_ON);
 }
 
+#include <RF12.h> 
+#include <Ports.h> // needed to avoid a linker error :(
+
+byte rf12_recvDone();
+
+/// @details
+/// The timing of this function is relatively coarse, because SPI transfers are
+/// used to enable / disable the transmitter. This will add some jitter to the
+/// signal, probably in the order of 10 µsec.
+///
+/// If the result is true, then a packet has been received and is available for
+/// processing. The following global variables will be set:
+///
+/// * volatile byte rf12_hdr -
+///     Contains the header byte of the received packet - with flag bits and
+///     node ID of either the sender or the receiver.
+/// * volatile byte rf12_len -
+///     The number of data bytes in the packet. A value in the range 0 .. 66.
+/// * volatile byte rf12_data -
+///     A pointer to the received data.
+/// * volatile byte rf12_crc -
+///     CRC of the received packet, zero indicates correct reception. If != 0
+///     then rf12_hdr, rf12_len, and rf12_data should not be relied upon.
+///
+/// To send an acknowledgement, call rf12_sendStart() - but only right after
+/// rf12_recvDone() returns true. This is commonly done using these macros:
+///
+///     if(RF12_WANTS_ACK){
+///        rf12_sendStart(RF12_ACK_REPLY,0,0);
+///      }
+/// @see http://jeelabs.org/2010/12/11/rf12-acknowledgements/
 uint8_t rf12_recvDone () {
     if (rxstate == TXRECV && (rxfill >= rf12_len + 5 || rxfill >= RF_MAX)) {
         rxstate = TXIDLE;
@@ -335,6 +377,20 @@ uint8_t rf12_recvDone () {
     return 0;
 }
 
+/// @details
+/// Call this when you have some data to send. If it returns true, then you can
+/// use rf12_sendStart() to start the transmission. Else you need to wait and
+/// retry this call at a later moment.
+///
+/// Don't call this function if you have nothing to send, because rf12_canSend()
+/// will stop reception when it returns true. IOW, calling the function
+/// indicates your intention to send something, and once it returns true, you
+/// should follow through and call rf12_sendStart() to actually initiate a send.
+/// See [this weblog post](http://jeelabs.org/2010/05/20/a-subtle-rf12-detail/).
+///
+/// Note that even if you only want to send out packets, you still have to call
+/// rf12_recvDone() periodically, because it keeps the RFM12B logic going. If
+/// you don't, rf12_canSend() will never return true.
 uint8_t rf12_canSend () {
     // no need to test with interrupts disabled: state TXRECV is only reached
     // outside of ISR and we don't care if rxfill jumps from 0 to 1 here
@@ -364,6 +420,34 @@ void rf12_sendStart (uint8_t hdr) {
     rf12_xfer(RF_XMITTER_ON); // bytes will be fed via interrupts
 }
 
+/// @details
+/// Switch to transmission mode and send a packet.
+/// This can be either a request or a reply.
+///
+/// Notes
+/// -----
+///
+/// The rf12_sendStart() function may only be called in two specific situations:
+///
+/// * right after rf12_recvDone() returns true - used for sending replies / 
+///   acknowledgements
+/// * right after rf12_canSend() returns true - used to send requests out
+///
+/// Because transmissions may only be started when there is no other reception
+/// or transmission taking place.
+///
+/// The short form, i.e. "rf12_sendStart(hdr)" is for a special buffer-less
+/// transmit mode, as described in this
+/// [weblog post](http://jeelabs.org/2010/09/15/more-rf12-driver-notes/).
+///
+/// The call with 4 arguments, i.e. "rf12_sendStart(hdr, data, length, sync)" is
+/// deprecated, as described in that same weblog post. The recommended idiom is
+/// now to call it with 3 arguments, followed by a call to rf12_sendWait().
+/// @param hdr The header contains information about the destination of the
+///            packet to send, and flags such as whether this should be
+///            acknowledged - or if it actually is an acknowledgement.
+/// @param ptr Pointer to the data to send as packet.
+/// @param len Number of data bytes to send. Must be in the range 0 .. 65.
 void rf12_sendStart (uint8_t hdr, const void* ptr, uint8_t len) {
     rf12_len = len;
     memcpy((void*) rf12_data, ptr, len);
@@ -376,6 +460,15 @@ void rf12_sendStart (uint8_t hdr, const void* ptr, uint8_t len, uint8_t sync) {
     rf12_sendWait(sync);
 }
 
+/// @details
+/// Wait for completion of the preceding rf12_sendStart() call, using the
+/// specified low-power mode.
+/// @note rf12_sendWait() should only be called right after rf12_sendStart().
+/// @param mode Power-down mode during wait: 0 = NORMAL, 1 = IDLE, 2 = STANDBY,
+///             3 = PWR_DOWN. Values 2 and 3 can cause the millisecond time to 
+///             lose a few interrupts. Value 3 can only be used if the ATmega 
+///             fuses have been set for fast startup, i.e. 258 CK - the default
+///             Arduino fuse settings are not suitable for full power down.
 void rf12_sendWait (uint8_t mode) {
     // wait for packet to actually finish sending
     // go into low power mode, as interrupts are going to come in very soon
@@ -393,10 +486,35 @@ void rf12_sendWait (uint8_t mode) {
         }
 }
 
-/*!
-  Call this once with the node ID (0-31), frequency band (0-3), and
-  optional group (0-255 for RF12B, only 212 allowed for RF12).
-*/
+/// @details
+/// Call this once with the node ID (0-31), frequency band (0-3), and
+/// optional group (0-255 for RFM12B, only 212 allowed for RFM12).
+/// @param id The ID of this wireless node. ID's should be unique within the
+///           netGroup in which this node is operating. The ID range is 0 to 31,
+///           but only 1..30 are available for normal use. You can pass a single
+///           capital letter as node ID, with 'A' .. 'Z' corresponding to the
+///           node ID's 1..26, but this convention is now discouraged. ID 0 is
+///           reserved for OOK use, node ID 31 is special because it will pick
+///           up packets for any node (in the same netGroup).
+/// @param band This determines in which frequency range the wireless module
+///             will operate. The following pre-defined constants are available:
+///             RF12_433MHZ, RF12_868MHZ, RF12_915MHZ. You should use the one
+///             matching the module you have.
+/// @param g Net groups are used to separate nodes: only nodes in the same net
+///          group can communicate with each other. Valid values are 1 to 212. 
+///          This parameter is optional, it defaults to 212 (0xD4) when omitted.
+///          This is the only allowed value for RFM12 modules, only RFM12B
+///          modules support other group values.
+/// @returns the nodeId, to be compatible with rf12_config().
+///
+/// Programming Tips
+/// ----------------
+/// Note that rf12_initialize() does not use the EEprom netId and netGroup
+/// settings, nor does it change the EEPROM settings. To use the netId and
+/// netGroup settings saved in EEPROM use rf12_config() instead of
+/// rf12_initialize. The choice whether to use rf12_initialize() or
+/// rf12_config() at the top of every sketch is one of personal preference.
+/// To set EEPROM settings for use with rf12_config() use the RF12demo sketch.
 uint8_t rf12_initialize (uint8_t id, uint8_t band, uint8_t g) {
     nodeid = id;
     group = g;
@@ -468,10 +586,33 @@ uint8_t rf12_initialize (uint8_t id, uint8_t band, uint8_t g) {
     return nodeid;
 }
 
+/// @details
+/// This can be used to send out slow bit-by-bit On Off Keying signals to other
+/// devices such as remotely controlled power switches operating in the 433,
+/// 868, or 915 MHz bands.
+///
+/// To use this, you need to first call rf12initialize() with a zero node ID
+/// and the proper frequency band. Then call rf12onOff() in the exact timing
+/// you need for sending out the signal. Once done, either call rf12onOff(0) to
+/// turn the transmitter off, or reinitialize the wireless module completely
+/// with a call to rf12initialize().
+/// @param value Turn the transmitter on (if true) or off (if false).
+/// @note The timing of this function is relatively coarse, because SPI
+/// transfers are used to enable / disable the transmitter. This will add some
+/// jitter to the signal, probably in the order of 10 µsec.
 void rf12_onOff (uint8_t value) {
     rf12_xfer(value ? RF_XMITTER_ON : RF_IDLE_MODE);
 }
 
+/// @details
+/// This calls rf12_initialize() with settings obtained from EEPROM address
+/// 0x20 .. 0x3F. These settings can be filled in by the RF12demo sketch in the
+/// RFM12B library. If the checksum included in those bytes is not valid, 
+/// rf12_initialize() will not be called.
+///
+/// As side effect, rf12_config() also writes the current configuration to the
+/// serial port, ending with a newline.
+/// @returns the node ID obtained from EEPROM, or 0 if there was none.
 uint8_t rf12_config (uint8_t show) {
     uint16_t crc = ~0;
     for (uint8_t i = 0; i < RF12_EEPROM_SIZE; ++i)
@@ -498,6 +639,19 @@ uint8_t rf12_config (uint8_t show) {
     return nodeId & RF12_HDR_MASK;
 }
 
+/// @details
+/// This function can put the radio module to sleep and wake it up again.
+/// In sleep mode, the radio will draw only one or two microamps of current.
+///
+/// This function can also be used as low-power watchdog, by putting the radio
+/// to sleep and having it raise an interrupt between about 30 milliseconds
+/// and 4 seconds later.
+/// @param n If RF12SLEEP (0), put the radio to sleep - no scheduled wakeup. 
+///          If RF12WAKEUP (-1), wake the radio up so that the next call to 
+///          rf12_recvDone() can restore normal reception. If value is in the
+///          range 1 .. 127, then the radio will go to sleep and generate an 
+///          interrupt approximately 32*value miliiseconds later.
+/// @todo Figure out how to get the "watchdog" mode working reliably.
 void rf12_sleep (char n) {
     if (n < 0)
         rf12_control(RF_IDLE_MODE);
@@ -510,14 +664,50 @@ void rf12_sleep (char n) {
     rxstate = TXIDLE;
 }
 
+/// @details
+/// This checks the status of the RF12 low-battery detector. It wil be 1 when
+/// the supply voltage drops below 3.1V, and 0 otherwise. This can be used to
+/// detect an impending power failure, but there are no guarantees that the
+/// power still remaining will be sufficient to send or receive further packets.
 char rf12_lowbat () {
     return (rf12_control(0x0000) & RF_LBD_BIT) != 0;
 }
 
+/// @details
+/// Set up the easy transmission mechanism. The argument is the minimal number
+/// of seconds between new data packets (from 1 to 255). With 0 as argument,
+/// packets will be sent as fast as possible:
+///
+/// * On the 433 and 915 MHz frequency bands, this is fixed at 100 msec (10
+///   packets/second).
+/// 
+/// * On the 866 MHz band, the frequency depends on the number of bytes sent:
+///   for 1-byte packets, it will be up to 7 packets/second, for 66-byte bytes of
+///   data it will be around 1 packet/second.
+/// 
+/// This function should be called after the RF12 driver has been initialized,
+/// using either rf12_initialize() or rf12_config().
+/// @param secs The minimal number of seconds between new data packets (from 1 
+///             to 255). With a 0 argument, packets will be sent as fast as 
+///             possible: on the 433 and 915 MHz frequency bands, this is fixed 
+///             at 100 msec (10 packets/second). On 866 MHz, the frequency 
+///             depends on the number of bytes sent: for 1-byte packets, it will 
+///             be up to 7 packets/second, for 66-byte bytes of data it will be 
+///             approx. 1 packet/second.
+/// @note To be used in combination with rf12_easyPoll() and rf12_easySend().
 void rf12_easyInit (uint8_t secs) {
     ezInterval = secs;
 }
 
+/// @details
+/// This needs to be called often to keep the easy transmission mechanism going, 
+/// i.e. once per millisecond or more in normal use. Failure to poll frequently 
+/// enough is relatively harmless but may lead to lost acknowledgements.
+/// @returns 1 = an ack has been received with actual data in it, use rf12len
+///          and rf12data to access it. 0 = there is nothing to do, the last 
+///          send has been ack'ed or more than 8 re-transmits have failed.
+///          -1 = still sending or waiting for an ack to come in
+/// @note To be used in combination with rf12_easyInit() and rf12_easySend().
 char rf12_easyPoll () {
     if (rf12_recvDone() && rf12_crc == 0) {
         byte myAddr = nodeid & RF12_HDR_MASK;
@@ -551,6 +741,28 @@ char rf12_easyPoll () {
     return ezPending ? -1 : 0;
 }
 
+/// @details
+/// Submit some data bytes to send using the easy transmission mechanism. The
+/// data bytes will be copied to an internal buffer since the actual send may
+/// take place later than specified, and may need to be re-transmitted in case
+/// packets are lost of damaged in transit.
+///
+/// Packets will be sent no faster than the rate specified in the
+/// rf12_easyInit() call, even if called more often.
+///
+/// Only packets which differ from the previous packet will actually be sent.
+/// To force re-transmission even if the data hasn't changed, call 
+/// "rf12_easySend(0,0)". This can be used to give a "sign of life" every once
+/// in a while, and to recover when the receiving node has been rebooted and no
+/// longer has the previous data.
+///
+/// The return value indicates whether a new packet transmission will be started
+/// (1), or the data is the same as before and no send is needed (0).
+///
+/// Note that you also have to call rf12_easyPoll periodically, because it keeps
+/// the RFM12B logic going. If you don't, rf12_easySend() will never send out
+/// any packets.
+/// @note To be used in combination with rf12_easyInit() and rf12_easyPoll().
 char rf12_easySend (const void* data, uint8_t size) {
     if (data != 0 && size != 0) {
         if (ezNextSend[0] == 0 && size == ezSendLen &&
@@ -619,6 +831,31 @@ static void cryptFun (uint8_t send) {
     }
 }
 
+/// @details
+/// This enables or disables encryption using the public domain XXTEA algorithm
+/// by David Wheeler. The payload will be extended with 1 .. 4 bytes, containing
+/// a 6..30-bit sequence number which is incremented in the sender for each new
+/// packet.
+///
+/// The number of bits sent across depends on the number of padding bytes needed
+/// to make the resulting payload an exact mulitple of 4 bytes. A longer
+/// sequence number field can provide more protection against replay attacks
+/// (note that verification of this sequence number must be implemented in the
+/// receiver code).
+///
+/// Encrypted packets (and acknowledgements) must be 4..62 bytes long. Packets
+/// less than 4 bytes will not be encrypted. On reception, the payload length is
+/// adjusted back to the original length passed to rf12_sendStart().
+///
+/// There is a "long rf12seq" global which is set to the received sequence
+/// number (only valid right after rf12recvDone() returns true). When encryption
+/// is not enabled, this global is set to -1.
+/// @param key Pointer to a 16-byte (128-bit) encryption key to use for all 
+///            packet data. A null pointer disables encryption again. Note: 
+///            this is an EEPROM address, not RAM! - RF12_EEPROM_EKEY is a great
+///            value to use, as defined in the include file, but another address
+///            can be specified if needed.
+/// @see http://jeelabs.org/2010/02/23/secure-transmissions/
 void rf12_encrypt (const uint8_t* key) {
     // by using a pointer to cryptFun, we only link it in when actually used
     if (key != 0) {
