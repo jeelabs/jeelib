@@ -22,6 +22,12 @@
 #define PWM_CHANGE  0x30    // an analog (pwm) value was changed on port 2..3
 #define ANA_MASK    0x0F    // an analog read was requested on port 1..4
 
+/// Shift a number of bites in to read them.
+/// @param bitOrder How to shift bits in or out: either LSBFIRST (0) or
+///                 MSBFIRST (1), where LSB stands for Least Significant
+///                 Bit and MSB for Most Significant Bit.
+/// @param count The number of bits to shift in or out. Must be in the
+/// range 1 .. 16, the default is 8.
 uint16_t Port::shiftRead(uint8_t bitOrder, uint8_t count) const {
     uint16_t value = 0, mask = bit(LSBFIRST ? 0 : count - 1);
     for (uint8_t i = 0; i < count; ++i) {
@@ -39,6 +45,16 @@ uint16_t Port::shiftRead(uint8_t bitOrder, uint8_t count) const {
     return value;
 }
 
+/// The shiftWrite() call is similar but more general than the shift() call
+/// in that it allows an adjustable number of bits to be sent, not just 8.
+/// @param bitOrder How to shift bits in or out: either LSBFIRST (0) or
+///                 MSBFIRST (1), where LSB stands for Least Significant
+///                 Bit and MSB for Most Significant Bit.
+/// @param value The value to shift out, with as many lower bits as needed.
+/// This argument is a byte for shift() and a word for the more general
+/// shiftWrite() function.
+/// @param count The number of bits to shift in or out. Must be in the
+/// range 1 .. 16, the default is 8.
 void Port::shiftWrite(uint8_t bitOrder, uint16_t value, uint8_t count) const {
     uint16_t mask = bit(LSBFIRST ? 0 : count - 1);
     for (uint8_t i = 0; i < count; ++i) {

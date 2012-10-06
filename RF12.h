@@ -8,50 +8,51 @@
 
 #include <stdint.h>
 
-/// RF12 Protocol version.
+/// RFM12B Protocol version.
 /// Version 1 did not include the group code in the crc.
 /// Version 2 does include the group code in the crc.
 #define RF12_VERSION    2
 
-/// Shorthand for RF12 group byte in rf12_buf.
+/// Shorthand for RFM12B group byte in rf12_buf.
 #define rf12_grp        rf12_buf[0]
-/// Shorthand for RF12 header byte in rf12_buf.
+/// Shorthand for RFM12B header byte in rf12_buf.
 #define rf12_hdr        rf12_buf[1]
-/// Shorthand for RF12 length byte in rf12_buf.
+/// Shorthand for RFM12B length byte in rf12_buf.
 #define rf12_len        rf12_buf[2]
-/// Shorthand for first RF12 data byte in rf12_buf.
+/// Shorthand for first RFM12B data byte in rf12_buf.
 #define rf12_data       (rf12_buf + 3)
 
-/// RF12 CTL bit mask.
+/// RFM12B CTL bit mask.
 #define RF12_HDR_CTL    0x80
-/// RF12 DST bit mask.
+/// RFM12B DST bit mask.
 #define RF12_HDR_DST    0x40
-/// RF12 ACK bit mask.
+/// RFM12B ACK bit mask.
 #define RF12_HDR_ACK    0x20
-/// RF12 HDR bit mask.
+/// RFM12B HDR bit mask.
 #define RF12_HDR_MASK   0x1F
 
-/// RF12 Maximum message size in bytes.
+/// RFM12B Maximum message size in bytes.
 #define RF12_MAXDATA    66
 
-#define RF12_433MHZ     1
-#define RF12_868MHZ     2
-#define RF12_915MHZ     3
+#define RF12_433MHZ     1   ///< RFM12B 433 MHz frequency band.
+#define RF12_868MHZ     2   ///< RFM12B 868 MHz frequency band.
+#define RF12_915MHZ     3   ///< RFM12B 915 MHz frequency band.
 
 // EEPROM address range used by the rf12_config() code
-#define RF12_EEPROM_ADDR ((uint8_t*) 0x20)
-#define RF12_EEPROM_SIZE 32
-#define RF12_EEPROM_EKEY (RF12_EEPROM_ADDR + RF12_EEPROM_SIZE)
-#define RF12_EEPROM_ELEN 16
+#define RF12_EEPROM_ADDR ((uint8_t*) 0x20)  ///< Starting offset.
+#define RF12_EEPROM_SIZE 32                 ///< Number of bytes.
+#define RF12_EEPROM_EKEY (RF12_EEPROM_ADDR + RF12_EEPROM_SIZE) ///< EE start.
+#define RF12_EEPROM_ELEN 16                 ///< EE number of bytes.
 
-// shorthands to simplify sending out the proper ACK when requested
+/// Shorthand to simplify detecting a request for an ACK.
 #define RF12_WANTS_ACK ((rf12_hdr & RF12_HDR_ACK) && !(rf12_hdr & RF12_HDR_CTL))
+/// Shorthand to simplify sending out the proper ACK reply.
 #define RF12_ACK_REPLY (rf12_hdr & RF12_HDR_DST ? RF12_HDR_CTL : \
             RF12_HDR_CTL | RF12_HDR_DST | (rf12_hdr & RF12_HDR_MASK))
             
 // options for RF12_sleep()
-#define RF12_SLEEP 0
-#define RF12_WAKEUP -1
+#define RF12_SLEEP 0        ///< Enter sleep mode.
+#define RF12_WAKEUP -1      ///< Wake up from sleep mode.
 
 /// Running crc value, should be zero at end.
 extern volatile uint16_t rf12_crc;
@@ -64,13 +65,13 @@ extern long rf12_seq;
 /// Set to Dig10 by default for JeeNode. Can be Dig10, Dig9 or Dig8
 void rf12_set_cs(uint8_t pin);
 
-/// Only needed if you want to init the SPI bus before rf12_initialize does it.
+/// Only needed if you want to init the SPI bus before rf12_initialize() does.
 void rf12_spiInit(void);
 
 /// Call this once with the node ID, frequency band, and optional group.
 uint8_t rf12_initialize(uint8_t id, uint8_t band, uint8_t group=0xD4);
 
-/// Initialize the RF12 module from settings stored in EEPROM by "RF12demo"
+/// Initialize the RFM12B module from settings stored in EEPROM by "RF12demo"
 /// don't call rf12_initialize() if you init the hardware with rf12_config().
 /// @return the node ID as 1..31 value (1..26 correspond to nodes 'A'..'Z').
 uint8_t rf12_config(uint8_t show =1);
@@ -97,8 +98,8 @@ void rf12_sendWait(uint8_t mode);
 /// Use this only when the radio was initialized with a fake zero node ID.
 void rf12_onOff(uint8_t value);
 
-/// Power off the RF12, ms > 0 sets watchdog to wake up again after N * 32 ms.
-/// @note once off, calling this with -1 can be used to bring the RF12 back up.
+/// Power off the RFM12B, ms > 0 sets watchdog to wake up again after N * 32 ms.
+/// @note if off, calling this with -1 can be used to bring the RFM12B back up.
 void rf12_sleep(char n);
 
 /// @return true if the supply voltage is below 3.1V.

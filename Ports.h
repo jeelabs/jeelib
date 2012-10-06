@@ -25,6 +25,9 @@
 /// Interface for JeeNode Ports - see the wiki docs for
 /// [JeeNodes](http://jeelabs.net/projects/hardware/wiki/JeeNode) and
 /// [pinouts](http://jeelabs.net/projects/hardware/wiki/Pinouts).
+/// The Ports class is a thin wrapper around the Arduino's digitalRead(),
+/// digitalWrite(), analogRead(), etc. functions. It was designed to simplify
+/// the use of the four standard port headers on JeeNodes.
 class Port {
 protected:
 	/// The port number is a small integer mathing the hardware port used.
@@ -65,8 +68,9 @@ public:
 
     // DIO pin
 
-    /// Set the pin mode of a Port's D pin.
-    /// @param value Input or Output.
+    /// Set the pin mode of a Port's D pin. The mode() function member sets the
+    /// I/O data direction of the DIO pin associated with a specific port.
+    /// @param value INPUT or OUTPUT.
     inline void mode(uint8_t value) const
         { pinMode(digiPin(), value); }
     /// Reads the value of a Port's D pin.
@@ -81,14 +85,21 @@ public:
     inline void anaWrite(uint8_t val) const
         { analogWrite(digiPin(), val); }
     /// Applies the Arduino pulseIn() function on a Port's D pin.
+    /// Measure the length of a pulse in microseconds on the DIO (pulse) or
+    /// AIO (pulse2) line. The optional timeout value specifies how many
+    /// microseconds to wait for a pulse - of none is received, 0 is returned.
     /// See: http://arduino.cc/en/Reference/pulseIn for more details.
+    /// @param state Polarity of the pulse to wait for - HIGH (1) or LOW (0).
+    /// @param timeout Max number of microseconds to wait. \
+    ///                Default is 1,000,000, i.e. 1 second.
     inline uint32_t pulse(uint8_t state, uint32_t timeout =1000000L) const
         { return pulseIn(digiPin(), state, timeout); }
     
     // AIO pin
 
-    /// Set the pin mode of a Port's A pin.
-    /// @param value Input or Output.
+    /// Set the pin mode of a Port's A pin. The mode2() function member sets
+    /// the I/O data direction of the AIO pin associated with a specific port.
+    /// @param value INPUT or OUTPUT.
     inline void mode2(uint8_t value) const
         { pinMode(digiPin2(), value); }
     /// Reads an analog value from a Port's A pin.
@@ -110,8 +121,10 @@ public:
         
     // IRQ pin (INT1, shared across all ports)
 
-    /// Set the pin mode of the I pin on all Ports.
-    /// @param value Input or Output.
+    /// Set the pin mode of the I pin on all Ports. The mode3() function member
+    /// sets the I/O direction of the IRQ pin associated with a specific port.
+    /// Note that this is the same pin on all ports.
+    /// @param value INPUT or OUTPUT.
     static void mode3(uint8_t value)
         { pinMode(digiPin3(), value); }
     /// Reads the value of the I pin on all Ports.
@@ -130,6 +143,16 @@ public:
 
     /// Applies Arduino shiftOut() on a with data on the D and clock on A pin
     /// of the Port. See: http://arduino.cc/en/Tutorial/ShiftOut
+    /// This can be used to send out a pulse sequence of bits or to read such
+    /// a pulse sequence in. The AIO line is cycled while the value bits are
+    /// "shifted" and written out to (shift, shiftWrite) or read in from
+    /// (shiftRead) the DIO pin.
+    /// @param bitOrder How to shift bits in or out: either LSBFIRST (0) or
+    ///                 MSBFIRST (1), where LSB stands for Least Significant
+    ///                 Bit and MSB for Most Significant Bit.
+    /// @param value The value to shift out, with as many lower bits as needed.
+    /// This argument is a byte for shift() and a word for the more general
+    /// shiftWrite() function.
     inline void shift(uint8_t bitOrder, uint8_t value) const
         { shiftOut(digiPin(), digiPin2(), bitOrder, value); }
     uint16_t shiftRead(uint8_t bitOrder, uint8_t count =8) const;
@@ -189,6 +212,15 @@ public:
 };
 
 /// Can be used to drive a software (bit-banged) I2C bus via a Port interface.
+/// The PortI2C class is a special version of class Port implementing the I2C /
+/// Two-Wire Interface (TWI) protocol. Allows using any port as I2C bus master.
+/// When used for I2C, DIO is used as SDA and AIO as SCL.
+/// Unlike the Wire library for the Arduino, which is a more advanced solution
+/// for the hardware I2C lines of an ATmega, the PortI2C class is implemented
+/// entirely in software using "bit-banging". Another difference is that
+/// PortI2C does not use interrupts and will keep the microcontroller occupied
+/// while it is performing I/O transfers.
+/// @see DeviceI2C
 class PortI2C : public Port {
     uint8_t uswait;
 #if 0

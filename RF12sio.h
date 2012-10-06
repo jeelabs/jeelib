@@ -1,7 +1,7 @@
 // 2009-05-07 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 /// @file
-/// Streaming I/O layer on top of RF12 driver
+/// Streaming I/O layer on top of the RF12.h driver.
 
 /// This class is NOT the %RF12 driver. It provides a way to construct packets.
 class RF12 {
