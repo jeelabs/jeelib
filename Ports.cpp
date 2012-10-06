@@ -1,4 +1,5 @@
-// Ports library definitions
+/// @file
+/// Ports library definitions.
 // 2009-02-13 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include "Ports.h"
@@ -22,12 +23,67 @@
 #define PWM_CHANGE  0x30    // an analog (pwm) value was changed on port 2..3
 #define ANA_MASK    0x0F    // an analog read was requested on port 1..4
 
+/// @class PortI2C
+/// @details
+/// The PortI2C class is a special version of class Port implementing the I2C /
+/// Two-Wire Interface (TWI) protocol. Allows using any port as I2C bus master.
+/// When used for I2C, DIO is used as SDA and AIO as SCL.
+/// Unlike the Wire library for the Arduino, which is a more advanced solution
+/// for the hardware I2C lines of an ATmega, the PortI2C class is implemented
+/// entirely in software using "bit-banging". Another difference is that
+/// PortI2C does not use interrupts and will keep the microcontroller occupied
+/// while it is performing I/O transfers.
+/// @see DeviceI2C
+
+/// @class DeviceI2C
+/// @details
+/// Since I2C is a bus, there are actually two classes involved. A PortI2C
+/// object manages a port as I2C master for one or more objects of class
+/// DeviceI2C, each representing a separate device. You can have multiple ports
+/// as I2C bus (running at a different speed perhaps), each talking to multiple
+/// I2C devices. Devices sharing the same bus must each have a unique ID in the
+/// range 0 .. 127.
+/// @see PortI2C
+
+/// @fn uint32_t Port::pulse(uint8_t state, uint32_t timeout =1000000L) const
+/// @details
+/// Measure the length of a pulse in microseconds on the DIO (pulse) or
+/// AIO (pulse2) line. The optional timeout value specifies how many
+/// microseconds to wait for a pulse - of none is received, 0 is returned.
+/// @param state Polarity of the pulse to wait for - HIGH (1) or LOW (0).
+/// @param timeout Max number of microseconds to wait.
+///                Default is 1,000,000, i.e. 1 second.
+/// @see http://arduino.cc/en/Reference/pulseIn for more details.
+
+/// @fn void Port::shift(uint8_t bitOrder, uint8_t value) const
+/// @details
+/// This can be used to send out a pulse sequence of bits or to read such
+/// a pulse sequence in. The AIO line is cycled while the value bits are
+/// "shifted" and written out to (shift, shiftWrite) or read in from
+/// (shiftRead) the DIO pin.
+/// @param bitOrder How to shift bits in or out: either LSBFIRST (0) or
+///                 MSBFIRST (1), where LSB stands for Least Significant
+///                 Bit and MSB for Most Significant Bit.
+/// @param value The value to shift out, with as many lower bits as needed.
+/// This argument is a byte for shift() and a word for the more general
+/// shiftWrite() function.
+/// @see http://arduino.cc/en/Tutorial/ShiftOut
+
+/// @fn static void Sleepy::powerDown ();
+/// Take the ATmega into the deepest possible power down state. Getting out of
+/// this state requires setting up the watchdog beforehand, or making sure that
+/// suitable interrupts will occur once powered down.
+/// Disables the Brown Out Detector (BOD), the A/D converter (ADC), and other
+/// peripheral functions such as TWI, SPI, and UART before sleeping, and
+/// restores their previous state when back up.
+
 /// Shift a number of bites in to read them.
 /// @param bitOrder How to shift bits in or out: either LSBFIRST (0) or
 ///                 MSBFIRST (1), where LSB stands for Least Significant
 ///                 Bit and MSB for Most Significant Bit.
 /// @param count The number of bits to shift in or out. Must be in the
 /// range 1 .. 16, the default is 8.
+/// @see shift()
 uint16_t Port::shiftRead(uint8_t bitOrder, uint8_t count) const {
     uint16_t value = 0, mask = bit(LSBFIRST ? 0 : count - 1);
     for (uint8_t i = 0; i < count; ++i) {
@@ -55,6 +111,7 @@ uint16_t Port::shiftRead(uint8_t bitOrder, uint8_t count) const {
 /// shiftWrite() function.
 /// @param count The number of bits to shift in or out. Must be in the
 /// range 1 .. 16, the default is 8.
+/// @see shift()
 void Port::shiftWrite(uint8_t bitOrder, uint16_t value, uint8_t count) const {
     uint16_t mask = bit(LSBFIRST ? 0 : count - 1);
     for (uint8_t i = 0; i < count; ++i) {
@@ -987,10 +1044,10 @@ void Sleepy::watchdogInterrupts (char mode) {
     }
 }
 
+/// @see http://www.nongnu.org/avr-libc/user-manual/group__avr__sleep.html
 void Sleepy::powerDown () {
     byte adcsraSave = ADCSRA;
     ADCSRA &= ~ bit(ADEN); // disable the ADC
-    // see http://www.nongnu.org/avr-libc/user-manual/group__avr__sleep.html
     set_sleep_mode(SLEEP_MODE_PWR_DOWN);
     ATOMIC_BLOCK(ATOMIC_FORCEON) {
         sleep_enable();

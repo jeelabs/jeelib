@@ -85,13 +85,6 @@ public:
     inline void anaWrite(uint8_t val) const
         { analogWrite(digiPin(), val); }
     /// Applies the Arduino pulseIn() function on a Port's D pin.
-    /// Measure the length of a pulse in microseconds on the DIO (pulse) or
-    /// AIO (pulse2) line. The optional timeout value specifies how many
-    /// microseconds to wait for a pulse - of none is received, 0 is returned.
-    /// See: http://arduino.cc/en/Reference/pulseIn for more details.
-    /// @param state Polarity of the pulse to wait for - HIGH (1) or LOW (0).
-    /// @param timeout Max number of microseconds to wait. \
-    ///                Default is 1,000,000, i.e. 1 second.
     inline uint32_t pulse(uint8_t state, uint32_t timeout =1000000L) const
         { return pulseIn(digiPin(), state, timeout); }
     
@@ -115,7 +108,7 @@ public:
     inline void digiWrite2(uint8_t value) const
         { return digitalWrite(digiPin2(), value); }
 	/// Applies the Arduino pulseIn() function on a Port's A pin.
-    /// See: http://arduino.cc/en/Reference/pulseIn for more details.
+    /// @see http://arduino.cc/en/Reference/pulseIn for more details.
     inline uint32_t pulse2(uint8_t state, uint32_t timeout =1000000L) const
         { return pulseIn(digiPin2(), state, timeout); }
         
@@ -141,18 +134,7 @@ public:
     
     // both pins: data on DIO, clock on AIO
 
-    /// Applies Arduino shiftOut() on a with data on the D and clock on A pin
-    /// of the Port. See: http://arduino.cc/en/Tutorial/ShiftOut
-    /// This can be used to send out a pulse sequence of bits or to read such
-    /// a pulse sequence in. The AIO line is cycled while the value bits are
-    /// "shifted" and written out to (shift, shiftWrite) or read in from
-    /// (shiftRead) the DIO pin.
-    /// @param bitOrder How to shift bits in or out: either LSBFIRST (0) or
-    ///                 MSBFIRST (1), where LSB stands for Least Significant
-    ///                 Bit and MSB for Most Significant Bit.
-    /// @param value The value to shift out, with as many lower bits as needed.
-    /// This argument is a byte for shift() and a word for the more general
-    /// shiftWrite() function.
+    /// Does Arduino shiftOut() with data on D and clock on A pin of the Port.
     inline void shift(uint8_t bitOrder, uint8_t value) const
         { shiftOut(digiPin(), digiPin2(), bitOrder, value); }
     uint16_t shiftRead(uint8_t bitOrder, uint8_t count =8) const;
@@ -212,15 +194,7 @@ public:
 };
 
 /// Can be used to drive a software (bit-banged) I2C bus via a Port interface.
-/// The PortI2C class is a special version of class Port implementing the I2C /
-/// Two-Wire Interface (TWI) protocol. Allows using any port as I2C bus master.
-/// When used for I2C, DIO is used as SDA and AIO as SCL.
-/// Unlike the Wire library for the Arduino, which is a more advanced solution
-/// for the hardware I2C lines of an ATmega, the PortI2C class is implemented
-/// entirely in software using "bit-banging". Another difference is that
-/// PortI2C does not use interrupts and will keep the microcontroller occupied
-/// while it is performing I/O transfers.
-/// @see DeviceI2C
+/// @todo Speed up the I2C bit I/O, it's far too slow right now.
 class PortI2C : public Port {
     uint8_t uswait;
 #if 0
@@ -252,11 +226,24 @@ public:
     enum { KHZMAX = 1, KHZ400 = 2, KHZ100 = 9 };
 #endif
     
+    /// Creates an instance of class PortI2C
+    /// @param num port number corresponding to physical JeeNode port number.
+    /// @param rate in microseconds - time delay between bits? (not quite!)
     PortI2C (uint8_t num, uint8_t rate =KHZMAX);
     
+    /// Initalize I2C communication on a JeeNode port.
+    /// @param addr I2C address of device with which to communicate
+    /// @returns 1 if communication succeeded, 0 otherwise
     uint8_t start(uint8_t addr) const;
+    /// Terminate transmission on an I2C connection.
     void stop() const;
+    /// Send one byte of data to the currently address I2C device.
+    /// @param data the data byte to send out
+    /// @returns 1 if device acknowledged write, 0 if device did not respond
     uint8_t write(uint8_t data) const;
+    /// Read a byte using I2C protocol on a JeeNode port.
+    /// @param last pass 1 to signal the last byte read in this bus transaction
+    /// @returns data (byte) read from the I2C device
     uint8_t read(uint8_t last) const;
 };
 
@@ -268,16 +255,33 @@ class DeviceI2C {
 public:
     DeviceI2C(const PortI2C& p, uint8_t me) : port (p), addr (me << 1) {}
     
+    /// see if a device answers at an I2C address
     bool isPresent() const;
     
+    /// Create a start condition on the I2C bus, and set things up for sending
+    /// data to this device.
+    /// @returns true if acknowledged by the slave device.
     uint8_t send() const
         { return port.start(addr); }
+    /// Create a start condition on the I2C bus, and set things up for receiving
+    /// data from this device.
+    /// @returns true if acknowledged.
     uint8_t receive() const
         { return port.start(addr | 1); }
+    /// Create a stop condition on the I2C bus, ending the current transfer.
     void stop() const
         { port.stop(); }
+    /// Write a byte to the currently addressed device. Must be preceded by a
+    /// proper PortI2C start() call.
+    /// @param data Data byte to be sent.
+    /// @returns true if the device acknowledged the byte (accepts more data).
     uint8_t write(uint8_t data) const
         { return port.write(data); }
+    /// Read a byte from the currently addressed device. Must be preceded by a
+    /// proper PortI2C start() call.
+    /// @param last Indicates whether this is the last byte to read. Used to
+    ///             respond to the write with a positive or negative ack. 
+    ///             Pass 1 if reading the last byte, otherwise pass 0.
     uint8_t read(uint8_t last) const
         { return port.read(last); }
         
@@ -288,8 +292,8 @@ public:
 /// The millisecond timer can be used for timeouts up to 60000 milliseconds.
 /// Setting the timeout to zero disables the timer.
 ///
-/// for periodic timeouts, poll the timer object with "if (timer.poll(123)) ..."
-/// for one-shot timeouts, call "timer.set(123)" and poll as "if (timer.poll())"
+/// * for periodic use, poll the timer object with "if (timer.poll(123)) ..."
+/// * for one-shot use, call "timer.set(123)" and poll as "if (timer.poll())"
 
 class MilliTimer {
     word next;
@@ -297,9 +301,15 @@ class MilliTimer {
 public:
     MilliTimer () : armed (0) {}
     
+    /// poll until the timer fires
+    /// @param ms Periodic repeat rate of the time, omit for a one-shot timer.
     byte poll(word ms =0);
+    /// Return the number of milliseconds before the timer will fire
     word remaining() const;
+    /// Returns true if the timer is not armed
     byte idle() const { return !armed; }
+    /// set the one-shot timeout value
+    /// @param ms Timeout value. Timer stops once the timer has fired.
     void set(word ms);
 };
 
@@ -308,16 +318,31 @@ public:
 class Sleepy {
 public:
     /// start the watchdog timer (or disable it if mode < 0)
+    /// @param mode Enable watchdog trigger after "16 << mode" milliseconds 
+    ///             (mode 0..9), or disable it (mode < 0).
+    /// @note If you use this function, you MUST included a definition of a WDT
+    /// interrupt handler in your code. The simplest is to include this line:
+    ///
+    ///     ISR(WDT_vect) { Sleepy::watchdogEvent(); }
+    ///
+    /// This will get called when the watchdog fires.
     static void watchdogInterrupts (char mode);
     
     /// enter low-power mode, wake up with watchdog, INT0/1, or pin-change
     static void powerDown ();
     
-    /// spend some time in low-power mode, the timing is only approximate
-    /// returns 1 if all went normally, or 0 if some other interrupt occurred
+    /// Spend some time in low-power mode, the timing is only approximate.
+    /// @param msecs Number of milliseconds to sleep, in range 0..65535.
+    /// @returns 1 if all went normally, or 0 if some other interrupt occurred
+    /// @note If you use this function, you MUST included a definition of a WDT
+    /// interrupt handler in your code. The simplest is to include this line:
+    ///
+    ///     ISR(WDT_vect) { Sleepy::watchdogEvent(); }
+    ///
+    /// This will get called when the watchdog fires.
     static byte loseSomeTime (word msecs);
 
-    /// this must be called from your watchdog interrupt code
+    /// This must be called from your watchdog interrupt code.
     static void watchdogEvent();
 };
 
