@@ -285,7 +285,7 @@ public:
     uint8_t read(uint8_t last) const
         { return port.read(last); }
         
-    uint8_t setAddress(uint8_t me)
+    void setAddress(uint8_t me)
         { addr = me << 1; }
 };
 
@@ -371,7 +371,7 @@ public:
     void cancel(byte task);
     
     /// return true if a task timer is not running
-    byte idle(byte task) { return tasks[task] == ~0; }
+    byte idle(byte task) { return tasks[task] == ~0U; }
 };
 
 /// Interface for the Blink Plug - see http://jeelabs.org/bp
@@ -648,8 +648,8 @@ public:
     } Commands;
     
     /// Set up with a buffer of specified size
-    InputParser (byte size, Commands PROGMEM*, Stream& =Serial);
-    InputParser (byte* buf, byte size, Commands PROGMEM*, Stream& =Serial);
+    InputParser (byte size, Commands*, Stream& =Serial);
+    InputParser (byte* buf, byte size, Commands*, Stream& =Serial);
     
     /// Number of data bytes
     byte count() { return fill; }

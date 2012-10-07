@@ -184,7 +184,7 @@ uint8_t SHT11::measure(uint8_t type, void (*delayFun)()) {
     return 1;
 }
 
-#ifndef __AVR_ATtiny84__ || __AVR_ATtiny44__
+#if !defined(__AVR_ATtiny84__) && !defined(__AVR_ATtiny44__)
 /** Calculate the current relative humidity and temperature.
  *  @param rh_true Variable to store the true relative humidity into.
  *  @param t_C Variable to store the temperature in degree celcius into.

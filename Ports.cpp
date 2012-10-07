@@ -739,7 +739,7 @@ void HeadingBoard::pressure(int& temp, int& pres) const {
     int dUT = (D2 - C5) - (corr * (long) corr * (D2 >= C5 ? A : B) >> C);
     // Serial.print("dUT = ");
     // Serial.println(dUT);
-    temp = 250 + (dUT * C6 >> 16) - (dUT >> D); 
+    temp = 250 + ((long) dUT * C6 >> 16) - (dUT >> D); 
 
     word D1 = adcValue(1);
     // Serial.print("D1 = ");
@@ -773,7 +773,7 @@ void HeadingBoard::heading(int& xaxis, int& yaxis) {
     compass.send();
     compass.write(0x00);
     compass.receive();
-    byte tmp, reg = compass.read(0);
+    byte tmp = compass.read(0);
     tmp = compass.read(0);
     xaxis = ((tmp << 8) | compass.read(0)) - 2048;
     tmp = compass.read(0);
@@ -797,7 +797,7 @@ float CompassBoard::heading () {
     write(0x00); // Mode: Continuous-Measurement Mode
     receive();
     int x = read2(0);
-    int z = read2(0);
+    /* int z = */ read2(0);
     int y = read2(1);
     stop();
     
@@ -829,7 +829,7 @@ void InfraredPlug::poll() {
         memset(buf, 0, sizeof buf);
     }
     // act only if the bit changed, using the low bit of the nibble fill count
-    if (bit != (fill & 1) && fill < 2 * sizeof buf) {
+    if (bit != (fill & 1) && fill < 2 * (int) sizeof buf) {
         uint32_t curr = micros(), diff = (curr - prev + 2) >> 2;
         if (diff > 65000)
             diff = 65000; // * 4 us, i.e. 260 ms
@@ -871,7 +871,7 @@ uint8_t InfraredPlug::decoder(uint8_t nibbles) {
                         return UNKNOWN;
                 // valid packet, convert in-place
                 for (byte i = 0; i < 4; ++i) {
-                    byte v;
+                    byte v = 0;
                     for (byte j = 0; j < 8; ++j)
                         v = (v << 1) | (buf[1+j+8*i] >> 5);
                     buf[i] = v;
@@ -1054,7 +1054,7 @@ void Sleepy::powerDown () {
         // sleep_bod_disable(); // can't use this - not in my avr-libc version!
 #ifdef BODSE
         MCUCR = MCUCR | bit(BODSE) | bit(BODS); // timed sequence
-        MCUCR = MCUCR & ~ bit(BODSE) | bit(BODS);
+        MCUCR = (MCUCR & ~ bit(BODSE)) | bit(BODS);
 #endif
     }
     sleep_cpu();
@@ -1101,13 +1101,13 @@ void Sleepy::watchdogEvent() {
     ++watchdogCounter;
 }
 
-Scheduler::Scheduler (byte size) : maxTasks (size), remaining (~0) {
+Scheduler::Scheduler (byte size) : remaining (~0), maxTasks (size) {
     byte bytes = size * sizeof *tasks;
     tasks = (word*) malloc(bytes);
     memset(tasks, 0xFF, bytes);
 }
 
-Scheduler::Scheduler (word* buf, byte size) : tasks (buf), maxTasks (size), remaining(~0) {
+Scheduler::Scheduler (word* buf, byte size) : tasks (buf), remaining(~0), maxTasks (size) {
     byte bytes = size * sizeof *tasks;
     memset(tasks, 0xFF, bytes);
 }
@@ -1125,15 +1125,15 @@ char Scheduler::poll() {
             if (tasks[i] < lowest)
                 lowest = tasks[i];
         }
-        if (lowest != ~0) {
+        if (lowest != ~0U) {
             for (byte i = 0; i < maxTasks; ++i) {
-                if(tasks[i] != ~0) {
+                if(tasks[i] != ~0U) {
                     tasks[i] -= lowest;
                 }
             }
         }
         remaining = lowest;
-    } else if (remaining == ~0) //remaining == ~0 means nothing running
+    } else if (remaining == ~0U) //remaining == ~0 means nothing running
         return -2;
     else if (ms100.poll(100))
         --remaining;
@@ -1141,7 +1141,7 @@ char Scheduler::poll() {
 }
 
 char Scheduler::pollWaiting() {
-    if(remaining == ~0)  // Nothing running!
+    if(remaining == ~0U)  // Nothing running!
         return -2;
     // first wait until the remaining time we need to wait is less than 0.1s
     while (remaining > 0) {
@@ -1162,7 +1162,7 @@ void Scheduler::timer(byte task, word tenths) {
     if (tenths < remaining) {
         word diff = remaining - tenths;
         for (byte i = 0; i < maxTasks; ++i)
-            if (tasks[i] != ~0)
+            if (tasks[i] != ~0U)
                 tasks[i] += diff;
         remaining = tenths;
     }
@@ -1212,9 +1212,9 @@ void InputParser::poll() {
         buffer[fill++] = ch;
         return;
     }
-    if (hexmode && ('0' <= ch && ch <= '9' ||
-                    'A' <= ch && ch <= 'F' ||
-                    'a' <= ch && ch <= 'f')) {
+    if (hexmode && (('0' <= ch && ch <= '9') ||
+                    ('A' <= ch && ch <= 'F') ||
+                    ('a' <= ch && ch <= 'f'))) {
         if (!hasvalue)
             value = 0;
         if (ch > '9')
