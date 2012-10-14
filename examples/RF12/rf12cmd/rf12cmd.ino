@@ -1,4 +1,4 @@
-/// @dir RF12cmd
+/// @dir rf12cmd
 /// Command-based central node for RF12 packets.
 // 2012-10-14 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
@@ -20,7 +20,7 @@ void EmBencode::PushChar (char ch) {
 static void pushGreeting () {
   encoder.startList();
   encoder.push("hi");
-  encoder.push("RF12cmd");
+  encoder.push("rf12cmd");
   encoder.push(RF12CMD_VERSION);
   encoder.push(sizeof embuf);
   encoder.endList();
