@@ -1,5 +1,6 @@
 /// @dir homePower
 /// Send incoming home power measurements as wireless packets.
+/// @see http://jeelabs.org/2012/10/22/sending-out-pulses/
 // 2012-10-20 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>
@@ -34,7 +35,7 @@ PayloadItem payload [NUMPINS];
 static void setBlinks (char n) {
   // don't mess up if currently blinking
   if (blinkPattern == 0)
-    while (n-- >= 0)
+    while (--n >= 0)
       blinkPattern = (blinkPattern << 2) | 1;
 }
 
@@ -49,7 +50,7 @@ static word compress (unsigned long value) {
 
 // a pulse has been detected, deal with it
 static void gotPulse (byte index) {
-  setBlinks(index);
+  setBlinks(index + 1);
   pending = true;
   // measure time since last pulse and save the info
   unsigned long now = millis();
