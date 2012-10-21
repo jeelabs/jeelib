@@ -70,8 +70,8 @@ void setup () {
 void loop () {
   rf12_recvDone(); // ignore incoming packets
 
-  // only want to send every 1000 ms, if there are changes
-  if (sendTimer.poll(1000) && pending) {
+  // only want to send every 3 s, if there are changes
+  if (sendTimer.poll(3000) && pending) {
     wantToSend = true;
     pending = false;
   }
