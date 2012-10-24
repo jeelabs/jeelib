@@ -145,12 +145,19 @@ static uint32_t seqNum;             // encrypted send sequence number
 static uint32_t cryptKey[4];        // encryption key to use
 void (*crypter)(uint8_t);           // does en-/decryption (null if disabled)
 
-// function to set chip select
+				    // function to set chip select pin from within sketch
 void rf12_set_cs(uint8_t pin)
 {
-  if (pin==10) cs_pin = 2;
-  if (pin==9) cs_pin = 1;
-  if (pin==8) cs_pin = 0;
+#if defined(__AVR_ATmega32U4__)     //Arduino Leonardo 
+  if (pin==10) cs_pin=6; 	    // Dig10, PB6     
+  if (pin==9)  cs_pin=5; 	    // Dig9,  PB5	
+  if (pin==8)  cs_pin=4; 	    // Dig8,  PB4            
+#elif defined(__AVR_ATmega168__) || defined(__AVR_ATmega328__) // ATmega168, ATmega328, etc.
+  if (pin==10) cs_pin = 2; 	    // Dig10, PB2
+  if (pin==9) cs_pin = 1;  	    // Dig9,  PB1
+  if (pin==8) cs_pin = 0;  	    // Dig8,  PB0
+  }
+#endif
 }
 
 
