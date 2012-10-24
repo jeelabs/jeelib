@@ -1,4 +1,5 @@
-// Receive sketch used to report quality of reception.
+/// @dir rfRangeRX
+/// Receive sketch used to report quality of reception.
 // 2011-05-14 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 // Based on a sample implementation by Steve Evans (@tankslappa).

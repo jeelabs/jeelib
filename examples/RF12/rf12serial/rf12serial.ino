@@ -1,4 +1,5 @@
-// Serial data over RF12 demo, works in both directions
+/// @dir rf12serial
+/// Serial data over RF12 demo, works in both directions.
 // 2009-04-17 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>

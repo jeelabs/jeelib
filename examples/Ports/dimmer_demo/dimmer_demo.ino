@@ -1,4 +1,6 @@
-// Demo for the Dimmer plug
+/// @dir dimmer_demo
+/// Demo for the Dimmer plug.
+/// @see http://jeelabs.org/2011/06/11/controlling-the-dimmer-plug/
 // 2010-03-18 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>

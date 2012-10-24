@@ -1,4 +1,5 @@
-// Infrared receiver using the InfraredPlug class (polled version)
+/// @dir ir_recv
+/// Infrared receiver using the InfraredPlug class (polled version).
 // 2010-10-12 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>

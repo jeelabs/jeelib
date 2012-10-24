@@ -1,4 +1,5 @@
-// Demo of the Gravity Plug, based on the GravityPlug class in the Ports library
+/// @dir gravity_demo
+/// Demo of the Gravity Plug, based on GravityPlug class in the Ports library.
 // 2010-03-19 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>

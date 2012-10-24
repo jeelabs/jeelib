@@ -1,4 +1,5 @@
-// Ports interface to the TSL230 light sensor, see SparkFun #08940
+/// @dir tsl230demo
+/// Ports interface to the TSL230 light sensor, see SparkFun # 08940.
 // 2009-02-21 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>

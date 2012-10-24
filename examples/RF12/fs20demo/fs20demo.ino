@@ -1,4 +1,5 @@
-// This example sends commands to the Conrad/ELV 868 MHz FS20 units via OOK.
+/// @dir fs20demo
+/// This example sends commands to the Conrad/ELV 868 MHz FS20 units via OOK.
 // 2009-02-21 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 // Note thar RFM12B radios are not really designed for OOK (on-off keying),

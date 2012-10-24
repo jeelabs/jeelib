@@ -1,4 +1,5 @@
-// Upload a built-in range of data bytes to a target board attached via ISP
+/// @dir isp_prepare
+/// Upload a built-in range of data bytes to a target board attached via ISP.
 // 2010-04-18 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 //
 // see http://news.jeelabs.org/2010/04/25/preparing-atmegas-with-isp/

@@ -1,4 +1,5 @@
-// Control some LED strips, using settings received by wireless
+/// @dir rgbRemote
+/// Control some LED strips, using settings received by wireless.
 // 2010-10-01 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 // see http://jeelabs.org/2010/06/15/remote-rgb-strip-control/

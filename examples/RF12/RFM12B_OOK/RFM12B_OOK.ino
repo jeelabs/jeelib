@@ -1,4 +1,5 @@
-// Receive / decode OOK signals using a RFM12B as 868 MHz OOK receiver 
+/// @dir RFM12B_OOK
+/// Receive / decode OOK signals using a RFM12B as 868 MHz OOK receiver.
 //
 // Adapted from the experiments and code by JGJ Veken, as posted on the wiki at:
 // http://jeelabs.net/projects/cafe/wiki/Receiving_OOKASK_with_a_modified_RFM12B

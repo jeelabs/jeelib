@@ -1,4 +1,5 @@
-// New version of the Room Node, derived from rooms.pde
+/// @dir tinyTest
+/// New version of the Room Node for the ATtiny85 (derived from rooms.pde).
 // 2010-10-19 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 // see http://jeelabs.org/2010/10/20/new-roomnode-code/

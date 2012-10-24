@@ -1,4 +1,5 @@
-// Ports demo, interface to Nintendo's "Nunchuk", which simply uses I2C inside
+/// @dir nunchuk_demo
+/// Ports demo, interface to Nintendo's "Nunchuk", which simply uses I2C inside.
 // 2009-02-17 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>

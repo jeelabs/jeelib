@@ -1,4 +1,6 @@
-// Very simple "Logic Analyzer", using the Graphics Board as display device.
+/// @dir glcdTracer
+/// Very simple "Logic Analyzer", using the Graphics Board as display device.
+/// @see http://jeelabs.org/2010/11/25/2-channel-logic-analyzer/
 // 2010-11-20 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include "ST7565.h"

@@ -1,4 +1,5 @@
-// Relay packets from one net group to another to extend the range.
+/// @dir groupRelay
+/// Relay packets from one net group to another to extend the range.
 // 2011-01-11 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>

@@ -1,4 +1,5 @@
-// Port interface to the Parallax QTI sensor #27401
+/// @dir qti_demo
+/// Port interface to the Parallax QTI sensor # 27401.
 // 2009-02-18 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>

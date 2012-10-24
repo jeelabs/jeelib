@@ -1,4 +1,5 @@
-// Ports demo, reads out a digital PIR sensor signal and an analog LDR voltage.
+/// @dir pir_demo
+/// Ports demo, reads out a digital PIR sensor signal and an analog LDR voltage.
 // 2009-02-17 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>

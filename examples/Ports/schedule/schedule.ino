@@ -1,4 +1,5 @@
-// Demo sketch demonstrating the Scheduler class
+/// @dir schedule
+/// Demo sketch demonstrating the Scheduler class.
 // 2010-10-18 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>

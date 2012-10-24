@@ -1,4 +1,5 @@
-// This example shows how to fill a packet buffer with strings and send them
+/// @dir packetBuf
+/// This example shows how to fill a packet buffer with strings and send them.
 // 2010-09-27 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 // Note: this demo code sends with broadcasting, so each node will see data
@@ -8,8 +9,7 @@
  
 #include <JeeLib.h>
 
-// Utility class to fill a buffer with string data
-
+/// Utility class to fill a buffer with string data.
 class PacketBuffer : public Print {
 public:
     PacketBuffer () : fill (0) {}

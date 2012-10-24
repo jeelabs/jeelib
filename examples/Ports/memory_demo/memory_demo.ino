@@ -1,4 +1,5 @@
-// Demo of the MemoryPlug and MemoryStream classes
+/// @dir memory_demo
+/// Demo of the MemoryPlug and MemoryStream classes.
 // 2009-12-11 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>

@@ -1,4 +1,5 @@
-// Upload a boot loader and the blink demo sketch to a second board
+/// @dir isp_repair
+/// Upload a boot loader and the blink demo sketch to a second board.
 // 2020-05-29 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 // see http://news.jeelabs.org/2010/04/25/preparing-atmegas-with-isp/

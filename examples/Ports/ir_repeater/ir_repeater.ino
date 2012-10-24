@@ -1,4 +1,5 @@
-// Record an IR command using an Infrared Plug, and repeat it 3x.
+/// @dir ir_repeater
+/// Record an IR command using an Infrared Plug, and repeat it 3x.
 // 2010-11-11 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>

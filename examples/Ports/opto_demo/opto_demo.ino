@@ -1,4 +1,5 @@
-// Demo of the opto-coupler plug
+/// @dir opto_demo
+/// Demo of the opto-coupler plug.
 // 2010-09-26 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>

@@ -1,4 +1,5 @@
-// Decoder for 433 MHz OOK pulses from remote control power switches, etc.
+/// @dir recv433demo
+/// Decoder for 433 MHz OOK pulses from remote control power switches, etc.
 // 2009-02-27 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 // The basic idea is to measure pulse widths between 0/1 and 1/0 transitions,

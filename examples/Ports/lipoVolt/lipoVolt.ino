@@ -1,4 +1,5 @@
-// Continuously read out the JeeNode USB voltage of the LiPo battery
+/// @dir lipoVolt
+/// Continuously read out the JeeNode USB voltage of the LiPo battery.
 // 2011-11-06 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
 // $Id: $
 

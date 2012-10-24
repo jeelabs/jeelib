@@ -1,4 +1,5 @@
-// Infrared receiver using the InfraredPlug class (interrupt version)
+/// @dir ir_recv_irq
+/// Infrared receiver using the InfraredPlug class (interrupt version).
 // 2010-10-12 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>

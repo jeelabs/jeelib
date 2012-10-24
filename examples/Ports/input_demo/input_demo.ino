@@ -1,4 +1,5 @@
-// Demo for the input plug - read 16 analog input channels once a second
+/// @dir input_demo
+/// Demo for the input plug - read 16 analog input channels once a second.
 // 2010-04-19 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>

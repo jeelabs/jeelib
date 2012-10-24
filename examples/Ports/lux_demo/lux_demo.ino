@@ -1,4 +1,5 @@
-// Demo of the Lux Plug, based on the LuxPlug class in the Ports library
+/// @dir lux_demo
+/// Demo of the Lux Plug, based on the LuxPlug class in the Ports library.
 // 2010-03-18 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>

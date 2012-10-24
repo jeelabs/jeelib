@@ -1,4 +1,5 @@
-// Programmable color ramps for the LED drivers on the LED Node
+/// @dir ledNode
+/// Programmable color ramps for the LED drivers on the LED Node.
 // 2011-10-26 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>
@@ -12,8 +13,9 @@
 #define LED_G 9   // the PWM pin which drives the green LED
 #define LED_B 5   // the PWM pin which drives the blue LED
 
-// a "Ramp" is a target RGB color and the time in seconds to reach that color
-// ramps can be chained together with a non-zero ramp index in the chain field
+/// @struct Ramp
+/// A "Ramp" is a target RGB color and the time in seconds to reach that color.
+/// Ramps can be chained together with a non-zero ramp index in the chain field.
 typedef struct {
   byte colors[3]; // red, green, blue, 0..255
   byte steps;     // number of seconds used to reach given RGB colors

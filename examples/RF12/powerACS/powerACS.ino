@@ -1,4 +1,5 @@
-// Measure power from an ACS714.
+/// @dir powerACS
+/// Measure power from an ACS714.
 // 2011-09-13 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 // $Id: $
 

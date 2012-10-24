@@ -1,4 +1,6 @@
-// Hooking up an 8-bit MCP23008 expander via I2C.
+/// @dir expander
+/// Hooking up an 8-bit MCP23008 expander via I2C.
+/// @see http://jeelabs.org/2010/02/25/output-and-expander-plug-fixes/
 // 2009-07-03 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 //
 // see http://www.jeelabs.org/2009/07/07/io-expander/

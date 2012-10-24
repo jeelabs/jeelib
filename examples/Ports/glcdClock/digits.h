@@ -1,3 +1,5 @@
+/// @file
+/// Bitmaps for showing large 0..9 digits on the Graphics Board display.
 long digits[] PROGMEM = {
     0b0000000000001111000000000000L,
     0b0000000000111111110000000000L,

@@ -1,4 +1,5 @@
-// Streaming layer demo, transfers different types of data in both directions
+/// @dir rf12stream
+/// Streaming layer demo, transfers different types of data in both directions.
 // 2009-05-07 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>

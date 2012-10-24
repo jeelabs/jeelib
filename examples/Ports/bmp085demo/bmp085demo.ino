@@ -1,4 +1,6 @@
-// Ports demo, reads out a BMP085 sensor connected via I2C
+/// @dir bmp085demo
+/// Ports demo, reads out a BMP085 sensor connected via I2C.
+/// @see http://jeelabs.org/2010/06/30/going-for-gold-with-the-bmp085/
 // 2009-02-17 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 // 2010-05-22: added support for all resolution modes

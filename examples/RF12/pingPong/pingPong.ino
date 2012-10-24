@@ -1,4 +1,5 @@
-// Demo of a sketch which sends and receives packets
+/// @dir pingPong
+/// Demo of a sketch which sends and receives packets.
 // 2010-05-17 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 // with thanks to Peter G for creating a test sketch and pointing out the issue

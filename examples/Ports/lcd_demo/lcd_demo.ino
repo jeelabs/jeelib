@@ -1,4 +1,5 @@
-// Demo sketch for an LCD connected to I2C port via MCP23008 I/O expander
+/// @dir Ports/lcd_demo
+/// Demo sketch for an LCD connected to I2C port via MCP23008 I/O expander.
 // 2009-10-31 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <PortsLCD.h>

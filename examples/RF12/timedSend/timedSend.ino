@@ -1,4 +1,5 @@
-// Experiment with time-controlled periodic transmission.
+/// @dir timedSend
+/// Experiment with time-controlled periodic transmission.
 // 2011-06-24 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>

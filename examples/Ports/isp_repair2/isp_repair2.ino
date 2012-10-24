@@ -1,4 +1,5 @@
-// Reflash a boot loader and a sketch an a second ATmega.
+/// @dir isp_repair2
+/// Reflash a boot loader and a sketch an a second ATmega.
 // 2010-05-29 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 //
 // see http://jeelabs.org/2011/05/29/summary-of-isp-options/

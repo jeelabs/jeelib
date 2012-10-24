@@ -1,4 +1,6 @@
-// Demo display for the Graphics Boad
+/// @dir glcd_demo
+/// Demo display for the Graphics Boad.
+/// @see http://jeelabs.org/2010/11/15/meet-the-graphics-board/
 // 2010-11-14 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <ST7565.h>
