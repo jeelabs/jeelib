@@ -152,11 +152,10 @@ void rf12_set_cs(uint8_t pin)
   if (pin==10) cs_pin=6; 	    // Dig10, PB6     
   if (pin==9)  cs_pin=5; 	    // Dig9,  PB5	
   if (pin==8)  cs_pin=4; 	    // Dig8,  PB4            
-#elif defined(__AVR_ATmega168__) || defined(__AVR_ATmega328__) // ATmega168, ATmega328, etc.
+#elif defined(__AVR_ATmega168__) || defined(__AVR_ATmega328__) || defined (__AVR_ATmega328P__) // ATmega168, ATmega328
   if (pin==10) cs_pin = 2; 	    // Dig10, PB2
   if (pin==9) cs_pin = 1;  	    // Dig9,  PB1
   if (pin==8) cs_pin = 0;  	    // Dig8,  PB0
-  }
 #endif
 }
 
