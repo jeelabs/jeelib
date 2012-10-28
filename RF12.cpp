@@ -259,6 +259,30 @@ static void rf12_xfer (uint16_t cmd) {
 #define rf12_xfer rf12_xferSlow
 #endif
 
+
+static uint16_t rf12_xferState (uint8_t *data) {
+    uint16_t res = 0;
+    // writing can take place at full speed, even 8 MHz works
+    bitClear(SS_PORT, cs_pin);
+    res = rf12_byte(0x00) << 8;
+    res|= rf12_byte(0x00);
+    
+    if (res & 0x08000 && rxstate == TXRECV) {
+        // slow down to under 2.5 MHz
+#if F_CPU > 10000000
+        bitSet(SPCR, SPR0);
+#endif
+        *data = rf12_byte(0x00);
+#if F_CPU > 10000000
+        bitClear(SPCR, SPR0);
+#endif
+    }
+    
+    bitSet(SS_PORT, cs_pin);
+    return res;
+}
+
+
 /// @details
 /// This call provides direct access to the RFM12B registers. If you're careful
 /// to avoid configuring the wireless module in a way which stops the driver
@@ -287,30 +311,34 @@ uint16_t rf12_control(uint16_t cmd) {
 static void rf12_interrupt() {
     // a transfer of 2x 16 bits @ 2 MHz over SPI takes 2x 8 us inside this ISR
     // correction: now takes 2 + 8 µs, since sending can be done at 8 MHz
-    uint16_t res = rf12_xfer(0x0000);
+    uint8_t in;
+    uint16_t res = rf12_xferState(&in);
     
     if (rxstate == TXRECV) {
-        uint8_t in = rf12_xferSlow(RF_RX_FIFO_READ);
 
-        // do drssi binary-tree search
-        if ( drssi < 6 ) {       // not yet final value
-          if ( bitRead(res,8) )  // rssi over threashold?
-            drssi = drssi_dec_tree[drssi].up;
-          else
-            drssi = drssi_dec_tree[drssi].down;
-          if ( drssi < 6 ) {     // not yet final destination
-            rf12_xfer(0x94A0 | drssi_dec_tree[drssi].threshold);
-          }
+    	if (res & 0x8000) { // check if we really got a byte
+
+            // do drssi binary-tree search
+            if ( drssi < 6 ) {       // not yet final value
+                if ( bitRead(res,8) )  // rssi over threashold?
+                    drssi = drssi_dec_tree[drssi].up;
+                else
+                    drssi = drssi_dec_tree[drssi].down;
+                if ( drssi < 6 ) {     // not yet final destination
+                    rf12_xfer(0x94A0 | drssi_dec_tree[drssi].threshold);
+                }
+            }
+
+            if (rxfill == 0 && group != 0)
+                rf12_buf[rxfill++] = group;
+            
+            rf12_buf[rxfill++] = in;
+            rf12_crc = _crc16_update(rf12_crc, in);
+
+            if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX)
+                rf12_xfer(RF_IDLE_MODE);
         }
 
-        if (rxfill == 0 && group != 0)
-            rf12_buf[rxfill++] = group;
-            
-        rf12_buf[rxfill++] = in;
-        rf12_crc = _crc16_update(rf12_crc, in);
-
-        if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX)
-            rf12_xfer(RF_IDLE_MODE);
     } else {
         uint8_t out;
 
