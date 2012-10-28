@@ -127,6 +127,24 @@ static uint8_t nodeid;              // address of this node
 static uint8_t group;               // network group
 static volatile uint8_t rxfill;     // number of data bytes in rf12_buf
 static volatile int8_t rxstate;     // current transceiver state
+volatile uint8_t drssi;             // digital rssi state (see binary search tree below and rf12_getRSSI()
+
+struct drssi_dec_t {
+    uint8_t up;
+    uint8_t down;
+    uint8_t threshold;
+};
+
+const drssi_dec_t drssi_dec_tree[] = {
+            /*  up    down  thres*/
+    /* 0 */ { B1001, B1000, B000 },  /* B1xxx show final values, B0xxx are intermediate */
+    /* 1 */ { B0010, B0000, B001 },  /* values where next threshold has to be set.      */
+    /* 2 */ { B1011, B1010, B010 },  /* Traversing of this three is in rf_12interrupt() */
+    /* 3 */ { B0101, B0001, B011 },  // <- start value
+    /* 4 */ { B1101, B1100, B100 },
+    /* 5 */ { B1110, B0100, B101 }
+};
+
 
 #define RETRIES     8               // stop retrying after 8 times
 #define RETRY_MS    1000            // resend packet every second until ack'ed
@@ -269,10 +287,21 @@ uint16_t rf12_control(uint16_t cmd) {
 static void rf12_interrupt() {
     // a transfer of 2x 16 bits @ 2 MHz over SPI takes 2x 8 us inside this ISR
     // correction: now takes 2 + 8 µs, since sending can be done at 8 MHz
-    rf12_xfer(0x0000);
+    uint16_t res = rf12_xfer(0x0000);
     
     if (rxstate == TXRECV) {
         uint8_t in = rf12_xferSlow(RF_RX_FIFO_READ);
+
+        // do drssi binary-tree search
+        if ( drssi < 6 ) {       // not yet final value
+          if ( bitRead(res,8) )  // rssi over threashold?
+            drssi = drssi_dec_tree[drssi].up;
+          else
+            drssi = drssi_dec_tree[drssi].down;
+          if ( drssi < 6 ) {     // not yet final destination
+            rf12_xfer(0x94A0 | drssi_dec_tree[drssi].threshold);
+          }
+        }
 
         if (rxfill == 0 && group != 0)
             rf12_buf[rxfill++] = group;
@@ -330,6 +359,7 @@ static void rf12_recvStart () {
         rf12_crc = _crc16_update(~0, group);
 #endif
     rxstate = TXRECV;    
+    drssi = 3;              // set drssi to start value
     rf12_xfer(RF_RECEIVER_ON);
 }
 
@@ -382,6 +412,17 @@ uint8_t rf12_recvDone () {
         rf12_recvStart();
     return 0;
 }
+
+
+// return signal strength calculated out of DRSSI bit
+int8_t rf12_getRSSI() {
+    if (! drssi & B1000)
+        return 0;
+    
+    const int8_t table[] = {-106, -100, -94, -88, -82, -76, -70};
+    return table[drssi & B111];
+}
+
 
 /// @details
 /// Call this when you have some data to send. If it returns true, then you can

@@ -79,6 +79,9 @@ uint8_t rf12_config(uint8_t show =1);
 /// Call this frequently, returns true if a packet has been received.
 uint8_t rf12_recvDone(void);
 
+/// Call this frequently, returns true if a packet has been received.
+int8_t rf12_getRSSI(void);
+
 /// Call this to check whether a new transmission can be started.
 /// @return true when a new transmission may be started with rf12_sendStart().
 uint8_t rf12_canSend(void);
