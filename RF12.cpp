@@ -13,8 +13,6 @@
 #include <WProgram.h> // Arduino 0022
 #endif
 
-// #define OPTIMIZE_SPI 1  // uncomment this to write to the RFM12B @ 8 Mhz
-
 // pin change interrupts are currently only supported on ATmega328's
 // #define PINCHG_IRQ 1    // uncomment this to use pin-change interrupts
 
@@ -127,6 +125,7 @@ static uint8_t nodeid;              // address of this node
 static uint8_t group;               // network group
 static volatile uint8_t rxfill;     // number of data bytes in rf12_buf
 static volatile int8_t rxstate;     // current transceiver state
+volatile uint16_t state;            // last seen rfm12b state
 volatile uint8_t drssi;             // digital rssi state (see binary search tree below and rf12_getRSSI()
 
 struct drssi_dec_t {
@@ -189,7 +188,7 @@ void rf12_spiInit () {
 #ifdef SPCR    
     SPCR = _BV(SPE) | _BV(MSTR);
 #if F_CPU > 10000000
-    // use clk/2 (2x 1/4th) for sending (and clk/8 for recv, see rf12_xferSlow)
+    // use clk/2 (2x 1/4th) for sending (and clk/8 for recv, see rf12_xfer)
     SPSR |= _BV(SPI2X);
 #endif
 #else
@@ -232,22 +231,6 @@ static uint8_t rf12_byte (uint8_t out) {
 #endif
 }
 
-static uint16_t rf12_xferSlow (uint16_t cmd) {
-    // slow down to under 2.5 MHz
-#if F_CPU > 10000000
-    bitSet(SPCR, SPR0);
-#endif
-    bitClear(SS_PORT, cs_pin);
-    uint16_t reply = rf12_byte(cmd >> 8) << 8;
-    reply |= rf12_byte(cmd);
-    bitSet(SS_PORT, cs_pin);
-#if F_CPU > 10000000
-    bitClear(SPCR, SPR0);
-#endif
-    return reply;
-}
-
-#if OPTIMIZE_SPI
 static void rf12_xfer (uint16_t cmd) {
     // writing can take place at full speed, even 8 MHz works
     bitClear(SS_PORT, cs_pin);
@@ -255,9 +238,6 @@ static void rf12_xfer (uint16_t cmd) {
     rf12_byte(cmd);
     bitSet(SS_PORT, cs_pin);
 }
-#else
-#define rf12_xfer rf12_xferSlow
-#endif
 
 
 static uint16_t rf12_xferState (uint8_t *data) {
@@ -294,33 +274,32 @@ static uint16_t rf12_xferState (uint8_t *data) {
 /// Returns the 16-bit value returned by SPI. Probably only useful with a 
 /// "0x0000" status poll command.
 /// @param cmd RF12 command, topmost bits determines which register is affected.
-uint16_t rf12_control(uint16_t cmd) {
+void rf12_control(uint16_t cmd) {
 #ifdef EIMSK
     bitClear(EIMSK, INT0);
-    uint16_t r = rf12_xferSlow(cmd);
+    rf12_xfer(cmd);
     bitSet(EIMSK, INT0);
 #else
     // ATtiny
     bitClear(GIMSK, INT0);
-    uint16_t r = rf12_xferSlow(cmd);
+    rf12_xfer(cmd);
     bitSet(GIMSK, INT0);
 #endif
-    return r;
 }
 
 static void rf12_interrupt() {
     // a transfer of 2x 16 bits @ 2 MHz over SPI takes 2x 8 us inside this ISR
     // correction: now takes 2 + 8 µs, since sending can be done at 8 MHz
     uint8_t in;
-    uint16_t res = rf12_xferState(&in);
+    state = rf12_xferState(&in);
     
     if (rxstate == TXRECV) {
 
-    	if (res & 0x8000) { // check if we really got a byte
+    	if (state & 0x8000) { // check if we really got a byte
 
             // do drssi binary-tree search
             if ( drssi < 6 ) {       // not yet final value
-                if ( bitRead(res,8) )  // rssi over threashold?
+                if ( bitRead(state,8) )  // rssi over threashold?
                     drssi = drssi_dec_tree[drssi].up;
                 else
                     drssi = drssi_dec_tree[drssi].down;
@@ -745,7 +724,7 @@ void rf12_sleep (char n) {
 /// detect an impending power failure, but there are no guarantees that the
 /// power still remaining will be sufficient to send or receive further packets.
 char rf12_lowbat () {
-    return (rf12_control(0x0000) & RF_LBD_BIT) != 0;
+    return (state & RF_LBD_BIT) != 0;
 }
 
 /// @details
