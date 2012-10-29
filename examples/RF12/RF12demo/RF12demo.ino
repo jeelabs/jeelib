@@ -395,14 +395,18 @@ static void df_initialize () {
         df_deselect();
 
         scanForLastSave();
-        
-        Serial.print("DF I ");
+
+        // df_wipe();
+        df_saveBuf(); //XXX
+    }
+}
+
+static void df_state () {
+    if (df_present()) {
+        Serial.print(" DF I ");
         Serial.print(dfLastPage);
         Serial.print(' ');
         Serial.println(dfBuf.seqnum);
-    
-        // df_wipe();
-        df_saveBuf(); //XXX
     }
 }
 
@@ -568,6 +572,7 @@ static void showHelp () {
         showString(helpText2);
     Serial.println("Current configuration:");
     rf12_config();
+    df_state();
 }
 
 static void handleInput (char c) {
