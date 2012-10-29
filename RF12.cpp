@@ -297,22 +297,25 @@ static void rf12_interrupt() {
 
     	if (state & 0x8000) { // check if we really got a byte
 
-            // do drssi binary-tree search
-            if ( drssi < 6 ) {       // not yet final value
-                if ( bitRead(state,8) )  // rssi over threashold?
-                    drssi = drssi_dec_tree[drssi].up;
-                else
-                    drssi = drssi_dec_tree[drssi].down;
-                if ( drssi < 6 ) {     // not yet final destination
-                    rf12_xfer(0x94A0 | drssi_dec_tree[drssi].threshold);
-                }
-            }
-
             if (rxfill == 0 && group != 0)
                 rf12_buf[rxfill++] = group;
             
             rf12_buf[rxfill++] = in;
             rf12_crc = _crc16_update(rf12_crc, in);
+
+            // do drssi binary-tree search
+            if ( ! bitRead(rxfill,0) ) {
+                if ( drssi < 6 ) {       // not yet final value
+                    if ( bitRead(state,8) )  // rssi over threashold?
+                        drssi = drssi_dec_tree[drssi].up;
+                    else
+                        drssi = drssi_dec_tree[drssi].down;
+                    if ( drssi < 6 ) {     // not yet final destination
+                        rf12_xfer(0x94A0 | drssi_dec_tree[drssi].threshold);
+                    }
+                }
+            }
+
 
             if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX)
                 rf12_xfer(RF_IDLE_MODE);
