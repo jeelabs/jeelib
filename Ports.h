@@ -15,8 +15,10 @@
 #include <avr/pgmspace.h>
 //#include <util/delay.h>
 
-#if ARDUINO >= 100 
-// && !defined(__AVR_ATtiny84__) && !defined(__AVR_ATtiny85__) && !defined(__AVR_ATtiny44__) && !defined(__AVR_ATtiny45__) - un-comment to revert ATtiny85 back to "old conventions" -http://arduino.cc/forum/index.php/topic,51984.msg371307.html#msg371307
+// tweak this to switch ATtiny84 etc to new Arduino 1.0+ conventions
+// see http://arduino.cc/forum/index.php/topic,51984.msg371307.html#msg371307
+#if ARDUINO >= 100 && !defined(__AVR_ATtiny84__) && !defined(__AVR_ATtiny85__) \
+        && !defined(__AVR_ATtiny44__) && !defined(__AVR_ATtiny45__)
 #define WRITE_RESULT size_t
 #else
 #define WRITE_RESULT void
