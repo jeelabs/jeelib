@@ -1,6 +1,9 @@
 /// @dir syncRecv
 /// Try to receive periodic transmissions with minimal power consumption.
 /// @see http://jeelabs.org/2012/11/02/synchronised-reception/
+/// @see http://jeelabs.org/2012/11/03/losing-sync-is-bad/
+/// @see http://jeelabs.org/2012/11/04/predicting-the-next-packet-time/
+/// @see http://jeelabs.org/2012/11/05/verifying-synchronisation-over-time/
 // 2012-10-30 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>
