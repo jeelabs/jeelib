@@ -304,15 +304,13 @@ static void rf12_interrupt() {
             rf12_crc = _crc16_update(rf12_crc, in);
 
             // do drssi binary-tree search
-            if ( ! bitRead(rxfill,0) ) {
-                if ( drssi < 6 ) {       // not yet final value
-                    if ( bitRead(state,8) )  // rssi over threashold?
-                        drssi = drssi_dec_tree[drssi].up;
-                    else
-                        drssi = drssi_dec_tree[drssi].down;
-                    if ( drssi < 6 ) {     // not yet final destination
-                        rf12_xfer(0x94A0 | drssi_dec_tree[drssi].threshold);
-                    }
+            if ( drssi < 6 ) {       // not yet final value
+                if ( bitRead(state,8) )  // rssi over threashold?
+                    drssi = drssi_dec_tree[drssi].up;
+                else
+                    drssi = drssi_dec_tree[drssi].down;
+                if ( drssi < 6 ) {     // not yet final destination
+                    rf12_xfer(0x94A0 | drssi_dec_tree[drssi].threshold);
                 }
             }
 
@@ -370,6 +368,7 @@ static void rf12_recvStart () {
 #endif
     rxstate = TXRECV;    
     drssi = 3;              // set drssi to start value
+    rf12_xfer(0x94A0 | drssi_dec_tree[drssi].threshold);
     rf12_xfer(RF_RECEIVER_ON);
 }
 
@@ -426,7 +425,7 @@ uint8_t rf12_recvDone () {
 
 // return signal strength calculated out of DRSSI bit
 int8_t rf12_getRSSI() {
-    if (! drssi & B1000)
+    if (! bitRead(drssi,3))
         return 0;
     
     const int8_t table[] = {-106, -100, -94, -88, -82, -76, -70};
