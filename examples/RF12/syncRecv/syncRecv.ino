@@ -6,12 +6,15 @@
 #include <JeeLib.h>
 #include <avr/eeprom.h>
 
+#define DEBUG       0             // serial port debugging
+#define DEBUG_LED   1             // turn LED on PB1 on while receiving
+
 #define SEND_FREQ   RF12_868MHZ   // listening frequency
 #define SEND_GROUP  5             // listening net group
 #define SEND_ID     9             // listen for this node ID
 
 #define CYCLE_TIME  3000          // expected cycle, milliseconds
-#define MIN_WIN     8             // minimum window size, power of 2
+#define MIN_WIN     16            // minimum window size, power of 2
 #define MAX_WIN     1024          // maximum window size, power of 2
 
 #define EEADDR ((word*) 0)        // save estimate at this EEPROM address
@@ -24,12 +27,15 @@ uint32_t lastRecv;  // time of last reception
 ISR(WDT_vect) { Sleepy::watchdogEvent(); }
 
 static void radioSleep (word ms) {
-  bitSet(DDRB, 1);
+#if DEBUG_LED
   bitSet(PORTB, 1); // LED off
+#endif
   rf12_sleep(RF12_SLEEP);
   Sleepy::loseSomeTime(ms);
   rf12_sleep(RF12_WAKEUP);
+#if DEBUG_LED
   bitClear(PORTB, 1); // LED on
+#endif
 }
 
 static bool isDesiredPacket () {
@@ -56,10 +62,12 @@ static bool estimateWithWatchdog () {
   estimate = lastRecv - start;
   int offset = (estimate - lowEstimate) - window;
 
+#if DEBUG
   Serial.print(" t "); Serial.print(lastRecv / 1000);
   Serial.print(" e "); Serial.print(estimate);
   Serial.print(" w "); Serial.print(window);
   Serial.print(" o "); Serial.println(offset);
+#endif
   return true;
 }
 
@@ -69,7 +77,9 @@ static void chooseEstimate () {
   if (estimate < CYCLE_TIME - CYCLE_TIME/5 ||
       estimate > CYCLE_TIME + CYCLE_TIME/5)
     estimate = CYCLE_TIME;
+#if DEBUG
   Serial.print("start "); Serial.println(estimate);
+#endif
   // narrow down estimate from 20 % -> 2 %
   window = estimate / 5; 
   while (window >= 2 * MIN_WIN)
@@ -77,27 +87,20 @@ static void chooseEstimate () {
       window /= 2;
   // save best estimate so far
   eeprom_write_word(EEADDR, estimate);
+#if DEBUG
   Serial.print("save "); Serial.println(estimate);
+#endif
 }
 
-void setup () {
-  Serial.begin(57600);
-  Serial.println("\n[syncRecv] " __TIME__);
-  rf12_initialize(1, SEND_FREQ, SEND_GROUP); // we never send
-  chooseEstimate();
-  Serial.flush(); delayMicroseconds(250);
-  window = MIN_WIN;
-}
-
-void loop () {
+static bool optimalSleep () {
   uint32_t now = millis();
   // make a guess as to how many packets we lost
   byte lost = (now - lastRecv + estimate/2) / estimate;
-  
+
   // if things are really bad, resync from scratch
   if (lost > 20) {
     chooseEstimate();
-    return;
+    return false;
   }
 
   // double the window every 4 additional packets lost
@@ -114,7 +117,7 @@ void loop () {
   do {
     recvTime = millis();
     if (recvTime > predict + window)
-      return;
+      return false;
   } while (!isDesiredPacket());
 
   // adjust our estimate and prepare for more packets
@@ -123,14 +126,49 @@ void loop () {
   int offset = (estimate - sleep) - window;
   lastRecv = recvTime;
 
+#if DEBUG
   Serial.print(" n "); Serial.print(lost);
   Serial.print(" e "); Serial.print(estimate);
   Serial.print(" w "); Serial.print(window);
   Serial.print(" o "); Serial.print(offset);
   Serial.print(" rf "); Serial.println(offset + window);
   Serial.flush(); delayMicroseconds(250);
+#endif
 
   // successful reception means we can narrow down the window
   if (window > MIN_WIN)
     window /= 2;
+  return true;  
+}
+
+void setup () {
+  Serial.begin(57600);
+  Serial.println("\n[syncRecv] " __TIME__);
+  rf12_initialize(1, SEND_FREQ, SEND_GROUP); // we never send
+#if DEBUG_LED
+  bitSet(DDRB, 1);
+  bitClear(PORTB, 1); // LED on
+#endif
+  chooseEstimate();
+  Serial.print("cycle "); Serial.println(estimate);
+  Serial.flush(); delayMicroseconds(250);
+  window = MIN_WIN;
+}
+
+void loop () {
+  if (optimalSleep()) {
+    uint32_t now = millis();
+    Serial.print((now/100000) % 10);
+    Serial.print((now/10000) % 10);
+    Serial.print((now/1000) % 10);
+    Serial.print('.');
+    Serial.print((now/100) % 10);
+    Serial.print(':');
+    for (byte i = 0; i < rf12_len; ++i) {
+      Serial.print(' ');
+      Serial.print(rf12_data[i], HEX);
+    }
+    Serial.println();
+    Serial.flush(); delayMicroseconds(250);
+  }
 }
