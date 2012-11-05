@@ -293,50 +293,66 @@ static void rf12_interrupt() {
     uint8_t in;
     state = rf12_xferState(&in);
     
-    if (rxstate == TXRECV) {
-
-    	if (state & 0x8000) { // check if we really got a byte
+    // data received or byte needed for sending
+    if (state & 0x8000) {
+	
+	    if (rxstate == TXRECV) {  // we are receiving
 
             if (rxfill == 0 && group != 0)
                 rf12_buf[rxfill++] = group;
-            
+
             rf12_buf[rxfill++] = in;
-            rf12_crc = _crc16_update(rf12_crc, in);
+        	rf12_crc = _crc16_update(rf12_crc, in);
 
-            // do drssi binary-tree search
-            if ( drssi < 6 ) {       // not yet final value
-                if ( bitRead(state,8) )  // rssi over threashold?
-                    drssi = drssi_dec_tree[drssi].up;
-                else
-                    drssi = drssi_dec_tree[drssi].down;
-                if ( drssi < 6 ) {     // not yet final destination
-                    rf12_xfer(0x94A0 | drssi_dec_tree[drssi].threshold);
-                }
-            }
+    	    // do drssi binary-tree search
+	        if ( drssi < 6 ) {       // not yet final value
+             	if ( bitRead(state,8) )  // rssi over threashold?
+            		drssi = drssi_dec_tree[drssi].up;
+        	    else
+    	            drssi = drssi_dec_tree[drssi].down;
+	            if ( drssi < 6 ) {     // not yet final destination
+                	rf12_xfer(0x94A0 | drssi_dec_tree[drssi].threshold);
+            	}
+           	}
 
+       	    if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX)
+   	            rf12_xfer(RF_IDLE_MODE);
 
-            if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX)
-                rf12_xfer(RF_IDLE_MODE);
-        }
+    	} else {                  // we are sending
+	        uint8_t out;
 
-    } else {
-        uint8_t out;
+    	    if (rxstate < 0) {
+	            uint8_t pos = 3 + rf12_len + rxstate++;
+            	out = rf12_buf[pos];
+        	    rf12_crc = _crc16_update(rf12_crc, out);
+    	    } else
+	            switch (rxstate++) {
+                	case TXSYN1: out = 0x2D; break;
+            	    case TXSYN2: out = group; rxstate = - (2 + rf12_len); break;
+        	        case TXCRC1: out = rf12_crc; break;
+    	            case TXCRC2: out = rf12_crc >> 8; break;
+	                case TXDONE: rf12_xfer(RF_IDLE_MODE); // fall through
+                	default:     out = 0xAA;
+            	}
 
-        if (rxstate < 0) {
-            uint8_t pos = 3 + rf12_len + rxstate++;
-            out = rf12_buf[pos];
-            rf12_crc = _crc16_update(rf12_crc, out);
-        } else
-            switch (rxstate++) {
-                case TXSYN1: out = 0x2D; break;
-                case TXSYN2: out = group; rxstate = - (2 + rf12_len); break;
-                case TXCRC1: out = rf12_crc; break;
-                case TXCRC2: out = rf12_crc >> 8; break;
-                case TXDONE: rf12_xfer(RF_IDLE_MODE); // fall through
-                default:     out = 0xAA;
-            }
-            
-        rf12_xfer(RF_TXREG_WRITE + out);
+        	rf12_xfer(RF_TXREG_WRITE + out);
+		}
+    }
+    
+    // power-on reset
+    if (state & 0x4000) {
+    	
+    }
+    
+    // got wakeup Callas
+    if (state & 0x1000) {
+    	
+    }
+    
+    // fifo overflow or buffer underrun - abort reception/sending
+    if (state & 0x2000) {
+	    rf12_xfer(RF_IDLE_MODE);
+	    rxstate = TXIDLE;
     }
 }
 
