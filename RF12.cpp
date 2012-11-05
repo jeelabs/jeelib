@@ -115,6 +115,7 @@
 // transceiver states, these determine what to do with each interrupt
 enum {
     TXCRC1, TXCRC2, TXTAIL, TXDONE, TXIDLE,
+    UNINITIALIZED, POR_RECEIVED,	// indicates uninitialized RFM12b and Power-On-Reset
     TXRECV,
     TXPRE1, TXPRE2, TXPRE3, TXSYN1, TXSYN2,
 };
@@ -123,6 +124,7 @@ static uint8_t cs_pin = SS_BIT;     // chip select pin
 
 static uint8_t nodeid;              // address of this node
 static uint8_t group;               // network group
+static uint8_t band;				// network band
 static volatile uint8_t rxfill;     // number of data bytes in rf12_buf
 static volatile int8_t rxstate;     // current transceiver state
 volatile uint16_t state;            // last seen rfm12b state
@@ -341,7 +343,7 @@ static void rf12_interrupt() {
     
     // power-on reset
     if (state & 0x4000) {
-    	
+    	rxstate = POR_RECEIVED;
     }
     
     // got wakeup Callas
@@ -587,41 +589,13 @@ void rf12_sendWait (uint8_t mode) {
 /// rf12_initialize. The choice whether to use rf12_initialize() or
 /// rf12_config() at the top of every sketch is one of personal preference.
 /// To set EEPROM settings for use with rf12_config() use the RF12demo sketch.
-uint8_t rf12_initialize (uint8_t id, uint8_t band, uint8_t g) {
+uint8_t rf12_initialize (uint8_t id, uint8_t b, uint8_t g) {
     nodeid = id;
     group = g;
+    band = b;
     
     rf12_spiInit();
 
-    rf12_xfer(0x0000); // intitial SPI transfer added to avoid power-up problem
-
-    rf12_xfer(RF_SLEEP_MODE); // DC (disable clk pin), enable lbd
-    
-    // wait until RFM12B is out of power-up reset, this takes several *seconds*
-    rf12_xfer(RF_TXREG_WRITE); // in case we're still in OOK mode
-    while (digitalRead(RFM_IRQ) == 0)
-        rf12_xfer(0x0000);
-        
-    rf12_xfer(0x80C7 | (band << 4)); // EL (ena TX), EF (ena RX FIFO), 12.0pF 
-    rf12_xfer(0xA640); // 868MHz 
-    rf12_xfer(0xC606); // approx 49.2 Kbps, i.e. 10000/29/(1+6) Kbps
-    rf12_xfer(0x94A2); // VDI,FAST,134kHz,0dBm,-91dBm 
-    rf12_xfer(0xC2AC); // AL,!ml,DIG,DQD4 
-    if (group != 0) {
-        rf12_xfer(0xCA83); // FIFO8,2-SYNC,!ff,DR 
-        rf12_xfer(0xCE00 | group); // SYNC=2DXX； 
-    } else {
-        rf12_xfer(0xCA8B); // FIFO8,1-SYNC,!ff,DR 
-        rf12_xfer(0xCE2D); // SYNC=2D； 
-    }
-    rf12_xfer(0xC483); // @PWR,NO RSTRIC,!st,!fi,OE,EN 
-    rf12_xfer(0x9850); // !mp,90kHz,MAX OUT 
-    rf12_xfer(0xCC77); // OB1，OB0, LPX,！ddy，DDIT，BW0 
-    rf12_xfer(0xE000); // NOT USE 
-    rf12_xfer(0xC800); // NOT USE 
-    rf12_xfer(0xC049); // 1.66MHz,3.1V 
-
-    rxstate = TXIDLE;
 #if PINCHG_IRQ
     #if RFM_IRQ < 8
         if ((nodeid & NODE_ID) != 0) {
@@ -654,6 +628,40 @@ uint8_t rf12_initialize (uint8_t id, uint8_t band, uint8_t g) {
     else
         detachInterrupt(0);
 #endif
+
+	// reset RFM12b module
+    rf12_xfer(0xCA82); // enable software reset
+    rf12_xfer(0xFE00); // do software reset
+    rxstate = UNINITIALIZED;
+
+    // wait until RFM12B is out of power-up reset, this takes several *seconds*
+	while (rxstate == UNINITIALIZED)
+		;
+
+	cli();
+    rf12_xfer(RF_SLEEP_MODE); // DC (disable clk pin), enable lbd
+        
+    rf12_xfer(0x80C7 | (band << 4)); // EL (ena TX), EF (ena RX FIFO), 12.0pF 
+    rf12_xfer(0xA640); // 868MHz 
+    rf12_xfer(0xC606); // approx 49.2 Kbps, i.e. 10000/29/(1+6) Kbps
+    rf12_xfer(0x94A2); // VDI,FAST,134kHz,0dBm,-91dBm 
+    rf12_xfer(0xC2AC); // AL,!ml,DIG,DQD4 
+    if (group != 0) {
+        rf12_xfer(0xCA83); // FIFO8,2-SYNC,!ff,DR 
+        rf12_xfer(0xCE00 | group); // SYNC=2DXX； 
+    } else {
+        rf12_xfer(0xCA8B); // FIFO8,1-SYNC,!ff,DR 
+        rf12_xfer(0xCE2D); // SYNC=2D； 
+    }
+    rf12_xfer(0xC483); // @PWR,NO RSTRIC,!st,!fi,OE,EN 
+    rf12_xfer(0x9850); // !mp,90kHz,MAX OUT 
+    rf12_xfer(0xCC77); // OB1，OB0, LPX,！ddy，DDIT，BW0 
+    rf12_xfer(0xE000); // NOT USE 
+    rf12_xfer(0xC800); // NOT USE 
+    rf12_xfer(0xC049); // 1.66MHz,3.1V 
+
+    rxstate = TXIDLE;
+    sei();
     
     return nodeid;
 }
