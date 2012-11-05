@@ -1,6 +1,6 @@
 /// @dir smaRelay
 /// Read out SMA solar inverter via Bluetooth and relay readings using RFM12B.
-// 2012-11-04 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
+// 2012-11-04 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>
 

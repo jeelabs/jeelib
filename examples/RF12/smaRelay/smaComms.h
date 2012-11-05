@@ -1,5 +1,5 @@
 /// Connect to SMA inverters via Bluetooth and read out some of its values.
-// 2012-11-04 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
+// 2012-11-04 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 //
 // This code can be used in a normal Unix program or in an Arduino sketch.
 // Include this header in a C++ file which defines getBytes() and emitFinal().

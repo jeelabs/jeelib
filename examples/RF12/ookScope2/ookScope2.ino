@@ -1,6 +1,6 @@
 /// @dir ookScope2
 /// Examine the pulse patterns coming from an OOK receiver (see also peekrf).
-// 2010-04-10 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
+// 2010-04-10 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 //
 // see http://news.jeelabs.org/2010/04/13/an-ook-scope/
 // changed to use pin-change interrupts i.s.o. the analog comparator
