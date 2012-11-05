@@ -88,31 +88,29 @@ static word readPacket () {
     check = 0;
   while (getByte() != 0x7E);
 
-#if DEBUG
-  printf("\n");
-#endif
-
   struct { word len; byte check; } prefix;
   getBytes(&prefix, 3);
-  // assert(check == 0);
-  // assert(prefix.len < sizeof packetBuf);
-
+  byte pcheck = check;
   getBytes(&header, 14);
+  
+  if (pcheck != 0 || prefix.len >= sizeof packetBuf)
+    return 0;
+
   packetLen = getEscaped(packetBuf, prefix.len - 18);
 
-#if DEBUG
-  printf("\n  cmd %04X len %d plen %d\n", header.cmd, prefix.len, packetLen);
-#endif
-
+  // printf("\n  cmd %04X len %d plen %d\n", header.cmd, prefix.len, packetLen);
   return header.cmd;
 }
 
-static void expectPacket (word cmd) {
-#if DEBUG
-  printf("expect %04X\n", cmd);
-#endif
-  while (readPacket() != cmd)
-    ;
+static bool expectPacket (word cmd) {
+  // printf("expect %04X\n", cmd);
+  word rcmd;
+  do {
+    rcmd = readPacket();
+    if (rcmd == cmd)
+      return true;
+  } while (rcmd != 0);
+  return false;
 }
 
 static void emitOne (byte b) {
@@ -133,7 +131,7 @@ static void emitBytes (const void* ptr, byte len) {
     emitOne(*p++);
 }
 
-static void emitMany (uint32_t data, byte len) {
+static void emitInt (uint32_t data, byte len) {
   emitBytes(&data, len);
 }
 
@@ -141,7 +139,7 @@ static void emitStart () {
   escaped = false;
   fcsCheck = ~0;
   fill = packetBuf;
-  emitMany(0x7E, 4);
+  emitInt(0x7E, 4);
 }
 
 static void sendPacket (const char* fmt, ...) {
@@ -156,13 +154,13 @@ static void sendPacket (const char* fmt, ...) {
       case '$':
         switch (*fmt++) {
           case 'c': emitOne(va_arg(ap, int)); break;
-          case 'i': emitMany(va_arg(ap, int), 2); break;
-          case 'l': emitMany(va_arg(ap, long), 4); break;
+          case 'i': emitInt(va_arg(ap, int), 2); break;
+          case 'l': emitInt(va_arg(ap, long), 4); break;
           case 'm': emitBytes(myAddr, 6); break;
           case 's': emitBytes(smaAddr, 6); break;
           case 'f': emitBytes(allffs, 6); break;
-          case 'z': emitMany(0L, 4); break;
-          case 'x': emitMany(0x00020080L, 4); break;
+          case 'z': emitInt(0L, 4); break;
+          case 'x': emitInt(0x00020080L, 4); break;
           case 'p':
             for (byte i = 0; i < 12; ++i)
               emitOne((passwd[i] + 0x88) % 255);
@@ -171,17 +169,17 @@ static void sendPacket (const char* fmt, ...) {
         break;
 
       case '/':
-        emitMany(0x0001, 2);
+        emitInt(0x0001, 2);
         emitOne(0x7E);
         escaped = true;
-        emitMany(0x656003FFL, 4);
-        emitMany(va_arg(ap, int), 2);
+        emitInt(0x656003FFL, 4);
+        emitInt(va_arg(ap, int), 2);
         emitBytes(allffs, 6);
-        emitMany(va_arg(ap, int), 2);
+        emitInt(va_arg(ap, int), 2);
         emitBytes(fakeAddr, 6);
         emitOne(0x00);
         emitOne(va_arg(ap, int));
-        emitMany(0L, 4);
+        emitInt(0L, 4);
         emitOne(packetNum);
         break;
 
@@ -198,7 +196,7 @@ static void sendPacket (const char* fmt, ...) {
 
   if (escaped) {
     escaped = false;
-    emitMany(~fcsCheck, 2);
+    emitInt(~fcsCheck, 2);
     emitOne(0x7E);
   }
 
@@ -218,38 +216,39 @@ static bool validPacket () {
 }
 
 static void sendAndWait (const char* fmt, word a1, word a2, word a3) {
-  do {
+  do
     sendPacket(fmt, a1, a2, a3);
-    expectPacket(0x0001);
-  } while (!validPacket());
+  while (!expectPacket(0x0001) || !validPacket());
   ++packetNum;
 }
 
-static void smaInitAndLogin (const byte* myBtAddr) {
+static byte smaInitAndLogin (const byte* myBtAddr) {
   myAddr = myBtAddr;
-  expectPacket(0x0002);
+  if (!expectPacket(0x0002))
+    return 1;
   memcpy(smaAddr, header.src, 6); // save the SMA's BT address
-  sendPacket("$m $s 0200 00047000 $c $z 01000000", packetBuf[4]);
-  expectPacket(0x000A);
-  expectPacket(0x0005);
+  sendPacket("$m $s 020000047000 $c $z 01000000", packetBuf[4]);
+  if (!expectPacket(0x000A) || !expectPacket(0x0005))
+    return 2;
 
   sendAndWait("$m $f / $x 00 $z $z", 0xA009, 0, 0);
-  sendPacket("$m $f / 800E01FD FFFFFFFF FF", 0xA008, 0x0300, 0x03);
+  sendPacket("$m $f / 800E01FDFFFFFFFFFF", 0xA008, 0x0300, 0x03);
   ++packetNum;
 
-  sendAndWait("$m $f / 800C04FD FF070000 00840300 00 AAAABBBB $z $p",
+  sendAndWait("$m $f / 800C04FDFF0700000084030000AAAABBBB $z $p",
                                                         0xA00E, 0x0100, 0x01);
+  return 0; // ok
 }
 
 static void setInverterTime (uint32_t now) {
-  sendPacket("$m $s / 8C0A0200 F0006D23 00006D23 00006D23 00"
+  sendPacket("$m $s / 8C0A0200F0006D2300006D2300006D2300"
              " $l $l $l $i 0000 $l 01000000",
               0x0009, 0x0000, 0, now, now, now, 0, now);
   ++packetNum;
 }
 
 static word dailyYield (uint32_t* ptime =0) {
-  sendAndWait("$m $f / $x 54002226 00FF2226 00", 0xA009, 0, 0);
+  sendAndWait("$m $f / $x 5400222600FF222600", 0xA009, 0, 0);
   if (ptime != 0)
     *ptime = *(uint32_t*)(packetBuf+45);
   if (*(word*)(packetBuf+42) != 0x2622)
@@ -258,41 +257,41 @@ static word dailyYield (uint32_t* ptime =0) {
 }
 
 static uint32_t totalPower () {
-  sendAndWait("$m $s / $x 54000126 00FF0126 00", 0xA009, 0, 0);
+  sendAndWait("$m $s / $x 5400012600FF012600", 0xA009, 0, 0);
   return *(uint32_t*)(packetBuf+49);
 }
 
 static word acPowerNow () {
-  sendAndWait("$m $f / $x 51003F26 00FF3F26 000E", 0xA109, 0, 0);
+  sendAndWait("$m $f / $x 51003F2600FF3F26000E", 0xA109, 0, 0);
   return *(word*)(packetBuf+49);
 }
 
 static byte dcVoltsNow (word* buf) {
-  sendPacket("$m $s / 83000280 53000045 00FFFF45 00", 0xE009, 0, 0);
-  expectPacket(0x0008);
-  byte i = 0;
+  do
+    sendPacket("$m $s / 830002805300004500FFFF4500", 0xE009, 0, 0);
+  while (!expectPacket(0x0008));
+  byte n = 0;
   for (word i = 41; i < packetLen - 3; i += 28) {
     word type = *(word*)(packetBuf+i+1);
-    // printf("type %x\n", *(word*)(packetBuf+i+8));
+    // printf("type %x\n", type);
     if (type == 0x451F)
-      buf[i++] = *(word*)(packetBuf+i+8);
+      buf[n++] = *(word*)(packetBuf+i+8);
   }
-  expectPacket(0x0001);
   ++packetNum;
-  return i;
+  return expectPacket(0x0001) ? n : 0;
 }
 
 static byte dcPowerNow (word* buf) {
-  sendPacket("$m $s / 83000280 53000025 00FFFF25 00", 0xE009, 0, 0);
-  expectPacket(0x0008);
-  byte i = 0;
+  do
+    sendPacket("$m $s / 830002805300002500FFFF2500", 0xE009, 0, 0);
+  while (!expectPacket(0x0008));
+  byte n = 0;
   for (word i = 41; i < packetLen - 3; i += 28) {
     word type = *(word*)(packetBuf+i+1);
-    // printf("type %x\n", *(word*)(packetBuf+i+8));
+    // printf("type %x\n", type);
     if (type == 0x251E)
-      buf[i++] = *(word*)(packetBuf+i+8);
+      buf[n++] = *(word*)(packetBuf+i+8);
   }
-  expectPacket(0x0001);
   ++packetNum;
-  return i;
+  return expectPacket(0x0001) ? n : 0;
 }
