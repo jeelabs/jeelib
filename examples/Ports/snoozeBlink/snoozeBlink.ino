@@ -1,6 +1,6 @@
 /// @dir snoozeBlink
 /// Blink a LED on DIO4 using as little power as possible.
-// 2011-12-28 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
+// 2011-12-28 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>
 

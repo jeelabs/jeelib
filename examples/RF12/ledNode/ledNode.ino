@@ -1,6 +1,6 @@
 /// @dir ledNode
 /// Programmable color ramps for the LED drivers on the LED Node.
-// 2011-10-26 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
+// 2011-10-26 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>
 #include <EEPROM.h>

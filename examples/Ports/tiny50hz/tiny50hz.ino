@@ -1,6 +1,6 @@
 /// @dir tiny50hz
 /// ATtiny85 measurement of peak-to-peak current at 50 Hz, w/ moving average.
-// 2011-10-06 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
+// 2011-10-06 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 //
 // Note that this "sketch" is not for the ATmega328 but for the ATtiny84/85, 
 // see http://jeelabs.org/2011/10/10/ac-current-detection-works/
