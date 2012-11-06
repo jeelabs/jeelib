@@ -7,6 +7,17 @@
 // Written from scratch, with lots of details gleaned from Stuart Pittaway's
 // OSS project at https://github.com/stuartpittaway/nanodesmapvmonitor
 
+static byte getByte (); // forward
+static void emitFinal (); // forward
+
+// use flash-based storage for some things when running on an ATmega
+#ifdef PSTR
+#define PFETCH(x) pgm_read_byte(x)
+#else
+#define PFETCH(x) *(x)
+#define PSTR(x) x
+#endif
+
 byte check;
 byte packetNum;
 word fcsCheck;
@@ -24,7 +35,12 @@ char passwd[12] = "0000";
 
 struct { byte src[6]; byte dest[6]; word cmd; } header;
 
-word fcstab[]  = {
+#ifdef PSTR
+prog_uint16_t fcstab[] PROGMEM =
+#else
+word fcstab[] =
+#endif
+{
   0x0000, 0x1189, 0x2312, 0x329b, 0x4624, 0x57ad, 0x6536, 0x74bf,
   0x8c48, 0x9dc1, 0xaf5a, 0xbed3, 0xca6c, 0xdbe5, 0xe97e, 0xf8f7,
   0x1081, 0x0108, 0x3393, 0x221a, 0x56a5, 0x472c, 0x75b7, 0x643e,
@@ -59,8 +75,13 @@ word fcstab[]  = {
   0x7bc7, 0x6a4e, 0x58d5, 0x495c, 0x3de3, 0x2c6a, 0x1ef1, 0x0f78
 };
 
-static byte getByte (); // forward
-static void emitFinal (); // forward
+static void fcsUpdate (byte b) {
+#ifdef PSTR
+  fcsCheck = (fcsCheck >> 8) ^ pgm_read_word(&fcstab[(byte) fcsCheck ^ b]);
+#else
+  fcsCheck = (fcsCheck >> 8) ^ fcstab[(byte) fcsCheck ^ b];
+#endif
+}
 
 static void getBytes (void* ptr, word len) {
   byte* p = (byte*) ptr;
@@ -115,7 +136,7 @@ static bool expectPacket (word cmd) {
 
 static void emitOne (byte b) {
   if (escaped) {
-    fcsCheck = (fcsCheck >> 8) ^ fcstab[(byte) fcsCheck ^ b];
+    fcsUpdate(b);
     switch (b) {
       case 0x7D: case 0x7E: case 0x11: case 0x12: case 0x13:
         *fill++ = 0x7D;
@@ -147,12 +168,12 @@ static void sendPacket (const char* fmt, ...) {
   va_list ap;
   va_start(ap, fmt);
 
-  while (*fmt) {
-    char c = *fmt++;
+  while (PFETCH(fmt)) {
+    char c = PFETCH(fmt++);
     switch (c) {
 
       case '$':
-        switch (*fmt++) {
+        switch (PFETCH(fmt++)) {
           case 'c': emitOne(va_arg(ap, int)); break;
           case 'i': emitInt(va_arg(ap, int), 2); break;
           case 'l': emitInt(va_arg(ap, long), 4); break;
@@ -186,7 +207,7 @@ static void sendPacket (const char* fmt, ...) {
       default:
         if (c >= '0') {
           byte b = (c > '9' ? c - 7 : c) << 4;
-          c = *fmt++;
+          c = PFETCH(fmt++);
           // assert(c != 0);
           b += (c > '9' ? c - 7 : c) & 0x0F;
           emitOne(b);
@@ -209,10 +230,10 @@ static bool validPacket () {
       memcmp(packetBuf, "\x7E\xFF\x03\x60\x65", 5) != 0)
     return false;
 
-  word fcs = ~0;
+  fcsCheck = ~0;
   for (word i = 1; i < packetLen - 3; ++i) 
-    fcs = (fcs >> 8) ^ fcstab[(byte) fcs ^ packetBuf[i]];
-  return (word) ~fcs == *(word*)(packetBuf+packetLen-3);
+    fcsUpdate(packetBuf[i]);
+  return (word) ~fcsCheck == *(word*)(packetBuf+packetLen-3);
 }
 
 static void sendAndWait (const char* fmt, word a1, word a2, word a3) {
@@ -227,28 +248,28 @@ static byte smaInitAndLogin (const byte* myBtAddr) {
   if (!expectPacket(0x0002))
     return 1;
   memcpy(smaAddr, header.src, 6); // save the SMA's BT address
-  sendPacket("$m $s 020000047000 $c $z 01000000", packetBuf[4]);
+  sendPacket(PSTR("$m $s 020000047000 $c $z 01000000"), packetBuf[4]);
   if (!expectPacket(0x000A) || !expectPacket(0x0005))
     return 2;
 
-  sendAndWait("$m $f / $x 00 $z $z", 0xA009, 0, 0);
-  sendPacket("$m $f / 800E01FDFFFFFFFFFF", 0xA008, 0x0300, 0x03);
+  sendAndWait(PSTR("$m $f / $x 00 $z $z"), 0xA009, 0, 0);
+  sendPacket(PSTR("$m $f / 800E01FDFFFFFFFFFF"), 0xA008, 0x0300, 0x03);
   ++packetNum;
 
-  sendAndWait("$m $f / 800C04FDFF0700000084030000AAAABBBB $z $p",
+  sendAndWait(PSTR("$m $f / 800C04FDFF0700000084030000AAAABBBB $z $p"),
                                                         0xA00E, 0x0100, 0x01);
   return 0; // ok
 }
 
 static void setInverterTime (uint32_t now) {
-  sendPacket("$m $s / 8C0A0200F0006D2300006D2300006D2300"
-             " $l $l $l $i 0000 $l 01000000",
+  sendPacket(PSTR("$m $s / 8C0A0200F0006D2300006D2300006D2300"
+                  " $l $l $l $i 0000 $l 01000000"),
               0x0009, 0x0000, 0, now, now, now, 0, now);
   ++packetNum;
 }
 
 static word dailyYield (uint32_t* ptime =0) {
-  sendAndWait("$m $f / $x 5400222600FF222600", 0xA009, 0, 0);
+  sendAndWait(PSTR("$m $f / $x 5400222600FF222600"), 0xA009, 0, 0);
   if (ptime != 0)
     *ptime = *(uint32_t*)(packetBuf+45);
   if (*(word*)(packetBuf+42) != 0x2622)
@@ -257,18 +278,18 @@ static word dailyYield (uint32_t* ptime =0) {
 }
 
 static uint32_t totalPower () {
-  sendAndWait("$m $s / $x 5400012600FF012600", 0xA009, 0, 0);
+  sendAndWait(PSTR("$m $s / $x 5400012600FF012600"), 0xA009, 0, 0);
   return *(uint32_t*)(packetBuf+49);
 }
 
 static word acPowerNow () {
-  sendAndWait("$m $f / $x 51003F2600FF3F26000E", 0xA109, 0, 0);
+  sendAndWait(PSTR("$m $f / $x 51003F2600FF3F26000E"), 0xA109, 0, 0);
   return *(word*)(packetBuf+49);
 }
 
 static byte dcVoltsNow (word* buf) {
   do
-    sendPacket("$m $s / 830002805300004500FFFF4500", 0xE009, 0, 0);
+    sendPacket(PSTR("$m $s / 830002805300004500FFFF4500"), 0xE009, 0, 0);
   while (!expectPacket(0x0008));
   byte n = 0;
   for (word i = 41; i < packetLen - 3; i += 28) {
@@ -283,7 +304,7 @@ static byte dcVoltsNow (word* buf) {
 
 static byte dcPowerNow (word* buf) {
   do
-    sendPacket("$m $s / 830002805300002500FFFF2500", 0xE009, 0, 0);
+    sendPacket(PSTR("$m $s / 830002805300002500FFFF2500"), 0xE009, 0, 0);
   while (!expectPacket(0x0008));
   byte n = 0;
   for (word i = 41; i < packetLen - 3; i += 28) {
