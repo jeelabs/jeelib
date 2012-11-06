@@ -79,6 +79,9 @@ uint8_t rf12_config(uint8_t show =1);
 /// Call this frequently, returns true if a packet has been received.
 uint8_t rf12_recvDone(void);
 
+/// Call this frequently, returns true if a packet has been received.
+int8_t rf12_getRSSI(void);
+
 /// Call this to check whether a new transmission can be started.
 /// @return true when a new transmission may be started with rf12_sendStart().
 uint8_t rf12_canSend(void);
@@ -119,7 +122,7 @@ void rf12_encrypt(const uint8_t*);
 
 /// Low-level control of the RFM12B via direct register access.
 /// http://tools.jeelabs.org/rfm12b is useful for calculating these.
-uint16_t rf12_control(uint16_t cmd);
+void rf12_control(uint16_t cmd);
 
 /// See http://blog.strobotics.com.au/2009/07/27/rfm12-tutorial-part-3a/
 /// Transmissions are packetized, don't assume you can sustain these speeds! 
