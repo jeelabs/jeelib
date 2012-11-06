@@ -11,11 +11,12 @@ static byte getByte (); // forward
 static void emitFinal (); // forward
 
 // use flash-based storage for some things when running on an ATmega
-#ifdef PSTR
+#ifdef JeeLib_h
+#include <avr/pgmspace.h>
 #define PFETCH(x) pgm_read_byte(x)
 #else
-#define PFETCH(x) *(x)
 #define PSTR(x) x
+#define PFETCH(x) *(x)
 #endif
 
 byte check;
@@ -35,7 +36,7 @@ char passwd[12] = "0000";
 
 struct { byte src[6]; byte dest[6]; word cmd; } header;
 
-#ifdef PSTR
+#ifdef JeeLib_h
 prog_uint16_t fcstab[] PROGMEM =
 #else
 word fcstab[] =
@@ -76,7 +77,7 @@ word fcstab[] =
 };
 
 static void fcsUpdate (byte b) {
-#ifdef PSTR
+#ifdef JeeLib_h
   fcsCheck = (fcsCheck >> 8) ^ pgm_read_word(&fcstab[(byte) fcsCheck ^ b]);
 #else
   fcsCheck = (fcsCheck >> 8) ^ fcstab[(byte) fcsCheck ^ b];
@@ -89,14 +90,13 @@ static void getBytes (void* ptr, word len) {
     *p++ = getByte();
 }
 
-static word getEscaped (void* ptr, word len) {
+static word getEscaped (void* ptr, int len) {
   byte* p = (byte*) ptr;
   byte last = 0;
-  while (len-- > 0) {
+  while (--len >= 0) {
     byte b = getByte();
     if (b == 0x7D) {
       b = getByte() ^ 0x20;
-      // assert(len > 0);
       --len;
     }
     *p++ = b;
@@ -208,7 +208,6 @@ static void sendPacket (const char* fmt, ...) {
         if (c >= '0') {
           byte b = (c > '9' ? c - 7 : c) << 4;
           c = PFETCH(fmt++);
-          // assert(c != 0);
           b += (c > '9' ? c - 7 : c) & 0x0F;
           emitOne(b);
         }
