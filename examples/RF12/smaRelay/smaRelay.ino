@@ -5,6 +5,7 @@
 // 2012-11-04 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include <JeeLib.h>
+#include <avr/wdt.h>
 
 #define LED 9 // inverted logic
 
@@ -40,6 +41,21 @@ static void emitFinal () {
     Serial.write(packetBuf[i]);
 }
 
+static void getSmaData () {
+  memset(&payload, 0, sizeof payload);
+  payload.yield = dailyYield();         // Wh
+  payload.total = totalPower() / 1000;  // kWh
+  payload.acw = acPowerNow();           // W
+  dcVoltsNow(payload.dcv);              // V * 100
+  dcPowerNow(payload.dcw);              // W
+}
+
+static void bluetoothPower (bool on) {
+  // analog 5 on PSIX is used to control power, active low
+  pinMode(18, OUTPUT);
+  digitalWrite(18, !on);
+}
+
 static void initBluetooth (word baud) {
   Serial.begin(baud);
   delay(1000);
@@ -50,33 +66,28 @@ static void initBluetooth (word baud) {
   Serial.println("F,1"); // leave command mode
 }
 
-static void getSmaData () {
-  memset(&payload, 0, sizeof payload);
-  payload.yield = dailyYield();         // Wh
-  payload.total = totalPower() / 1000;  // kWh
-  payload.acw = acPowerNow();           // W
-  dcVoltsNow(payload.dcv);              // V * 100
-  dcPowerNow(payload.dcw);              // W
-}
-
 void setup () {
   rf12_initialize(15, RF12_868MHZ, 5);
+  rf12_sleep(RF12_SLEEP);
 
+  for (byte i = 0; i < 5; ++i)
+    Sleepy::loseSomeTime(60000);
+  wdt_enable(WDTO_8S);
+
+  bluetoothPower(true);
   initBluetooth(19200);
   smaInitAndLogin(myAddrBT);
+  getSmaData();
+  bluetoothPower(false);
+
+  rf12_sleep(RF12_WAKEUP);
+  while (!rf12_canSend())
+    rf12_recvDone();
+  rf12_sendStart(0, &payload, sizeof payload);
+  rf12_sendWait(2);
+  rf12_sleep(RF12_SLEEP);
+
+  Sleepy::powerDown();
 }
 
-void loop () {
-  if (sendTimer.poll(10000)) {
-    getSmaData();
-
-    rf12_sleep(RF12_WAKEUP);
-    while (!rf12_canSend())
-      rf12_recvDone();
-    rf12_sendStart(0, &payload, sizeof payload);
-    rf12_sendWait(2);
-    rf12_sleep(RF12_SLEEP);
-  }
-
-  Sleepy::loseSomeTime(sendTimer.remaining());
-}
+void loop () {}
