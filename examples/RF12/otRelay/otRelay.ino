@@ -30,7 +30,7 @@ static void sendId (byte id) {
 
     byte payload [3];
     payload[0] = id;
-    payload[1] = history[id].value;
+    payload[1] = history[id].value;       // litle-endian
     payload[2] = history[id].value >> 8;
 
     while (!rf12_canSend())
@@ -41,11 +41,11 @@ static void sendId (byte id) {
 
 static void sendIfChanged () {
   byte id = hex2bin(lastChars+3);
-  word newval = hex2bin(lastChars+5) + (hex2bin(lastChars+7) << 8);
+  word newval = (hex2bin(lastChars+5) << 8) + hex2bin(lastChars+7);
 
+  history[id].resends = RESEND_COUNT;
   if (newval != history[id].value) {
     history[id].value = newval;
-    history[id].resends = RESEND_COUNT;
     sendId(id);
   }
 }
