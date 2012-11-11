@@ -9,7 +9,14 @@
 // buffer to collect last data received
 byte lastChars[9], lastFill;
 
+// the last values received, one entry for each ID 0..255
+struct { byte values[2]; } history [256];
+
 static bool shouldSend (const byte* payload) {
+  byte id = payload[0];
+  if (memcmp(payload + 1, history[id].values, 2) == 0)
+    return false;
+  memcpy(history[id].values, payload + 1, 2);
   return true;
 }
 
