@@ -133,17 +133,15 @@ volatile uint8_t drssi;             // digital rssi state (see binary search tre
 struct drssi_dec_t {
     uint8_t up;
     uint8_t down;
-    uint8_t threshold;
 };
 
 const drssi_dec_t drssi_dec_tree[] = {
-            /*  up    down  thres*/
-    /* 0 */ { B1001, B1000, B000 },  /* B1xxx show final values, B0xxx are intermediate */
-    /* 1 */ { B0010, B0000, B001 },  /* values where next threshold has to be set.      */
-    /* 2 */ { B1011, B1010, B010 },  /* Traversing of this three is in rf_12interrupt() */
-    /* 3 */ { B0101, B0001, B011 },  // <- start value
-    /* 4 */ { B1101, B1100, B100 },
-    /* 5 */ { B1110, B0100, B101 }
+               /*up, dwn, threshold is index+1 */
+    /* C, 0 */ {  8,  7 },
+    /* A, 1 */ {  2,  0 },
+    /* D, 2 */ { 10,  9 },
+    /* x, 3 */ {  4,  1 },
+    /* B, 4 */ {  6,  5 },
 };
 
 
@@ -233,12 +231,14 @@ static uint8_t rf12_byte (uint8_t out) {
 #endif
 }
 
-static void rf12_xfer (uint16_t cmd) {
+static uint16_t rf12_xfer (uint16_t cmd) {
+	uint16_t res = 0;
     // writing can take place at full speed, even 8 MHz works
     bitClear(SS_PORT, cs_pin);
-    rf12_byte(cmd >> 8) << 8;
-    rf12_byte(cmd);
+    res  = rf12_byte(cmd >> 8) << 8;
+    res |= rf12_byte(cmd);
     bitSet(SS_PORT, cs_pin);
+    return res;
 }
 
 
@@ -307,13 +307,13 @@ static void rf12_interrupt() {
         	rf12_crc = _crc16_update(rf12_crc, in);
 
     	    // do drssi binary-tree search
-	        if ( drssi < 6 ) {       // not yet final value
+	        if ( drssi < 5 && ((rxfill-2)%8)==0 ) {       // not yet final value
              	if ( bitRead(state,8) )  // rssi over threashold?
             		drssi = drssi_dec_tree[drssi].up;
         	    else
     	            drssi = drssi_dec_tree[drssi].down;
-	            if ( drssi < 6 ) {     // not yet final destination
-                	rf12_xfer(0x94A0 | drssi_dec_tree[drssi].threshold);
+	            if ( drssi < 5 ) {     // not yet final destination
+                	rf12_xfer(0x94A0 | drssi+1);
             	}
            	}
 
@@ -386,7 +386,7 @@ static void rf12_recvStart () {
 #endif
     rxstate = TXRECV;    
     drssi = 3;              // set drssi to start value
-    rf12_xfer(0x94A0 | drssi_dec_tree[drssi].threshold);
+    rf12_xfer(0x94A0 | drssi + 1);
     rf12_xfer(RF_RECEIVER_ON);
 }
 
@@ -442,12 +442,10 @@ uint8_t rf12_recvDone () {
 
 
 // return signal strength calculated out of DRSSI bit
-int8_t rf12_getRSSI() {
-    if (! bitRead(drssi,3))
-        return 0;
-    
-    const int8_t table[] = {-106, -100, -94, -88, -82, -76, -70};
-    return table[drssi & B111];
+char rf12_getRSSI() {
+    const char table[] = { 'C', 'A', 'D', 'x', 'B', 'E', 'F',  'G', 'H', 'I', 'J' };
+
+	return table[drssi];
 }
 
 
