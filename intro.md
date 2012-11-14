@@ -1,5 +1,5 @@
-Library Introduction
-====================
+Introduction   {#index}
+============
 
 JeeLib is a collection of headers, classes, and sample sketches for use with
 the [Arduino IDE][AI]. It was written and extended over the years to simplify
