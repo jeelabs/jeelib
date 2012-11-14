@@ -128,7 +128,8 @@ static uint8_t band;				// network band
 static volatile uint8_t rxfill;     // number of data bytes in rf12_buf
 static volatile int8_t rxstate;     // current transceiver state
 volatile uint16_t state;            // last seen rfm12b state
-volatile uint8_t drssi;             // digital rssi state (see binary search tree below and rf12_getRSSI()
+uint8_t drssi;                      // digital rssi state (see binary search tree below and rf12_getRSSI()
+uint8_t drssi_bytes_per_decision;   // number of bytes required per drssi decision
 
 struct drssi_dec_t {
     uint8_t up;
@@ -136,12 +137,14 @@ struct drssi_dec_t {
 };
 
 const drssi_dec_t drssi_dec_tree[] = {
-               /*up, dwn, threshold is index+1 */
-    /* C, 0 */ {  8,  7 },
-    /* A, 1 */ {  2,  0 },
-    /* D, 2 */ { 10,  9 },
-    /* x, 3 */ {  4,  1 },
-    /* B, 4 */ {  6,  5 },
+  /* state,drssi,final, returned,  up,dwn */
+	/*  A,   0,    no,    0001 */ { 4, 3 },
+	/*  *,   1,    no,     --  */ { 2, 0 },
+	/*  B,   2,    no,    0101 */ { 6, 5 }
+	/*  C,   3,   yes,    1000 */
+	/*  D,   4,   yes,    1010 */
+	/*  E,   5,   yes,    1100 */
+	/*  F,   6,   yes,    1110 */
 };
 
 
@@ -307,13 +310,13 @@ static void rf12_interrupt() {
         	rf12_crc = _crc16_update(rf12_crc, in);
 
     	    // do drssi binary-tree search
-	        if ( drssi < 5 && ((rxfill-2)%8)==0 ) {       // not yet final value
+	        if ( drssi < 3 && ((rxfill-2)%drssi_bytes_per_decision)==0 ) {// not yet final value
              	if ( bitRead(state,8) )  // rssi over threashold?
             		drssi = drssi_dec_tree[drssi].up;
         	    else
     	            drssi = drssi_dec_tree[drssi].down;
-	            if ( drssi < 5 ) {     // not yet final destination
-                	rf12_xfer(0x94A0 | drssi+1);
+	            if ( drssi < 3 ) {     // not yet final destination
+                	rf12_xfer(0x94A0 | drssi*2+1);
             	}
            	}
 
@@ -385,8 +388,8 @@ static void rf12_recvStart () {
         rf12_crc = _crc16_update(~0, group);
 #endif
     rxstate = TXRECV;    
-    drssi = 3;              // set drssi to start value
-    rf12_xfer(0x94A0 | drssi + 1);
+    drssi = 1;              // set drssi to start value
+    rf12_xfer(0x94A0 | drssi*2+1);
     rf12_xfer(RF_RECEIVER_ON);
 }
 
@@ -442,12 +445,17 @@ uint8_t rf12_recvDone () {
 
 
 // return signal strength calculated out of DRSSI bit
-char rf12_getRSSI() {
-    const char table[] = { 'C', 'A', 'D', 'x', 'B', 'E', 'F',  'G', 'H', 'I', 'J' };
-
-	return table[drssi];
+uint8_t rf12_getRSSI() {
+	return (drssi<3 ? drssi*2+2 : 8|(drssi-3)*2);
 }
 
+void rf12_setBitrate(uint8_t rate) {
+	const long int decisions_per_sec = 900;
+	rf12_xfer(0xc600 | rate);
+	unsigned long bits_per_second = (10000000UL / 29UL / (1 + (rate & 0x7f)) / (1 + (rate >> 7) * 7));
+	unsigned long bytes_per_second = bits_per_second / 8;
+	drssi_bytes_per_decision = (bytes_per_second + decisions_per_sec - 1) / decisions_per_sec;
+}
 
 /// @details
 /// Call this when you have some data to send. If it returns true, then you can
@@ -641,7 +649,7 @@ uint8_t rf12_initialize (uint8_t id, uint8_t b, uint8_t g) {
         
     rf12_xfer(0x80C7 | (band << 4)); // EL (ena TX), EF (ena RX FIFO), 12.0pF 
     rf12_xfer(0xA640); // 868MHz 
-    rf12_xfer(0xC606); // approx 49.2 Kbps, i.e. 10000/29/(1+6) Kbps
+    rf12_setBitrate(0x06); // approx 49.2 Kbps, i.e. 10000/29/(1+6) Kbps
     rf12_xfer(0x94A2); // VDI,FAST,134kHz,0dBm,-91dBm 
     rf12_xfer(0xC2AC); // AL,!ml,DIG,DQD4 
     if (group != 0) {
