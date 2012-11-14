@@ -61,6 +61,8 @@ extern volatile uint8_t rf12_buf[];
 /// Seq number of encrypted packet (or -1).
 extern long rf12_seq;
 
+extern uint8_t drssi_bytes_per_decision;
+
 /// Option to set RFM12 CS (or SS) pin for use on different hardware setups.
 /// Set to Dig10 by default for JeeNode. Can be Dig10, Dig9 or Dig8
 void rf12_set_cs(uint8_t pin);

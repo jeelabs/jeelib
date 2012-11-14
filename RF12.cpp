@@ -131,16 +131,11 @@ volatile uint16_t state;            // last seen rfm12b state
 uint8_t drssi;                      // digital rssi state (see binary search tree below and rf12_getRSSI()
 uint8_t drssi_bytes_per_decision;   // number of bytes required per drssi decision
 
-struct drssi_dec_t {
-    uint8_t up;
-    uint8_t down;
-};
-
-const drssi_dec_t drssi_dec_tree[] = {
-  /* state,drssi,final, returned,  up,dwn */
-	/*  A,   0,    no,    0001 */ { 4, 3 },
-	/*  *,   1,    no,     --  */ { 2, 0 },
-	/*  B,   2,    no,    0101 */ { 6, 5 }
+const uint8_t drssi_dec_tree[] = {
+  /* state,drssi,final, returned, up,     dwn */
+	/*  A,   0,    no,    0001 */  3 << 4 | 4,
+	/*  *,   1,    no,     --  */  0 << 4 | 2,
+	/*  B,   2,    no,    0101 */  5 << 4 | 6
 	/*  C,   3,   yes,    1000 */
 	/*  D,   4,   yes,    1010 */
 	/*  E,   5,   yes,    1100 */
@@ -311,10 +306,10 @@ static void rf12_interrupt() {
 
     	    // do drssi binary-tree search
 	        if ( drssi < 3 && ((rxfill-2)%drssi_bytes_per_decision)==0 ) {// not yet final value
-             	if ( bitRead(state,8) )  // rssi over threashold?
-            		drssi = drssi_dec_tree[drssi].up;
-        	    else
-    	            drssi = drssi_dec_tree[drssi].down;
+	        	// top nibble when going up, bottom one when going down
+	        	drssi = bitRead(state,8)
+	        			? (drssi_dec_tree[drssi] & B1111)
+	        			: (drssi_dec_tree[drssi] >> 4);
 	            if ( drssi < 3 ) {     // not yet final destination
                 	rf12_xfer(0x94A0 | drssi*2+1);
             	}
@@ -349,7 +344,7 @@ static void rf12_interrupt() {
     	rxstate = POR_RECEIVED;
     }
     
-    // got wakeup Callas
+    // got wakeup call
     if (state & 0x1000) {
     	
     }
