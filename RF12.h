@@ -102,7 +102,7 @@ void rf12_onOff(uint8_t value);
 /// @note if off, calling this with -1 can be used to bring the RFM12B back up.
 void rf12_sleep(char n);
 
-/// @return true if the supply voltage is below 3.1V.
+/// Return true if the supply voltage is below 3.1V.
 char rf12_lowbat(void);
 
 /// Set up the easy tranmission mode, arg is number of seconds between packets.

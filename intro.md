@@ -27,12 +27,10 @@ These are the main classes:
 * MilliTimer - a convenient way to track a number of periodic activities
 * Sleepy - code to put an ATmega or ATtiny into very low-power mode
 
-The other major implementation in this library is the %RF12 wireless driver for
-the HopeRF "RFM12B" wireless module. This low-cost module is available for the
-433, 868, and 915 MHz frequency bands and supports a simple but effective byte
-packet format for sending and receiving small amounts of "signaling" data.
+The other major implementation in this library is the [RF12 wireless driver]
+(Md_intro_rf12.html) for the "RFM12" and RFM12B" wireless modules from HopeRF.
 
-Last but not least, there are nearly a hundred demo sketches in the "examples"
+Last but not least, there are about a hundred demo sketches in the "examples"
 folder, ready to try out all sorts of features and tricks, and to easily hook
 up to specific sensors and other interfaces.
 
