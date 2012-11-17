@@ -106,9 +106,18 @@ void rf12_sendWait(uint8_t mode);
 /// Use this only when the radio was initialized with a fake zero node ID.
 void rf12_onOff(uint8_t value);
 
-/// Power off the RFM12B, ms > 0 sets watchdog to wake up again after N * 32 ms.
+/// Power off the RFM12B if n==0
 /// @note if off, calling this with -1 can be used to bring the RFM12B back up.
 void rf12_sleep(char n);
+
+/// Request a wakeup-event after this many ms.
+/// Maximum time is about 2 years
+/// @note set to 0 to disable a running wakeup-timer
+void rf12_watchdog(unsigned long ms);
+
+/// Checks if there was a wakeup-call from the RFM12 watchdog.
+/// @return true if RFM12 fired a watchdog interrupt
+char rf12_wakeup();
 
 /// @return true if the supply voltage is below 3.1V.
 char rf12_lowbat(void);
