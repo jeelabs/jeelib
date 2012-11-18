@@ -400,7 +400,7 @@ static void rf12_recvStart () {
     rxstate = TXRECV;    
     drssi = 1;              // set drssi to start value
     rf12_xfer(RF_RECV_CONTROL | drssi*2+1);
-    bitSet(rfmstate, 6); // switch on receiver
+    rfmstate |= B11011000; // enable crystal, synthesizer, receiver and baseband
     rf12_xfer(rfmstate);
 }
 
@@ -505,7 +505,7 @@ void rf12_sendStart (uint8_t hdr) {
     rf12_crc = _crc16_update(rf12_crc, group);
 #endif
     rxstate = TXPRE1;
-    bitSet(rfmstate, 5); // enable transmitter
+    rfmstate |= B00111000; // enable crystal, synthesizer and transmitter
     rf12_xfer(rfmstate);
     // no need to feed bytes, RFM module requests data using interrupts
 }
