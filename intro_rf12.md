@@ -33,7 +33,7 @@ rf12_onOff(),
 rf12_sendWait(),
 rf12_sleep()
 
-See the "RF12.h" and "RF12.cpp" files for the actual source code.
+See the RF12.h and RF12.cpp files for the actual source code.
 
 TBD
 ===
