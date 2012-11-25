@@ -360,7 +360,7 @@ static void rf12_interrupt() {
     
     // got wakeup call
     if (state & RF_WDG_BIT) {
-    	rf12_watchdog(0);
+    	rf12_setWatchdog(0);
     	rf12_gotwakeup = 1;
     }
     
@@ -774,7 +774,7 @@ void rf12_sleep (char n) {
 /// because of the external interrupt. The RFM12b wakeup-timer only needs about 1.5µA.
 /// Don't expect an accurate timing. It's about 10% off. Only one timer is supported.
 /// @param m Number of milliseconds
-void rf12_watchdog (unsigned long m) {
+void rf12_setWatchdog (unsigned long m) {
     // calculate parameters for RFM12 module
     // T_wakeup[ms] = m * 2^r
     char r=0;
@@ -812,8 +812,8 @@ char rf12_lowbat () {
 
 /// @details
 /// This function returns 1 if there was a wakeup-interrupt from the RFM12 module. Use it
-/// together with rf12_watchdog() for ultra low-power watchdog.
-char rf12_wakeup() {
+/// together with rf12_setWatchdog() for ultra low-power watchdog.
+char rf12_watchdogFired() {
 	uint8_t res = rf12_gotwakeup;
 	rf12_gotwakeup = 0;
 	return res;

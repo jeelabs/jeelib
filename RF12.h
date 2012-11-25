@@ -111,11 +111,11 @@ void rf12_sleep(char n);
 /// Request a wakeup-event after this many ms.
 /// Maximum time is about 2 years but limited by unsigned long which gives about 49 days
 /// @note set to 0 to disable a running wakeup-timer
-void rf12_watchdog(unsigned long ms);
+void rf12_setWatchdog(unsigned long ms);
 
 /// Checks if there was a wakeup-call from the RFM12 watchdog.
 /// @return true if RFM12 fired a watchdog interrupt
-char rf12_wakeup();
+char rf12_watchdogFired();
 
 /// @return true if the supply voltage is below 3.1V.
 char rf12_lowbat(void);
