@@ -653,9 +653,15 @@ uint8_t rf12_initialize (uint8_t id, uint8_t b, uint8_t g) {
     // wait until RFM12B is out of power-up reset, this could takes several *seconds*
     // normally about 50ms
     set_sleep_mode(SLEEP_MODE_IDLE);
-	while (rxstate == UNINITIALIZED)
+    while (rxstate==UNINITIALIZED) {
+#if PINCHG_IRQ
+    	while (digitalRead(RFM_IRQ)==LOW)
+    		rf12_interrupt();
+#else
 		sleep_mode();
-
+#endif
+    }
+     
 	cli();
     rfmstate = 0x8205;   // RF_SLEEP_MODE
     rf12_xfer(rfmstate); // DC (disable clk pin), enable lbd
