@@ -6,7 +6,7 @@
 /// @file
 /// Ports library definitions.
 
-#if ARDUINO>=100
+#if ARDUINO >= 100
 #include <Arduino.h> // Arduino 1.0
 #else
 #include <WProgram.h> // Arduino 0022
@@ -17,8 +17,8 @@
 
 // tweak this to switch ATtiny84 etc to new Arduino 1.0+ conventions
 // see http://arduino.cc/forum/index.php/topic,51984.msg371307.html#msg371307
-#if ARDUINO >= 100 && !defined(__AVR_ATtiny84__) && !defined(__AVR_ATtiny85__) \
-        && !defined(__AVR_ATtiny44__) && !defined(__AVR_ATtiny45__)
+// and http://forum.jeelabs.net/node/1567
+#if ARDUINO >= 100
 #define WRITE_RESULT size_t
 #else
 #define WRITE_RESULT void
