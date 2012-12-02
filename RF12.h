@@ -117,7 +117,7 @@ void rf12_setWatchdog(unsigned long ms);
 /// @return true if RFM12 fired a watchdog interrupt
 char rf12_watchdogFired();
 
-/// @return true if the supply voltage is below 3.1V.
+/// Return true if the supply voltage is below 3.1V.
 char rf12_lowbat(void);
 
 /// Set up the easy tranmission mode, arg is number of seconds between packets.
