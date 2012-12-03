@@ -641,7 +641,7 @@ public:
 /// Interface for the Color Plug - see http://jeelabs.org/cp
 class ColorPlug : public DeviceI2C {
     union { byte b[8]; word w[4]; } data;
-    double chromacct[3];
+    word chromacct[3];
 public:
     enum {
         CONTROL, TIMING, INTERRUPT, INTERRUPTSOURCE, CPID, GAIN = 0x7,
@@ -664,7 +664,7 @@ public:
     
     const word* getData();
     
-    const double* chromaCCT();
+    const word* chromaCCT();
 };
 
 #ifdef Stream_h // only available in recent Arduino IDE versions

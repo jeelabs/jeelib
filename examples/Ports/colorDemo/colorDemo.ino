@@ -6,14 +6,14 @@
 PortI2C myBus (1);
 ColorPlug sensor (myBus, 0x39); // Sensor address is 0x39
 
-// gain = 64 and prescaler = 1 => most sensitive sensor setting,
+// gain = 3 (64x) and prescaler = 0 (1x) => most sensitive sensor setting,
 //   for use in low light conditions
-// gain = 1 and prescaler = 64 => least sensitive sensor setting,
+// gain = 0 (1x) and prescaler = 6 (64x) => least sensitive sensor setting,
 //   for use in case of overflows
-// gain = 1 and prescaler = 1 => default sensor setting,
+// gain = 0 (1x) and prescaler = 0 (1x) => default sensor setting,
 //   vary according to need
-byte gain = 1; // 1, 4, 16 or 64 (multiplier => 64 most sensitive)
-byte prescaler = 1; // 1, 2, 4, 8, 16, 32 or 64 (divider => 1 most sensitive) 
+byte gain = 0;      // 0..3 (multiplier => 3 most sensitive, 1/4/16/64x)
+byte prescaler = 0; // 0..6 (divider => 0 most sensitive, 1/2/4/8/16/32/64x) 
 
 void setup () {
     Serial.begin(57600);
@@ -41,15 +41,15 @@ void loop () {
     Serial.println(prescaler, DEC);
   
     // Get chromaticity and correlared color temp (CCT)
-    const double* chromacct = sensor.chromaCCT(); 
+    const word* chromacct = sensor.chromaCCT(); 
     // See http://en.wikipedia.org/wiki/Color_temperature for explanation
     if (chromacct[0] > 0 && chromacct[1] > 0) {
       Serial.print("Chromaticity x: ");
-      Serial.print(chromacct[0], 2);
+      Serial.print(chromacct[0] * 0.001, 2);
       Serial.print(", y: ");
-      Serial.print(chromacct[1], 2);
+      Serial.print(chromacct[1] * 0.001, 2);
       Serial.print(", Correlated color temp: ");
-      Serial.println(chromacct[2], 0); // CCT of 0K means invalid
+      Serial.println(chromacct[2]); // CCT of 0K means invalid
       // Note: although the CCT can be calculated for any chromaticity
       // coordinate, the result is meaningful only if the light source
       // is nearly white
