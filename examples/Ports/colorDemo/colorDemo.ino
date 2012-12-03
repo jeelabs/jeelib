@@ -1,0 +1,62 @@
+// Demo of the Color Plug, based on the ColorPlug class in the Ports library
+// 2011-12-23 <l.herlaar@uu.nl> http://opensource.org/licenses/mit-license.php
+
+#include <JeeLib.h>
+    
+PortI2C myBus (1);
+ColorPlug sensor (myBus, 0x39); // Sensor address is 0x39
+
+// gain = 64 and prescaler = 1 => most sensitive sensor setting,
+//   for use in low light conditions
+// gain = 1 and prescaler = 64 => least sensitive sensor setting,
+//   for use in case of overflows
+// gain = 1 and prescaler = 1 => default sensor setting,
+//   vary according to need
+byte gain = 1; // 1, 4, 16 or 64 (multiplier => 64 most sensitive)
+byte prescaler = 1; // 1, 2, 4, 8, 16, 32 or 64 (divider => 1 most sensitive) 
+
+void setup () {
+    Serial.begin(57600);
+    Serial.println("\n[colorDemo]");
+    sensor.begin();
+    sensor.setGain(gain, prescaler);
+}
+
+void loop () {    
+    Serial.println();  
+
+    // Get 16-bit values for R, G, B and Clear
+    const word* rgbcValues = sensor.getData(); 
+    Serial.print("Red: ");
+    Serial.print(rgbcValues[0]);
+    Serial.print(", Green: ");
+    Serial.print(rgbcValues[1]);
+    Serial.print(", Blue: ");
+    Serial.print(rgbcValues[2]);
+    Serial.print(", Clear: ");
+    Serial.print(rgbcValues[3]);
+    Serial.print(", Gain: ");
+    Serial.print(gain, DEC);
+    Serial.print(", Prescaler: ");
+    Serial.println(prescaler, DEC);
+  
+    // Get chromaticity and correlared color temp (CCT)
+    const double* chromacct = sensor.chromaCCT(); 
+    // See http://en.wikipedia.org/wiki/Color_temperature for explanation
+    if (chromacct[0] > 0 && chromacct[1] > 0) {
+      Serial.print("Chromaticity x: ");
+      Serial.print(chromacct[0], 2);
+      Serial.print(", y: ");
+      Serial.print(chromacct[1], 2);
+      Serial.print(", Correlated color temp: ");
+      Serial.println(chromacct[2], 0); // CCT of 0K means invalid
+      // Note: although the CCT can be calculated for any chromaticity
+      // coordinate, the result is meaningful only if the light source
+      // is nearly white
+    } else {
+      Serial.println("Chroma overflow");
+      // Try different gain/prescaler values if overflows occur
+    }
+
+    delay(1000);
+}

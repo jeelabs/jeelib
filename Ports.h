@@ -638,6 +638,35 @@ public:
   bool reading (int& temp, int &humi);
 };
 
+/// Interface for the Color Plug - see http://jeelabs.org/cp
+class ColorPlug : public DeviceI2C {
+    union { byte b[8]; word w[4]; } data;
+    double chromacct[3];
+public:
+    enum {
+        CONTROL, TIMING, INTERRUPT, INTERRUPTSOURCE, CPID, GAIN = 0x7,
+        THRESHLOWLOW, THRESHLOWHIGH, THRESHHIGHLOW, THRESHHIGHHIGH,
+        DATA0LOW = 0x10, DATA0HIGH, DATA1LOW, DATA1HIGH,
+        DATA2LOW, DATA2HIGH, DATA3LOW, DATA3HIGH,
+        BLOCKREAD = 0x4F
+    };
+
+    ColorPlug (PortI2C& port, byte addr) : DeviceI2C (port, addr) {}
+    
+    void begin() {
+        send();
+        write(0x80 | CONTROL);
+        write(3); // power up
+        stop();
+    }
+    
+    void setGain(byte gain, byte prescaler);
+    
+    const word* getData();
+    
+    const double* chromaCCT();
+};
+
 #ifdef Stream_h // only available in recent Arduino IDE versions
 
 /// Simple parser for input data and one-letter commands

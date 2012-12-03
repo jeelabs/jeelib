@@ -1023,6 +1023,50 @@ bool DHTxx::reading (int& temp, int &humi) {
   return true;
 }
 
+void ColorPlug::setGain(byte gain, byte prescaler) {
+    send();
+    write(0x80 | GAIN); // write to Gain regiser
+    write(((byte)(log(gain)/log(4)) << 4) | (byte)(log(prescaler)/log(2)));
+    stop();
+}
+
+const word* ColorPlug::getData() {
+    send();
+    write(0x80 | BLOCKREAD); // write to Blockread register
+    receive();
+    data.b[2] = read(0);
+    data.b[3] = read(0);
+    data.b[0] = read(0);
+    data.b[1] = read(0);
+    data.b[4] = read(0);
+    data.b[5] = read(0);
+    data.b[6] = read(0); 
+    data.b[7] = read(1);
+    stop();
+    return data.w;
+}
+
+const double* ColorPlug::chromaCCT()
+{
+    double X, Y, Z, n; 
+    chromacct[0] = 0;
+    chromacct[1] = 0;
+    chromacct[2] = 0;
+    X=(-0.14282)*data.w[0]+(1.54924)*data.w[1]+(-0.95641)*data.w[2];
+    Y=(-0.32466)*data.w[0]+(1.57837)*data.w[1]+(-0.73191)*data.w[2];
+    Z=(-0.68202)*data.w[0]+(0.77073)*data.w[1]+(0.56332)*data.w[2];
+    if ((X>0) && (Y>0) && (Z>0)) { // chromaticity valid   
+      chromacct[0]=X/(X+Y+Z);
+      chromacct[1]=Y/(X+Y+Z);
+      n = (chromacct[0] - 0.3320) / (0.1858 - chromacct[1]);
+      chromacct[2] = (449 * pow(n,3)) + (3525 * pow(n,2)) + (6823.3 * n) + 5520.33;      
+      if (chromacct[2] > 10000) { // improbable value for color temperature
+        chromacct[2] = 0;
+      }
+    }
+    return chromacct;
+}
+
 // ISR(WDT_vect) { Sleepy::watchdogEvent(); }
 
 static volatile byte watchdogCounter;
