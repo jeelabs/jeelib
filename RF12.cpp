@@ -296,6 +296,7 @@ void rf12_control(uint16_t cmd) {
 /// Brings RFM12 in idle-mode.
 static void rf12_idle() {
 	rfmstate &= ~B11110000; // switch off synthesizer, transmitter, receiver and baseband
+	rfmstate |=  B00001000; // make sure crystal is running
 	rf12_xfer(rfmstate);
 }
 
@@ -760,6 +761,7 @@ void rf12_sleep (char n) {
     if (n < 0)
     	rf12_idle();
     else {
+    	rfmstate &= ~B11111000; // make sure everything is switched off (except bod, wkup, clk)
     	rf12_xfer(rfmstate);
     }
     rxstate = TXIDLE;
