@@ -760,7 +760,6 @@ void rf12_sleep (char n) {
     if (n < 0)
     	rf12_idle();
     else {
-    	bitClear(rfmstate, 3); // disable crystal
     	rf12_xfer(rfmstate);
     }
     rxstate = TXIDLE;
