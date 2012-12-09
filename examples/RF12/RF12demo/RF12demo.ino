@@ -526,7 +526,7 @@ static void df_replay (word seqnum, long asof) {
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-char helpText1[] PROGMEM = 
+const char helpText1[] PROGMEM = 
     "\n"
     "Available commands:" "\n"
     "  <nn> i     - set node ID (standard node ids are 1..26)" "\n"
@@ -543,7 +543,7 @@ char helpText1[] PROGMEM =
     "  <hchi>,<hclo>,<addr>,<cmd> f     - FS20 command (868 MHz)" "\n"
     "  <addr>,<dev>,<on> k              - KAKU command (433 MHz)" "\n"
 ;
-char helpText2[] PROGMEM = 
+const char helpText2[] PROGMEM = 
     "Flash storage (JeeLink only):" "\n"
     "  d                                - dump all log markers" "\n"
     "  <sh>,<sl>,<t3>,<t2>,<t1>,<t0> r  - replay from specified marker" "\n"
