@@ -3,7 +3,7 @@
 // 2010-05-17 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 // with thanks to Peter G for creating a test sketch and pointing out the issue
-// see http://news.jeelabs.org/2010/05/20/a-subtle-rf12-detail/
+// see http://jeelabs.org/2010/05/20/a-subtle-rf12-detail/
 
 #include <JeeLib.h>
 

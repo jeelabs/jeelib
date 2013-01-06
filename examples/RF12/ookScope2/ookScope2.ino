@@ -2,7 +2,7 @@
 /// Examine the pulse patterns coming from an OOK receiver (see also peekrf).
 // 2010-04-10 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 //
-// see http://news.jeelabs.org/2010/04/13/an-ook-scope/
+// see http://jeelabs.org/2010/04/13/an-ook-scope/
 // changed to use pin-change interrupts i.s.o. the analog comparator
 
 #define OOK_PIN   2   // this is the input pin with the signal to be analyzed

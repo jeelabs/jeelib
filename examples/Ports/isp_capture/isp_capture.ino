@@ -2,7 +2,7 @@
 /// Variant of isp_flash which supports the Flash Board with on-board EEPROM.
 
 // Originally derived from http://arduino.cc/en/Tutorial/ArduinoISP
-// see http://news.jeelabs.org/2010/04/24/isp-plug/
+// see http://jeelabs.org/2010/04/24/isp-plug/
 
 // This is an STK500-/AVRISP-compatible programmer with a twist: when used with
 // the Flash Board which has EEPROM memory on board, a copy of all programming

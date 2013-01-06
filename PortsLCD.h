@@ -5,7 +5,7 @@
 
 /// @file
 /// LiquidCrystal library, extended for use over I2C with the LCD Plug.
-/// See http://news.jeelabs.org/2009/09/26/generalized-liquidcrystal-library/
+/// See http://jeelabs.org/2009/09/26/generalized-liquidcrystal-library/
 
 #include <inttypes.h>
 #include <Print.h>

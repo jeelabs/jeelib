@@ -2,7 +2,7 @@
 /// Derived from http://arduino.cc/en/Tutorial/ArduinoISP
 // - 2010-04-17, jcw
 //
-// see http://news.jeelabs.org/2010/04/24/isp-plug/
+// see http://jeelabs.org/2010/04/24/isp-plug/
 // and http://jeelabs.org/2011/05/29/summary-of-isp-options/
 
 // pin definitions
