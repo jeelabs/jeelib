@@ -679,7 +679,7 @@ static void handleInput (char c) {
 
 void setup() {
     Serial.begin(SERIAL_BAUD);
-    Serial.print("\n[RF12demo.8]");
+    Serial.print("\n[RF12demo.9]");
 
     if (rf12_config()) {
         config.nodeId = eeprom_read_byte(RF12_EEPROM_ADDR);
@@ -698,6 +698,7 @@ void setup() {
 void loop() {
     if (Serial.available())
         handleInput(Serial.read());
+        activityLed(0);
 
     if (rf12_recvDone()) {
         byte n = rf12_len;
