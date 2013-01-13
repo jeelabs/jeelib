@@ -24,4 +24,4 @@ For questions and reporting bugs, check out the JeeLabs [forums][7].
 [4]: https://github.com/jcw/jeelib/zipball/master
 [5]: https://github.com/jcw/jeelib/tarball/master
 [6]: http://jeelabs.net/pub/docs/jeelib/
-[7]: http://forum.jeelabs.net/forum
+[7]: http://jeelabs.net/projects/cafe/boards/
