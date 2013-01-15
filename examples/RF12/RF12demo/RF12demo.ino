@@ -539,7 +539,6 @@ const char helpText1[] PROGMEM =
     "  ...,<nn> s - send data packet to node <nn>, no ack" "\n"
     "  <n> l      - turn activity LED on PB1 on or off" "\n"
     "  <n> q      - set quiet mode (1 = don't report bad packets)" "\n"
-    "  <n> m      - multi node id (99 = off, set to 0 for announcer data)" "\n"
     "Remote control commands:" "\n"
     "  <hchi>,<hclo>,<addr>,<cmd> f     - FS20 command (868 MHz)" "\n"
     "  <addr>,<dev>,<on> k              - KAKU command (433 MHz)" "\n"
@@ -668,9 +667,6 @@ static void handleInput (char c) {
             case 'q': // turn quiet mode on or off (don't report bad packets)
                 quiet = value;
                 break;
-            case 'm': // set tthe rf12_multi flag for alternate reception
-                rf12_multi = value;
-                break;
         }
         value = top = 0;
         memset(stack, 0, sizeof stack);
@@ -683,7 +679,7 @@ static void handleInput (char c) {
 
 void setup() {
     Serial.begin(SERIAL_BAUD);
-    Serial.print("\n[RF12demo.10]");
+    Serial.print("\n[RF12demo.9]");
 
     if (rf12_config()) {
         config.nodeId = eeprom_read_byte(RF12_EEPROM_ADDR);
