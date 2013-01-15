@@ -115,8 +115,6 @@ void setup () {
 }
 
 void loop () {
-  rf12_recvDone(); // keep the RF12 driver going
-  
   if (minuteTimer.poll(DEBUG ? 3000 : 60000)) {    
     sendAnnouncement(nextSend);
     if (++nextSend >= NUM_NODES)
