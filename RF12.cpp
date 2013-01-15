@@ -140,6 +140,7 @@ static long ezNextSend[2];          // when was last retry [0] or data [1] sent
 volatile uint16_t rf12_crc;         // running crc value
 volatile uint8_t rf12_buf[RF_MAX];  // recv/xmit buf, including hdr & crc bytes
 long rf12_seq;                      // seq number of encrypted packet (or -1)
+uint8_t rf12_multi = 99;            // second node to accept, 0..31 to enable
 
 static uint32_t seqNum;             // encrypted send sequence number
 static uint32_t cryptKey[4];        // encryption key to use
@@ -370,7 +371,8 @@ uint8_t rf12_recvDone () {
         if (rf12_len > RF12_MAXDATA)
             rf12_crc = 1; // force bad crc if packet length is invalid
         if (!(rf12_hdr & RF12_HDR_DST) || (nodeid & NODE_ID) == 31 ||
-                (rf12_hdr & RF12_HDR_MASK) == (nodeid & NODE_ID)) {
+                (rf12_hdr & RF12_HDR_MASK) == (nodeid & NODE_ID) ||
+                (rf12_hdr & RF12_HDR_MASK) == rf12_multi) {
             if (rf12_crc == 0 && crypter != 0)
                 crypter(0);
             else

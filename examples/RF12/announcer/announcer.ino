@@ -5,8 +5,7 @@
 
 #include <JeeLib.h>
 
-#define MINUTES 1   // send out new announcement packets this often, cyclic
-#define DEBUG 1     // send quickly, and to serial port instead of wireless
+#define DEBUG 0     // send quickly, and to serial port instead of wireless
 
 #define SKETCH_roomNode   11
 #define SKETCH_ookRelay2  12
@@ -26,29 +25,35 @@ MilliTimer minuteTimer;
 byte nextSend, seqNum;
 byte sendBuf[RF12_MAXDATA];
 
+#define ITEM(typ,len) (((typ) << 4) | ((len) - 1))
+
 byte items_roomNode_v2[] = {
-  0x01-1, 2, // version 2
-  0x25-1, 8, 1, 7, -10, 1, // fields are 5 packed bit groups
+  ITEM(0,1), 2, // version 2
+  ITEM(2,5), 8, 1, 7, -10, 1, // fields are 5 packed bit groups
 };
 
 byte items_homePower_v1[] = {
-  0x01-1, 1, // version 1
-  0x26-1, 16, 16, 16, 16, 16, 16, // fields are 6x 16-bit ints
+  ITEM(0,1), 1, // version 1
+  ITEM(2,6), 16, 16, 16, 16, 16, 16, // fields are 6x 16-bit ints
 };
 
 byte items_radioBlip_v1[] = {
-  0x01-1, 1, // version 1
-  0x21-1, 32, // field is one 32-bit int
+  ITEM(0,1), 1, // version 1
+  ITEM(2,1), 32, // field is one 32-bit int
 };
 
 byte items_otRelay_v1[] = {
-  0x01-1, 1, // version 1
-  0x22-1, 8, 16, // fields are 2 ints
+  ITEM(0,1), 1, // version 1
+  ITEM(2,2), 8, 16, // fields are 2 ints
 };
 
 byte items_smaRelay_v1[] = {
-  0x01-1, 1, // version 1
-  0x27-1, 16, 16, 16, 16, 16, 16, 16, // fields are 7x 16-bit ints
+  ITEM(0,1), 1, // version 1
+  ITEM(2,7), 16, 16, 16, 16, 16, 16, 16, // fields are 7x 16-bit ints
+};
+
+byte items_v1[] = {
+  ITEM(0,1), 1, // generic version 1 item, no other info available
 };
 
 #define NUM_NODES (sizeof nodeInfo / sizeof (NodeInfo))
@@ -66,6 +71,8 @@ NodeInfo nodeInfo[] = {
   { 13, SKETCH_roomNode,  items_roomNode_v2,  sizeof items_roomNode_v2  },
   { 14, SKETCH_otRelay,   items_otRelay_v1,   sizeof items_otRelay_v1   },
   { 15, SKETCH_smaRelay,  items_smaRelay_v1,  sizeof items_smaRelay_v1  },
+  { 18, SKETCH_p1scanner, items_v1,           sizeof items_v1           },
+  { 19, SKETCH_ookRelay2, items_v1,           sizeof items_v1           },
   { 23, SKETCH_roomNode,  items_roomNode_v2,  sizeof items_roomNode_v2  },
   { 24, SKETCH_roomNode,  items_roomNode_v2,  sizeof items_roomNode_v2  },
 };
@@ -108,6 +115,8 @@ void setup () {
 }
 
 void loop () {
+  rf12_recvDone(); // keep the RF12 driver going
+  
   if (minuteTimer.poll(DEBUG ? 3000 : 60000)) {    
     sendAnnouncement(nextSend);
     if (++nextSend >= NUM_NODES)
