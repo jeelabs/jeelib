@@ -698,7 +698,6 @@ void setup() {
 void loop() {
     if (Serial.available())
         handleInput(Serial.read());
-        activityLed(0);
 
     if (rf12_recvDone()) {
         byte n = rf12_len;
