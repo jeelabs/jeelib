@@ -539,6 +539,7 @@ const char helpText1[] PROGMEM =
     "  ...,<nn> s - send data packet to node <nn>, no ack" "\n"
     "  <n> l      - turn activity LED on PB1 on or off" "\n"
     "  <n> q      - set quiet mode (1 = don't report bad packets)" "\n"
+    "  123 z      - total power down, needs a reset to start up again" "\n"
     "Remote control commands:" "\n"
     "  <hchi>,<hclo>,<addr>,<cmd> f     - FS20 command (868 MHz)" "\n"
     "  <addr>,<dev>,<on> k              - KAKU command (433 MHz)" "\n"
@@ -666,6 +667,14 @@ static void handleInput (char c) {
                 break;
             case 'q': // turn quiet mode on or off (don't report bad packets)
                 quiet = value;
+                break;
+            case 'z': // put the ATmega in ultra-low power mode (reset needed)
+                if (value == 123) {
+                    delay(10);
+                    rf12_sleep(RF12_SLEEP);
+                    cli();
+                    Sleepy::powerDown();
+                }
                 break;
         }
         value = top = 0;
