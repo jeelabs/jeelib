@@ -14,6 +14,7 @@
 #define SKETCH_p1scanner  15
 #define SKETCH_homePower  16
 #define SKETCH_radioBlip  17
+#define SKETCH_slowLogger 18
 
 typedef struct {
   byte nodeId;
@@ -52,6 +53,11 @@ byte items_smaRelay_v1[] = {
   ITEM(2,7), 16, 16, 16, 16, 16, 16, 16, // fields are 7x 16-bit ints
 };
 
+byte items_slowLogger_v1[] = {
+  ITEM(0,1), 1, // version 1
+  ITEM(2,4), 16, 16, 16, 16, // fields are 4x 16-bit ints
+}
+
 byte items_v1[] = {
   ITEM(0,1), 1, // generic version 1 item, no other info available
 };
@@ -59,22 +65,23 @@ byte items_v1[] = {
 #define NUM_NODES (sizeof nodeInfo / sizeof (NodeInfo))
 
 NodeInfo nodeInfo[] = {
-  { 2,  SKETCH_roomNode,  items_roomNode_v2,  sizeof items_roomNode_v2  },
-  { 3,  SKETCH_radioBlip, items_radioBlip_v1, sizeof items_radioBlip_v1 },
-  { 4,  SKETCH_roomNode,  items_roomNode_v2,  sizeof items_roomNode_v2  },
-  { 5,  SKETCH_roomNode,  items_roomNode_v2,  sizeof items_roomNode_v2  },
-  { 6,  SKETCH_roomNode,  items_roomNode_v2,  sizeof items_roomNode_v2  },
-  { 9,  SKETCH_homePower, items_homePower_v1, sizeof items_homePower_v1 },
-  { 10, SKETCH_roomNode,  items_roomNode_v2,  sizeof items_roomNode_v2  },
-  { 11, SKETCH_roomNode,  items_roomNode_v2,  sizeof items_roomNode_v2  },
-  { 12, SKETCH_roomNode,  items_roomNode_v2,  sizeof items_roomNode_v2  },
-  { 13, SKETCH_roomNode,  items_roomNode_v2,  sizeof items_roomNode_v2  },
-  { 14, SKETCH_otRelay,   items_otRelay_v1,   sizeof items_otRelay_v1   },
-  { 15, SKETCH_smaRelay,  items_smaRelay_v1,  sizeof items_smaRelay_v1  },
-  { 18, SKETCH_p1scanner, items_v1,           sizeof items_v1           },
-  { 19, SKETCH_ookRelay2, items_v1,           sizeof items_v1           },
-  { 23, SKETCH_roomNode,  items_roomNode_v2,  sizeof items_roomNode_v2  },
-  { 24, SKETCH_roomNode,  items_roomNode_v2,  sizeof items_roomNode_v2  },
+  { 2,  SKETCH_roomNode,   items_roomNode_v2,   sizeof items_roomNode_v2   },
+  { 3,  SKETCH_radioBlip,  items_radioBlip_v1,  sizeof items_radioBlip_v1  },
+  { 4,  SKETCH_roomNode,   items_roomNode_v2,   sizeof items_roomNode_v2   },
+  { 5,  SKETCH_roomNode,   items_roomNode_v2,   sizeof items_roomNode_v2   },
+  { 6,  SKETCH_roomNode,   items_roomNode_v2,   sizeof items_roomNode_v2   },
+  { 9,  SKETCH_homePower,  items_homePower_v1,  sizeof items_homePower_v1  },
+  { 10, SKETCH_roomNode,   items_roomNode_v2,   sizeof items_roomNode_v2   },
+  { 11, SKETCH_roomNode,   items_roomNode_v2,   sizeof items_roomNode_v2   },
+  { 12, SKETCH_roomNode,   items_roomNode_v2,   sizeof items_roomNode_v2   },
+  { 13, SKETCH_roomNode,   items_roomNode_v2,   sizeof items_roomNode_v2   },
+  { 14, SKETCH_otRelay,    items_otRelay_v1,    sizeof items_otRelay_v1    },
+  { 15, SKETCH_smaRelay,   items_smaRelay_v1,   sizeof items_smaRelay_v1   },
+  { 18, SKETCH_p1scanner,  items_v1,            sizeof items_v1            },
+  { 19, SKETCH_ookRelay2,  items_v1,            sizeof items_v1            },
+  { 20, SKETCH_slowLogger, items_slowLogger_v1, sizeof items_slowLogger_v1 },
+  { 23, SKETCH_roomNode,   items_roomNode_v2,   sizeof items_roomNode_v2   },
+  { 24, SKETCH_roomNode,   items_roomNode_v2,   sizeof items_roomNode_v2   },
 };
 
 static void sendAnnouncement (byte index) {
