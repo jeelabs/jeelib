@@ -12,9 +12,9 @@ HOW TO SET UP A SMALL WIRELESS TEST
 ===================================
 
 1.  First of all, get two units hooked up as described here:
-        http://news.jeelabs.org/2009/02/10/rfm12b-library-for-arduino/
+        http://jeelabs.org/2009/02/10/rfm12b-library-for-arduino/
     I use "JeeNodes" for this, but that's just me:
-        http://news.jeelabs.org/2009/03/05/jeenode-v2-pcb/
+        http://jeelabs.org/2009/03/05/jeenode-v2-pcb/
         
 2.  Compile and upload this RF12demo sketch to both boards. The serial baud
     rate is set at 57600, you can change it in the source code if needed.
@@ -70,6 +70,6 @@ HOW TO SET UP A SMALL WIRELESS TEST
     
 14. The code is fully open source - feel free to browse and make changes as you
     see fit. The latest version of this software is always available here:
-        http://jeelabs.org/view/libraries/RF12/
+        https://github.com/jcw/jeelib
     
 That's it - have fun!

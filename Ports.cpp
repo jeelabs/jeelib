@@ -1023,6 +1023,47 @@ bool DHTxx::reading (int& temp, int &humi) {
   return true;
 }
 
+void ColorPlug::setGain (byte gain, byte prescaler) {
+    send();
+    write(0x80 | GAIN); // write to Gain regiser
+    write((gain << 4) | prescaler);
+    stop();
+}
+
+const word* ColorPlug::getData () {
+    send();
+    write(0x80 | BLOCKREAD); // write to Blockread register
+    receive();
+    data.b[2] = read(0);
+    data.b[3] = read(0);
+    data.b[0] = read(0);
+    data.b[1] = read(0);
+    data.b[4] = read(0);
+    data.b[5] = read(0);
+    data.b[6] = read(0); 
+    data.b[7] = read(1);
+    stop();
+    return data.w;
+}
+
+const word* ColorPlug::chromaCCT () {
+    chromacct[0] = chromacct[1] = chromacct[2] = 0;
+    long X = -14282L * data.w[0] + 154924L * data.w[1] - 95641L * data.w[2];
+    long Y = -32466L * data.w[0] + 157837L * data.w[1] - 73191L * data.w[2];
+    long Z = -68202L * data.w[0] +  77073L * data.w[1] + 56332L * data.w[2];
+    if (X > 0 && Y > 0 && Z > 0) { // chromaticity valid 
+      // it'd be nice if we could get rid of these floating point calculations
+      // but X, Y, or Z may have up to 28 bits, so we'd need to drop precision
+      chromacct[0] = (X * 1000.0) / (X + Y + Z);
+      chromacct[1] = (Y * 1000.0) / (X + Y + Z);
+      double n = (chromacct[0] - 332.0) / (185.8 - chromacct[1]);
+      chromacct[2] = 449 * n * n * n + 3525 * n * n + 6823.3 * n + 5520.33;      
+      if (chromacct[2] > 10000) // improbable value for color temperature
+        chromacct[2] = 0;
+    }
+    return chromacct;
+}
+
 // ISR(WDT_vect) { Sleepy::watchdogEvent(); }
 
 static volatile byte watchdogCounter;
