@@ -56,7 +56,7 @@ byte items_smaRelay_v1[] = {
 byte items_slowLogger_v1[] = {
   ITEM(0,1), 1, // version 1
   ITEM(2,4), 16, 16, 16, 16, // fields are 4x 16-bit ints
-}
+};
 
 byte items_v1[] = {
   ITEM(0,1), 1, // generic version 1 item, no other info available
