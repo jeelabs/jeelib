@@ -16,7 +16,8 @@ this can be useful while wriitng and testing your own code with this driver.
 rf12_initialize(),
 rf12_recvDone(),
 rf12_canSend(),
-rf12_sendStart()
+rf12_sendStart(),
+rf12_sendNow()
 * Easy transmit wrappers:
 rf12_easyInit(),
 rf12_easyPoll(),

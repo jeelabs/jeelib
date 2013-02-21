@@ -89,6 +89,8 @@ void rf12_sendStart(uint8_t hdr);
 void rf12_sendStart(uint8_t hdr, const void* ptr, uint8_t len);
 /// Deprecated: use rf12_sendStart(hdr,ptr,len) followed by rf12_sendWait(sync).
 void rf12_sendStart(uint8_t hdr, const void* ptr, uint8_t len, uint8_t sync);
+/// This variant loops on rf12_canSend() and then calls rf12_sendStart() asap.
+void rf12_sendNow(uint8_t hdr, const void* ptr, uint8_t len);
 
 /// Wait for send to finish.
 /// @param mode sleep mode 0=none, 1=idle, 2=standby, 3=powerdown.
