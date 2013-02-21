@@ -526,7 +526,7 @@ static void df_replay (word seqnum, long asof) {
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-char helpText1[] PROGMEM = 
+const char helpText1[] PROGMEM = 
     "\n"
     "Available commands:" "\n"
     "  <nn> i     - set node ID (standard node ids are 1..26)" "\n"
@@ -539,11 +539,12 @@ char helpText1[] PROGMEM =
     "  ...,<nn> s - send data packet to node <nn>, no ack" "\n"
     "  <n> l      - turn activity LED on PB1 on or off" "\n"
     "  <n> q      - set quiet mode (1 = don't report bad packets)" "\n"
+    "  123 z      - total power down, needs a reset to start up again" "\n"
     "Remote control commands:" "\n"
     "  <hchi>,<hclo>,<addr>,<cmd> f     - FS20 command (868 MHz)" "\n"
     "  <addr>,<dev>,<on> k              - KAKU command (433 MHz)" "\n"
 ;
-char helpText2[] PROGMEM = 
+const char helpText2[] PROGMEM = 
     "Flash storage (JeeLink only):" "\n"
     "  d                                - dump all log markers" "\n"
     "  <sh>,<sl>,<t3>,<t2>,<t1>,<t0> r  - replay from specified marker" "\n"
@@ -667,6 +668,14 @@ static void handleInput (char c) {
             case 'q': // turn quiet mode on or off (don't report bad packets)
                 quiet = value;
                 break;
+            case 'z': // put the ATmega in ultra-low power mode (reset needed)
+                if (value == 123) {
+                    delay(10);
+                    rf12_sleep(RF12_SLEEP);
+                    cli();
+                    Sleepy::powerDown();
+                }
+                break;
         }
         value = top = 0;
         memset(stack, 0, sizeof stack);
@@ -679,7 +688,8 @@ static void handleInput (char c) {
 
 void setup() {
     Serial.begin(SERIAL_BAUD);
-    Serial.print("\n[RF12demo.8]");
+    Serial.print("\n[RF12demo.9]");
+    activityLed(0);
 
     if (rf12_config()) {
         config.nodeId = eeprom_read_byte(RF12_EEPROM_ADDR);

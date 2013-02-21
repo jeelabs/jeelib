@@ -2,7 +2,7 @@
 /// Upload a boot loader and the blink demo sketch to a second board.
 // 2020-05-29 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
-// see http://news.jeelabs.org/2010/04/25/preparing-atmegas-with-isp/
+// see http://jeelabs.org/2010/04/25/preparing-atmegas-with-isp/
 //     http://jeelabs.org/2011/05/17/switching-to-optiboot/
 //     http://jeelabs.org/2011/05/26/fixing-the-isp_repair-sketch/
 //     http://jeelabs.org/2011/05/29/summary-of-isp-options/

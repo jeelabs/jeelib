@@ -6,7 +6,7 @@
 /// @file
 /// Ports library definitions.
 
-#if ARDUINO>=100
+#if ARDUINO >= 100
 #include <Arduino.h> // Arduino 1.0
 #else
 #include <WProgram.h> // Arduino 0022
@@ -17,8 +17,8 @@
 
 // tweak this to switch ATtiny84 etc to new Arduino 1.0+ conventions
 // see http://arduino.cc/forum/index.php/topic,51984.msg371307.html#msg371307
-#if ARDUINO >= 100 && !defined(__AVR_ATtiny84__) && !defined(__AVR_ATtiny85__) \
-        && !defined(__AVR_ATtiny44__) && !defined(__AVR_ATtiny45__)
+// and http://forum.jeelabs.net/node/1567
+#if ARDUINO >= 100
 #define WRITE_RESULT size_t
 #else
 #define WRITE_RESULT void
@@ -636,6 +636,35 @@ public:
   DHTxx (byte pinNum);
   /// Results are returned in tenths of a degree and percent, respectively
   bool reading (int& temp, int &humi);
+};
+
+/// Interface for the Color Plug - see http://jeelabs.org/cp
+class ColorPlug : public DeviceI2C {
+    union { byte b[8]; word w[4]; } data;
+    word chromacct[3];
+public:
+    enum {
+        CONTROL, TIMING, INTERRUPT, INTERRUPTSOURCE, CPID, GAIN = 0x7,
+        THRESHLOWLOW, THRESHLOWHIGH, THRESHHIGHLOW, THRESHHIGHHIGH,
+        DATA0LOW = 0x10, DATA0HIGH, DATA1LOW, DATA1HIGH,
+        DATA2LOW, DATA2HIGH, DATA3LOW, DATA3HIGH,
+        BLOCKREAD = 0x4F
+    };
+
+    ColorPlug (PortI2C& port, byte addr) : DeviceI2C (port, addr) {}
+    
+    void begin() {
+        send();
+        write(0x80 | CONTROL);
+        write(3); // power up
+        stop();
+    }
+    
+    void setGain(byte gain, byte prescaler);
+    
+    const word* getData();
+    
+    const word* chromaCCT();
 };
 
 #ifdef Stream_h // only available in recent Arduino IDE versions

@@ -97,6 +97,8 @@ void rf12_sendStart(uint8_t hdr);
 void rf12_sendStart(uint8_t hdr, const void* ptr, uint8_t len);
 /// Deprecated: use rf12_sendStart(hdr,ptr,len) followed by rf12_sendWait(sync).
 void rf12_sendStart(uint8_t hdr, const void* ptr, uint8_t len, uint8_t sync);
+/// This variant loops on rf12_canSend() and then calls rf12_sendStart() asap.
+void rf12_sendNow(uint8_t hdr, const void* ptr, uint8_t len);
 
 /// Wait for send to finish.
 /// @param mode sleep mode 0=none, 1=idle, 2=standby, 3=powerdown.
@@ -110,7 +112,7 @@ void rf12_onOff(uint8_t value);
 /// @note if off, calling this with -1 can be used to bring the RFM12B back up.
 void rf12_sleep(char n);
 
-/// @return true if the supply voltage is below 3.1V.
+/// Return true if the supply voltage is below 3.1V.
 char rf12_lowbat(void);
 
 /// Set up the easy tranmission mode, arg is number of seconds between packets.

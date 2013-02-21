@@ -467,14 +467,11 @@ void rf12_setBitrate(uint8_t rate) {
 /// rf12_recvDone() periodically, because it keeps the RFM12B logic going. If
 /// you don't, rf12_canSend() will never return true.
 uint8_t rf12_canSend () {
-    // no need to test with interrupts disabled: state TXRECV is only reached
-    // outside of ISR and we don't care if rxfill jumps from 0 to 1 here
+    // need interrupts off to avoid a race (and enable the RFM12B, thx Jorg!)
+    // see http://openenergymonitor.org/emon/node/1051?page=3
     if (rxstate == TXRECV && rxfill == 0 &&
-            (rf12_byte(0x00) & (RF_RSSI_BIT >> 8)) == 0) {
-        rf12_xfer(RF_IDLE_MODE); // stop receiver
-        //XXX just in case, don't know whether these RF12 reads are needed!
-        // rf12_xfer(0x0000); // status register
-        // rf12_xfer(RF_RX_FIFO_READ); // fifo read
+            (rf12_control(0x0000) & RF_RSSI_BIT) == 0) {
+        rf12_control(RF_IDLE_MODE); // stop receiver
         rxstate = TXIDLE;
         return 1;
     }
@@ -535,6 +532,20 @@ void rf12_sendStart (uint8_t hdr, const void* ptr, uint8_t len, uint8_t sync) {
     rf12_sendWait(sync);
 }
 
+/// @details
+/// Wait until transmission is possible, then start it as soon as possible.
+/// @note This uses a (brief) busy loop and will discard any incoming packets.
+/// @param hdr The header contains information about the destination of the
+///            packet to send, and flags such as whether this should be
+///            acknowledged - or if it actually is an acknowledgement.
+/// @param ptr Pointer to the data to send as packet.
+/// @param len Number of data bytes to send. Must be in the range 0 .. 65.
+void rf12_sendNow (uint8_t hdr, const void* ptr, uint8_t len) {
+  while (!rf12_canSend())
+    rf12_recvDone(); // keep the driver state machine going, ignore incoming
+  rf12_sendStart(hdr, ptr, len);
+}
+  
 /// @details
 /// Wait for completion of the preceding rf12_sendStart() call, using the
 /// specified low-power mode.

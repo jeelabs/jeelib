@@ -67,7 +67,7 @@ struct {
 #if PIR_PORT
     #define PIR_HOLD_TIME   30  // hold PIR value this many seconds after change
     #define PIR_PULLUP      1   // set to one to pull-up the PIR input pin
-    #define PIR_FLIP        0   // 0 or 1, to match PIR reporting high or low
+    #define PIR_INVERTED    1   // 0 or 1, to match PIR reporting high or low
     
     /// Interface to a Passive Infrared motion sensor.
     class PIR : public Port {
@@ -79,8 +79,8 @@ struct {
 
         // this code is called from the pin-change interrupt handler
         void poll() {
-            // see http://talk.jeelabs.net/topic/811#post-4734 for PIR_FLIP
-            byte pin = digiRead() ^ PIR_FLIP;
+            // see http://talk.jeelabs.net/topic/811#post-4734 for PIR_INVERTED
+            byte pin = digiRead() ^ PIR_INVERTED;
             // if the pin just went on, then set the changed flag to report it
             if (pin) {
                 if (!state())

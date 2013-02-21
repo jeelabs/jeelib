@@ -112,7 +112,7 @@ static bool optimalSleep () {
 
   // make a prediction for when the next packet should arrive
   uint32_t predict = lastRecv + (lost + 1) * estimate;
-  word sleep = predict - now - (lost ? 0 : window);
+  word sleep = predict - now - (lost ? window : 0);
   radioSleep(sleep);
 
   // listen to the radio until one window past predicted time
