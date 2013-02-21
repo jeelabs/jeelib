@@ -21,11 +21,8 @@ void setup () {
 void loop () {
   led(true);
 
-  // standard idiom for waiting until we can send a new packet
-  while (!rf12_canSend())
-    rf12_recvDone();
   // actual packet send: broadcast to all, current counter, 1 byte long
-  rf12_sendStart(0, &counter, 1);
+  rf12_sendNow(0, &value, 1);;
   rf12_sendWait(1);
 
   led(false);
