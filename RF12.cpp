@@ -94,17 +94,16 @@
 #endif 
 
 // RF12 command codes
-#define RF_RECEIVER_ON  0x82DD
-#define RF_XMITTER_ON   0x823D
-#define RF_IDLE_MODE    0x820D
-#define RF_SLEEP_MODE   0x8205
-#define RF_WAKEUP_MODE  0x8207
 #define RF_TXREG_WRITE  0xB800
-#define RF_RX_FIFO_READ 0xB000
 #define RF_WAKEUP_TIMER 0xE000
+#define RF_RECV_CONTROL 0x94A0
 
 // RF12 status bits
+#define RF_FIFO_BIT     0x8000
+#define RF_POR_BIT      0x4000
 #define RF_LBD_BIT      0x0400
+#define RF_WDG_BIT      0x1000
+#define RF_OVF_BIT      0x2000
 #define RF_RSSI_BIT     0x0100
 
 // bits in the node id configuration byte
@@ -127,20 +126,22 @@ static uint8_t group;               // network group
 static uint8_t band;				// network band
 static volatile uint8_t rxfill;     // number of data bytes in rf12_buf
 static volatile int8_t rxstate;     // current transceiver state
+volatile uint16_t rfmstate;         // current power management setting of the RFM12 module
 volatile uint16_t state;            // last seen rfm12b state
+volatile uint8_t rf12_gotwakeup;	// 1 if there was a wakeup-call from RFM12
 uint8_t drssi;                      // digital rssi state (see binary search tree below and rf12_getRSSI()
 uint8_t drssi_bytes_per_decision;   // number of bytes required per drssi decision
 
 const uint8_t drssi_dec_tree[] = {
-  /* state,drssi,final, returned, up,     dwn */
+  /* state,drssi,final, returned, up,      dwn */
 	/*  A,   0,    no,    0001 */  3 << 4 | 4,
-	/*  *,   1,    no,     --  */  0 << 4 | 2,
+	/*  *,   1,    no,     --  */  0 << 4 | 2, // starting value
 	/*  B,   2,    no,    0101 */  5 << 4 | 6
 	/*  C,   3,   yes,    1000 */
 	/*  D,   4,   yes,    1010 */
 	/*  E,   5,   yes,    1100 */
 	/*  F,   6,   yes,    1110 */
-};
+};  //                    \ Bit 1 indicates final state, others the signal strength
 
 
 #define RETRIES     8               // stop retrying after 8 times
@@ -160,9 +161,8 @@ static uint32_t seqNum;             // encrypted send sequence number
 static uint32_t cryptKey[4];        // encryption key to use
 void (*crypter)(uint8_t);           // does en-/decryption (null if disabled)
 
-				    // function to set chip select pin from within sketch
-void rf12_set_cs(uint8_t pin)
-{
+// function to set chip select pin from within sketch
+void rf12_set_cs(uint8_t pin) {
 #if defined(__AVR_ATmega32U4__)     //Arduino Leonardo 
   if (pin==10) cs_pin=6; 	    // Dig10, PB6     
   if (pin==9)  cs_pin=5; 	    // Dig9,  PB5	
@@ -240,6 +240,10 @@ static uint16_t rf12_xfer (uint16_t cmd) {
 }
 
 
+/// @details
+/// Requests RFM12 state from RF module and reads back a waiting data byte if there is
+/// any.
+/// @param *data Pointer to  byte where to write the received data to (if any)
 static uint16_t rf12_xferState (uint8_t *data) {
     uint16_t res = 0;
     // writing can take place at full speed, even 8 MHz works
@@ -247,7 +251,7 @@ static uint16_t rf12_xferState (uint8_t *data) {
     res = rf12_byte(0x00) << 8;
     res|= rf12_byte(0x00);
     
-    if (res & 0x08000 && rxstate == TXRECV) {
+    if (res & RF_FIFO_BIT && rxstate == TXRECV) {
         // slow down to under 2.5 MHz
 #if F_CPU > 10000000
         bitSet(SPCR, SPR0);
@@ -287,14 +291,25 @@ void rf12_control(uint16_t cmd) {
 #endif
 }
 
+
+/// @details
+/// Brings RFM12 in idle-mode.
+static void rf12_idle() {
+	rfmstate &= ~B11110000; // switch off synthesizer, transmitter, receiver and baseband
+	rfmstate |=  B00001000; // make sure crystal is running
+	rf12_xfer(rfmstate);
+}
+
+
+/// @details
+/// Handles a RFM12 interrupt depending on rxstate and the status reported by the RF
+/// module. 
 static void rf12_interrupt() {
-    // a transfer of 2x 16 bits @ 2 MHz over SPI takes 2x 8 us inside this ISR
-    // correction: now takes 2 + 8 µs, since sending can be done at 8 MHz
     uint8_t in;
     state = rf12_xferState(&in);
     
     // data received or byte needed for sending
-    if (state & 0x8000) {
+    if (state & RF_FIFO_BIT) {
 	
 	    if (rxstate == TXRECV) {  // we are receiving
 
@@ -311,12 +326,12 @@ static void rf12_interrupt() {
 	        			? (drssi_dec_tree[drssi] & B1111)
 	        			: (drssi_dec_tree[drssi] >> 4);
 	            if ( drssi < 3 ) {     // not yet final destination
-                	rf12_xfer(0x94A0 | drssi*2+1);
+                	rf12_xfer(RF_RECV_CONTROL | drssi*2+1);
             	}
            	}
 
        	    if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX)
-   	            rf12_xfer(RF_IDLE_MODE);
+       	    	rf12_idle();
 
     	} else {                  // we are sending
 	        uint8_t out;
@@ -331,27 +346,28 @@ static void rf12_interrupt() {
             	    case TXSYN2: out = group; rxstate = - (2 + rf12_len); break;
         	        case TXCRC1: out = rf12_crc; break;
     	            case TXCRC2: out = rf12_crc >> 8; break;
-	                case TXDONE: rf12_xfer(RF_IDLE_MODE); // fall through
+	                case TXDONE: rf12_idle(); // fall through
                 	default:     out = 0xAA;
             	}
 
-        	rf12_xfer(RF_TXREG_WRITE + out);
+        	rf12_xfer(RF_TXREG_WRITE | out);
 		}
     }
     
     // power-on reset
-    if (state & 0x4000) {
+    if (state & RF_POR_BIT) {
     	rxstate = POR_RECEIVED;
     }
     
     // got wakeup call
-    if (state & 0x1000) {
-    	
+    if (state & RF_WDG_BIT) {
+    	rf12_setWatchdog(0);
+    	rf12_gotwakeup = 1;
     }
     
     // fifo overflow or buffer underrun - abort reception/sending
-    if (state & 0x2000) {
-	    rf12_xfer(RF_IDLE_MODE);
+    if (state & RF_OVF_BIT) {
+    	rf12_idle();
 	    rxstate = TXIDLE;
     }
 }
@@ -384,8 +400,9 @@ static void rf12_recvStart () {
 #endif
     rxstate = TXRECV;    
     drssi = 1;              // set drssi to start value
-    rf12_xfer(0x94A0 | drssi*2+1);
-    rf12_xfer(RF_RECEIVER_ON);
+    rf12_xfer(RF_RECV_CONTROL | drssi*2+1);
+    rfmstate |= B11011000; // enable crystal, synthesizer, receiver and baseband
+    rf12_xfer(rfmstate);
 }
 
 #include <RF12.h> 
@@ -471,7 +488,7 @@ uint8_t rf12_canSend () {
     // see http://openenergymonitor.org/emon/node/1051?page=3
     if (rxstate == TXRECV && rxfill == 0 &&
             (rf12_control(0x0000) & RF_RSSI_BIT) == 0) {
-        rf12_control(RF_IDLE_MODE); // stop receiver
+        rf12_idle();
         rxstate = TXIDLE;
         return 1;
     }
@@ -489,7 +506,9 @@ void rf12_sendStart (uint8_t hdr) {
     rf12_crc = _crc16_update(rf12_crc, group);
 #endif
     rxstate = TXPRE1;
-    rf12_xfer(RF_XMITTER_ON); // bytes will be fed via interrupts
+    rfmstate |= B00111000; // enable crystal, synthesizer and transmitter
+    rf12_xfer(rfmstate);
+    // no need to feed bytes, RFM module requests data using interrupts
 }
 
 /// @details
@@ -646,12 +665,21 @@ uint8_t rf12_initialize (uint8_t id, uint8_t b, uint8_t g) {
     rf12_xfer(0xFE00); // do software reset
     rxstate = UNINITIALIZED;
 
-    // wait until RFM12B is out of power-up reset, this takes several *seconds*
-	while (rxstate == UNINITIALIZED)
-		;
-
+    // wait until RFM12B is out of power-up reset, this could takes several *seconds*
+    // normally about 50ms
+    set_sleep_mode(SLEEP_MODE_IDLE);
+    while (rxstate==UNINITIALIZED) {
+#if PINCHG_IRQ
+    	while (digitalRead(RFM_IRQ)==LOW)
+    		rf12_interrupt();
+#else
+		sleep_mode();
+#endif
+    }
+     
 	cli();
-    rf12_xfer(RF_SLEEP_MODE); // DC (disable clk pin), enable lbd
+    rfmstate = 0x8205;   // RF_SLEEP_MODE
+    rf12_xfer(rfmstate); // DC (disable clk pin), enable lbd
         
     rf12_xfer(0x80C7 | (band << 4)); // EL (ena TX), EF (ena RX FIFO), 12.0pF 
     rf12_xfer(0xA640); // 868MHz 
@@ -693,7 +721,12 @@ uint8_t rf12_initialize (uint8_t id, uint8_t b, uint8_t g) {
 /// transfers are used to enable / disable the transmitter. This will add some
 /// jitter to the signal, probably in the order of 10 µsec.
 void rf12_onOff (uint8_t value) {
-    rf12_xfer(value ? RF_XMITTER_ON : RF_IDLE_MODE);
+	if (value) {
+	    rfmstate |= B01111000; // switch on transmitter and all needed components
+	} else {
+		rfmstate &=~B00100000; // switch off transmitter
+	}
+    rf12_xfer(rfmstate);
 }
 
 /// @details
@@ -735,26 +768,53 @@ uint8_t rf12_config (uint8_t show) {
 /// This function can put the radio module to sleep and wake it up again.
 /// In sleep mode, the radio will draw only one or two microamps of current.
 ///
-/// This function can also be used as low-power watchdog, by putting the radio
-/// to sleep and having it raise an interrupt between about 30 milliseconds
-/// and 4 seconds later.
-/// @param n If RF12SLEEP (0), put the radio to sleep - no scheduled wakeup. 
+/// @param n If RF12SLEEP (0), put the radio to sleep
 ///          If RF12WAKEUP (-1), wake the radio up so that the next call to 
-///          rf12_recvDone() can restore normal reception. If value is in the
-///          range 1 .. 127, then the radio will go to sleep and generate an 
-///          interrupt approximately 32*value miliiseconds later.
-/// @todo Figure out how to get the "watchdog" mode working reliably.
+///          rf12_recvDone() can restore normal reception.
 void rf12_sleep (char n) {
     if (n < 0)
-        rf12_control(RF_IDLE_MODE);
+    	rf12_idle();
     else {
-        rf12_control(RF_WAKEUP_TIMER | 0x0500 | n);
-        rf12_control(RF_SLEEP_MODE);
-        if (n > 0)
-            rf12_control(RF_WAKEUP_MODE);
+    	rfmstate &= ~B11111000; // make sure everything is switched off (except bod, wkup, clk)
+    	rf12_xfer(rfmstate);
     }
     rxstate = TXIDLE;
 }
+
+
+/// @details
+/// Request an interrupt in the specified number of milliseconds. This Registers a wakeup-
+/// interrupt in the RFM12 module. Use rf12_wakeup() to check if the wakeup-interrupt
+/// fired. This allows very deep sleep states (timer off) while still being able to wakeup
+/// because of the external interrupt. The RFM12b wakeup-timer only needs about 1.5µA.
+/// Don't expect an accurate timing. It's about 10% off. Only one timer is supported.
+/// @param m Number of milliseconds
+void rf12_setWatchdog (unsigned long m) {
+    // calculate parameters for RFM12 module
+    // T_wakeup[ms] = m * 2^r
+    char r=0;
+    while (m > 255) {
+        r  += 1;
+        m >>= 1;
+    }
+    
+    // Disable old wakeup-timer if enabled
+    if (bitRead(rfmstate,1)) {  
+        bitClear(rfmstate,1);
+        rf12_xfer(rfmstate);
+    }
+    
+    // enable wakeup call if we have to
+    if (m>0) {
+        // write time to wakeup-register
+        rf12_xfer(RF_WAKEUP_TIMER | (r<<8) | m);
+
+		// enable wakeup
+        bitSet(rfmstate,1);
+        rf12_xfer(rfmstate);
+    }
+}
+
 
 /// @details
 /// This checks the status of the RF12 low-battery detector. It wil be 1 when
@@ -763,6 +823,15 @@ void rf12_sleep (char n) {
 /// power still remaining will be sufficient to send or receive further packets.
 char rf12_lowbat () {
     return (state & RF_LBD_BIT) != 0;
+}
+
+/// @details
+/// This function returns 1 if there was a wakeup-interrupt from the RFM12 module. Use it
+/// together with rf12_setWatchdog() for ultra low-power watchdog.
+char rf12_watchdogFired() {
+	uint8_t res = rf12_gotwakeup;
+	rf12_gotwakeup = 0;
+	return res;
 }
 
 /// @details

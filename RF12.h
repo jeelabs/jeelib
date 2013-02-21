@@ -61,8 +61,6 @@ extern volatile uint8_t rf12_buf[];
 /// Seq number of encrypted packet (or -1).
 extern long rf12_seq;
 
-extern uint8_t drssi_bytes_per_decision;
-
 /// Option to set RFM12 CS (or SS) pin for use on different hardware setups.
 /// Set to Dig10 by default for JeeNode. Can be Dig10, Dig9 or Dig8
 void rf12_set_cs(uint8_t pin);
@@ -84,7 +82,7 @@ uint8_t rf12_recvDone(void);
 /// Returns RSSI approximation for last received packet
 uint8_t rf12_getRSSI();
 
-/// Sets bitrate
+/// Use this function to change the data rate after rf12_initialize. 
 void rf12_setBitrate(uint8_t rate);
 
 /// Call this to check whether a new transmission can be started.
@@ -108,9 +106,18 @@ void rf12_sendWait(uint8_t mode);
 /// Use this only when the radio was initialized with a fake zero node ID.
 void rf12_onOff(uint8_t value);
 
-/// Power off the RFM12B, ms > 0 sets watchdog to wake up again after N * 32 ms.
+/// Power off the RFM12B if n==0
 /// @note if off, calling this with -1 can be used to bring the RFM12B back up.
 void rf12_sleep(char n);
+
+/// Request a wakeup-event after this many ms.
+/// Maximum time is about 2 years but limited by unsigned long which gives about 49 days
+/// @note set to 0 to disable a running wakeup-timer
+void rf12_setWatchdog(unsigned long ms);
+
+/// Checks if there was a wakeup-call from the RFM12 watchdog.
+/// @return true if RFM12 fired a watchdog interrupt
+char rf12_watchdogFired();
 
 /// Return true if the supply voltage is below 3.1V.
 char rf12_lowbat(void);
