@@ -22,7 +22,7 @@ void loop () {
   led(true);
 
   // actual packet send: broadcast to all, current counter, 1 byte long
-  rf12_sendNow(0, &value, 1);;
+  rf12_sendNow(0, &counter, 1);;
   rf12_sendWait(1);
 
   led(false);
