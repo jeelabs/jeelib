@@ -325,8 +325,8 @@ static uint16_t rf12_xferState (uint8_t *data) {
 ///
 /// This function does no longer return anything.
 /// @param cmd RF12 command, topmost bits determines which register is affected.
-void rf12_control(uint16_t cmd) {
-    rf12_xfer(cmd);
+static uint16_t rf12_control(uint16_t cmd) {
+    return rf12_xfer(cmd);
 }
 
 
@@ -524,7 +524,7 @@ void rf12_setBitrate(uint8_t rate) {
 /// you don't, rf12_canSend() will never return true.
 uint8_t rf12_canSend () {
     if (rxstate == TXRECV && rxfill == 0 &&
-            (state & RF_RSSI_BIT) == 0) { // use state from last rf12recvDone()
+            (rf12_xfer(0x0000) & RF_RSSI_BIT) == 0) {
         rf12_idle();
         rxstate = TXIDLE;
         return 1;
