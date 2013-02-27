@@ -197,6 +197,10 @@ void rf12_spiInit () {
     digitalWrite(RFM_IRQ, 1); // pull-up
 }
 
+
+// do a single byte SPI transfer
+// only used from inside rf12_xfer and rf12_xferState which prevent race conditions,
+// don't call without disabling interrupts first!
 static uint8_t rf12_byte (uint8_t out) {
 #ifdef SPDR
     SPDR = out;
@@ -229,13 +233,38 @@ static uint8_t rf12_byte (uint8_t out) {
 #endif
 }
 
+
+/// @details
+/// This call provides direct access to the RFM12B registers. If you're careful
+/// to avoid configuring the wireless module in a way which stops the driver
+/// from functioning, this can be used to adjust some settings.
+/// See the RFM12B wireless module documentation. 
+/// One of two commands accessing SPI, so interrupts disabled in here
 static uint16_t rf12_xfer (uint16_t cmd) {
+
+	// disable interrupts
+#ifdef EIMSK
+    bitClear(EIMSK, INT0);
+#else
+    // ATtiny
+    bitClear(GIMSK, INT0);
+#endif
+
 	uint16_t res = 0;
     // writing can take place at full speed, even 8 MHz works
     bitClear(SS_PORT, cs_pin);
     res  = rf12_byte(cmd >> 8) << 8;
     res |= rf12_byte(cmd);
     bitSet(SS_PORT, cs_pin);
+
+	// enable interrupts
+#ifdef EIMSK
+    bitSet(EIMSK, INT0);
+#else
+    // ATtiny
+    bitSet(GIMSK, INT0);
+#endif
+
     return res;
 }
 
@@ -243,8 +272,18 @@ static uint16_t rf12_xfer (uint16_t cmd) {
 /// @details
 /// Requests RFM12 state from RF module and reads back a waiting data byte if there is
 /// any.
+/// One of two commands accessing SPI, so interrupts disabled in here
 /// @param *data Pointer to  byte where to write the received data to (if any)
 static uint16_t rf12_xferState (uint8_t *data) {
+
+	// disable interrupts
+#ifdef EIMSK
+    bitClear(EIMSK, INT0);
+#else
+    // ATtiny
+    bitClear(GIMSK, INT0);
+#endif
+
     uint16_t res = 0;
     // writing can take place at full speed, even 8 MHz works
     bitClear(SS_PORT, cs_pin);
@@ -263,6 +302,15 @@ static uint16_t rf12_xferState (uint8_t *data) {
     }
     
     bitSet(SS_PORT, cs_pin);
+
+	// enable interrupts
+#ifdef EIMSK
+    bitSet(EIMSK, INT0);
+#else
+    // ATtiny
+    bitSet(GIMSK, INT0);
+#endif
+
     return res;
 }
 
@@ -273,22 +321,12 @@ static uint16_t rf12_xferState (uint8_t *data) {
 /// from functioning, this can be used to adjust frequencies, power levels,
 /// RSSI threshold, etc. See the RFM12B wireless module documentation.
 ///
-/// This call will briefly disable interrupts to avoid clashes on the SPI bus.
+/// OBSOLETE! Use rf12_xfer instead.
 ///
-/// Returns the 16-bit value returned by SPI. Probably only useful with a 
-/// "0x0000" status poll command.
+/// This function does no longer return anything.
 /// @param cmd RF12 command, topmost bits determines which register is affected.
 void rf12_control(uint16_t cmd) {
-#ifdef EIMSK
-    bitClear(EIMSK, INT0);
     rf12_xfer(cmd);
-    bitSet(EIMSK, INT0);
-#else
-    // ATtiny
-    bitClear(GIMSK, INT0);
-    rf12_xfer(cmd);
-    bitSet(GIMSK, INT0);
-#endif
 }
 
 
@@ -325,11 +363,12 @@ static void rf12_interrupt() {
 	        	drssi = bitRead(state,8)
 	        			? (drssi_dec_tree[drssi] & B1111)
 	        			: (drssi_dec_tree[drssi] >> 4);
-	            if ( drssi < 3 ) {     // not yet final destination
+	            if ( drssi < 3 ) {     // not yet final destination, set new threshold
                 	rf12_xfer(RF_RECV_CONTROL | drssi*2+1);
             	}
            	}
 
+			// check if we got all the bytes (or maximum packet length was reached)
        	    if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX)
        	    	rf12_idle();
 
@@ -484,10 +523,8 @@ void rf12_setBitrate(uint8_t rate) {
 /// rf12_recvDone() periodically, because it keeps the RFM12B logic going. If
 /// you don't, rf12_canSend() will never return true.
 uint8_t rf12_canSend () {
-    // need interrupts off to avoid a race (and enable the RFM12B, thx Jorg!)
-    // see http://openenergymonitor.org/emon/node/1051?page=3
     if (rxstate == TXRECV && rxfill == 0 &&
-            (rf12_control(0x0000) & RF_RSSI_BIT) == 0) {
+            (state & RF_RSSI_BIT) == 0) { // use state from last rf12recvDone()
         rf12_idle();
         rxstate = TXIDLE;
         return 1;
