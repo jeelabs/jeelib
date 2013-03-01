@@ -23,7 +23,6 @@ void setup() {
     // power up the radio on JMv3
     bitSet(DDRB, 0);
     bitClear(PORTB, 0);
-    Sleepy::loseSomeTime(100);
 #endif
 
     rf12_initialize(22, RF12_868MHZ, 5);
