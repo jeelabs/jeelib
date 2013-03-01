@@ -27,7 +27,12 @@ ISR(WDT_vect) { Sleepy::watchdogEvent(); }
 
 static byte vccRead (byte count =4) {
   set_sleep_mode(SLEEP_MODE_ADC);
-  ADMUX = bit(REFS0) | 14; // use VCC as AREF and internal bandgap as input
+  // use VCC as AREF and internal bandgap as input
+#if defined(__AVR_ATtiny84__)
+  ADMUX = 33;
+#else
+  ADMUX = bit(REFS0) | 14;
+#endif
   bitSet(ADCSRA, ADIE);
   while (count-- > 0) {
     adcDone = false;
