@@ -1172,6 +1172,10 @@ char Scheduler::poll() {
                     tasks[i] -= lowest;
                 }
             }
+        } else {
+            // must turn off timer or it might overflow if its poll-method
+            // is not called within 5535 ms, i.e. if no tasks are scheduled
+            ms100.set(0);
         }
         remaining = lowest;
     } else if (remaining == ~0U) //remaining == ~0 means nothing running
