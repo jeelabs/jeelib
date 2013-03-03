@@ -5,16 +5,19 @@
 #include <JeeLib.h>
 #include <avr/sleep.h>
 
+#define BOOST     0   // measure battery on analog pin if 1, else vcc after
+
 #define BLIP_NODE 22  // wireless node ID to use for sending blips
 #define BLIP_GRP  5   // wireless net group to use for sending blips
 #define BLIP_ID   1   // set this to a unique ID to disambiguate multiple nodes
 #define SEND_MODE 3   // set to 3 if fuses are e=06/h=DE/l=CE, else set to 2
 
 struct {
-  long ping;  // 32-bit counter
-  byte id;    // identity, should be different for each node
-  byte vcc1;  // VCC before transmit, 1.0V = 0 .. 6.0V = 250
-  byte vcc2;  // VCC after transmit, will be sent in next cycle
+  long ping;      // 32-bit counter
+  byte id :7;     // identity, should be different for each node
+  byte boost :1;  // whether compiled for boost chip or not
+  byte vcc1;      // VCC before transmit, 1.0V = 0 .. 6.0V = 250
+  byte vcc2;      // battery voltage (BOOST=1), or VCC after transmit (BOOST=0)
 } payload;
 
 volatile bool adcDone;
@@ -27,7 +30,12 @@ ISR(WDT_vect) { Sleepy::watchdogEvent(); }
 
 static byte vccRead (byte count =4) {
   set_sleep_mode(SLEEP_MODE_ADC);
-  ADMUX = bit(REFS0) | 14; // use VCC as AREF and internal bandgap as input
+  // use VCC as AREF and internal bandgap as input
+#if defined(__AVR_ATtiny84__)
+  ADMUX = 33;
+#else
+  ADMUX = bit(REFS0) | 14;
+#endif
   bitSet(ADCSRA, ADIE);
   while (count-- > 0) {
     adcDone = false;
@@ -49,12 +57,20 @@ void setup() {
   CLKPR = 1; // div 2, i.e. slow down to 8 MHz
 #endif
   sei();
+
+#if defined(__AVR_ATtiny84__)
+    // power up the radio on JMv3
+    bitSet(DDRB, 0);
+    bitClear(PORTB, 0);
+#endif
+
   rf12_initialize(BLIP_NODE, RF12_868MHZ, BLIP_GRP);
   // see http://tools.jeelabs.org/rfm12b
   rf12_control(0xC040); // set low-battery level to 2.2V i.s.o. 3.1V
   rf12_sleep(RF12_SLEEP);
 
   payload.id = BLIP_ID;
+  payload.boost = BOOST;
 }
 
 static byte sendPayload () {
@@ -90,12 +106,19 @@ void loop() {
   
   if (vcc <= VCC_FINAL) { // hopeless, maybe we can get one last packet out
     sendPayload();
-    vcc = payload.vcc2 = 1; // don't even try reading VCC after this send
+    vcc = 1; // don't even try reading VCC after this send
+#if !BOOST
+    payload.vcc2 = vcc;
+#endif
   }
 
   if (vcc >= VCC_OK) { // enough energy for normal operation
     sendPayload();
+#if BOOST
+    payload.vcc2 = analogRead(1);
+#else
     vcc = payload.vcc2 = vccRead(); // measure and remember the VCC drop
+#endif
   }
 
   byte minutes = VCC_SLEEP_MINS(vcc);
