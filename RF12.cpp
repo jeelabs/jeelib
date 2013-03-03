@@ -325,7 +325,7 @@ static uint16_t rf12_xferState (uint8_t *data) {
 ///
 /// This function does no longer return anything.
 /// @param cmd RF12 command, topmost bits determines which register is affected.
-static uint16_t rf12_control(uint16_t cmd) {
+uint16_t rf12_control(uint16_t cmd) {
     return rf12_xfer(cmd);
 }
 
