@@ -113,10 +113,11 @@ void loop() {
   }
 
   if (vcc >= VCC_OK) { // enough energy for normal operation
-    sendPayload();
 #if BOOST
-    payload.vcc2 = analogRead(1);
-#else
+    payload.vcc2 = analogRead(0) >> 2;
+#endif
+    sendPayload();
+#if !BOOST
     vcc = payload.vcc2 = vccRead(); // measure and remember the VCC drop
 #endif
   }
