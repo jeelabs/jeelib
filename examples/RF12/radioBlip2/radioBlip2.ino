@@ -77,9 +77,7 @@ static byte sendPayload () {
   ++payload.ping;
 
   rf12_sleep(RF12_WAKEUP);
-  while (!rf12_canSend())
-    rf12_recvDone();
-  rf12_sendStart(0, &payload, sizeof payload);
+  rf12_sendNow(0, &payload, sizeof payload);
   rf12_sendWait(SEND_MODE);
   rf12_sleep(RF12_SLEEP);
 }

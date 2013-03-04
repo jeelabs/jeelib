@@ -272,9 +272,7 @@ static void rf12_init_OOK ()
 // switch to RF12 mode, send out one packet, then resume OOK listening
 static void forwardPacket(byte len) {
     rf12_initialize(19, RF12_868MHZ, 5);
-    while (!rf12_canSend())
-        rf12_recvDone();
-    rf12_sendStart(0, ookbuf, len);
+    rf12_sendNow(0, ookbuf, len);
     rf12_sendWait(0);
     rf12_init_OOK();
 }

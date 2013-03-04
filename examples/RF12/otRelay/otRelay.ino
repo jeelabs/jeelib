@@ -33,9 +33,7 @@ static void sendId (byte id) {
     payload[1] = history[id].value;       // litle-endian
     payload[2] = history[id].value >> 8;
 
-    while (!rf12_canSend())
-      rf12_recvDone();
-    rf12_sendStart(0, payload, sizeof payload);
+    rf12_sendNow(0, payload, sizeof payload);
   }
 }
 

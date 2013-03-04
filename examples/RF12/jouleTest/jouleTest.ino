@@ -23,11 +23,9 @@ void setup() {
 }
 
 void loop() {
-  while (!rf12_canSend())
-    rf12_recvDone();
-  
   ++payload[0];
-  rf12_sendStart(0, &payload, sizeof payload);
+  
+  rf12_sendNow(0, &payload, sizeof payload);
   rf12_sendWait(3); // mode 3 requires 258 CK startup fuses
   
   rf12_sleep(RF12_SLEEP);

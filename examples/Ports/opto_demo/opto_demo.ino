@@ -50,9 +50,8 @@ void loop () {
     payload[6] = testOut.digiRead();
     payload[7] = testOut.digiRead2();
     
-    while (!rf12_canSend())
-        rf12_recvDone();
-    rf12_sendStart(0, payload, sizeof payload, 2);
+    rf12_sendNow(0, payload, sizeof payload);
+    rf12_sendWait(2);
 
     Sleepy::loseSomeTime(1000);
 }

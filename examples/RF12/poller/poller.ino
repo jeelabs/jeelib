@@ -29,11 +29,8 @@ void loop () {
   // switch to next node
   if (++nextId > NUM_NODES)
     nextId = 1;
-  // wait until we can send a packet
-  while (!rf12_canSend())
-    rf12_recvDone();
   // send an empty packet to one specific pollee
-  rf12_sendStart(RF12_HDR_ACK | RF12_HDR_DST | nextId, 0, 0);
+  rf12_sendNow(RF12_HDR_ACK | RF12_HDR_DST | nextId, 0, 0);
   // wait up to 10 milliseconds for a reply
   timer.set(10);
   while (!timer.poll())

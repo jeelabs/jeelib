@@ -33,10 +33,7 @@ void setup() {
 void loop() {
     ++payload;
     
-    while (!rf12_canSend())
-        rf12_recvDone();
-    
-    rf12_sendStart(0, &payload, sizeof payload);
+    rf12_sendNow(0, &payload, sizeof payload);
     // set the sync mode to 2 if the fuses are still the Arduino default
     // mode 3 (full powerdown) can only be used with 258 CK startup fuses
     rf12_sendWait(2);

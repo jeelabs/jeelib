@@ -185,9 +185,8 @@ static void serialFlush () {
 // periodic report, i.e. send out a packet and optionally report on serial port
 static void doReport() {
     rf12_sleep(RF12_WAKEUP);
-    while (!rf12_canSend())
-        rf12_recvDone();
-    rf12_sendStart(0, &payload, sizeof payload, RADIO_SYNC_MODE);
+    rf12_sendNow(0, &payload, sizeof payload);
+    rf12_sendWait(RADIO_SYNC_MODE);
     rf12_sleep(RF12_SLEEP);
 
     #if SERIAL
@@ -216,9 +215,8 @@ static void doTrigger() {
 
     for (byte i = 0; i < RETRY_LIMIT; ++i) {
         rf12_sleep(RF12_WAKEUP);
-        while (!rf12_canSend())
-            rf12_recvDone();
-        rf12_sendStart(RF12_HDR_ACK, &payload, sizeof payload, RADIO_SYNC_MODE);
+        rf12_sendNow(RF12_HDR_ACK, &payload, sizeof payload);
+        rf12_sendWait(RADIO_SYNC_MODE);
         byte acked = waitForAck();
         rf12_sleep(RF12_SLEEP);
 

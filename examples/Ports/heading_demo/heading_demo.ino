@@ -21,9 +21,7 @@ void loop () {
         sensor.pressure(payload.temp, payload.pres);
         sensor.heading(payload.xaxis, payload.yaxis);
         
-        while (!rf12_canSend())
-            rf12_recvDone();
-        rf12_sendStart(0, &payload, sizeof payload, 2);
+        rf12_sendNow(0, &payload, sizeof payload);
 
         Serial.print("HDPM ");
         Serial.print(payload.temp);

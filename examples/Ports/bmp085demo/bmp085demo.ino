@@ -116,8 +116,6 @@ void loop() {
         lowPower(SLEEP_MODE_IDLE);
     }
         
-    while (!rf12_canSend())
-        rf12_recvDone();
-    
-    rf12_sendStart(0, &payload, sizeof payload, 1); // sync mode!
+    rf12_sendNow(0, &payload, sizeof payload);
+    rf12_sendWait(1); // sync mode!
 }

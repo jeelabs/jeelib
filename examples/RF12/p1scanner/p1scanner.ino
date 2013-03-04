@@ -93,9 +93,7 @@ static void collectData (bool empty =false) {
     Serial.println();
   }
   
-  while (!rf12_canSend())
-    rf12_recvDone();
-  rf12_sendStart(0, payload, n);
+  rf12_sendNow(0, payload, n);
   rf12_sendWait(1);
 }
 

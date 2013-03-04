@@ -62,10 +62,7 @@ void loop () {
         blink(9, 2);
         
     if (reportTimer.poll(3000)) {
-        while (!rf12_canSend())
-            rf12_recvDone();
-        blink(8, 1);
-        
-        rf12_sendStart(RF12_HDR_ACK, &payload, sizeof payload);
+        blink(8, 1);        
+        rf12_sendNow(RF12_HDR_ACK, &payload, sizeof payload);
     }
 }

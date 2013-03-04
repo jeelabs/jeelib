@@ -97,10 +97,8 @@ static void sendAnnouncement (byte index) {
   byte bytes = 4 + nip->size;
 
 #if !DEBUG
-  while (!rf12_canSend())
-    rf12_recvDone();
   // special management packet, sent as special "packet to node 0"
-  rf12_sendStart(RF12_HDR_DST, sendBuf, bytes);
+  rf12_sendNow(RF12_HDR_DST, sendBuf, bytes);
 #endif
   
   Serial.print(index);

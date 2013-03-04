@@ -19,9 +19,7 @@ void loop () {
     if (measureTimer.poll(1000)) {
         const int* p = sensor.getAxes();
 
-        while (!rf12_canSend())
-            rf12_recvDone();
-        rf12_sendStart(0, p, 3 * sizeof *p, 2);
+        rf12_sendNow(0, p, 3 * sizeof *p);
 
         Serial.print("GRAV ");
         Serial.print(p[0]);

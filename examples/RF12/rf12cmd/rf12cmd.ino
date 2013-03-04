@@ -62,15 +62,11 @@ static bool do_tx () {
 
   rf12_initialize(node < 0 ? -node : 1, freqCode(band), group);
 
-  // this may lose packets, but we're probably in the wrong band/group anyway
-  while (!rf12_canSend())
-    rf12_recvDone();
-
   // send the packet out on the specified frequency band and netgroup
   uint8_t len;
   const void* data = decoder.asString(&len);
   // rf12_sendStart(node < 0 ? 0 : node, data, len);
-  rf12_sendStart(1, "\3", 1);
+  rf12_sendNow(1, "\3", 1);
   rf12_sendWait(1);
 
   rf12_initialize(1, freqCode(BAND), GROUP);

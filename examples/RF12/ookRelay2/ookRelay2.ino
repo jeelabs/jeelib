@@ -337,9 +337,8 @@ void loop () {
 #if PIN_868
         rf12_initialize(NODEID, RF12_868MHZ, NETGRP);
 #endif
-        while (!rf12_canSend())
-            rf12_recvDone(); // ignores incoming
-        rf12_sendStart(0, packetBuffer, packetFill, 1);
+        rf12_sendNow(0, packetBuffer, packetFill);
+        rf12_sendWait(1);
 #if PIN_868
         rf12_init_OOK();
 #endif

@@ -147,9 +147,7 @@ void loop () {
   payload.last = vmax - vmin;
   bitClear(PRR, PRUSI); // enable USI h/w
   rf12_sleep(RF12_WAKEUP);
-  while (!rf12_canSend())
-    rf12_recvDone();
-  rf12_sendStart(0, &payload, sizeof payload);
+  rf12_sendNow(0, &payload, sizeof payload);
   rf12_sendWait(1);
   rf12_sleep(RF12_SLEEP);
   bitSet(PRR, PRUSI); // disable USI h/w

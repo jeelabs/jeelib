@@ -51,9 +51,7 @@ void loop () {
     Serial.print(' ');
     Serial.println(range);
 #else
-    while (!rf12_canSend())
-      rf12_recvDone();
-    rf12_sendStart(0, &range, sizeof range);
+    rf12_sendNow(0, &range, sizeof range);
 #endif    
     total = count = 0;
   }

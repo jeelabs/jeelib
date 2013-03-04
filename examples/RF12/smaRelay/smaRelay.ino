@@ -81,9 +81,7 @@ void setup () {
   bluetoothPower(false);
 
   rf12_sleep(RF12_WAKEUP);
-  while (!rf12_canSend())
-    rf12_recvDone();
-  rf12_sendStart(0, &payload, sizeof payload);
+  rf12_sendNow(0, &payload, sizeof payload);
   rf12_sendWait(2);
   rf12_sleep(RF12_SLEEP);
 
