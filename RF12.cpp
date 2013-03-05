@@ -101,9 +101,9 @@
 // RF12 status bits
 #define RF_FIFO_BIT     0x8000
 #define RF_POR_BIT      0x4000
-#define RF_LBD_BIT      0x0400
-#define RF_WDG_BIT      0x1000
 #define RF_OVF_BIT      0x2000
+#define RF_WDG_BIT      0x1000
+#define RF_LBD_BIT      0x0400
 #define RF_RSSI_BIT     0x0100
 
 // bits in the node id configuration byte
@@ -174,6 +174,41 @@ void rf12_set_cs(uint8_t pin) {
 #endif
 }
 
+// interrupts need to be disabled in a few spots
+// do so by disabling the source of the interrupt, not all interrupts
+
+#ifndef EIMSK
+#define EIMSK GIMSK    // ATtiny
+#endif
+
+static void blockInterrupts () {
+#if PINCHG_IRQ
+    #if RFM_IRQ < 8
+        bitClear(EIMSK, PCIE2);
+    #elif RFM_IRQ < 14
+        bitClear(EIMSK, PCIE0);
+    #else
+        bitClear(EIMSK, PCIE1);
+    #endif
+#else
+    bitClear(EIMSK, INT0);
+#endif
+}
+
+static void allowInterrupts () {
+#if PINCHG_IRQ
+    #if RFM_IRQ < 8
+        bitSet(EIMSK, PCIE2);
+    #elif RFM_IRQ < 14
+        bitSet(EIMSK, PCIE0);
+    #else
+        bitSet(EIMSK, PCIE1);
+    #endif
+#else
+    bitSet(EIMSK, INT0);
+#endif
+}
+
 
 void rf12_spiInit () {
     bitSet(SS_PORT, cs_pin);
@@ -199,8 +234,8 @@ void rf12_spiInit () {
 
 
 // do a single byte SPI transfer
-// only used from inside rf12_xfer and rf12_xferState which prevent race conditions,
-// don't call without disabling interrupts first!
+// only used from inside rf12_xfer and rf12_xferState which prevent race 
+// conditions, don't call without disabling interrupts first!
 static uint8_t rf12_byte (uint8_t out) {
 #ifdef SPDR
     SPDR = out;
@@ -233,38 +268,21 @@ static uint8_t rf12_byte (uint8_t out) {
 #endif
 }
 
-
 /// @details
 /// This call provides direct access to the RFM12B registers. If you're careful
 /// to avoid configuring the wireless module in a way which stops the driver
 /// from functioning, this can be used to adjust some settings.
 /// See the RFM12B wireless module documentation. 
-/// One of two commands accessing SPI, so interrupts disabled in here
 static uint16_t rf12_xfer (uint16_t cmd) {
+    blockInterrupts();
 
-	// disable interrupts
-#ifdef EIMSK
-    bitClear(EIMSK, INT0);
-#else
-    // ATtiny
-    bitClear(GIMSK, INT0);
-#endif
-
-	uint16_t res = 0;
     // writing can take place at full speed, even 8 MHz works
     bitClear(SS_PORT, cs_pin);
-    res  = rf12_byte(cmd >> 8) << 8;
+    uint16_t res  = rf12_byte(cmd >> 8) << 8;
     res |= rf12_byte(cmd);
     bitSet(SS_PORT, cs_pin);
 
-	// enable interrupts
-#ifdef EIMSK
-    bitSet(EIMSK, INT0);
-#else
-    // ATtiny
-    bitSet(GIMSK, INT0);
-#endif
-
+    allowInterrupts();
     return res;
 }
 
@@ -275,20 +293,12 @@ static uint16_t rf12_xfer (uint16_t cmd) {
 /// One of two commands accessing SPI, so interrupts disabled in here
 /// @param *data Pointer to  byte where to write the received data to (if any)
 static uint16_t rf12_xferState (uint8_t *data) {
+    blockInterrupts();
 
-	// disable interrupts
-#ifdef EIMSK
-    bitClear(EIMSK, INT0);
-#else
-    // ATtiny
-    bitClear(GIMSK, INT0);
-#endif
-
-    uint16_t res = 0;
     // writing can take place at full speed, even 8 MHz works
     bitClear(SS_PORT, cs_pin);
-    res = rf12_byte(0x00) << 8;
-    res|= rf12_byte(0x00);
+    uint16_t res = rf12_byte(0x00) << 8;
+    res |= rf12_byte(0x00);
     
     if (res & RF_FIFO_BIT && rxstate == TXRECV) {
         // slow down to under 2.5 MHz
@@ -303,14 +313,7 @@ static uint16_t rf12_xferState (uint8_t *data) {
     
     bitSet(SS_PORT, cs_pin);
 
-	// enable interrupts
-#ifdef EIMSK
-    bitSet(EIMSK, INT0);
-#else
-    // ATtiny
-    bitSet(GIMSK, INT0);
-#endif
-
+    allowInterrupts();
     return res;
 }
 
@@ -523,8 +526,9 @@ void rf12_setBitrate(uint8_t rate) {
 /// rf12_recvDone() periodically, because it keeps the RFM12B logic going. If
 /// you don't, rf12_canSend() will never return true.
 uint8_t rf12_canSend () {
-    if (rxstate == TXRECV && rxfill == 0 &&
-            (rf12_xfer(0x0000) & RF_RSSI_BIT) == 0) {
+    // if (rxstate == TXRECV && rxfill == 0 && rf12_getRSSI() < 2) {
+    // TODO listen-before-send disabled until we figure out how to do it right
+    if (rxstate == TXRECV && rxfill == 0) {
         rf12_idle();
         rxstate = TXIDLE;
         return 1;
@@ -712,9 +716,9 @@ uint8_t rf12_initialize (uint8_t id, uint8_t b, uint8_t g) {
 #else
 		sleep_mode();
 #endif
-    }
-     
-	cli();
+    }     
+    blockInterrupts();
+
     rfmstate = 0x8205;   // RF_SLEEP_MODE
     rf12_xfer(rfmstate); // DC (disable clk pin), enable lbd
         
@@ -738,8 +742,8 @@ uint8_t rf12_initialize (uint8_t id, uint8_t b, uint8_t g) {
     rf12_xfer(0xC049); // 1.66MHz,3.1V 
 
     rxstate = TXIDLE;
-    sei();
     
+    allowInterrupts();
     return nodeid;
 }
 
@@ -758,11 +762,11 @@ uint8_t rf12_initialize (uint8_t id, uint8_t b, uint8_t g) {
 /// transfers are used to enable / disable the transmitter. This will add some
 /// jitter to the signal, probably in the order of 10 µsec.
 void rf12_onOff (uint8_t value) {
-	if (value) {
-	    rfmstate |= B01111000; // switch on transmitter and all needed components
-	} else {
-		rfmstate &=~B00100000; // switch off transmitter
-	}
+  	if (value) {
+  	    rfmstate |= B01111000; // switch on transmitter and all needed components
+  	} else {
+        rfmstate &= ~B00100000; // switch off transmitter
+  	}
     rf12_xfer(rfmstate);
 }
 
@@ -810,10 +814,10 @@ uint8_t rf12_config (uint8_t show) {
 ///          rf12_recvDone() can restore normal reception.
 void rf12_sleep (char n) {
     if (n < 0)
-    	rf12_idle();
+        rf12_idle();
     else {
-    	rfmstate &= ~B11111000; // make sure everything is switched off (except bod, wkup, clk)
-    	rf12_xfer(rfmstate);
+        rfmstate &= ~B11111000; // make sure everything is switched off (except bod, wkup, clk)
+        rf12_xfer(rfmstate);
     }
     rxstate = TXIDLE;
 }
@@ -845,8 +849,7 @@ void rf12_setWatchdog (unsigned long m) {
     if (m>0) {
         // write time to wakeup-register
         rf12_xfer(RF_WAKEUP_TIMER | (r<<8) | m);
-
-		// enable wakeup
+        // enable wakeup
         bitSet(rfmstate,1);
         rf12_xfer(rfmstate);
     }
