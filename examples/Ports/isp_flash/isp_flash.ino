@@ -351,7 +351,7 @@ static int avrisp() {
 }
 
 void setup() {
-    Serial.begin(19200);
+    Serial.begin(9600);
     pinMode(LED_PMODE, OUTPUT);
     digitalWrite(LED_PMODE, 1);
 }
