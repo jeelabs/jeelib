@@ -152,7 +152,7 @@ static uint8_t ezSendBuf[RF12_MAXDATA]; // data to send
 static char ezSendLen;              // number of bytes to send
 static uint8_t ezPending;           // remaining number of retries
 static long ezNextSend[2];          // when was last retry [0] or data [1] sent
-
+static uint8_t fixedLength;				// length of non-standard packages
 volatile uint16_t rf12_crc;         // running crc value
 volatile uint8_t rf12_buf[RF_MAX];  // recv/xmit buf, including hdr & crc bytes
 long rf12_seq;                      // seq number of encrypted packet (or -1)
@@ -372,9 +372,13 @@ static void rf12_interrupt() {
            	}
 
 			// check if we got all the bytes (or maximum packet length was reached)
-       	    if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX)
+			if (fixedLength) {
+				if (rxfill >= fixedLength || rxfill >= RF_MAX) {
+					rf12_idle();
+				}
+			} else if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX) {
        	    	rf12_idle();
-
+			}
     	} else {                  // we are sending
 	        uint8_t out;
 
@@ -480,6 +484,14 @@ byte rf12_recvDone();
 /// @see http://jeelabs.org/2010/12/11/rf12-acknowledgements/
 uint8_t rf12_recvDone () {
     if (rxstate == TXRECV && (rxfill >= rf12_len + 5 || rxfill >= RF_MAX)) {
+    if (rxstate == TXRECV) {
+		if (fixedLength) {
+			if (rxfill >= fixedLength || rxfill >= RF_MAX) {
+				rxstate = TXIDLE;
+				rf12_crc = 1; //it is not a standard packet
+				return 1;
+			}
+		} else if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX) {
         rxstate = TXIDLE;
         if (rf12_len > RF12_MAXDATA)
             rf12_crc = 1; // force bad crc if packet length is invalid
@@ -490,6 +502,8 @@ uint8_t rf12_recvDone () {
             else
                 rf12_seq = -1;
             return 1; // it's a broadcast packet or it's addressed to this node
+			}
+		}
         }
     }
     if (rxstate == TXIDLE)
@@ -509,6 +523,11 @@ void rf12_setBitrate(uint8_t rate) {
 	unsigned long bits_per_second = (10000000UL / 29UL / (1 + (rate & 0x7f)) / (1 + (rate >> 7) * 7));
 	unsigned long bytes_per_second = bits_per_second / 8;
 	drssi_bytes_per_decision = (bytes_per_second + decisions_per_sec - 1) / decisions_per_sec;
+}
+
+void rf12_setFixedLength(uint8_t packet_len) {
+	fixedLength = packet_len;
+	if (packet_len > 0) fixedLength++;  //add a byte for the groupid
 }
 
 /// @details

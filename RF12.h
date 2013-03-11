@@ -85,6 +85,10 @@ uint8_t rf12_getRSSI();
 /// Use this function to change the data rate after rf12_initialize. 
 void rf12_setBitrate(uint8_t rate);
 
+/// Use this function to change the data rate after rf12_initialize.
+/// packet_len <  RF12_MAXDATA, 0 = disable, receive standard format packages.
+void rf12_setFixedLength(uint8_t packet_len);
+
 /// Call this to check whether a new transmission can be started.
 /// @return true when a new transmission may be started with rf12_sendStart().
 uint8_t rf12_canSend(void);
