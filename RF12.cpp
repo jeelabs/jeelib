@@ -483,7 +483,6 @@ byte rf12_recvDone();
 ///      }
 /// @see http://jeelabs.org/2010/12/11/rf12-acknowledgements/
 uint8_t rf12_recvDone () {
-    if (rxstate == TXRECV && (rxfill >= rf12_len + 5 || rxfill >= RF_MAX)) {
     if (rxstate == TXRECV) {
 		if (fixedLength) {
 			if (rxfill >= fixedLength || rxfill >= RF_MAX) {
@@ -504,7 +503,6 @@ uint8_t rf12_recvDone () {
             return 1; // it's a broadcast packet or it's addressed to this node
 			}
 		}
-        }
     }
     if (rxstate == TXIDLE)
         rf12_recvStart();
