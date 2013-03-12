@@ -90,7 +90,7 @@ uint8_t rf12_getRSSI();
 /// Use this function to change the data rate after rf12_initialize. 
 void rf12_setBitrate(uint8_t rate);
 
-/// Use this function to change the data rate after rf12_initialize.
+/// Use this function to switch the driver into fixed packet length mode
 /// packet_len <  RF12_MAXDATA, 0 = disable, receive standard format packages.
 void rf12_setFixedLength(uint8_t packet_len);
 
