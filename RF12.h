@@ -71,6 +71,11 @@ void rf12_spiInit(void);
 /// Call this once with the node ID, frequency band, and optional group.
 uint8_t rf12_initialize(uint8_t id, uint8_t band, uint8_t group=0xD4);
 
+/// Call this to restore the initial settings when switching from OOK to FSK
+/// with the node ID, frequency band, and optional group.
+/// The RFM12B will not be reset, saving a minumum 0f 50ms.
+void rf12_restore(uint8_t id, uint8_t band, uint8_t group=0xD4);
+
 /// Initialize the RFM12B module from settings stored in EEPROM by "RF12demo"
 /// don't call rf12_initialize() if you init the hardware with rf12_config().
 /// @return the node ID as 1..31 value (1..26 correspond to nodes 'A'..'Z').
@@ -84,6 +89,10 @@ uint8_t rf12_getRSSI();
 
 /// Use this function to change the data rate after rf12_initialize. 
 void rf12_setBitrate(uint8_t rate);
+
+/// Use this function to switch the driver into fixed packet length mode
+/// packet_len <  RF12_MAXDATA, 0 = disable, receive standard format packages.
+void rf12_setFixedLength(uint8_t packet_len);
 
 /// Call this to check whether a new transmission can be started.
 /// @return true when a new transmission may be started with rf12_sendStart().

@@ -152,7 +152,7 @@ static uint8_t ezSendBuf[RF12_MAXDATA]; // data to send
 static char ezSendLen;              // number of bytes to send
 static uint8_t ezPending;           // remaining number of retries
 static long ezNextSend[2];          // when was last retry [0] or data [1] sent
-
+static uint8_t fixedLength;				// length of non-standard packages
 volatile uint16_t rf12_crc;         // running crc value
 volatile uint8_t rf12_buf[RF_MAX];  // recv/xmit buf, including hdr & crc bytes
 long rf12_seq;                      // seq number of encrypted packet (or -1)
@@ -372,9 +372,13 @@ static void rf12_interrupt() {
            	}
 
 			// check if we got all the bytes (or maximum packet length was reached)
-       	    if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX)
+			if (fixedLength) {
+				if (rxfill >= fixedLength || rxfill >= RF_MAX) {
+					rf12_idle();
+				}
+			} else if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX) {
        	    	rf12_idle();
-
+			}
     	} else {                  // we are sending
 	        uint8_t out;
 
@@ -479,7 +483,14 @@ byte rf12_recvDone();
 ///      }
 /// @see http://jeelabs.org/2010/12/11/rf12-acknowledgements/
 uint8_t rf12_recvDone () {
-    if (rxstate == TXRECV && (rxfill >= rf12_len + 5 || rxfill >= RF_MAX)) {
+    if (rxstate == TXRECV) {
+		if (fixedLength) {
+			if (rxfill >= fixedLength || rxfill >= RF_MAX) {
+				rxstate = TXIDLE;
+				rf12_crc = 1; //it is not a standard packet
+				return 1;
+			}
+		} else if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX) {
         rxstate = TXIDLE;
         if (rf12_len > RF12_MAXDATA)
             rf12_crc = 1; // force bad crc if packet length is invalid
@@ -490,7 +501,8 @@ uint8_t rf12_recvDone () {
             else
                 rf12_seq = -1;
             return 1; // it's a broadcast packet or it's addressed to this node
-        }
+			}
+		}
     }
     if (rxstate == TXIDLE)
         rf12_recvStart();
@@ -509,6 +521,11 @@ void rf12_setBitrate(uint8_t rate) {
 	unsigned long bits_per_second = (10000000UL / 29UL / (1 + (rate & 0x7f)) / (1 + (rate >> 7) * 7));
 	unsigned long bytes_per_second = bits_per_second / 8;
 	drssi_bytes_per_decision = (bytes_per_second + decisions_per_sec - 1) / decisions_per_sec;
+}
+
+void rf12_setFixedLength(uint8_t packet_len) {
+	fixedLength = packet_len;
+	if (packet_len > 0) fixedLength++;  //add a byte for the groupid
 }
 
 /// @details
@@ -633,6 +650,44 @@ void rf12_sendWait (uint8_t mode) {
 }
 
 /// @details
+/// Attach interrupts for nodeid != 0
+/// Detach interrupt for nodeid == 0
+void rf12_interruptcontrol () {
+#if PINCHG_IRQ
+    #if RFM_IRQ < 8
+        if ((nodeid & NODE_ID) != 0) {
+            bitClear(DDRD, RFM_IRQ);      // input
+            bitSet(PORTD, RFM_IRQ);       // pull-up
+            bitSet(PCMSK2, RFM_IRQ);      // pin-change
+            bitSet(PCICR, PCIE2);         // enable
+        } else
+            bitClear(PCMSK2, RFM_IRQ);
+    #elif RFM_IRQ < 14
+        if ((nodeid & NODE_ID) != 0) {
+            bitClear(DDRB, RFM_IRQ - 8);  // input
+            bitSet(PORTB, RFM_IRQ - 8);   // pull-up
+            bitSet(PCMSK0, RFM_IRQ - 8);  // pin-change
+            bitSet(PCICR, PCIE0);         // enable
+        } else
+            bitClear(PCMSK0, RFM_IRQ - 8);
+    #else
+        if ((nodeid & NODE_ID) != 0) {
+            bitClear(DDRC, RFM_IRQ - 14); // input
+            bitSet(PORTC, RFM_IRQ - 14);  // pull-up
+            bitSet(PCMSK1, RFM_IRQ - 14); // pin-change
+            bitSet(PCICR, PCIE1);         // enable
+        } else
+            bitClear(PCMSK1, RFM_IRQ - 14);
+    #endif
+#else
+    if ((nodeid & NODE_ID) != 0)
+        attachInterrupt(0, rf12_interrupt, LOW);
+    else
+        detachInterrupt(0);
+#endif
+}
+
+/// @details
 /// Call this once with the node ID (0-31), frequency band (0-3), and
 /// optional group (0-255 for RFM12B, only 212 allowed for RFM12).
 /// @param id The ID of this wireless node. ID's should be unique within the
@@ -667,41 +722,8 @@ uint8_t rf12_initialize (uint8_t id, uint8_t b, uint8_t g) {
     band = b;
     
     rf12_spiInit();
-
-#if PINCHG_IRQ
-    #if RFM_IRQ < 8
-        if ((nodeid & NODE_ID) != 0) {
-            bitClear(DDRD, RFM_IRQ);      // input
-            bitSet(PORTD, RFM_IRQ);       // pull-up
-            bitSet(PCMSK2, RFM_IRQ);      // pin-change
-            bitSet(PCICR, PCIE2);         // enable
-        } else
-            bitClear(PCMSK2, RFM_IRQ);
-    #elif RFM_IRQ < 14
-        if ((nodeid & NODE_ID) != 0) {
-            bitClear(DDRB, RFM_IRQ - 8);  // input
-            bitSet(PORTB, RFM_IRQ - 8);   // pull-up
-            bitSet(PCMSK0, RFM_IRQ - 8);  // pin-change
-            bitSet(PCICR, PCIE0);         // enable
-        } else
-            bitClear(PCMSK0, RFM_IRQ - 8);
-    #else
-        if ((nodeid & NODE_ID) != 0) {
-            bitClear(DDRC, RFM_IRQ - 14); // input
-            bitSet(PORTC, RFM_IRQ - 14);  // pull-up
-            bitSet(PCMSK1, RFM_IRQ - 14); // pin-change
-            bitSet(PCICR, PCIE1);         // enable
-        } else
-            bitClear(PCMSK1, RFM_IRQ - 14);
-    #endif
-#else
-    if ((nodeid & NODE_ID) != 0)
-        attachInterrupt(0, rf12_interrupt, LOW);
-    else
-        detachInterrupt(0);
-#endif
-
-	// reset RFM12b module
+    rf12_interruptcontrol();
+    // reset RFM12b module
     rf12_xfer(0xCA82); // enable software reset
     rf12_xfer(0xFE00); // do software reset
     rxstate = UNINITIALIZED;
@@ -711,40 +733,72 @@ uint8_t rf12_initialize (uint8_t id, uint8_t b, uint8_t g) {
     set_sleep_mode(SLEEP_MODE_IDLE);
     while (rxstate==UNINITIALIZED) {
 #if PINCHG_IRQ
-    	while (digitalRead(RFM_IRQ)==LOW)
-    		rf12_interrupt();
+        while (digitalRead(RFM_IRQ)==LOW)
+            rf12_interrupt();
 #else
-		sleep_mode();
+        sleep_mode();
 #endif
-    }     
-    blockInterrupts();
-
-    rfmstate = 0x8205;   // RF_SLEEP_MODE
-    rf12_xfer(rfmstate); // DC (disable clk pin), enable lbd
-        
-    rf12_xfer(0x80C7 | (band << 4)); // EL (ena TX), EF (ena RX FIFO), 12.0pF 
-    rf12_xfer(0xA640); // 868MHz 
-    rf12_setBitrate(0x06); // approx 49.2 Kbps, i.e. 10000/29/(1+6) Kbps
-    rf12_xfer(0x94A2); // VDI,FAST,134kHz,0dBm,-91dBm 
-    rf12_xfer(0xC2AC); // AL,!ml,DIG,DQD4 
-    if (group != 0) {
-        rf12_xfer(0xCA83); // FIFO8,2-SYNC,!ff,DR 
-        rf12_xfer(0xCE00 | group); // SYNC=2DXX； 
-    } else {
-        rf12_xfer(0xCA8B); // FIFO8,1-SYNC,!ff,DR 
-        rf12_xfer(0xCE2D); // SYNC=2D； 
     }
-    rf12_xfer(0xC483); // @PWR,NO RSTRIC,!st,!fi,OE,EN 
-    rf12_xfer(0x9850); // !mp,90kHz,MAX OUT 
-    rf12_xfer(0xCC77); // OB1，OB0, LPX,！ddy，DDIT，BW0 
-    rf12_xfer(0xE000); // NOT USE 
-    rf12_xfer(0xC800); // NOT USE 
-    rf12_xfer(0xC049); // 1.66MHz,3.1V 
+    rf12_restore(id, b, g);
+    return nodeid;
+}
+
+/// @details
+/// Call this when the settings of the RFM12B have been overwritten by the 
+/// application with rf12_control(), to restore the original settings. Call
+/// this with the node ID (0-31), frequency band (0-3), and
+/// optional group (0-255 for RFM12B, only 212 allowed for RFM12).
+/// @param id The ID of this wireless node. ID's should be unique within the
+///           netGroup in which this node is operating. The ID range is 0 to 31,
+///           but only 1..30 are available for normal use. You can pass a single
+///           capital letter as node ID, with 'A' .. 'Z' corresponding to the
+///           node ID's 1..26, but this convention is now discouraged. ID 0 is
+///           reserved for OOK use, node ID 31 is special because it will pick
+///           up packets for any node (in the same netGroup).
+/// @param band This determines in which frequency range the wireless module
+///             will operate. The following pre-defined constants are available:
+///             RF12_433MHZ, RF12_868MHZ, RF12_915MHZ. You should use the one
+///             matching the module you have.
+/// @param g Net groups are used to separate nodes: only nodes in the same net
+///          group can communicate with each other. Valid values are 1 to 212. 
+///          This parameter is optional, it defaults to 212 (0xD4) when omitted.
+///          This is the only allowed value for RFM12 modules, only RFM12B
+///          modules support other group values.
+void rf12_restore (uint8_t id, uint8_t b, uint8_t g) {
+    nodeid = id;
+    group = g;
+    band = b;
+    
+    //interrupts may be attached or detached for OOK
+    rf12_interruptcontrol();
+    //undo settings for foreign-FSK use
+    rf12_setFixedLength(0);
+    blockInterrupts();
+    rfmstate = 0x8205;              // RF_SLEEP_MODE
+    rf12_xfer(rfmstate);            // DC (disable clk pin), enable lbd
+        
+    rf12_xfer(0x80C7 | (band << 4));// EL (ena TX), EF (ena RX FIFO), 12.0pF 
+    rf12_xfer(0xA640);              // 868MHz 
+    rf12_setBitrate(0x06);          // approx 49.2 Kbps, i.e. 10000/29/(1+6) Kbps
+    rf12_xfer(0x94A2);              // VDI,FAST,134kHz,0dBm,-91dBm 
+    rf12_xfer(0xC2AC);              // AL,!ml,DIG,DQD4 
+    if (group != 0) {
+        rf12_xfer(0xCA83);          // FIFO8,2-SYNC,!ff,DR 
+        rf12_xfer(0xCE00 | group);  // SYNC=2DXX; 
+    } else {
+        rf12_xfer(0xCA8B);          // FIFO8,1-SYNC,!ff,DR 
+        rf12_xfer(0xCE2D);          // SYNC=2D; 
+    }
+    rf12_xfer(0xC483);              // AFC@VDI,NO RSTRIC,!st,!fi,OE,EN 
+    rf12_xfer(0x9850);              // !mp,90kHz,MAX OUT 
+    rf12_xfer(0xCC77);              // OB1,OB0, LPX,!ddy,DDIT,BW0 
+    rf12_xfer(0xE000);              // NOT USE 
+    rf12_xfer(0xC800);              // NOT USE 
+    rf12_xfer(0xC049);              // 1.66MHz,3.1V 
 
     rxstate = TXIDLE;
     
     allowInterrupts();
-    return nodeid;
 }
 
 /// @details
