@@ -634,8 +634,9 @@ class DHTxx {
   byte pin;
 public:
   DHTxx (byte pinNum);
-  /// Results are returned in tenths of a degree and percent, respectively
-  bool reading (int& temp, int &humi);
+  /// Results are returned in tenths of a degree and percent, respectively.
+  /// Set "precise" to true for the more accurate DHT21 and DHT22 sensors.
+  bool reading (int& temp, int &humi, bool precise =false);
 };
 
 /// Interface for the Color Plug - see http://jeelabs.org/cp

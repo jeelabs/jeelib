@@ -949,7 +949,7 @@ DHTxx::DHTxx (byte pinNum) : pin (pinNum) {
   digitalWrite(pin, HIGH);
 }
 
-bool DHTxx::reading (int& temp, int &humi) {
+bool DHTxx::reading (int& temp, int &humi, bool precise) {
   pinMode(pin, OUTPUT);
   delay(10); // wait for any previous transmission to end
   digitalWrite(pin, LOW);
@@ -1013,12 +1013,10 @@ bool DHTxx::reading (int& temp, int &humi) {
   if (sum != data[5])
     return false;
   
-  word h = (data[1] << 8) | data[2];
-  humi = ((h >> 3) * 5) >> 4;     // careful with overflow
+  humi = precise ? (data[1] << 8) | data[2] : 10 * data[1];
 
-  int tmul = data[3] & 0x80 ? -5 : 5;
-  word t = ((data[3] & 0x7F) << 8) | data[4];
-  temp = ((t >> 3) * tmul) >> 4;  // careful with overflow
+  word t = precise ? ((data[3] & 0x7F) << 8) | data[4] : 10 * data[3];
+  temp = data[3] & 0x80 ? - t : t;
 
   return true;
 }
