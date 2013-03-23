@@ -52,7 +52,22 @@ static RF12Config config;
 
 static char cmd;
 static byte value, stack[RF12_MAXDATA], top, sendLen, dest, quiet;
-static byte testbuf[RF12_MAXDATA], testCounter;
+static byte testbuf[RF12_MAXDATA], testCounter, useHex;
+
+static void showNibble (byte nibble) {
+    char c = '0' + (nibble & 0x0F);
+    if (c > '9')
+        c += 7;
+    Serial.print(c);
+}
+
+static void showByte (byte value) {
+    if (useHex) {
+        showNibble(value >> 4);
+        showNibble(value);
+    } else
+        Serial.print((int) value);
+}
 
 static void addCh (char* msg, char c) {
     byte n = strlen(msg);
@@ -529,8 +544,7 @@ static void df_replay (word seqnum, long asof) {
 const char helpText1[] PROGMEM = 
     "\n"
     "Available commands:" "\n"
-    "  <nn> i     - set node ID (standard node ids are 1..26)" "\n"
-    "               (or enter an uppercase 'A'..'Z' to set id)" "\n"
+    "  <nn> i     - set node ID (standard node ids are 1..30)" "\n"
     "  <n> b      - set MHz band (4 = 433, 8 = 868, 9 = 915)" "\n"
     "  <nnn> g    - set network group (RFM12 only allows 212, 0 = any)" "\n"
     "  <n> c      - set collect mode (advanced, normally 0)" "\n"
@@ -539,6 +553,7 @@ const char helpText1[] PROGMEM =
     "  ...,<nn> s - send data packet to node <nn>, no ack" "\n"
     "  <n> l      - turn activity LED on PB1 on or off" "\n"
     "  <n> q      - set quiet mode (1 = don't report bad packets)" "\n"
+    "  <n> x      - set reporting format (0 = decimal, 1 = hex)" "\n"
     "  123 z      - total power down, needs a reset to start up again" "\n"
     "Remote control commands:" "\n"
     "  <hchi>,<hclo>,<addr>,<cmd> f     - FS20 command (868 MHz)" "\n"
@@ -578,8 +593,12 @@ static void handleInput (char c) {
         if (top < sizeof stack)
             stack[top++] = value;
         value = 0;
-    } else if ('a' <= c && c <='z') {
+    } else if ('a' <= c && c <='z' || 'A' <= c && c <= 'Z') {
         Serial.print("> ");
+        for (byte i = 0; i < top; ++i) {
+            Serial.print((int) stack[i]);
+            Serial.print(',');
+        }
         Serial.print((int) value);
         Serial.println(c);
         switch (c) {
@@ -676,19 +695,19 @@ static void handleInput (char c) {
                     Sleepy::powerDown();
                 }
                 break;
+            case 'x': // set reporting mode to hex (1) or decimal (0)
+                useHex = value;
+                break;
         }
         value = top = 0;
         memset(stack, 0, sizeof stack);
-    } else if ('A' <= c && c <= 'Z') {
-        config.nodeId = (config.nodeId & 0xE0) + (c & 0x1F);
-        saveConfig();
     } else if (c > ' ')
         showHelp();
 }
 
 void setup() {
     Serial.begin(SERIAL_BAUD);
-    Serial.print("\n[RF12demo.9]");
+    Serial.print("\n[RF12demo.10]");
     activityLed(0);
 
     if (rf12_config()) {
@@ -711,24 +730,27 @@ void loop() {
 
     if (rf12_recvDone()) {
         byte n = rf12_len;
-        if (rf12_crc == 0) {
+        if (rf12_crc == 0)
             Serial.print("OK");
-        } else {
+        else {
             if (quiet)
                 return;
             Serial.print(" ?");
             if (n > 20) // print at most 20 bytes if crc is wrong
                 n = 20;
         }
+        if (useHex)
+            Serial.print('X');
         if (config.group == 0) {
-            Serial.print("G ");
-            Serial.print((int) rf12_grp);
+            Serial.print(" G");
+            showByte(rf12_grp);
         }
         Serial.print(' ');
-        Serial.print((int) rf12_hdr);
+        showByte(rf12_hdr);
         for (byte i = 0; i < n; ++i) {
-            Serial.print(' ');
-            Serial.print((int) rf12_data[i]);
+            if (!useHex)
+                Serial.print(' ');
+            showByte(rf12_data[i]);
         }
         Serial.println();
         
