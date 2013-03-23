@@ -51,7 +51,7 @@ typedef struct {
 static RF12Config config;
 
 static char cmd;
-static byte value, stack[RF12_MAXDATA], top, sendLen, dest, quiet;
+static byte value, stack[RF12_MAXDATA+4], top, sendLen, dest, quiet;
 static byte testbuf[RF12_MAXDATA], testCounter, useHex;
 
 static void showNibble (byte nibble) {
@@ -113,6 +113,10 @@ static void saveConfig () {
   
   if (!rf12_config())
     Serial.println("config save failed");
+}
+
+static byte bandToFreq (byte band) {
+  return band == 8 ? RF12_868MHZ : band == 9 ? RF12_915MHZ : RF12_433MHZ;
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -548,8 +552,8 @@ const char helpText1[] PROGMEM =
   "  <n> b      - set MHz band (4 = 433, 8 = 868, 9 = 915)" "\n"
   "  <nnn> g    - set network group (RFM12 only allows 212, 0 = any)" "\n"
   "  <n> c      - set collect mode (advanced, normally 0)" "\n"
-  "  t          - broadcast max-size test packet, with ack" "\n"
-  "  ...,<nn> a - send data packet to node <nn>, with ack" "\n"
+  "  t          - broadcast max-size test packet, request ack" "\n"
+  "  ...,<nn> a - send data packet to node <nn>, request ack" "\n"
   "  ...,<nn> s - send data packet to node <nn>, no ack" "\n"
   "  <n> l      - turn activity LED on PB1 on or off" "\n"
   "  <n> q      - set quiet mode (1 = don't report bad packets)" "\n"
@@ -593,7 +597,7 @@ static void handleInput (char c) {
     if (top < sizeof stack)
       stack[top++] = value;
     value = 0;
-  } else if ('a' <= c && c <='z' || 'A' <= c && c <= 'Z') {
+  } else if ('a' <= c && c <='z') {
     Serial.print("> ");
     for (byte i = 0; i < top; ++i) {
       Serial.print((int) stack[i]);
@@ -610,9 +614,8 @@ static void handleInput (char c) {
         saveConfig();
         break;
       case 'b': // set band: 4 = 433, 8 = 868, 9 = 915
-        value = value == 8 ? RF12_868MHZ :
-            value == 9 ? RF12_915MHZ : RF12_433MHZ;
-        config.nodeId = (value << 6) + (config.nodeId & 0x3F);
+        if (value)
+          config.nodeId = (bandToFreq(value) << 6) + (config.nodeId & 0x3F);
         saveConfig();
         break;
       case 'g': // set network group
@@ -651,14 +654,14 @@ static void handleInput (char c) {
         activityLed(1);
         fs20cmd(256 * stack[0] + stack[1], stack[2], value);
         activityLed(0);
-        rf12_config(); // restore normal packet listening mode
+        rf12_config(0); // restore normal packet listening mode
         break;
       case 'k': // send KAKU command: <addr>,<dev>,<on>k
         rf12_initialize(0, RF12_433MHZ);
         activityLed(1);
         kakuSend(stack[0], stack[1], value);
         activityLed(0);
-        rf12_config(); // restore normal packet listening mode
+        rf12_config(0); // restore normal packet listening mode
         break;
       case 'd': // dump all log markers
         if (df_present())
@@ -701,7 +704,17 @@ static void handleInput (char c) {
     }
     value = top = 0;
     memset(stack, 0, sizeof stack);
-  } else if (c > ' ')
+  } else if (c == '>') {
+    // special case, send to specific band and group, and don't echo cmd
+    // input: band,group,node,header,data...
+    stack[top++] = value;
+    rf12_initialize(stack[2], bandToFreq(stack[0]), stack[1]);
+    rf12_sendNow(stack[3], stack + 4, top - 4);
+    rf12_sendWait(2);
+    rf12_config(0); // restore original band, etc
+    value = top = 0;
+    memset(stack, 0, sizeof stack);
+  } else if (' ' < c && c < 'A')
     showHelp();
 }
 
