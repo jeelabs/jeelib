@@ -11,7 +11,8 @@ void setup () {
   rf12_initialize(1, RF12_868MHZ, 100);
 
   // need to enable the pull-up to get a voltage drop over the LDR
-  pinMode(14+LDR, INPUT_PULLUP);
+  pinMode(14+LDR, INPUT);
+  digitalWrite(14+LDR, 1); // pull-up
 }
   
 void loop () {
