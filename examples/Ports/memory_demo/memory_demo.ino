@@ -17,10 +17,10 @@ void setup () {
     Serial.println("\n[memory_demo]");
 
     if (mem.isPresent()) {
-        mem.save(100, "abc", 123, 3);
+        mem.save(100, 123, "abc", 3);
         byte buf[] = { 1, 2, 3, 4, 5 };
         delay(10);
-        mem.load(100, buf, 122, 5);
+        mem.load(100, 122, buf, 5);
         for (byte i = 0; i < sizeof buf; ++i) {
             Serial.print(buf[i], DEC);
             Serial.print(' ');

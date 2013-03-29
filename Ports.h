@@ -419,8 +419,8 @@ public:
     MemoryPlug (PortI2C& port)
         : DeviceI2C (port, 0x50), nextSave (0) {}
 
-    void load(word page, void* buf, byte offset =0, int count =256);
-    void save(word page, const void* buf, byte offset =0, int count =256);
+    void load(word page, byte offset, void* buf, int count);
+    void save(word page, byte offset, const void* buf, int count);
 };
 
 /// A memory stream can save and reload a stream of bytes on a MemoryPlug.
