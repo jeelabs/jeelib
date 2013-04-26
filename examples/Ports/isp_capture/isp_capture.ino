@@ -610,7 +610,7 @@ static int avrisp() {
 
 static void showInfo () {
     // restore parameters from page 0
-    mem.load(0, &param, 0, sizeof param);
+    mem.load(0, 0, &param, sizeof param);
     // report saved info for debugging
     Serial.print("ISP bytes: ");
     Serial.println(param.programsize);
@@ -655,7 +655,7 @@ void loop(void) {
     if (doneTimer.poll()) {
         recordFlush();
         param.programsize = stream.position(1); // save parameter info in page 0
-        mem.save(0, &param, 0, sizeof param);
+        mem.save(0, 0, &param, sizeof param);
 
         setLed(1);
         delay(100);
