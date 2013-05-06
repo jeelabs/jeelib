@@ -49,6 +49,7 @@ static byte vccRead (byte count =4) {
 }
 
 void setup() {
+  // get the pre-scaler into a known state
   cli();
   CLKPR = bit(CLKPCE);
 #if defined(__AVR_ATtiny84__)
