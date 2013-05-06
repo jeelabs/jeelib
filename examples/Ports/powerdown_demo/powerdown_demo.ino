@@ -25,6 +25,7 @@ void setup () {
     rf12_initialize(17, RF12_868MHZ);
     rf12_sleep(RF12_SLEEP);
 
+#if defined(__AVR_ATtiny84__)
     // blink the blue LED three times, just because we can
     PORTB |= bit(1);
     DDRB |= bit(1);
@@ -32,6 +33,7 @@ void setup () {
         delay(100);
         PINB = bit(1); // toggles
     }
+#endif
 
     // stop responding to interrupts
     cli();
