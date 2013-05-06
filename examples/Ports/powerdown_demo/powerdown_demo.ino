@@ -5,6 +5,22 @@
 #include <JeeLib.h>
 
 void setup () {
+    // get the pre-scaler into a known state
+    cli();
+    CLKPR = bit(CLKPCE);
+#if defined(__AVR_ATtiny84__)
+    CLKPR = 0; // div 1, i.e. speed up to 8 MHz
+#else
+    CLKPR = 1; // div 2, i.e. slow down to 8 MHz
+#endif
+    sei();
+
+#if defined(__AVR_ATtiny84__)
+    // power up the radio on JMv3
+    bitSet(DDRB, 0);
+    bitClear(PORTB, 0);
+#endif
+
     // turn the radio off completely
     rf12_initialize(17, RF12_868MHZ);
     rf12_sleep(RF12_SLEEP);
