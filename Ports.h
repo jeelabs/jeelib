@@ -676,6 +676,7 @@ public:
     
     void setGain(byte gain, byte prescaler);
     
+    // returns four 16-bit values: red, green, blue, and clear intensities
     const word* getData();
     
     const word* chromaCCT();

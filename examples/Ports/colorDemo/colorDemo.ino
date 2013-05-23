@@ -13,7 +13,7 @@ ColorPlug sensor (myBus, 0x39); // Sensor address is 0x39
 // gain = 0 (1x) and prescaler = 0 (1x) => default sensor setting,
 //   vary according to need
 byte gain = 0;      // 0..3 (multiplier => 3 most sensitive, 1/4/16/64x)
-byte prescaler = 0; // 0..6 (divider => 0 most sensitive, 1/2/4/8/16/32/64x) 
+byte prescaler = 1; // 0..6 (divider => 0 most sensitive, 1/2/4/8/16/32/64x) 
 
 void setup () {
     Serial.begin(57600);

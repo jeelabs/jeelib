@@ -1032,14 +1032,14 @@ const word* ColorPlug::getData () {
     send();
     write(0x80 | BLOCKREAD); // write to Blockread register
     receive();
-    data.b[2] = read(0);
-    data.b[3] = read(0);
-    data.b[0] = read(0);
-    data.b[1] = read(0);
-    data.b[4] = read(0);
-    data.b[5] = read(0);
-    data.b[6] = read(0); 
-    data.b[7] = read(1);
+    data.b[2] = read(0); // green low
+    data.b[3] = read(0); // green high
+    data.b[0] = read(0); // red low
+    data.b[1] = read(0); // red high
+    data.b[4] = read(0); // blue low
+    data.b[5] = read(0); // blue high
+    data.b[6] = read(0); // clear low
+    data.b[7] = read(1); // clear high
     stop();
     return data.w;
 }
