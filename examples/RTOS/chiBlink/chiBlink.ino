@@ -7,11 +7,11 @@
 
 static WORKING_AREA(waThread1, 50);
 
-void Thread1 (void* arg) {
+void Thread1 () {
   const uint8_t LED_PIN = 9;
   pinMode(LED_PIN, OUTPUT);
   
-  while (1) {
+  while (true) {
     digitalWrite(LED_PIN, LOW);
     chThdSleepMilliseconds(100);
     digitalWrite(LED_PIN, HIGH);
