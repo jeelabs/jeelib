@@ -701,6 +701,9 @@ static void handleInput (char c) {
       case 'x': // set reporting mode to hex (1) or decimal (0)
         useHex = value;
         break;
+      case 'v': //display the interpreter version
+        displayVersion(1);
+        break;
     }
     value = top = 0;
     memset(stack, 0, sizeof stack);
@@ -718,9 +721,15 @@ static void handleInput (char c) {
     showHelp();
 }
 
+void displayVersion(uint8_t newline ) {
+  Serial.print("\n[RF12demo.10]");
+  if(newline!=0)  Serial.println();
+
+}
+
 void setup() {
   Serial.begin(SERIAL_BAUD);
-  Serial.print("\n[RF12demo.10]");
+  displayVersion(0);
   activityLed(0);
 
   if (rf12_config()) {
