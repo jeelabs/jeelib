@@ -254,9 +254,29 @@ static void rf12_xfer (uint16_t cmd) {
 /// @param cmd RF12 command, topmost bits determines which register is affected.
 uint16_t rf12_control(uint16_t cmd) {
 #ifdef EIMSK
+#if PINCHG_IRQ
+    #if RFM_IRQ < 8
+        bitClear(PCICR, PCIE2);
+    #elif RFM_IRQ < 14
+        bitClear(PCICR, PCIE0);
+    #else
+        bitClear(PCICR, PCIE1);
+    #endif
+#else
     bitClear(EIMSK, INT0);
-    uint16_t r = rf12_xferSlow(cmd);
+#endif
+   uint16_t r = rf12_xferSlow(cmd);
+#if PINCHG_IRQ
+    #if RFM_IRQ < 8
+        bitSet(PCICR, PCIE2);
+    #elif RFM_IRQ < 14
+        bitSet(PCICR, PCIE0);
+    #else
+        bitSet(PCICR, PCIE1);
+    #endif
+#else
     bitSet(EIMSK, INT0);
+#endif
 #else
     // ATtiny
     bitClear(GIMSK, INT0);
