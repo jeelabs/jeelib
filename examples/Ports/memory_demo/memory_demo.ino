@@ -4,8 +4,16 @@
 
 #include <JeeLib.h>
 
-// pressing button 1 replays the collected data
-// pressing button 2 clears the data
+// Requires a JeeLabs Memory Plug on port 4 and a Blink Plug on port 3
+//
+// To use the demo:
+//    Open the Serial Monitor in Arduino
+//    Type some text into the serial monitor, then hit return
+//      to save the text to the memory plug
+//
+// Press button 1 on the Blink Plug  to print out your text
+// Press button 2 on the Blink Plug to erase the text, and reset the counter
+
 BlinkPlug buttons (3);
 
 PortI2C i2cBus (4);
@@ -40,7 +48,7 @@ void loop () {
         stream.reset();
         Serial.println();
         while (--pos >= 0 && !Serial.available())
-            Serial.print(stream.get());
+            Serial.print((char) stream.get());
         Serial.println();
         stream.reset();
     }
