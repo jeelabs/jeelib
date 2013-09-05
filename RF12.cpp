@@ -660,14 +660,16 @@ uint8_t rf12_config (uint8_t show) {
     uint8_t nodeId = 0, group = 0;
     for (uint8_t i = 0; i < RF12_EEPROM_SIZE - 2; ++i) {
         uint8_t b = eeprom_read_byte(RF12_EEPROM_ADDR + i);
-        if (i == 0)
+        if (i == 0) {
             nodeId = b;
-        else if (i == 1)
+            continue;}
+        else if (i == 1) {
             group = b;
+            continue; }
         else if (i == 2)
-          word f = b 
-        else if (i = 3)
-          f = f + (b * 256)
+            continue; 
+        else if (i == 3)
+            continue;
         else if (b == 0)
             break;
         else if (show)
