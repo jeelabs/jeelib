@@ -642,12 +642,12 @@ static void handleInput (char c) {
         break;
       case 'o': // set frequency
         Serial.print(config.frequency);
-        config.frequency = value*(20*25*band);
+        config.frequency = value*20;
         Serial.print("->");
         Serial.print(config.frequency);
         rf12_control(0xA000 + config.frequency); 
-        Serial.println(0xA000 + config.frequency, HEX);
         Serial.println();
+        Serial.println(0xA000 + config.frequency, HEX);
         saveConfig();
         break;
       case 'g': // set network group

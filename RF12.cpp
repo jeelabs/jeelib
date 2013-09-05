@@ -664,6 +664,11 @@ uint8_t rf12_config (uint8_t show) {
             nodeId = b;
         else if (i == 1)
             group = b;
+        else if (i == 2)
+          word f = b 
+        else if (i = 3)
+          f = f + (b * 256)
+          Serial.print ((char) f);
         else if (b == 0)
             break;
         else if (show)
