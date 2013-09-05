@@ -55,6 +55,8 @@ static char cmd;
 static byte value, stack[RF12_MAXDATA+4], top, sendLen, dest, quiet;
 static byte testbuf[RF12_MAXDATA], testCounter, useHex;
 
+word band;
+
 static void showNibble (byte nibble) {
   char c = '0' + (nibble & 0x0F);
   if (c > '9')
@@ -81,11 +83,6 @@ static void addInt (char* msg, word v) {
   addCh(msg, '0' + v % 10);
 }
 
-static void RF_reset (word n) {
-    rf12_config(n);
-    rf12_control(0xA000 + config.frequency); 
-}
-
 static void saveConfig () {
   // set up a nice config string to be shown on startup
   memset(config.msg, 0, sizeof config.msg);
@@ -103,7 +100,7 @@ static void saveConfig () {
   
   strcat(config.msg, " @ ");
   static word bands[4] = { 3150, 4300, 8600, 9000 };
-  word band = config.nodeId >> 6;
+  band = config.nodeId >> 6;
   word freq = bands[band];
   word incr = freq + ((((config.frequency)/100) * (band * 25 )) / 10);
   word characteristic = incr/10;
@@ -599,7 +596,8 @@ static void showHelp () {
   if (df_present())
     showString(helpText2);
   Serial.println("Current configuration:");
-  RF_reset();
+    rf12_config();
+    rf12_control(0xA000 + config.frequency); 
 }
 
 static void handleInput (char c) {
@@ -646,8 +644,8 @@ static void handleInput (char c) {
         config.frequency = value*(20*25*band);
         Serial.print("->");
         Serial.print(config.frequency);
-        rf12_set(config.frequency); 
-        }
+        rf12_config();
+        rf12_control(0xA000 + config.frequency); 
         Serial.println();
         break;
       case 'g': // set network group
@@ -686,14 +684,16 @@ static void handleInput (char c) {
         activityLed(1);
         fs20cmd(256 * stack[0] + stack[1], stack[2], value);
         activityLed(0);
-        RF_reset(0); // restore normal packet listening mode
+        rf12_config(0);
+        rf12_control(0xA000 + config.frequency); 
         break;
       case 'k': // send KAKU command: <addr>,<dev>,<on>k
         rf12_initialize(0, RF12_433MHZ);
         activityLed(1);
         kakuSend(stack[0], stack[1], value);
         activityLed(0);
-        RF_reset(0); // restore normal packet listening mode
+        rf12_config(0);
+        rf12_control(0xA000 + config.frequency); 
         break;
       case 'd': // dump all log markers
         if (df_present())
@@ -746,7 +746,8 @@ static void handleInput (char c) {
     rf12_initialize(stack[2], bandToFreq(stack[0]), stack[1]);
     rf12_sendNow(stack[3], stack + 4, top - 4);
     rf12_sendWait(2);
-    RF_reset(0); // restore original band, etc
+    rf12_config(0);
+    rf12_control(0xA000 + config.frequency); 
     value = top = 0;
     memset(stack, 0, sizeof stack);
   } else if (' ' < c && c < 'A')
@@ -767,7 +768,8 @@ void setup() {
   if (rf12_config()) {
     config.nodeId = eeprom_read_byte(RF12_EEPROM_ADDR);
     config.group = eeprom_read_byte(RF12_EEPROM_ADDR + 1);
-    config.frequency = eeprom_read_word(RF12_EEPROM_ADDR + 2);
+    config.frequency = eeprom_read_byte(RF12_EEPROM_ADDR + 3)*256;
+    config.frequency = config.frequency + eeprom_read_byte(RF12_EEPROM_ADDR + 2);
   } else {
     config.nodeId = 0x41; // 433 MHz, node 1
     config.group = 0xD4;  // default group 212
