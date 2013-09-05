@@ -81,6 +81,11 @@ static void addInt (char* msg, word v) {
   addCh(msg, '0' + v % 10);
 }
 
+static void RF_reset (word n) {
+    rf12_config(n);
+    rf12_control(0xA000 + config.frequency); 
+}
+
 static void saveConfig () {
   // set up a nice config string to be shown on startup
   memset(config.msg, 0, sizeof config.msg);
@@ -594,7 +599,7 @@ static void showHelp () {
   if (df_present())
     showString(helpText2);
   Serial.println("Current configuration:");
-  rf12_config();
+  RF_reset();
 }
 
 static void handleInput (char c) {
@@ -641,7 +646,7 @@ static void handleInput (char c) {
         config.frequency = value*(20*25*band);
         Serial.print("->");
         Serial.print(config.frequency);
-        rf12_control(config.frequency); 
+        rf12_set(config.frequency); 
         }
         Serial.println();
         break;
@@ -681,14 +686,14 @@ static void handleInput (char c) {
         activityLed(1);
         fs20cmd(256 * stack[0] + stack[1], stack[2], value);
         activityLed(0);
-        rf12_config(0); // restore normal packet listening mode
+        RF_reset(0); // restore normal packet listening mode
         break;
       case 'k': // send KAKU command: <addr>,<dev>,<on>k
         rf12_initialize(0, RF12_433MHZ);
         activityLed(1);
         kakuSend(stack[0], stack[1], value);
         activityLed(0);
-        rf12_config(0); // restore normal packet listening mode
+        RF_reset(0); // restore normal packet listening mode
         break;
       case 'd': // dump all log markers
         if (df_present())
@@ -741,7 +746,7 @@ static void handleInput (char c) {
     rf12_initialize(stack[2], bandToFreq(stack[0]), stack[1]);
     rf12_sendNow(stack[3], stack + 4, top - 4);
     rf12_sendWait(2);
-    rf12_config(0); // restore original band, etc
+    RF_reset(0); // restore original band, etc
     value = top = 0;
     memset(stack, 0, sizeof stack);
   } else if (' ' < c && c < 'A')
