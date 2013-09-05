@@ -3,7 +3,7 @@
 // 2009-05-06 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 // this version adds flash memory support, 2009-11-19
-
+// Adding frequency features. 2013-09-05 JohnOH
 #include <JeeLib.h>
 #include <util/crc16.h>
 #include <util/parity.h>
@@ -44,7 +44,8 @@ static void activityLed (byte on) {
 typedef struct {
   byte nodeId;
   byte group;
-  char msg[RF12_EEPROM_SIZE-4];
+  word frequency;
+  char msg[RF12_EEPROM_SIZE-6];
   word crc;
 } RF12Config;
 
@@ -96,9 +97,14 @@ static void saveConfig () {
   addInt(config.msg, config.group);
   
   strcat(config.msg, " @ ");
-  static word bands[4] = { 315, 433, 868, 915 };
+  static word bands[4] = { 3150, 4300, 8600, 9000 };
   word band = config.nodeId >> 6;
-  addInt(config.msg, bands[band]);
+  word freq = bands[band];
+  word incr = freq + ((((config.frequency)/100) * (band * 25 )) / 10);
+  word characteristic = incr/10;
+  addInt(config.msg, characteristic);
+  strcat(config.msg, ".");
+  addInt(config.msg, (incr - (characteristic * 10)));
   strcat(config.msg, " MHz ");
   
   config.crc = ~0;
@@ -550,6 +556,7 @@ const char helpText1[] PROGMEM =
   "Available commands:" "\n"
   "  <nn> i     - set node ID (standard node ids are 1..30)" "\n"
   "  <n> b      - set MHz band (4 = 433, 8 = 868, 9 = 915)" "\n"
+  "  <n> o      - Adjust frequency within the frequency band above" "\n"
   "  <nnn> g    - set network group (RFM12 only allows 212, 0 = any)" "\n"
   "  <n> c      - set collect mode (advanced, normally 0)" "\n"
   "  t          - broadcast max-size test packet, request ack" "\n"
@@ -610,13 +617,33 @@ static void handleInput (char c) {
         showHelp();
         break;
       case 'i': // set node id
-        config.nodeId = (config.nodeId & 0xE0) + (value & 0x1F);
-        saveConfig();
+        if (value > 0 & value < 32) {
+           config.nodeId = (config.nodeId & 0xE0) + (value & 0x1F);
+           saveConfig();
+        } else {
+           showHelp();
+        }
         break;
       case 'b': // set band: 4 = 433, 8 = 868, 9 = 915
-        if (value)
-          config.nodeId = (bandToFreq(value) << 6) + (config.nodeId & 0x3F);
-        saveConfig();
+         value = value == 4 ? RF12_433MHZ : 
+                 value == 8 ? RF12_868MHZ :
+                 value == 9 ? RF12_915MHZ : 0;
+        if (value) {
+         config.nodeId = (value << 6) + (config.nodeId & 0x3F);
+         config.frequency = 1600;
+         saveConfig();
+        } else {
+            showHelp();
+        }
+        break;
+      case 'o': // set frequency
+        Serial.print(config.frequency);
+        config.frequency = value*(20*25*band);
+        Serial.print("->");
+        Serial.print(config.frequency);
+        rf12_control(config.frequency); 
+        }
+        Serial.println();
         break;
       case 'g': // set network group
         config.group = value;
@@ -722,7 +749,7 @@ static void handleInput (char c) {
 }
 
 void displayVersion(uint8_t newline ) {
-  Serial.print("\n[RF12demo.10]");
+  Serial.print("\n[RF12demo.11]");
   if(newline!=0)  Serial.println();
 
 }
@@ -735,9 +762,11 @@ void setup() {
   if (rf12_config()) {
     config.nodeId = eeprom_read_byte(RF12_EEPROM_ADDR);
     config.group = eeprom_read_byte(RF12_EEPROM_ADDR + 1);
+    config.frequency = eeprom_read_word(RF12_EEPROM_ADDR + 2);
   } else {
     config.nodeId = 0x41; // 433 MHz, node 1
     config.group = 0xD4;  // default group 212
+    config.frequency = 1600;
     saveConfig();
   }
 
