@@ -634,6 +634,7 @@ static void handleInput (char c) {
         if (value) {
          config.nodeId = (value << 6) + (config.nodeId & 0x3F);
          config.frequency = 1600;
+         rf12_control(0xA000 + config.frequency); 
          saveConfig();
         } else {
             showHelp();
@@ -644,9 +645,10 @@ static void handleInput (char c) {
         config.frequency = value*(20*25*band);
         Serial.print("->");
         Serial.print(config.frequency);
-        rf12_config();
         rf12_control(0xA000 + config.frequency); 
+        Serial.println(0xA000 + config.frequency, HEX);
         Serial.println();
+        saveConfig();
         break;
       case 'g': // set network group
         config.group = value;
@@ -770,6 +772,7 @@ void setup() {
     config.group = eeprom_read_byte(RF12_EEPROM_ADDR + 1);
     config.frequency = eeprom_read_byte(RF12_EEPROM_ADDR + 3)*256;
     config.frequency = config.frequency + eeprom_read_byte(RF12_EEPROM_ADDR + 2);
+    Serial.println(config.frequency);
   } else {
     config.nodeId = 0x41; // 433 MHz, node 1
     config.group = 0xD4;  // default group 212
