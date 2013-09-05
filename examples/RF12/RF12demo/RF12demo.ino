@@ -52,7 +52,8 @@ typedef struct {
 static RF12Config config;
 
 static char cmd;
-static byte value, stack[RF12_MAXDATA+4], top, sendLen, dest, quiet;
+static word value;
+static byte stack[RF12_MAXDATA+4], top, sendLen, dest, quiet;
 static byte testbuf[RF12_MAXDATA], testCounter, useHex;
 
 word band;
@@ -642,7 +643,7 @@ static void handleInput (char c) {
         break;
       case 'o': // set frequency
         Serial.print(config.frequency);
-        config.frequency = value*20;
+        config.frequency = value;
         Serial.print("->");
         Serial.print(config.frequency);
         rf12_control(0xA000 + config.frequency); 
