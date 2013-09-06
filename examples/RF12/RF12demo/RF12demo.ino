@@ -86,7 +86,7 @@ static void addInt (char* msg, word v) {
 static void saveConfig () {
   // set up a nice config string to be shown on startup
   memset(config.msg, 0, sizeof config.msg);
-  strcpy(config.msg, " ");
+//  strcpy(config.msg, " ");
   
   byte id = config.nodeId & 0x1F;
   addCh(config.msg, '@' + id);
@@ -95,28 +95,34 @@ static void saveConfig () {
   if (config.nodeId & COLLECT)
     addCh(config.msg, '*');
   
-  strcat(config.msg, " g");
+  strcat(config.msg, " g ");
   addInt(config.msg, config.group);
   
-  strcat(config.msg, " @ ");
-  static byte bands[4] = { 0, 30, 60, 0 }; // 315, 433, 864, 915 Mhz
+  strcat(config.msg, " @");
+  static byte bands[4] = { 15, 30, 60, 0 }; // 315, 433, 864, 915 Mhz    // 96 - 3960 is the range of values supported by the RFM12B
   band = config.nodeId >> 6;
   addInt(config.msg, FreqFromBand(band)); // Store high order digit of frequency
   byte freq = bands[band];
-  Serial.println(freq);
-  Serial.println(config.frequency);
-  ////    Overflow of incr
-  word incr = (freq * 100) + (config.frequency*(band * 25)/100);
+                                                   Serial.println(freq);
+                                                   Serial.println(config.frequency);
+  unsigned long incr = freq * 10000;
+                                                   Serial.println(incr);
+  unsigned long wk = config.frequency*100;                
+                                                   Serial.println(wk);
+  incr = wk/band*25;
+                                                   Serial.println(incr);
   ////////////////////////////////
-  Serial.println(incr);
-  word characteristic = incr/100;
-  Serial.println(characteristic);
+  unsigned long characteristic = incr/100;
+                                                   Serial.println(characteristic);
   if (characteristic < 10)
-    strcat(config.msg, "0");
+    strcat(config.msg, "x");
+  if (characteristic = 0)
+    strcat(config.msg, "z");
   addInt(config.msg, characteristic);
   strcat(config.msg, ".");
   addInt(config.msg, (incr - (characteristic * 100)));
-  strcat(config.msg, " MHz ");
+                                                   Serial.println(sizeof config.msg);
+  strcat(config.msg, " MHz .");
   
   config.crc = ~0;
   for (byte i = 0; i < sizeof config - 2; ++i)
