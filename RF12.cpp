@@ -657,20 +657,11 @@ uint8_t rf12_config (uint8_t show) {
     if (crc != 0)
         return 0;
         
-    uint8_t nodeId = 0, group = 0;
-    for (uint8_t i = 0; i < RF12_EEPROM_SIZE - 2; ++i) {
+    uint8_t nodeId = eeprom_read_byte(RF12_EEPROM_ADDR + 0);
+    uint8_t group  = eeprom_read_byte(RF12_EEPROM_ADDR + 1);
+    for (uint8_t i = 3; i < RF12_EEPROM_SIZE - 4; ++i) {
         uint8_t b = eeprom_read_byte(RF12_EEPROM_ADDR + i);
-        if (i == 0)
-            nodeId = b;
-        else if (i == 1)
-            group = b;
-        else if (i == 2)
-          word f = b 
-        else if (i = 3)
-          f = f + (b * 256)
-        else if (b == 0)
-            break;
-        else if (show)
+        if (show)
             Serial.print((char) b);
     }
     if (show)
