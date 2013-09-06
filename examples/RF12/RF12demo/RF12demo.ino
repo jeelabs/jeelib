@@ -52,11 +52,10 @@ typedef struct {
 static RF12Config config;
 
 static char cmd;
-static word value;
-static byte stack[RF12_MAXDATA+4], top, sendLen, dest, quiet;
+static byte value, stack[RF12_MAXDATA+4], top, sendLen, dest, quiet;
 static byte testbuf[RF12_MAXDATA], testCounter, useHex;
 
-word band;
+byte band;
 
 static void showNibble (byte nibble) {
   char c = '0' + (nibble & 0x0F);
@@ -100,14 +99,23 @@ static void saveConfig () {
   addInt(config.msg, config.group);
   
   strcat(config.msg, " @ ");
-  static word bands[4] = { 3150, 4300, 8600, 9000 };
+  static byte bands[4] = { 0, 30, 60, 0 }; // 315, 433, 864, 915 Mhz
   band = config.nodeId >> 6;
-  word freq = bands[band];
-  word incr = freq + ((((config.frequency)/100) * (band * 25 )) / 10);
-  word characteristic = incr/10;
+  addInt(config.msg, FreqFromBand(band)); // Store high order digit of frequency
+  byte freq = bands[band];
+  Serial.println(freq);
+  Serial.println(config.frequency);
+  ////    Overflow of incr
+  word incr = (freq * 100) + (config.frequency*(band * 25)/100);
+  ////////////////////////////////
+  Serial.println(incr);
+  word characteristic = incr/100;
+  Serial.println(characteristic);
+  if (characteristic < 10)
+    strcat(config.msg, "0");
   addInt(config.msg, characteristic);
   strcat(config.msg, ".");
-  addInt(config.msg, (incr - (characteristic * 10)));
+  addInt(config.msg, (incr - (characteristic * 100)));
   strcat(config.msg, " MHz ");
   
   config.crc = ~0;
@@ -125,7 +133,10 @@ static void saveConfig () {
 }
 
 static byte bandToFreq (byte band) {
-  return band == 8 ? RF12_868MHZ : band == 9 ? RF12_915MHZ : RF12_433MHZ;
+   return band == 4 ? RF12_433MHZ : band == 8 ? RF12_868MHZ : band == 9 ? RF12_915MHZ : 0;
+}
+static byte FreqFromBand (byte band) {
+   return band == RF12_433MHZ ? 4 : band == RF12_868MHZ ? 8 : band == RF12_915MHZ ? 9 : 0;
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -629,12 +640,10 @@ static void handleInput (char c) {
         }
         break;
       case 'b': // set band: 4 = 433, 8 = 868, 9 = 915
-         value = value == 4 ? RF12_433MHZ : 
-                 value == 8 ? RF12_868MHZ :
-                 value == 9 ? RF12_915MHZ : 0;
+        value = bandToFreq(value);
         if (value) {
          config.nodeId = (value << 6) + (config.nodeId & 0x3F);
-         config.frequency = 1600;
+         config.frequency = 351;
          rf12_control(0xA000 + config.frequency); 
          saveConfig();
         } else {
@@ -642,14 +651,17 @@ static void handleInput (char c) {
         }
         break;
       case 'o': // set frequency
-        Serial.print(config.frequency);
-        config.frequency = value;
-        Serial.print("->");
-        Serial.print(config.frequency);
-        rf12_control(0xA000 + config.frequency); 
-        Serial.println();
-        Serial.println(0xA000 + config.frequency, HEX);
-        saveConfig();
+//                                                           // inc[4] = { 0, 120, 60, 40 }; // to change frequency by 0.3 MHz      
+         if (value) {
+          Serial.print(config.frequency);
+          config.frequency = config.frequency + value;       // 96 - 3960 is the range of values supported by the RFM12B
+          Serial.print("->");
+          Serial.print(config.frequency);
+          rf12_control(0xA000 + config.frequency); 
+          Serial.println();
+          saveConfig();
+         }
+         Serial.println(config.frequency);
         break;
       case 'g': // set network group
         config.group = value;
@@ -774,7 +786,7 @@ void setup() {
     config.frequency = eeprom_read_byte(RF12_EEPROM_ADDR + 3)*256;
     config.frequency = config.frequency + eeprom_read_byte(RF12_EEPROM_ADDR + 2);
     Serial.println(config.frequency);
-  } else {
+  } else {  
     config.nodeId = 0x41; // 433 MHz, node 1
     config.group = 0xD4;  // default group 212
     config.frequency = 1600;
