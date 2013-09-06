@@ -643,7 +643,7 @@ static void handleInput (char c) {
         break;
       case 'o': // set frequency
         Serial.print(config.frequency);
-        config.frequency = value;       // 96 - 3960 is the range of values supported by the RFM12B
+        config.frequency = value;
         Serial.print("->");
         Serial.print(config.frequency);
         rf12_control(0xA000 + config.frequency); 
