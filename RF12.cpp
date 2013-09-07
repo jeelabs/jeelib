@@ -660,7 +660,7 @@ uint8_t rf12_config (uint8_t show) {
     uint8_t nodeId = 0, group = 0; // I wonder why this may be required - JohnO - doesn't cost memory        
     nodeId = eeprom_read_byte(RF12_EEPROM_ADDR + 0);
     group  = eeprom_read_byte(RF12_EEPROM_ADDR + 1);
-    for (uint8_t i = 3; i < RF12_EEPROM_SIZE - 4; ++i) {
+    for (uint8_t i = 4; i < RF12_EEPROM_SIZE - 6; ++i) {
         uint8_t b = eeprom_read_byte(RF12_EEPROM_ADDR + i);
         if (b == 0)
             break;
