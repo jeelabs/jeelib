@@ -115,6 +115,7 @@ static void saveConfig () {
   addInt(config.msg, ((10000 + (wk - (characteristic * 10000)))));;
   config.msg[pos] = '.';
   strcat(config.msg, " MHz");
+  config.msg[pos] = '.';
   Serial.println(strlen(config.msg));
   config.crc = ~0;
   for (byte i = 0; i < sizeof config - 2; ++i)
@@ -568,7 +569,7 @@ const char helpText1[] PROGMEM =
   "Available commands:" "\n"
   "  <nn> i     - set node ID (standard node ids are 1..30)" "\n"
   "  <n> b      - set MHz band (4 = 433, 8 = 868, 9 = 915)" "\n"
-  "  <n> o      - Adjust frequency within the frequency band above" "\n"
+  "  <n> u      - Increment frequency within the frequency band above" "\n"
   "  <nnn> g    - set network group (RFM12 only allows 212, 0 = any)" "\n"
   "  <n> c      - set collect mode (advanced, normally 0)" "\n"
   "  t          - broadcast max-size test packet, request ack" "\n"
@@ -607,7 +608,7 @@ static void showHelp () {
     showString(helpText2);
   Serial.println("Current configuration:");
     rf12_config();
-    rf12_control(0xA000 + config.frequency); 
+    // rf12_control(0xA000 + config.frequency); 
 }
 
 static void handleInput (char c) {
@@ -642,7 +643,7 @@ static void handleInput (char c) {
         if (value) {
          config.nodeId = (value << 6) + (config.nodeId & 0x3F);
          config.frequency = 1600;
-         rf12_control(0xA000 + config.frequency); 
+         // rf12_control(0xA000 + config.frequency); 
          saveConfig();
         } else {
             showHelp();
@@ -658,7 +659,7 @@ static void handleInput (char c) {
           if (config.frequency > 3960) config.frequency = 3960;
           Serial.print("->");
           Serial.print(config.frequency);
-          rf12_control(0xA000 + config.frequency); 
+          // rf12_control(0xA000 + config.frequency); 
           Serial.println();
           saveConfig();
          } else Serial.println(config.frequency);
@@ -695,20 +696,20 @@ static void handleInput (char c) {
         activityLed(value);
         break;
       case 'f': // send FS20 command: <hchi>,<hclo>,<addr>,<cmd>f
-        rf12_initialize(0, RF12_868MHZ);
+        rf12_initialize(0, RF12_868MHZ, 0);
         activityLed(1);
         fs20cmd(256 * stack[0] + stack[1], stack[2], value);
         activityLed(0);
         rf12_config(0);
-        rf12_control(0xA000 + config.frequency); 
+        // rf12_control(0xA000 + config.frequency); 
         break;
       case 'k': // send KAKU command: <addr>,<dev>,<on>k
-        rf12_initialize(0, RF12_433MHZ);
+        rf12_initialize(0, RF12_433MHZ, 0);
         activityLed(1);
         kakuSend(stack[0], stack[1], value);
         activityLed(0);
         rf12_config(0);
-        rf12_control(0xA000 + config.frequency); 
+        // rf12_control(0xA000 + config.frequency); 
         break;
       case 'd': // dump all log markers
         if (df_present())
@@ -758,11 +759,11 @@ static void handleInput (char c) {
     // special case, send to specific band and group, and don't echo cmd
     // input: band,group,node,header,data...
     stack[top++] = value;
-    rf12_initialize(stack[2], bandToFreq(stack[0]), stack[1]);
+    rf12_initialize(stack[2], bandToFreq(stack[0]), stack[1], config.frequency);
     rf12_sendNow(stack[3], stack + 4, top - 4);
     rf12_sendWait(2);
     rf12_config(0);
-    rf12_control(0xA000 + config.frequency); 
+    // rf12_control(0xA000 + config.frequency); 
     value = top = 0;
     memset(stack, 0, sizeof stack);
   } else if (' ' < c && c < 'A')
@@ -783,6 +784,7 @@ void setup() {
   if (rf12_config()) {
     config.nodeId = eeprom_read_byte(RF12_EEPROM_ADDR);
     config.group = eeprom_read_byte(RF12_EEPROM_ADDR + 1);
+//    config.frequency = eeprom_read_word(RF12_EEPROM_ADDR + 2);
     config.frequency = eeprom_read_byte(RF12_EEPROM_ADDR + 3)*256;
     config.frequency = config.frequency + eeprom_read_byte(RF12_EEPROM_ADDR + 2);
     Serial.println(config.frequency);

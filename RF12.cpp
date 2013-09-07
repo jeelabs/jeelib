@@ -125,6 +125,7 @@ static uint8_t cs_pin = SS_BIT;     // chip select pin
 
 static uint8_t nodeid;              // address of this node
 static uint8_t group;               // network group
+static uint16_t frequency;          // Frequency within selected band
 static volatile uint8_t rxfill;     // number of data bytes in rf12_buf
 static volatile int8_t rxstate;     // current transceiver state
 
@@ -555,7 +556,7 @@ void rf12_sendWait (uint8_t mode) {
 uint8_t rf12_initialize (uint8_t id, uint8_t band, uint8_t g) {
     nodeid = id;
     group = g;
-    
+        
     rf12_spiInit();
 
     rf12_xfer(0x0000); // intitial SPI transfer added to avoid power-up problem
@@ -622,7 +623,79 @@ uint8_t rf12_initialize (uint8_t id, uint8_t band, uint8_t g) {
     
     return nodeid;
 }
+///////////////////////////////////////////////////////////////////////////////
+uint8_t rf12_initialize (uint8_t id, uint8_t band, uint8_t g, uint16_t f) {
+    nodeid = id;
+    group = g;
+    frequency = f;
+    if (frequency < 96) frequency = 1600;
+        
+    rf12_spiInit();
 
+    rf12_xfer(0x0000); // initial SPI transfer added to avoid power-up problem
+
+    rf12_xfer(RF_SLEEP_MODE); // DC (disable clk pin), enable lbd
+    
+    // wait until RFM12B is out of power-up reset, this takes several *seconds*
+    rf12_xfer(RF_TXREG_WRITE); // in case we're still in OOK mode
+    while (digitalRead(RFM_IRQ) == 0)
+        rf12_xfer(0x0000);
+        
+    rf12_xfer(0x80C7 | (band << 4)); // EL (ena TX), EF (ena RX FIFO), 12.0pF 
+    rf12_xfer(0xA000 + frequency); // 96 - 3960 frequency range of values within band 
+    rf12_xfer(0xC606); // approx 49.2 Kbps, i.e. 10000/29/(1+6) Kbps
+    rf12_xfer(0x94A2); // VDI,FAST,134kHz,0dBm,-91dBm 
+    rf12_xfer(0xC2AC); // AL,!ml,DIG,DQD4 
+    if (group != 0) {
+        rf12_xfer(0xCA83); // FIFO8,2-SYNC,!ff,DR 
+        rf12_xfer(0xCE00 | group); // SYNC=2DXX； 
+    } else {
+        rf12_xfer(0xCA8B); // FIFO8,1-SYNC,!ff,DR 
+        rf12_xfer(0xCE2D); // SYNC=2D； 
+    }
+    rf12_xfer(0xC483); // @PWR,NO RSTRIC,!st,!fi,OE,EN 
+    rf12_xfer(0x9850); // !mp,90kHz,MAX OUT 
+    rf12_xfer(0xCC77); // OB1，OB0, LPX,！ddy，DDIT，BW0 
+    rf12_xfer(0xE000); // NOT USE 
+    rf12_xfer(0xC800); // NOT USE 
+    rf12_xfer(0xC049); // 1.66MHz,3.1V 
+
+    rxstate = TXIDLE;
+#if PINCHG_IRQ
+    #if RFM_IRQ < 8
+        if ((nodeid & NODE_ID) != 0) {
+            bitClear(DDRD, RFM_IRQ);      // input
+            bitSet(PORTD, RFM_IRQ);       // pull-up
+            bitSet(PCMSK2, RFM_IRQ);      // pin-change
+            bitSet(PCICR, PCIE2);         // enable
+        } else
+            bitClear(PCMSK2, RFM_IRQ);
+    #elif RFM_IRQ < 14
+        if ((nodeid & NODE_ID) != 0) {
+            bitClear(DDRB, RFM_IRQ - 8);  // input
+            bitSet(PORTB, RFM_IRQ - 8);   // pull-up
+            bitSet(PCMSK0, RFM_IRQ - 8);  // pin-change
+            bitSet(PCICR, PCIE0);         // enable
+        } else
+            bitClear(PCMSK0, RFM_IRQ - 8);
+    #else
+        if ((nodeid & NODE_ID) != 0) {
+            bitClear(DDRC, RFM_IRQ - 14); // input
+            bitSet(PORTC, RFM_IRQ - 14);  // pull-up
+            bitSet(PCMSK1, RFM_IRQ - 14); // pin-change
+            bitSet(PCICR, PCIE1);         // enable
+        } else
+            bitClear(PCMSK1, RFM_IRQ - 14);
+    #endif
+#else
+    if ((nodeid & NODE_ID) != 0)
+        attachInterrupt(0, rf12_interrupt, LOW);
+    else
+        detachInterrupt(0);
+#endif
+    
+    return nodeid;
+}
 /// @details
 /// This can be used to send out slow bit-by-bit On Off Keying signals to other
 /// devices such as remotely controlled power switches operating in the 433,
@@ -656,13 +729,19 @@ uint8_t rf12_config (uint8_t show) {
         crc = _crc16_update(crc, eeprom_read_byte(RF12_EEPROM_ADDR + i));
     if (crc != 0)
         return 0;
-
-    uint8_t nodeId = 0, group = 0; // I wonder why this may be required - JohnO - doesn't cost memory        
+        
+    uint8_t nodeId = 0, group = 0;   
+    uint16_t frequency = 0;  
+     
     nodeId = eeprom_read_byte(RF12_EEPROM_ADDR + 0);
     group  = eeprom_read_byte(RF12_EEPROM_ADDR + 1);
-    for (uint8_t i = 4; i < RF12_EEPROM_SIZE - 6; ++i) {
+    frequency = eeprom_read_byte(RF12_EEPROM_ADDR + 3)*256;
+    frequency = frequency + eeprom_read_byte(RF12_EEPROM_ADDR + 2);
+//    frequency = eeprom_read_word(RF12_EEPROM_ADDR + 2);
+//    Serial.println(frequency);
+    for (uint8_t i = 4; i < RF12_EEPROM_SIZE - 2; ++i) {
         uint8_t b = eeprom_read_byte(RF12_EEPROM_ADDR + i);
-        if (b == 0)
+        if (b < 32)
             break;
         if (show)
             Serial.print((char) b);
@@ -670,7 +749,7 @@ uint8_t rf12_config (uint8_t show) {
     if (show)
         Serial.println();
     
-    rf12_initialize(nodeId, nodeId >> 6, group);
+    rf12_initialize(nodeId, nodeId >> 6, group, frequency);
     return nodeId & RF12_HDR_MASK;
 }
 
