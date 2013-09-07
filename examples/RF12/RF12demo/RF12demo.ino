@@ -95,38 +95,27 @@ static void saveConfig () {
   if (config.nodeId & COLLECT)
     addCh(config.msg, '*');
   
-  strcat(config.msg, " g ");
+  strcat(config.msg, " g");
   addInt(config.msg, config.group);
   
   strcat(config.msg, " @");
-  static byte bands[4] = { 15, 30, 60, 0 }; // 315, 433, 864, 915 Mhz    // 96 - 3960 is the range of values supported by the RFM12B
+  static word bands[4] = { 0, 430, 860, 900 }; // 315, 433, 864, 915 Mhz    // 96 - 3960 is the range of values supported by the RFM12B
   band = config.nodeId >> 6;
-  addInt(config.msg, FreqFromBand(band)); // Store high order digit of frequency
-  unsigned long freq = bands[band];
-                                                   Serial.println(freq);
                                                    Serial.println(config.frequency);
-  freq = freq * 100;
-                                                   Serial.println(freq);
-  unsigned long wk = config.frequency;                
+  long wk = config.frequency;                
                                                    Serial.println(wk);
   wk = wk * (band * 25);
-  wk = wk / 100;
                                                    Serial.println(wk);
-  freq = freq + wk;
-                                                   Serial.println(freq);
- ////////////////////////////////
-   unsigned long characteristic = freq/100;
+  long characteristic = wk/10000;
                                                    Serial.println(characteristic);
-  if (characteristic < 10)
-    strcat(config.msg, "x");
-  if (characteristic == 0)
-    strcat(config.msg, "z");
-  addInt(config.msg, characteristic);
-  strcat(config.msg, ".");
-  addInt(config.msg, (freq - (characteristic * 100)));
-                                                   Serial.println(sizeof config.msg);
+
+  addInt(config.msg, characteristic + bands[band]);
+  Serial.println(wk - (characteristic * 10000));
+  byte pos = strlen(config.msg);
+  addInt(config.msg, ((10000 + (wk - (characteristic * 10000)))));;
+  config.msg[pos] = '.';
   strcat(config.msg, " MHz");
-  
+  Serial.println(strlen(config.msg));
   config.crc = ~0;
   for (byte i = 0; i < sizeof config - 2; ++i)
     config.crc = _crc16_update(config.crc, ((byte*) &config)[i]);
@@ -144,9 +133,9 @@ static void saveConfig () {
 static byte bandToFreq (byte band) {
    return band == 4 ? RF12_433MHZ : band == 8 ? RF12_868MHZ : band == 9 ? RF12_915MHZ : 0;
 }
-static byte FreqFromBand (byte band) {
-   return band == RF12_433MHZ ? 4 : band == RF12_868MHZ ? 8 : band == RF12_915MHZ ? 9 : 0;
-}
+//static byte FreqFromBand (byte band) {
+//   return band == RF12_433MHZ ? 4 : band == RF12_868MHZ ? 8 : band == RF12_915MHZ ? 9 : 0;
+//}
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 // OOK transmit code
@@ -628,7 +617,7 @@ static void handleInput (char c) {
     if (top < sizeof stack)
       stack[top++] = value;
     value = 0;
-  } else if (('a' <= c && c <='z') || (c =='+')) {
+  } else if ('a' <= c && c <='z') {
     Serial.print("> ");
     for (byte i = 0; i < top; ++i) {
       Serial.print((int) stack[i]);
@@ -664,15 +653,15 @@ static void handleInput (char c) {
 //                                                                         0, 433, 864, 912 MHz
          if (value) {
           Serial.print(config.frequency);
+          if (config.frequency == 3960) config.frequency = 95;
           config.frequency = config.frequency + value;       // 96 - 3960 is the range of values supported by the RFM12B
-          if (config.frequency > 3960) config.frequency = 96;
+          if (config.frequency > 3960) config.frequency = 3960;
           Serial.print("->");
           Serial.print(config.frequency);
           rf12_control(0xA000 + config.frequency); 
           Serial.println();
           saveConfig();
-         }
-         Serial.println(config.frequency);
+         } else Serial.println(config.frequency);
         break;
       case 'g': // set network group
         config.group = value;
