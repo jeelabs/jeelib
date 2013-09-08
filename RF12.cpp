@@ -130,7 +130,7 @@ static uint16_t frequency;          // Frequency within selected band
 static volatile uint8_t rxfill;     // number of data bytes in rf12_buf
 static volatile int8_t rxstate;     // current transceiver state
 
- //                   Code from Thomas Mueller known on forum as @tht               //   
+ //                   Code from Thomas Lohmueller known on forum as @tht               //   
 volatile uint16_t state;            // last seen rfm12b state
 uint8_t drssi;                      // digital rssi state (see binary search tree below and rf12_getRSSI()
 uint8_t drssi_bytes_per_decision;   // number of bytes required per drssi decision
@@ -319,7 +319,7 @@ static void rf12_interrupt() {
         rf12_buf[rxfill++] = in;
         rf12_crc = _crc16_update(rf12_crc, in);
         
- //         Code from Thomas Mueller known on forum as @tht                   //   
+ //         Code from Thomas Lohmueller known on forum as @tht                   //   
     	    // do drssi binary-tree search
 	        if ( drssi < 3 && ((rxfill-2)%drssi_bytes_per_decision)==0 ) {// not yet final value
 	        	// top nibble when going up, bottom one when going down
@@ -382,7 +382,7 @@ static void rf12_recvStart () {
         rf12_crc = _crc16_update(~0, group);
 #endif
     rxstate = TXRECV;    
-//  Code from Thomas Mueller known on forum as @tht    //   
+//  Code from Thomas Lohmueller known on forum as @tht    //   
     drssi = 1;              // set drssi to start value
     rf12_xfer(RF_RECV_CONTROL | drssi*2+1);
 //                                                     //
@@ -439,11 +439,11 @@ uint8_t rf12_recvDone () {
         rf12_recvStart();
     return 0;
 }
-//   Code from Thomas Mueller known on forum as @tht    // 
+//   Code from Thomas Lohmueller known on forum as @tht    // 
   
 // return signal strength calculated out of DRSSI bit
 uint8_t rf12_getRSSI() {
-	return (drssi<3 ? drssi*2+2 : 8|(drssi-3)*2);
+	return (drssi<3 ? drssi*2+1 : (drssi-3)*2);
 }
  //                                                     //
 /// @details
