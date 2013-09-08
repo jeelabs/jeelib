@@ -817,6 +817,12 @@ void loop() {
         Serial.print(' ');
       showByte(rf12_data[i]);
     }
+ //  Code from Thomas Mueller known on forum as @tht    //   
+        Serial.print(" (");
+        Serial.print(rf12_getRSSI(), DEC);
+        Serial.println("dB)");
+ /////////////////////////////////////////////////////////   
+    
     Serial.println();
     
     if (rf12_crc == 0) {

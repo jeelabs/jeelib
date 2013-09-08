@@ -96,6 +96,7 @@
 #endif 
 
 // RF12 command codes
+#define RF_RECV_CONTROL 0x94A0
 #define RF_RECEIVER_ON  0x82DD
 #define RF_XMITTER_ON   0x823D
 #define RF_IDLE_MODE    0x820D
@@ -128,6 +129,23 @@ static uint8_t group;               // network group
 static uint16_t frequency;          // Frequency within selected band
 static volatile uint8_t rxfill;     // number of data bytes in rf12_buf
 static volatile int8_t rxstate;     // current transceiver state
+
+ //                   Code from Thomas Mueller known on forum as @tht               //   
+volatile uint16_t state;            // last seen rfm12b state
+uint8_t drssi;                      // digital rssi state (see binary search tree below and rf12_getRSSI()
+uint8_t drssi_bytes_per_decision;   // number of bytes required per drssi decision
+
+const uint8_t drssi_dec_tree[] = {
+  /* state,drssi,final, returned, up,      dwn */
+	/*  A,   0,    no,    0001 */  3 << 4 | 4,
+	/*  *,   1,    no,     --  */  0 << 4 | 2, // starting value
+	/*  B,   2,    no,    0101 */  5 << 4 | 6
+	/*  C,   3,   yes,    1000 */
+	/*  D,   4,   yes,    1010 */
+	/*  E,   5,   yes,    1100 */
+	/*  F,   6,   yes,    1110 */
+};  //                    \ Bit 1 indicates final state, others the signal strength
+ //                                                                                  //   
 
 #define RETRIES     8               // stop retrying after 8 times
 #define RETRY_MS    1000            // resend packet every second until ack'ed
@@ -300,6 +318,19 @@ static void rf12_interrupt() {
             
         rf12_buf[rxfill++] = in;
         rf12_crc = _crc16_update(rf12_crc, in);
+        
+ //         Code from Thomas Mueller known on forum as @tht                   //   
+    	    // do drssi binary-tree search
+	        if ( drssi < 3 && ((rxfill-2)%drssi_bytes_per_decision)==0 ) {// not yet final value
+	        	// top nibble when going up, bottom one when going down
+	        	drssi = bitRead(state,8)
+	        			? (drssi_dec_tree[drssi] & B1111)
+	        			: (drssi_dec_tree[drssi] >> 4);
+	            if ( drssi < 3 ) {     // not yet final destination, set new threshold
+                	rf12_xfer(RF_RECV_CONTROL | drssi*2+1);
+            	}
+           	}
+ //                                                                           //       
 
         if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX)
             rf12_xfer(RF_IDLE_MODE);
@@ -351,6 +382,11 @@ static void rf12_recvStart () {
         rf12_crc = _crc16_update(~0, group);
 #endif
     rxstate = TXRECV;    
+//  Code from Thomas Mueller known on forum as @tht    //   
+    drssi = 1;              // set drssi to start value
+    rf12_xfer(RF_RECV_CONTROL | drssi*2+1);
+//                                                     //
+
     rf12_xfer(RF_RECEIVER_ON);
 }
 
@@ -403,7 +439,13 @@ uint8_t rf12_recvDone () {
         rf12_recvStart();
     return 0;
 }
-
+//   Code from Thomas Mueller known on forum as @tht    // 
+  
+// return signal strength calculated out of DRSSI bit
+uint8_t rf12_getRSSI() {
+	return (drssi<3 ? drssi*2+2 : 8|(drssi-3)*2);
+}
+ //                                                     //
 /// @details
 /// Call this when you have some data to send. If it returns true, then you can
 /// use rf12_sendStart() to start the transmission. Else you need to wait and
@@ -628,6 +670,7 @@ uint8_t rf12_initialize (uint8_t id, uint8_t band, uint8_t g, uint16_t f) {
     nodeid = id;
     group = g;
     frequency = f;
+    if (frequency < 96) frequency = 1600;
         
     rf12_spiInit();
 
@@ -747,6 +790,9 @@ uint8_t rf12_config (uint8_t show) {
     }
     if (show)
         Serial.println();
+        
+    frequency = eeprom_read_byte(RF12_EEPROM_ADDR + 3)*256;
+    frequency = frequency + eeprom_read_byte(RF12_EEPROM_ADDR + 2);
     
     rf12_initialize(nodeId, nodeId >> 6, group, frequency);
     return nodeId & RF12_HDR_MASK;
