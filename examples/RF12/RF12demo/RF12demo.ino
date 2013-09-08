@@ -52,7 +52,7 @@ typedef struct {
 static RF12Config config;
 
 static char cmd;
-static byte value, stack[RF12_MAXDATA+4], top, sendLen, dest, quiet;
+static byte value, stack[RF12_MAXDATA+4], top, sendLen, dest, quiet, sticky;
 static byte testbuf[RF12_MAXDATA], testCounter, useHex;
 
 byte band;
@@ -112,10 +112,9 @@ static void saveConfig () {
   addInt(config.msg, characteristic + bands[band]);
   Serial.println(wk - (characteristic * 10000));
   byte pos = strlen(config.msg);
-  addInt(config.msg, ((10000 + (wk - (characteristic * 10000)))));;
-  config.msg[pos] = '.';
+  addInt(config.msg, ((10000 + (wk - (characteristic * 10000)))));; // Adding 10000 digit protects the leading zeros
+  config.msg[pos] = '.';                                            // Loose the 10000 digit
   strcat(config.msg, " MHz");
-  config.msg[pos] = '.';
   Serial.println(strlen(config.msg));
   config.crc = ~0;
   for (byte i = 0; i < sizeof config - 2; ++i)
@@ -569,7 +568,8 @@ const char helpText1[] PROGMEM =
   "Available commands:" "\n"
   "  <nn> i     - set node ID (standard node ids are 1..30)" "\n"
   "  <n> b      - set MHz band (4 = 433, 8 = 868, 9 = 915)" "\n"
-  "  <n> u      - Increment frequency within the frequency band above" "\n"
+  "  <n> o      - Increase frequency offset within the frequency band above" "\n"
+  "               values above 99 are sticky for reuse" "\n"
   "  <nnn> g    - set network group (RFM12 only allows 212, 0 = any)" "\n"
   "  <n> c      - set collect mode (advanced, normally 0)" "\n"
   "  t          - broadcast max-size test packet, request ack" "\n"
@@ -649,12 +649,12 @@ static void handleInput (char c) {
             showHelp();
         }
         break;
-      case 'u': // Increment frequency
-//                                                           // inc[4] = { 0, 120,  60,  40 }; // to change frequency by 0.3 MHz 
-//                                                                         0, 433, 864, 912 MHz
-         if (value) {
+      case 'o': // Increment frequency within band
+         if ((value) || (sticky)) {
           Serial.print(config.frequency);
-          if (config.frequency == 3960) config.frequency = 95;
+          if (config.frequency == 3960) config.frequency = 95;         
+          if (!value) value = sticky;                        // Only get here if value is 0 and we have sticky value stored
+          if (value > 99) sticky = value; else sticky=0;     // Use sticky for value          
           config.frequency = config.frequency + value;       // 96 - 3960 is the range of values supported by the RFM12B
           if (config.frequency > 3960) config.frequency = 3960;
           Serial.print("->");
