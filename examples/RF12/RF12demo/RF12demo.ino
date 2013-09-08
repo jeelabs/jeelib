@@ -86,7 +86,7 @@ static void addInt (char* msg, word v) {
 static void saveConfig () {
   // set up a nice config string to be shown on startup
   memset(config.msg, 0, sizeof config.msg);
-//  strcpy(config.msg, " ");
+//  strcpy(config.msg, " ");  ////////////////   Need the EEProm space, is this needed for something other than formatting?
   
   byte id = config.nodeId & 0x1F;
   addCh(config.msg, '@' + id);
@@ -99,23 +99,16 @@ static void saveConfig () {
   addInt(config.msg, config.group);
   
   strcat(config.msg, " @");
-  static word bands[4] = { 0, 430, 860, 900 }; // 315, 433, 864, 915 Mhz    // 96 - 3960 is the range of values supported by the RFM12B
+  static word bands[4] = { 0, 430, 860, 900 }; // 315, 433, 864, 915 Mhz    
   band = config.nodeId >> 6;
-                                                   Serial.println(config.frequency);
-  long wk = config.frequency;                
-                                                   Serial.println(wk);
-  wk = wk * (band * 25);
-                                                   Serial.println(wk);
+  long wk = config.frequency;                                        // 96 - 3960 is the range of values supported by the RFM12B
+  wk = wk * (band * 25);                                             // Freqency changes larger in higher bands
   long characteristic = wk/10000;
-                                                   Serial.println(characteristic);
-
   addInt(config.msg, characteristic + bands[band]);
-  Serial.println(wk - (characteristic * 10000));
   byte pos = strlen(config.msg);
-  addInt(config.msg, ((10000 + (wk - (characteristic * 10000)))));; // Adding 10000 digit protects the leading zeros
-  config.msg[pos] = '.';                                            // Loose the 10000 digit
+  addInt(config.msg, ((10000 + (wk - (characteristic * 10000)))));; // Adding 10,000 the digit protects the leading zeros
+  config.msg[pos] = '.';                                            // Loose the 10,000 digit
   strcat(config.msg, " MHz");
-  Serial.println(strlen(config.msg));
   config.crc = ~0;
   for (byte i = 0; i < sizeof config - 2; ++i)
     config.crc = _crc16_update(config.crc, ((byte*) &config)[i]);
@@ -133,9 +126,6 @@ static void saveConfig () {
 static byte bandToFreq (byte band) {
    return band == 4 ? RF12_433MHZ : band == 8 ? RF12_868MHZ : band == 9 ? RF12_915MHZ : 0;
 }
-//static byte FreqFromBand (byte band) {
-//   return band == RF12_433MHZ ? 4 : band == RF12_868MHZ ? 8 : band == RF12_915MHZ ? 9 : 0;
-//}
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 // OOK transmit code
@@ -603,12 +593,13 @@ static void showString (PGM_P s) {
 }
 
 static void showHelp () {
-  showString(helpText1);
-  if (df_present())
-    showString(helpText2);
-  Serial.println("Current configuration:");
+  if (!quiet) {
+    showString(helpText1);
+    if (df_present())
+      showString(helpText2);
+    Serial.println("Current configuration:");
+  }
     rf12_config();
-    // rf12_control(0xA000 + config.frequency); 
 }
 
 static void handleInput (char c) {
@@ -659,7 +650,6 @@ static void handleInput (char c) {
           if (config.frequency > 3960) config.frequency = 3960;
           Serial.print("->");
           Serial.print(config.frequency);
-          // rf12_control(0xA000 + config.frequency); 
           Serial.println();
           saveConfig();
          } else Serial.println(config.frequency);
@@ -787,7 +777,6 @@ void setup() {
 //    config.frequency = eeprom_read_word(RF12_EEPROM_ADDR + 2);
     config.frequency = eeprom_read_byte(RF12_EEPROM_ADDR + 3)*256;
     config.frequency = config.frequency + eeprom_read_byte(RF12_EEPROM_ADDR + 2);
-    Serial.println(config.frequency);
   } else {  
     config.nodeId = 0x41; // 433 MHz, node 1
     config.group = 0xD4;  // default group 212

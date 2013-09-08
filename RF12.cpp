@@ -628,7 +628,6 @@ uint8_t rf12_initialize (uint8_t id, uint8_t band, uint8_t g, uint16_t f) {
     nodeid = id;
     group = g;
     frequency = f;
-    if (frequency < 96) frequency = 1600;
         
     rf12_spiInit();
 
