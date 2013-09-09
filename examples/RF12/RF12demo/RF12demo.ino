@@ -50,9 +50,9 @@ typedef struct {
 } RF12Config;
 
 static RF12Config config;
-
+char revP = 62; // Symbol > to indicate direction of frequency offset
 static char cmd;
-static byte value, stack[RF12_MAXDATA+4], top, sendLen, dest, quiet, sticky;
+static byte value, stack[RF12_MAXDATA+4], top, sendLen, dest, quiet, sticky, revF = 0;
 static byte testbuf[RF12_MAXDATA], testCounter, useHex;
 
 byte band;
@@ -558,8 +558,8 @@ const char helpText1[] PROGMEM =
   "Available commands:" "\n"
   "  <nn> i     - set node ID (standard node ids are 1..30)" "\n"
   "  <n> b      - set MHz band (4 = 433, 8 = 868, 9 = 915)" "\n"
-  "  <n> o      - Increase frequency offset within the frequency band above" "\n"
-  "               values above 99 are sticky for reuse" "\n"
+  "  <nnn> o    - Change frequency offset within the frequency band above" "\n"
+  "               values above 99 are sticky for reuse, 255 changes direction" "\n"
   "  <nnn> g    - set network group (RFM12 only allows 212, 0 = any)" "\n"
   "  <n> c      - set collect mode (advanced, normally 0)" "\n"
   "  t          - broadcast max-size test packet, request ack" "\n"
@@ -634,25 +634,31 @@ static void handleInput (char c) {
         if (value) {
          config.nodeId = (value << 6) + (config.nodeId & 0x3F);
          config.frequency = 1600;
-         // rf12_control(0xA000 + config.frequency); 
          saveConfig();
         } else {
             showHelp();
         }
         break;
       case 'o': // Increment frequency within band
-         if ((value) || (sticky)) {
+          if (value == 255) { 
+            revF = !revF;
+            revP = revP ^ 2;
+            value=0;
+          } 
+          
           Serial.print(config.frequency);
-          if (config.frequency == 3960) config.frequency = 95;         
-          if (!value) value = sticky;                        // Only get here if value is 0 and we have sticky value stored
-          if (value > 99) sticky = value; else sticky=0;     // Use sticky for value          
-          config.frequency = config.frequency + value;       // 96 - 3960 is the range of values supported by the RFM12B
-          if (config.frequency > 3960) config.frequency = 3960;
-          Serial.print("->");
-          Serial.print(config.frequency);
+          Serial.print(revP);
+                    
+          if ((value) || (sticky)) {
+            if (!value) value = sticky;
+            if (value > 99) sticky = value; else sticky=0;     // Make values over 99 sticky
+            if (!revF) config.frequency = config.frequency + value; else config.frequency = config.frequency - value; 
+            if (config.frequency < 96) config.frequency = 3960;  // 96 - 3960 is the range of values supported by the RFM12B
+            if (config.frequency > 3960) config.frequency = 96;
+            Serial.println(config.frequency);
+            saveConfig();           
+          } else            
           Serial.println();
-          saveConfig();
-         } else Serial.println(config.frequency);
         break;
       case 'g': // set network group
         config.group = value;
@@ -691,7 +697,6 @@ static void handleInput (char c) {
         fs20cmd(256 * stack[0] + stack[1], stack[2], value);
         activityLed(0);
         rf12_config(0);
-        // rf12_control(0xA000 + config.frequency); 
         break;
       case 'k': // send KAKU command: <addr>,<dev>,<on>k
         rf12_initialize(0, RF12_433MHZ, 0);
@@ -699,7 +704,6 @@ static void handleInput (char c) {
         kakuSend(stack[0], stack[1], value);
         activityLed(0);
         rf12_config(0);
-        // rf12_control(0xA000 + config.frequency); 
         break;
       case 'd': // dump all log markers
         if (df_present())
@@ -753,7 +757,6 @@ static void handleInput (char c) {
     rf12_sendNow(stack[3], stack + 4, top - 4);
     rf12_sendWait(2);
     rf12_config(0);
-    // rf12_control(0xA000 + config.frequency); 
     value = top = 0;
     memset(stack, 0, sizeof stack);
   } else if (' ' < c && c < 'A')
@@ -817,10 +820,10 @@ void loop() {
         Serial.print(' ');
       showByte(rf12_data[i]);
     }
- //  Code from Thomas Mueller known on forum as @tht    //   
+ //  Code from Thomas Lohmueller known on forum as @tht    //   
         Serial.print(" (");
         Serial.print(rf12_getRSSI(), DEC);
-        Serial.println("dB)");
+        Serial.print("dB)");
  /////////////////////////////////////////////////////////   
     
     Serial.println();

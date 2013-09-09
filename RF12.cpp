@@ -320,16 +320,16 @@ static void rf12_interrupt() {
         rf12_crc = _crc16_update(rf12_crc, in);
         
  //         Code from Thomas Lohmueller known on forum as @tht                   //   
-    	    // do drssi binary-tree search
-	        if ( drssi < 3 && ((rxfill-2)%drssi_bytes_per_decision)==0 ) {// not yet final value
-	        	// top nibble when going up, bottom one when going down
-	        	drssi = bitRead(state,8)
-	        			? (drssi_dec_tree[drssi] & B1111)
-	        			: (drssi_dec_tree[drssi] >> 4);
-	            if ( drssi < 3 ) {     // not yet final destination, set new threshold
-                	rf12_xfer(RF_RECV_CONTROL | drssi*2+1);
-            	}
-           	}
+            // do drssi binary-tree search
+            if ( drssi < 6 ) {       // not yet final value
+                if ( bitRead(state,8) )  // rssi over threashold?
+                    drssi = drssi_dec_tree[drssi].up;
+                else
+                    drssi = drssi_dec_tree[drssi].down;
+                if ( drssi < 6 ) {     // not yet final destination
+                    rf12_xfer(0x94A0 | drssi_dec_tree[drssi].threshold);
+                }
+            }
  //                                                                           //       
 
         if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX)
@@ -443,8 +443,8 @@ uint8_t rf12_recvDone () {
   
 // return signal strength calculated out of DRSSI bit
 uint8_t rf12_getRSSI() {
-	return (drssi<3 ? drssi*2+1 : (drssi-3)*2);
-}
+	return (drssi<3 ? drssi*2+2 : 8|(drssi-3)*2);
+  }
  //                                                     //
 /// @details
 /// Call this when you have some data to send. If it returns true, then you can
