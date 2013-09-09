@@ -50,7 +50,7 @@ typedef struct {
 } RF12Config;
 
 static RF12Config config;
-char revP = 62; // Symbol > to indicate direction of frequency offset
+char revP = 94; // Symbol ^ to indicate direction of frequency offset
 static char cmd;
 static byte value, stack[RF12_MAXDATA+4], top, sendLen, dest, quiet, sticky, revF = 0;
 static byte testbuf[RF12_MAXDATA], testCounter, useHex;
@@ -642,7 +642,7 @@ static void handleInput (char c) {
       case 'o': // Increment frequency within band
           if (value == 255) { 
             revF = !revF;
-            revP = revP ^ 2;
+            revP = revP ^ 40;   // Flip the indicator
             value=0;
           } 
           
