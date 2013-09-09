@@ -6,18 +6,19 @@
 // Adding frequency features. 2013-09-05 JohnOH
 #include <JeeLib.h>
 #include <util/crc16.h>
-#include <util/parity.h>
 #include <avr/eeprom.h>
 #include <avr/pgmspace.h>
+#include <util/parity.h>
 
 // ATtiny's only support outbound serial @ 38400 baud, and no DataFlash logging
 
-#if defined(__AVR_ATtiny84__) ||defined(__AVR_ATtiny44__)
+#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
 #define SERIAL_BAUD 38400
 #else
 #define SERIAL_BAUD 57600
 
-#define DATAFLASH 1 // check for presence of DataFlash memory on JeeLink
+#define DATAFLASH 0          // Enabling flash for none flash equipped nodes causes odd problems - particularly non-Jee kit
+// check for presence of DataFlash memory on JeeLink
 #define FLASH_MBIT  16  // support for various dataflash sizes: 4/8/16 Mbit
 
 #define LED_PIN   9 // activity LED, comment out to disable
@@ -127,6 +128,7 @@ static byte bandToFreq (byte band) {
    return band == 4 ? RF12_433MHZ : band == 8 ? RF12_868MHZ : band == 9 ? RF12_915MHZ : 0;
 }
 
+#if not defined(__AVR_ATtiny84__) || not defined(__AVR_ATtiny44__)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 // OOK transmit code
 
@@ -179,7 +181,7 @@ static void kakuSend(char addr, byte device, byte on) {
     delay(11); // approximate
   }
 }
-
+#endif
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 // DataFlash code
 
@@ -549,8 +551,9 @@ static void df_replay (word seqnum, long asof) {
 #define df_replay(x,y)
 #define df_erase(x)
 
-#endif
+#endif 
 
+#if not defined(__AVR_ATtiny84__) || not defined(__AVR_ATtiny44__)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 const char helpText1[] PROGMEM = 
@@ -558,8 +561,8 @@ const char helpText1[] PROGMEM =
   "Available commands:" "\n"
   "  <nn> i     - set node ID (standard node ids are 1..30)" "\n"
   "  <n> b      - set MHz band (4 = 433, 8 = 868, 9 = 915)" "\n"
-  "  <nnn> o    - Change frequency offset within the frequency band above" "\n"
-  "               values above 99 are sticky for reuse, 255 changes direction" "\n"
+  "  <nnn> o    - Change frequency offset within the band above" "\n"
+  "               values > 99 are sticky, 255 changes direction" "\n"
   "  <nnn> g    - set network group (RFM12 only allows 212, 0 = any)" "\n"
   "  <n> c      - set collect mode (advanced, normally 0)" "\n"
   "  t          - broadcast max-size test packet, request ack" "\n"
@@ -573,6 +576,9 @@ const char helpText1[] PROGMEM =
   "  <hchi>,<hclo>,<addr>,<cmd> f     - FS20 command (868 MHz)" "\n"
   "  <addr>,<dev>,<on> k              - KAKU command (433 MHz)" "\n"
 ;
+#endif
+
+#if DATAFLASH
 const char helpText2[] PROGMEM = 
   "Flash storage (JeeLink only):" "\n"
   "  d                                - dump all log markers" "\n"
@@ -580,7 +586,8 @@ const char helpText2[] PROGMEM =
   "  123,<bhi>,<blo> e                - erase 4K block" "\n"
   "  12,34 w                          - wipe entire flash memory" "\n"
 ;
-
+#endif
+#if not defined(__AVR_ATtiny84__) || not defined(__AVR_ATtiny44__)
 static void showString (PGM_P s) {
   for (;;) {
     char c = pgm_read_byte(s++);
@@ -591,14 +598,19 @@ static void showString (PGM_P s) {
     Serial.print(c);
   }
 }
+#endif
 
+#if not defined(__AVR_ATtiny84__) || not defined(__AVR_ATtiny44__)
 static void showHelp () {
-  if (!quiet) {
     showString(helpText1);
+#endif
+#if DATAFLASH
     if (df_present())
       showString(helpText2);
+#endif
+#if not defined(__AVR_ATtiny84__) || not defined(__AVR_ATtiny44__)
     Serial.println("Current configuration:");
-  }
+#endif
     rf12_config();
 }
 
@@ -673,7 +685,11 @@ static void handleInput (char c) {
         break;
       case 't': // broadcast a maximum size test packet, request an ack
         cmd = 'a';
+#if not defined(__AVR_ATtiny84__) || not defined(__AVR_ATtiny44__)
         sendLen = RF12_MAXDATA;
+#else
+        sendLen = 16;    // Conserve RAM
+#endif
         dest = 0;
         for (byte i = 0; i < RF12_MAXDATA; ++i)
           testbuf[i] = i + testCounter;
@@ -691,6 +707,7 @@ static void handleInput (char c) {
       case 'l': // turn activity LED on or off
         activityLed(value);
         break;
+#if not defined(__AVR_ATtiny84__) || not defined(__AVR_ATtiny44__)
       case 'f': // send FS20 command: <hchi>,<hclo>,<addr>,<cmd>f
         rf12_initialize(0, RF12_868MHZ, 0);
         activityLed(1);
@@ -729,9 +746,6 @@ static void handleInput (char c) {
           Serial.println("erased");
         }
         break;
-      case 'q': // turn quiet mode on or off (don't report bad packets)
-        quiet = value;
-        break;
       case 'z': // put the ATmega in ultra-low power mode (reset needed)
         if (value == 123) {
           delay(10);
@@ -739,6 +753,10 @@ static void handleInput (char c) {
           cli();
           Sleepy::powerDown();
         }
+        break;
+#endif
+        case 'q': // turn quiet mode on or off (don't report bad packets)
+        quiet = value;
         break;
       case 'x': // set reporting mode to hex (1) or decimal (0)
         useHex = value;
@@ -764,7 +782,7 @@ static void handleInput (char c) {
 }
 
 void displayVersion(uint8_t newline ) {
-  Serial.print("\n[RF12demo.11]");
+  Serial.print("\n[RF12demo.11] ");  // Extra space on the end to replace byte pinched from EEProm byte 0
   if(newline!=0)  Serial.println();
 
 }
@@ -787,9 +805,12 @@ void setup() {
     saveConfig();
   }
 
+#if DATAFLASH
   df_initialize();
-  
+#endif 
+#if not defined(__AVR_ATtiny84__) || not defined(__AVR_ATtiny44__)    
   showHelp();
+#endif
 }
 
 void loop() {
@@ -830,10 +851,10 @@ void loop() {
     
     if (rf12_crc == 0) {
       activityLed(1);
-      
+#if not defined(__AVR_ATtiny84__) || not defined(__AVR_ATtiny44__)    
       if (df_present())
         df_append((const char*) rf12_data - 2, rf12_len + 2);
-
+#endif
       if (RF12_WANTS_ACK && (config.nodeId & COLLECT) == 0) {
         Serial.println(" -> ack");
         rf12_sendStart(RF12_ACK_REPLY, 0, 0);
