@@ -135,21 +135,17 @@ volatile uint16_t state;            // last seen rfm12b state
 uint8_t drssi;                      // digital rssi state (see binary search tree below and rf12_getRSSI()
 uint8_t drssi_bytes_per_decision;   // number of bytes required per drssi decision
 
-struct drssi_dec_t {
-    uint8_t up;
-    uint8_t down;
-    uint8_t threshold;
-};
+const uint8_t drssi_dec_tree[] = {
+  /* state,drssi,final, returned, up,      dwn */
+	/*  A,   0,    no,    0001 */  3 << 4 | 4,
+	/*  *,   1,    no,     --  */  0 << 4 | 2, // starting value
+	/*  B,   2,    no,    0101 */  5 << 4 | 6
+	/*  C,   3,   yes,    1000 */
+	/*  D,   4,   yes,    1010 */
+	/*  E,   5,   yes,    1100 */
+	/*  F,   6,   yes,    1110 */
+};  //                    \ Bit 1 indicates final state, others the signal strength
 
-const drssi_dec_t drssi_dec_tree[] = {
-            /*  up    down  thres*/
-    /* 0 */ { B1001, B1000, B000 },  /* B1xxx show final values, B0xxx are intermediate */
-    /* 1 */ { B0010, B0000, B001 },  /* values where next threshold has to be set.      */
-    /* 2 */ { B1011, B1010, B010 },  /* Traversing of this three is in rf_12interrupt() */
-    /* 3 */ { B0101, B0001, B011 },  // <- start value
-    /* 4 */ { B1101, B1100, B100 },
-    /* 5 */ { B1110, B0100, B101 }
-};
  //                                                                                  //   
 
 #define RETRIES     8               // stop retrying after 8 times
@@ -325,16 +321,16 @@ static void rf12_interrupt() {
         rf12_crc = _crc16_update(rf12_crc, in);
         
  //         Code from Thomas Lohmueller known on forum as @tht                   //   
-            // do drssi binary-tree search
-            if ( drssi < 6 ) {       // not yet final value
-                if ( bitRead(state,8) )  // rssi over threashold?
-                    drssi = drssi_dec_tree[drssi].up;
-                else
-                    drssi = drssi_dec_tree[drssi].down;
-                if ( drssi < 6 ) {     // not yet final destination
-                    rf12_xfer(0x94A0 | drssi_dec_tree[drssi].threshold);
-                }
-            }
+    	    // do drssi binary-tree search
+	        if ( drssi < 3 && ((rxfill-2)%drssi_bytes_per_decision)==0 ) {// not yet final value
+	        	// top nibble when going up, bottom one when going down
+	        	drssi = bitRead(state,8)
+	        			? (drssi_dec_tree[drssi] & B1111)
+	        			: (drssi_dec_tree[drssi] >> 4);
+	            if ( drssi < 3 ) {     // not yet final destination, set new threshold
+                	rf12_xfer(RF_RECV_CONTROL | drssi*2+1);
+            	}
+           	}
  //                                                                           //       
 
         if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX)
@@ -444,14 +440,11 @@ uint8_t rf12_recvDone () {
         rf12_recvStart();
     return 0;
 }
-//   Code from Thomas Lohmueller known on forum as @tht    // 
-  
-int8_t rf12_getRSSI() {
-    if (! bitRead(drssi,3))
-        return 0;
-    
-    const int8_t table[] = {-106, -100, -94, -88, -82, -76, -70};
-    return table[drssi & B111];
+//   Code from Thomas Lohmueller known on forum as @tht    //
+ 
+// return signal strength calculated out of DRSSI bit
+uint8_t rf12_getRSSI() {
+	return (drssi<3 ? drssi*2+2 : 8|(drssi-3)*2);
 }
 
  //                                                     //
@@ -795,7 +788,7 @@ uint8_t rf12_config (uint8_t show) {
       frequency = 1600; 
     else 
      frequency = ((frequency & 0x0F) << 8) + (eeprom_read_byte(RF12_EEPROM_ADDR + 3));
-    Serial.println(frequency);
+Serial.println(frequency);
     if (show) {
         Serial.print (flags,HEX); // Print the value of flags
         Serial.print(" ");        // Message length not preserved
