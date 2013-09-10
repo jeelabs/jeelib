@@ -14,6 +14,7 @@
 
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
 #define SERIAL_BAUD 38400
+#define JNMicro
 #else
 #define SERIAL_BAUD 57600
 
@@ -87,7 +88,7 @@ static void addInt (char* msg, word v) {
 static void saveConfig () {
   // set up a nice config string to be shown on startup
   memset(config.msg, 0, sizeof config.msg);
-//  strcpy(config.msg, " ");  ////////////////   Need the EEProm space, is this needed for something other than formatting?
+  strcpy(config.msg, " ");  ////////////////   Need the EEProm space, is this needed for something other than formatting?
   
   byte id = config.nodeId & 0x1F;
   addCh(config.msg, '@' + id);
@@ -110,6 +111,7 @@ static void saveConfig () {
   addInt(config.msg, ((10000 + (wk - (characteristic * 10000)))));; // Adding 10,000 the digit protects the leading zeros
   config.msg[pos] = '.';                                            // Loose the 10,000 digit
   strcat(config.msg, " MHz");
+  
   config.crc = ~0;
   for (byte i = 0; i < sizeof config - 2; ++i)
     config.crc = _crc16_update(config.crc, ((byte*) &config)[i]);
@@ -634,7 +636,7 @@ static void handleInput (char c) {
         showHelp();
         break;
       case 'i': // set node id
-        if (value > 0 & value < 32) {
+        if ((value > 0) & (value < 32)) {
            config.nodeId = (config.nodeId & 0xE0) + (value & 0x1F);
            saveConfig();
         } else {
@@ -788,10 +790,19 @@ void displayVersion(uint8_t newline ) {
 }
 
 void setup() {
+#if defined(__AVR_ATtiny84__) || not defined(__AVR_ATtiny44__)    
+  delay(1000);  // Delay on startup to avoid ISP/RFM12B interference.
+  setPrescaler(0);             // div 1, i.e. speed up to 8 MHz
+#endif
   Serial.begin(SERIAL_BAUD);
   displayVersion(0);
   activityLed(0);
+#if defined JNMicro2
+////////////////////////////////////////////////////////////////////////
+/// Need some code to power up the RFM12B on the new Jeenode Micro   ///
+////////////////////////////////////////////////////////////////////////
 
+#endif
   if (rf12_config()) {
     config.nodeId = eeprom_read_byte(RF12_EEPROM_ADDR);
     config.group = eeprom_read_byte(RF12_EEPROM_ADDR + 1);

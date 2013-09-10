@@ -604,6 +604,7 @@ void rf12_sendWait (uint8_t mode) {
 /// rf12_initialize. The choice whether to use rf12_initialize() or
 /// rf12_config() at the top of every sketch is one of personal preference.
 /// To set EEPROM settings for use with rf12_config() use the RF12demo sketch.
+/*
 uint8_t rf12_initialize (uint8_t id, uint8_t band, uint8_t g) {
     nodeid = id;
     group = g;
@@ -674,6 +675,7 @@ uint8_t rf12_initialize (uint8_t id, uint8_t band, uint8_t g) {
     
     return nodeid;
 }
+*/
 ///////////////////////////////////////////////////////////////////////////////
 uint8_t rf12_initialize (uint8_t id, uint8_t band, uint8_t g, uint16_t f) {
     nodeid = id;
