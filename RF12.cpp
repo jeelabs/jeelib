@@ -453,7 +453,7 @@ int8_t rf12_getRSSI() {
     const int8_t table[] = {-106, -100, -94, -88, -82, -76, -70};
     return table[drssi & B111];
 }
-  }
+
  //                                                     //
 /// @details
 /// Call this when you have some data to send. If it returns true, then you can
@@ -788,10 +788,19 @@ uint8_t rf12_config (uint8_t show) {
      
     nodeId = eeprom_read_byte(RF12_EEPROM_ADDR + 0);
     group  = eeprom_read_byte(RF12_EEPROM_ADDR + 1);
-    frequency = eeprom_read_byte(RF12_EEPROM_ADDR + 3)*256;
-    frequency = frequency + eeprom_read_byte(RF12_EEPROM_ADDR + 2);
-//    frequency = eeprom_read_word(RF12_EEPROM_ADDR + 2);
-//    Serial.println(frequency);
+    
+    frequency = eeprom_read_byte(RF12_EEPROM_ADDR + 2);
+    char flags = frequency >> 4;
+    if (flags & 0x02) 
+      frequency = 1600; 
+    else 
+     frequency = ((frequency & 0x0F) << 8) + (eeprom_read_byte(RF12_EEPROM_ADDR + 3));
+    Serial.println(frequency);
+    if (show) {
+        Serial.print (flags,HEX); // Print the value of flags
+        Serial.print(" ");        // Message length not preserved
+    }
+    
     for (uint8_t i = 4; i < RF12_EEPROM_SIZE - 2; ++i) {
         uint8_t b = eeprom_read_byte(RF12_EEPROM_ADDR + i);
         if (b < 32)
@@ -801,10 +810,7 @@ uint8_t rf12_config (uint8_t show) {
     }
     if (show)
         Serial.println();
-        
-    frequency = eeprom_read_byte(RF12_EEPROM_ADDR + 3)*256;
-    frequency = frequency + eeprom_read_byte(RF12_EEPROM_ADDR + 2);
-    
+            
     rf12_initialize(nodeId, nodeId >> 6, group, frequency);
     return nodeId & RF12_HDR_MASK;
 }

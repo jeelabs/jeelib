@@ -10,6 +10,7 @@
 #include <avr/pgmspace.h>
 #include <util/parity.h>
 
+#define debug
 // ATtiny's only support outbound serial @ 38400 baud, and no DataFlash logging
 
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
@@ -46,16 +47,19 @@ static void activityLed (byte on) {
 typedef struct {
   byte nodeId;
   byte group;
-  word frequency;
+  int ee_frequency_hi : 4;  // Can't use as a 12 bit integer because of how they are stored in a structure.
+  boolean flags : 4;
+  int ee_frequency_lo : 8;  //
   char msg[RF12_EEPROM_SIZE-6];
   word crc;
 } RF12Config;
-
+unsigned int frequency;
 static RF12Config config;
 char revP = 94; // Symbol ^ to indicate direction of frequency offset
 static char cmd;
 static byte value, stack[RF12_MAXDATA+4], top, sendLen, dest, quiet, sticky, revF = 0;
 static byte testbuf[RF12_MAXDATA], testCounter, useHex;
+
 
 byte band;
 
@@ -88,8 +92,10 @@ static void addInt (char* msg, word v) {
 static void saveConfig () {
   // set up a nice config string to be shown on startup
   memset(config.msg, 0, sizeof config.msg);
-  strcpy(config.msg, " ");  ////////////////   Need the EEProm space, is this needed for something other than formatting?
-  
+config.flags = 15; //Test Code
+  config.flags = config.flags ^ 0x02;               // Indicate v11 and upwards, unset the eeprom+2 0x20 bit !
+  config.ee_frequency_hi = frequency >> 8;
+  config.ee_frequency_lo = frequency & 0x00FF;
   byte id = config.nodeId & 0x1F;
   addCh(config.msg, '@' + id);
   strcat(config.msg, " i");
@@ -103,7 +109,7 @@ static void saveConfig () {
   strcat(config.msg, " @");
   static word bands[4] = { 0, 430, 860, 900 }; // 315, 433, 864, 915 Mhz    
   band = config.nodeId >> 6;
-  long wk = config.frequency;                                        // 96 - 3960 is the range of values supported by the RFM12B
+  long wk = frequency;                                        // 96 - 3960 is the range of values supported by the RFM12B
   wk = wk * (band * 25);                                             // Freqency changes larger in higher bands
   long characteristic = wk/10000;
   addInt(config.msg, characteristic + bands[band]);
@@ -121,7 +127,6 @@ static void saveConfig () {
     byte b = ((byte*) &config)[i];
     eeprom_write_byte(RF12_EEPROM_ADDR + i, b);
   }
-  
   if (!rf12_config())
     Serial.println("config save failed");
 }
@@ -647,7 +652,7 @@ static void handleInput (char c) {
         value = bandToFreq(value);
         if (value) {
          config.nodeId = (value << 6) + (config.nodeId & 0x3F);
-         config.frequency = 1600;
+         frequency = 1600;
          saveConfig();
         } else {
             showHelp();
@@ -660,16 +665,16 @@ static void handleInput (char c) {
             value=0;
           } 
           
-          Serial.print(config.frequency);
+          Serial.print(frequency);
           Serial.print(revP);
                     
           if ((value) || (sticky)) {
             if (!value) value = sticky;
             if (value > 99) sticky = value; else sticky=0;     // Make values over 99 sticky
-            if (!revF) config.frequency = config.frequency + value; else config.frequency = config.frequency - value; 
-            if (config.frequency < 96) config.frequency = 3960;  // 96 - 3960 is the range of values supported by the RFM12B
-            if (config.frequency > 3960) config.frequency = 96;
-            Serial.println(config.frequency);
+            if (!revF) frequency = frequency + value; else frequency = frequency - value; 
+            if (frequency < 96) frequency = 3960;  // 96 - 3960 is the range of values supported by the RFM12B
+            if (frequency > 3960) frequency = 96;
+            Serial.println(frequency);
             saveConfig();           
           } else            
           Serial.println();
@@ -690,7 +695,7 @@ static void handleInput (char c) {
 #if not defined(__AVR_ATtiny84__) || not defined(__AVR_ATtiny44__)
         sendLen = RF12_MAXDATA;
 #else
-        sendLen = 16;    // Conserve RAM
+        sendLen = RF12_MAXDATA - 50;    // Conserve RAM
 #endif
         dest = 0;
         for (byte i = 0; i < RF12_MAXDATA; ++i)
@@ -749,12 +754,7 @@ static void handleInput (char c) {
         }
         break;
       case 'z': // put the ATmega in ultra-low power mode (reset needed)
-        if (value == 123) {
-          delay(10);
-          rf12_sleep(RF12_SLEEP);
-          cli();
-          Sleepy::powerDown();
-        }
+        if (value == 123) Sleep;
         break;
 #endif
         case 'q': // turn quiet mode on or off (don't report bad packets)
@@ -766,6 +766,38 @@ static void handleInput (char c) {
       case 'v': //display the interpreter version
         displayVersion(1);
         break;
+      case 'j':
+        if (value == 42) {
+          for (byte i = 0; i < RF12_EEPROM_SIZE; ++i) {
+            byte b = eeprom_read_byte(RF12_EEPROM_ADDR + i);
+            Serial.print(b, HEX);
+            eeprom_write_byte((RF12_EEPROM_ADDR + RF12_EEPROM_SIZE) + i, b);
+          }
+          Serial.println(" Backed Up");
+        }
+        if (value == 123) {
+          for (byte i = 0; i < RF12_EEPROM_SIZE; ++i) {
+            byte b = eeprom_read_byte((RF12_EEPROM_ADDR + RF12_EEPROM_SIZE) + i);
+            Serial.print(b, HEX);
+            eeprom_write_byte((RF12_EEPROM_ADDR) + i, b);
+          }
+          Serial.println(" Restored");
+          Serial.println("Restarting");
+          delay(10);                    // http://forum.arduino.cc/index.php?topic=38157.0
+          asm volatile ("  jmp 30720"); // Restart the sketch - not very clean!
+        }
+        break;
+#if defined debug
+      case 'n': // Clear eeprom
+        if (value == 123) {
+          for (byte i = 0; i < RF12_EEPROM_SIZE; ++i) {
+            byte b = 255;
+            eeprom_write_byte(RF12_EEPROM_ADDR + i, b);
+          }
+          Serial.println("Config cleared");
+        }
+        break;
+#endif      
     }
     value = top = 0;
     memset(stack, 0, sizeof stack);
@@ -773,7 +805,7 @@ static void handleInput (char c) {
     // special case, send to specific band and group, and don't echo cmd
     // input: band,group,node,header,data...
     stack[top++] = value;
-    rf12_initialize(stack[2], bandToFreq(stack[0]), stack[1], config.frequency);
+    rf12_initialize(stack[2], bandToFreq(stack[0]), stack[1], frequency);
     rf12_sendNow(stack[3], stack + 4, top - 4);
     rf12_sendWait(2);
     rf12_config(0);
@@ -784,15 +816,21 @@ static void handleInput (char c) {
 }
 
 void displayVersion(uint8_t newline ) {
-  Serial.print("\n[RF12demo.11] ");  // Extra space on the end to replace byte pinched from EEProm byte 0
+  Serial.print("\n[RF12demo.11]");
   if(newline!=0)  Serial.println();
-
+}
+void Sleep() {
+          Serial.println(" sleeping");
+          delay(10);
+          rf12_sleep(RF12_SLEEP);
+          cli();
+          Sleepy::powerDown();
 }
 
 void setup() {
 #if defined(__AVR_ATtiny84__) || not defined(__AVR_ATtiny44__)    
   delay(1000);  // Delay on startup to avoid ISP/RFM12B interference.
-  setPrescaler(0);             // div 1, i.e. speed up to 8 MHz
+//  setPrescaler(0);             // div 1, i.e. speed up to 8 MHz
 #endif
   Serial.begin(SERIAL_BAUD);
   displayVersion(0);
@@ -806,13 +844,17 @@ void setup() {
   if (rf12_config()) {
     config.nodeId = eeprom_read_byte(RF12_EEPROM_ADDR);
     config.group = eeprom_read_byte(RF12_EEPROM_ADDR + 1);
-//    config.frequency = eeprom_read_word(RF12_EEPROM_ADDR + 2);
-    config.frequency = eeprom_read_byte(RF12_EEPROM_ADDR + 3)*256;
-    config.frequency = config.frequency + eeprom_read_byte(RF12_EEPROM_ADDR + 2);
+    frequency = eeprom_read_byte(RF12_EEPROM_ADDR + 2);
+    config.flags = frequency >> 4;               // Extract the flag nibble
+    if (config.flags & 0x2)                       // Is this a pre v11 eeprom
+      frequency = 1600; 
+    else 
+      frequency = ((frequency & 0x0f)  << 8) + (eeprom_read_byte(RF12_EEPROM_ADDR + 3));              // Loose flag nibble to get frequency high order
+    
   } else {  
     config.nodeId = 0x41; // 433 MHz, node 1
     config.group = 0xD4;  // default group 212
-    config.frequency = 1600;
+    frequency = 1600;
     saveConfig();
   }
 
