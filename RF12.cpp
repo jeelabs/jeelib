@@ -795,7 +795,7 @@ uint8_t rf12_config (uint8_t show) {
      frequency = ((frequency & 0x0F) << 8) + (eeprom_read_byte(RF12_EEPROM_ADDR + 3));
     if (show) {
         Serial.print (flags, HEX); // Print the value of flags
-        Serial.print(" ");        // Message length not preserved
+        Serial.print(" ");         // Message length not preserved
     }
     
     for (uint8_t i = 4; i < RF12_EEPROM_SIZE - 2; ++i) {

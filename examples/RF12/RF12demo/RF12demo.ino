@@ -851,7 +851,7 @@ void setup() {
     config.nodeId = 0x41; // 433 MHz, node 1
     config.group = 0xD4;  // default group 212
     frequency = 1600;
-    config.flags = 0xd;        // v11 and upwards
+    config.flags = 0xF;        // Default flags
 //    saveConfig();            // Don't save to eeprom until we have changes.
   }
 
