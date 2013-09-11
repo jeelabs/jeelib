@@ -771,8 +771,13 @@ void rf12_onOff (uint8_t value) {
 /// @returns the node ID obtained from EEPROM, or 0 if there was none.
 uint8_t rf12_config (uint8_t show) {
     uint16_t crc = ~0;
-    for (uint8_t i = 0; i < RF12_EEPROM_SIZE; ++i)
-        crc = _crc16_update(crc, eeprom_read_byte(RF12_EEPROM_ADDR + i));
+    uint16_t stored_crc = 0;
+    for (uint8_t i = 0; i < RF12_EEPROM_SIZE; ++i) {
+        byte e = eeprom_read_byte(RF12_EEPROM_ADDR + i);
+        crc = _crc16_update(crc, e);
+        if (i == (RF12_EEPROM_SIZE-2)) stored_crc = (e << 8);
+        if (i == (RF12_EEPROM_SIZE-1)) stored_crc = stored_crc + e;
+    }
     if (crc != 0)
         return 0;
         
@@ -788,9 +793,8 @@ uint8_t rf12_config (uint8_t show) {
       frequency = 1600; 
     else 
      frequency = ((frequency & 0x0F) << 8) + (eeprom_read_byte(RF12_EEPROM_ADDR + 3));
-// Serial.println(frequency);
     if (show) {
-        Serial.print (flags,HEX); // Print the value of flags
+        Serial.print (flags, HEX); // Print the value of flags
         Serial.print(" ");        // Message length not preserved
     }
     
@@ -801,8 +805,11 @@ uint8_t rf12_config (uint8_t show) {
         if (show)
             Serial.print((char) b);
     }
-    if (show)
+    if (show) {
+        Serial.print(" 0x");
+        Serial.print(stored_crc, HEX);
         Serial.println();
+    }
             
     rf12_initialize(nodeId, nodeId >> 6, group, frequency);
     return nodeId & RF12_HDR_MASK;
