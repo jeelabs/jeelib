@@ -53,6 +53,7 @@ typedef struct {
   char msg[RF12_EEPROM_SIZE-6];
   word crc;
 } RF12Config;
+
 unsigned int frequency;
 static RF12Config config;
 char revP = 94; // Symbol ^ to indicate direction of frequency offset
@@ -92,8 +93,7 @@ static void addInt (char* msg, word v) {
 static void saveConfig () {
   // set up a nice config string to be shown on startup
   memset(config.msg, 0, sizeof config.msg);
-config.flags = 15; //Test Code
-  config.flags = config.flags ^ 0x02;               // Indicate v11 and upwards, unset the eeprom+2 0x20 bit !
+  config.flags = config.flags & (0xf - 0x2);               // Indicate v11 and upwards, unset the eeprom+2 0x20 bit !
   config.ee_frequency_hi = frequency >> 8;
   config.ee_frequency_lo = frequency & 0x00FF;
   byte id = config.nodeId & 0x1F;
@@ -636,6 +636,7 @@ static void handleInput (char c) {
     }
     Serial.print((int) value);
     Serial.println(c);
+    word crc = ~0;  
     switch (c) {
       default:
         showHelp();
@@ -773,32 +774,36 @@ static void handleInput (char c) {
             Serial.print(b, HEX);
             eeprom_write_byte((RF12_EEPROM_ADDR + RF12_EEPROM_SIZE) + i, b);
           }
-          Serial.println(" Backed Up");
+        Serial.println(" Backed Up");
         }
         if (value == 123) {
-          for (byte i = 0; i < RF12_EEPROM_SIZE; ++i) {
-            byte b = eeprom_read_byte((RF12_EEPROM_ADDR + RF12_EEPROM_SIZE) + i);
-            Serial.print(b, HEX);
-            eeprom_write_byte((RF12_EEPROM_ADDR) + i, b);
-          }
+          for (byte i = 0; i < RF12_EEPROM_SIZE; ++i)
+	    crc = _crc16_update(crc, eeprom_read_byte(RF12_EEPROM_ADDR + RF12_EEPROM_SIZE + i));
+          if (crc) Serial.println("Bad CRC");
+          else {
+// crc is good - restore        
+            for (byte i = 0; i < RF12_EEPROM_SIZE; ++i) {
+              byte b = eeprom_read_byte((RF12_EEPROM_ADDR + RF12_EEPROM_SIZE) + i);
+              Serial.print(b, HEX);
+              eeprom_write_byte((RF12_EEPROM_ADDR) + i, b);
+            }
           Serial.println(" Restored");
-          Serial.println("Restarting");
-          delay(10);                    // http://forum.arduino.cc/index.php?topic=38157.0
-          asm volatile ("  jmp 30720"); // Restart the sketch - not very clean!
-        }
+          if (rf12_config()) initialize();
+          }
         break;
+        }   
 #if defined debug
       case 'n': // Clear eeprom
         if (value == 123) {
-          for (byte i = 0; i < RF12_EEPROM_SIZE; ++i) {
+          for (byte i = 0; i < (RF12_EEPROM_SIZE); ++i) {  // Use to clear config eeprom then backup to clear backup eeprom
             byte b = 255;
             eeprom_write_byte(RF12_EEPROM_ADDR + i, b);
           }
-          Serial.println("Config cleared");
+          Serial.println("Cleared");
         }
         break;
+      } // End Switch
 #endif      
-    }
     value = top = 0;
     memset(stack, 0, sizeof stack);
   } else if (c == '>') {
@@ -841,21 +846,13 @@ void setup() {
 ////////////////////////////////////////////////////////////////////////
 
 #endif
-  if (rf12_config()) {
-    config.nodeId = eeprom_read_byte(RF12_EEPROM_ADDR);
-    config.group = eeprom_read_byte(RF12_EEPROM_ADDR + 1);
-    frequency = eeprom_read_byte(RF12_EEPROM_ADDR + 2);
-    config.flags = frequency >> 4;               // Extract the flag nibble
-    if (config.flags & 0x2)                       // Is this a pre v11 eeprom
-      frequency = 1600; 
-    else 
-      frequency = ((frequency & 0x0f)  << 8) + (eeprom_read_byte(RF12_EEPROM_ADDR + 3));              // Loose flag nibble to get frequency high order
-    
-  } else {  
+    if (rf12_config()) initialize();
+    else {
     config.nodeId = 0x41; // 433 MHz, node 1
     config.group = 0xD4;  // default group 212
     frequency = 1600;
-    saveConfig();
+    config.flags = 0xd;        // v11 and upwards
+//    saveConfig();            // Don't save to eeprom until we have changes.
   }
 
 #if DATAFLASH
@@ -864,6 +861,16 @@ void setup() {
 #if not defined(__AVR_ATtiny84__) || not defined(__AVR_ATtiny44__)    
   showHelp();
 #endif
+}
+void initialize() {
+    config.nodeId = eeprom_read_byte(RF12_EEPROM_ADDR);
+    config.group = eeprom_read_byte(RF12_EEPROM_ADDR + 1);
+    frequency = eeprom_read_byte(RF12_EEPROM_ADDR + 2);
+    config.flags = frequency >> 4;               // Extract the flag nibble
+    if (config.flags & 0x2)                       // Is this a pre v11 eeprom
+      frequency = 1600; 
+    else 
+      frequency = ((frequency & 0x0f)  << 8) + (eeprom_read_byte(RF12_EEPROM_ADDR + 3));              // Loose flag nibble to get frequency high order
 }
 
 void loop() {
@@ -878,8 +885,8 @@ void loop() {
       if (quiet)
         return;
       Serial.print(" ?");
-      if (n > 20) // print at most 20 bytes if crc is wrong
-        n = 20;
+      if (n > 16) // print at most 20 bytes if crc is wrong
+        n = 16;
     }
     if (useHex)
       Serial.print('X');
