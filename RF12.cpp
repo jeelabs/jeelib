@@ -310,11 +310,12 @@ static void rf12_interrupt() {
     // a transfer of 2x 16 bits @ 2 MHz over SPI takes 2x 8 us inside this ISR
     // correction: now takes 2 + 8 µs, since sending can be done at 8 MHz
     rf12_xfer(0x0000); 
-//    uint8_t in;   // RF12.cpp:315: error: invalid conversion from 'uint8_t*' to 'uint16_t'
-//    uint16_t in;  // RF12.cpp:315: error: invalid conversion from 'uint16_t*' to 'uint16_t'
-    uint8_t in;
-// Problem    state = rf12_control(&in);  
-    
+    uint16_t in;
+//    char in;      // Compiles but doesn't change returned dB level
+//    state = rf12_control(&in); // How does casting work then? JohnO 
+//    state = rf12_control(255);    // Works but is clumsy and lacks understanding of cast
+    state = rf12_control(15);
+        
     if (rxstate == TXRECV) {
         uint8_t in = rf12_xferSlow(RF_RX_FIFO_READ);
 

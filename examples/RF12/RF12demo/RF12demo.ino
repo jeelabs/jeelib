@@ -41,27 +41,29 @@ static void activityLed (byte on) {
 /// @details
 /// eeprom layout details
 /// byte 0x00 Key storage for encryption algorithm
-///           - 0x001F 
+///      0x1F   "
 /// ------------------------------------------------------------------------
-/// byte 0x20 Node number in bits                   ***n nnnn
+/// byte 0x20 Node number in bits                   ***n nnnn                    // 1 - 31
 ///           Collect mode flag                     **0* ****   COLLECT 0x20     // Pass incoming without sending acks
-///           Band                                  01** ****   433MHZ  0x40
+///           Band                                  00** ****   Do not use       // Will hang the hardware
+///             "                                   01** ****   433MHZ  0x40
 ///             "                                   10** ****   868MHZ  0x80
 ///             "                                   11** ****   915MHZ  0xC0
 /// ------------------------------------------------------------------------
-/// byte 0x21 Group number
-/// byte 0x22 Flag Spares                                 11** ****   // Perhaps we could store output in hex value here
+/// byte 0x21 Group number                                11010100    // i.e. 212 0xD4
+/// byte 0x22 Flag Spares                                 11** ****   // Perhaps we could store the output in hex flag here
 ///           V10 indicator                               **1* ****   // This bit is set by versions of RF12Demo less than 11
 ///           Quiet mode                                  ***1 ****   // don't report bad packets
 ///           Frequency offset most significant bite      **** nnnn   // Can't treat as a 12 bit integer
-/// byte 0x23 Frequency offset less significant bits      nnnn nnnn    //  because of little endian constraint
-/// byte 0x24 Text description generate by RF12Demo       "T i2 g0 @868.0000 MHz"
+/// byte 0x23 Frequency offset less significant bits      nnnn nnnn   //  because of little endian constraint
+/// byte 0x24 Text description generate by RF12Demo       "T i20 g0 @868.0000 MHz"
 ///      0x3D   "                                         Padded at the end with NUL
 /// byte 0x3E  CRC                                        CRC of values with offset 0x20
 /// byte 0x3F   "                                         through to end of Text string, except NUL's
 /// byte 0x40 32 bytes backup space for configuration, "42j" command
 ///      0x59   "
 /// ------------------------------------------------------------------------
+/// Useful url: http://blog.strobotics.com.au/2009/07/27/rfm12-tutorial-part-3a/
 // 4 bit
 #define QUIET   0x1      // quiet mode
 #define V10     0x2      // Indicates a version of RF12Demo after version 10.
@@ -135,7 +137,7 @@ static void saveConfig () {
   strcat(config.msg, " @");
   static word bands[4] = { 0, 430, 860, 900 }; // 315, 433, 864, 915 Mhz    
   band = config.nodeId >> 6;
-  long wk = frequency;                                        // 96 - 3960 is the range of values supported by the RFM12B
+  long wk = frequency;                                        // 96 - 3903 is the range of values supported by the RFM12B
   wk = wk * (band * 25);                                             // Freqency changes larger in higher bands
   long characteristic = wk/10000;
   addInt(config.msg, characteristic + bands[band]);
@@ -694,13 +696,16 @@ static void handleInput (char c) {
           
           Serial.print(frequency);
           Serial.print(revP);
-                    
+///
+/// It is important that you keep within your countries ISM spectrum management guidelines
+/// i.e. allowable frequencies and their use when selecting your operating frequencies.
+///
           if ((value) || (sticky)) {
             if (!value) value = sticky;
             if (value > 99) sticky = value; else sticky=0;     // Make values over 99 sticky
             if (!revF) frequency = frequency + value; else frequency = frequency - value; 
-            if (frequency < 96) frequency = 3960;  // 96 - 3960 is the range of values supported by the RFM12B
-            if (frequency > 3960) frequency = 96;
+            if (frequency < 96) frequency = 3903;  // 96 - 3903 is the range of values supported by the RFM12B
+            if (frequency > 3903) frequency = 96;
             Serial.println(frequency);
             saveConfig();           
           } else            
