@@ -794,7 +794,7 @@ uint8_t rf12_config (uint8_t show) {
     frequency = eeprom_read_byte(RF12_EEPROM_ADDR + 2);
 
     char flags = frequency >> 4;
-    if (flags & 0x02) 
+    if (flags & 0x02)
       frequency = 1600; 
     else 
      frequency = ((frequency & 0x0F) << 8) + (eeprom_read_byte(RF12_EEPROM_ADDR + 3));

@@ -59,6 +59,8 @@ static void activityLed (byte on) {
 ///      0x3D   "                                         Padded at the end with NUL
 /// byte 0x3E  CRC                                        CRC of values with offset 0x20
 /// byte 0x3F   "                                         through to end of Text string, except NUL's
+/// byte 0x40 32 bytes backup space for configuration, "42j" command
+///      0x59   "
 /// ------------------------------------------------------------------------
 // 4 bit
 #define QUIET   0x1      // quiet mode
@@ -893,7 +895,7 @@ void initialize() {
     config.group = eeprom_read_byte(RF12_EEPROM_ADDR + 1);
     frequency = eeprom_read_byte(RF12_EEPROM_ADDR + 2);
     config.flags = frequency >> 4;               // Extract the flag nibble
-    if (config.flags & 0x2)                       // Is this a pre v11 eeprom
+    if (config.flags & V10)                      // Is this a pre v11 eeprom
       frequency = 1600; 
     else 
       frequency = ((frequency & 0x0F)  << 8) + (eeprom_read_byte(RF12_EEPROM_ADDR + 3));              // Loose flag nibble to get frequency high order
