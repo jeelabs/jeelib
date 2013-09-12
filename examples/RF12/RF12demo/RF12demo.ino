@@ -86,7 +86,7 @@ unsigned int frequency;
 static RF12Config config;
 char revP = 94; // Symbol ^ to indicate direction of frequency offset
 static char cmd;
-static byte value, stack[RF12_MAXDATA+4], top, sendLen, dest, sticky, revF = 0, low = 0xFFFF, high = 0;
+static byte value, stack[RF12_MAXDATA+4], top, sendLen, dest, sticky, revF = 0, low = 0xFF, high = 0;
 static byte testbuf[RF12_MAXDATA], testCounter, useHex;
 
 byte band;
@@ -687,6 +687,8 @@ static void handleInput (char c) {
         }
         break;
       case 'o': // Increment frequency within band
+          high = 0;  // Reset dB max/min
+          low = 255;
           if (value == 255) { 
             revF = !revF;
             revP = revP ^ 40;   // Flip the indicator
