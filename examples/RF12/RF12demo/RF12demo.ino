@@ -86,9 +86,8 @@ unsigned int frequency;
 static RF12Config config;
 char revP = 94; // Symbol ^ to indicate direction of frequency offset
 static char cmd;
-static byte value, stack[RF12_MAXDATA+4], top, sendLen, dest, sticky, revF = 0;
+static byte value, stack[RF12_MAXDATA+4], top, sendLen, dest, sticky, revF = 0, low = 0xFFFF, high = 0;
 static byte testbuf[RF12_MAXDATA], testCounter, useHex;
-
 
 byte band;
 
@@ -905,7 +904,6 @@ void initialize() {
     else 
       frequency = ((frequency & 0x0F)  << 8) + (eeprom_read_byte(RF12_EEPROM_ADDR + 3));              // Loose flag nibble to get frequency high order
 }
-
 void loop() {
   if (Serial.available())
     handleInput(Serial.read());
@@ -936,11 +934,16 @@ void loop() {
     }
  //  Code from Thomas Lohmueller known on forum as @tht    //   
         Serial.print(" (");
-        Serial.print(rf12_getRSSI(), DEC);
-        Serial.print("dB)");
+        byte drssi = rf12_getRSSI();
  /////////////////////////////////////////////////////////   
-    
-    Serial.println();
+    if (drssi > high) high = drssi;
+    if (drssi < low) low = drssi; 
+    Serial.print(low, DEC);
+    Serial.print("-");
+    Serial.print(drssi, DEC);
+    Serial.print("-");
+    Serial.print(high, DEC);  
+    Serial.println(")");
     
     if (rf12_crc == 0) {
       activityLed(1);

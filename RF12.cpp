@@ -445,14 +445,12 @@ uint8_t rf12_recvDone () {
         rf12_recvStart();
     return 0;
 }
-//   Code from Thomas Lohmueller known on forum as @tht    //
- 
 // return signal strength calculated out of DRSSI bit
 uint8_t rf12_getRSSI() {
-	return (drssi<3 ? drssi*2+2 : 8|(drssi-3)*2);
+//	return (drssi<3 ? drssi*2+2 : 8|(drssi-3)*2);    // JohnO
+    return (drssi);
 }
 
- //                                                     //
 /// @details
 /// Call this when you have some data to send. If it returns true, then you can
 /// use rf12_sendStart() to start the transmission. Else you need to wait and
