@@ -310,10 +310,10 @@ static void rf12_interrupt() {
     // a transfer of 2x 16 bits @ 2 MHz over SPI takes 2x 8 us inside this ISR
     // correction: now takes 2 + 8 µs, since sending can be done at 8 MHz
     rf12_xfer(0x0000); 
-//    uint8_t in;   //RF12.cpp:315: error: invalid conversion from 'uint8_t*' to 'uint16_t'
+//    uint8_t in;   // RF12.cpp:315: error: invalid conversion from 'uint8_t*' to 'uint16_t'
 //    uint16_t in;  // RF12.cpp:315: error: invalid conversion from 'uint16_t*' to 'uint16_t'
     uint8_t in;
-    state = rf12_control(&in);  
+// Problem    state = rf12_control(&in);  
     
     if (rxstate == TXRECV) {
         uint8_t in = rf12_xferSlow(RF_RX_FIFO_READ);
@@ -792,14 +792,15 @@ uint8_t rf12_config (uint8_t show) {
     group  = eeprom_read_byte(RF12_EEPROM_ADDR + 1);
     
     frequency = eeprom_read_byte(RF12_EEPROM_ADDR + 2);
+
     char flags = frequency >> 4;
     if (flags & 0x02) 
       frequency = 1600; 
     else 
      frequency = ((frequency & 0x0F) << 8) + (eeprom_read_byte(RF12_EEPROM_ADDR + 3));
     if (show) {
-        Serial.print (flags, HEX); // Print the value of flags
-        Serial.print(" ");        // Message length not preserved
+        Serial.print (flags, HEX); // Print the values of flags
+        Serial.print(" ");         // Message length not preserved from v10
     }                                                                                                                          
     
     for (uint8_t i = 4; i < RF12_EEPROM_SIZE - 2; ++i) {

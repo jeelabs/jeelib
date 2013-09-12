@@ -27,8 +27,6 @@
 
 #endif
 
-#define COLLECT 0x20 // collect mode, i.e. pass incoming without sending acks
-
 static unsigned long now () {
   // FIXME 49-day overflow
   return millis() / 1000;
@@ -40,10 +38,36 @@ static void activityLed (byte on) {
   digitalWrite(LED_PIN, !on);
 #endif
 }
+/// @details
+/// eeprom layout details
+/// byte 0x00 Key storage for encryption algorithm
+///           - 0x001F 
+/// ------------------------------------------------------------------------
+/// byte 0x20 Node number in bits                   ***n nnnn
+///           Collect mode flag                     **0* ****   COLLECT 0x20     // Pass incoming without sending acks
+///           Band                                  01** ****   433MHZ  0x40
+///             "                                   10** ****   868MHZ  0x80
+///             "                                   11** ****   915MHZ  0xC0
+/// ------------------------------------------------------------------------
+/// byte 0x21 Group number
+/// byte 0x22 Flag Spares                                 11** ****   // Perhaps we could store output in hex value here
+///           V10 indicator                               **1* ****   // This bit is set by versions of RF12Demo less than 11
+///           Quiet mode                                  ***1 ****   // don't report bad packets
+///           Frequency offset most significant bite      **** nnnn   // Can't treat as a 12 bit integer
+/// byte 0x23 Frequency offset less significant bits      nnnn nnnn    //  because of little endian constraint
+/// byte 0x24 Text description generate by RF12Demo       "T i2 g0 @868.0000 MHz"
+///      0x3D   "                                         Padded at the end with NUL
+/// byte 0x3E  CRC                                        CRC of values with offset 0x20
+/// byte 0x3F   "                                         through to end of Text string, except NUL's
+/// ------------------------------------------------------------------------
+// 4 bit
+#define QUIET   0x1      // quiet mode
+#define V10     0x2      // Indicates a version of RF12Demo after version 10.
+// ----------------
+// 8 bit
+#define COLLECT 0x20     // collect mode, i.e. pass incoming without sending acks
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 // RF12 configuration setup code
-
 typedef struct {
   byte nodeId;
   byte group;
@@ -58,7 +82,7 @@ unsigned int frequency;
 static RF12Config config;
 char revP = 94; // Symbol ^ to indicate direction of frequency offset
 static char cmd;
-static byte value, stack[RF12_MAXDATA+4], top, sendLen, dest, quiet, sticky, revF = 0;
+static byte value, stack[RF12_MAXDATA+4], top, sendLen, dest, sticky, revF = 0;
 static byte testbuf[RF12_MAXDATA], testCounter, useHex;
 
 
@@ -93,7 +117,7 @@ static void addInt (char* msg, word v) {
 static void saveConfig () {
   // set up a nice config string to be shown on startup
   memset(config.msg, 0, sizeof config.msg);
-  config.flags = config.flags & (0xf - 0x2);               // Indicate v11 and upwards, unset the eeprom+2 0x20 bit !
+  config.flags  &= ~V10;               // Indicate v11 and upwards, unset the eeprom+2 0x20 bit !
   config.ee_frequency_hi = frequency >> 8;
   config.ee_frequency_lo = frequency & 0x00FF;
   byte id = config.nodeId & 0x1F;
@@ -759,7 +783,9 @@ static void handleInput (char c) {
         break;
 #endif
         case 'q': // turn quiet mode on or off (don't report bad packets)
-        quiet = value;
+        if (value) config.flags |= QUIET;
+          else config.flags &= ~QUIET;
+        saveConfig();
         break;
       case 'x': // set reporting mode to hex (1) or decimal (0)
         useHex = value;
@@ -851,7 +877,7 @@ void setup() {
     config.nodeId = 0x41; // 433 MHz, node 1
     config.group = 0xD4;  // default group 212
     frequency = 1600;
-    config.flags = 0xF;        // Default flags
+    config.flags = 0xC;        // Default flags, quiet off and non V10
 //    saveConfig();            // Don't save to eeprom until we have changes.
   }
 
@@ -870,7 +896,7 @@ void initialize() {
     if (config.flags & 0x2)                       // Is this a pre v11 eeprom
       frequency = 1600; 
     else 
-      frequency = ((frequency & 0x0f)  << 8) + (eeprom_read_byte(RF12_EEPROM_ADDR + 3));              // Loose flag nibble to get frequency high order
+      frequency = ((frequency & 0x0F)  << 8) + (eeprom_read_byte(RF12_EEPROM_ADDR + 3));              // Loose flag nibble to get frequency high order
 }
 
 void loop() {
@@ -882,10 +908,10 @@ void loop() {
     if (rf12_crc == 0)
       Serial.print("OK");
     else {
-      if (quiet)
+      if (config.flags & ~QUIET);
         return;
       Serial.print(" ?");
-      if (n > 16) // print at most 20 bytes if crc is wrong
+      if (n > 16) // print at most 16 bytes if crc is wrong
         n = 16;
     }
     if (useHex)
