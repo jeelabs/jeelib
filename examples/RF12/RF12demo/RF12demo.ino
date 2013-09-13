@@ -935,16 +935,19 @@ void loop() {
       showByte(rf12_grp);
     }
     Serial.print(' ');
+/// Clear string showing ascii interpretation of rf12_data, max length == RF12_MAXDATA JOH
     showByte(rf12_hdr);
     for (byte i = 0; i < n; ++i) {
       if (!useHex)
         Serial.print(' ');
       showByte(rf12_data[i]);
+/// Build a string showing ascii interpretation of rf12_data, if not ascii print a "." just like an IBM core dump JOH
     }
+/// Print string built above
  //  Code from Thomas Lohmueller known on forum as @tht    //   
-        Serial.print(" (");
         byte drssi = rf12_getRSSI();
  /////////////////////////////////////////////////////////   
+    Serial.print(" (");
     if (drssi > high) high = drssi;
     if (drssi < low) low = drssi; 
     Serial.print(low, DEC);
