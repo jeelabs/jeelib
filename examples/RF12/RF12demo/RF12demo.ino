@@ -681,13 +681,15 @@ static void handleInput (char c) {
         if (value) {
          config.nodeId = (value << 6) + (config.nodeId & 0x3F);
          frequency = 1600;
+         high = 0;  // Reset DRSSI max/min
+         low  = 255;
          saveConfig();
         } else {
             showHelp();
         }
         break;
       case 'o': // Increment frequency within band
-          high = 0;  // Reset dB max/min
+          high = 0;  // Reset DRSSI max/min
           low = 255;
           if (value == 255) { 
             revF = !revF;
@@ -802,30 +804,34 @@ static void handleInput (char c) {
         displayVersion(1);
         break;
       case 'j':
-        if (value == 42) {
-          for (byte i = 0; i < RF12_EEPROM_SIZE; ++i) {
+        for (byte i = 0; i < RF12_EEPROM_SIZE; ++i) {
             byte b = eeprom_read_byte(RF12_EEPROM_ADDR + i);
             Serial.print(b, HEX);
-            eeprom_write_byte((RF12_EEPROM_ADDR + RF12_EEPROM_SIZE) + i, b);
-          }
-        Serial.println(" Backed Up");
-        }
-        if (value == 123) {
-          for (byte i = 0; i < RF12_EEPROM_SIZE; ++i)
-	    crc = _crc16_update(crc, eeprom_read_byte(RF12_EEPROM_ADDR + RF12_EEPROM_SIZE + i));
-          if (crc) Serial.println("Bad CRC");
-          else {
-// crc is good - restore        
-            for (byte i = 0; i < RF12_EEPROM_SIZE; ++i) {
-              byte b = eeprom_read_byte((RF12_EEPROM_ADDR + RF12_EEPROM_SIZE) + i);
-              Serial.print(b, HEX);
-              eeprom_write_byte((RF12_EEPROM_ADDR) + i, b);
+            if (value == 42) { 
+             eeprom_write_byte((RF12_EEPROM_ADDR + RF12_EEPROM_SIZE) + i, b);
             }
-          Serial.println(" Restored");
-          if (rf12_config()) initialize();
+        }            
+        Serial.println();
+        if (value == 42) Serial.println("Backed Up");
+
+        if (value == 123) {
+          for (byte i = 0; i < RF12_EEPROM_SIZE; ++i) {     // Check CRC to be restored
+	        crc = _crc16_update(crc, eeprom_read_byte(RF12_EEPROM_ADDR + RF12_EEPROM_SIZE + i)); 
+          }
+          if (crc) { 
+            Serial.println("Bad CRC"); 
+          } else {
+              for (byte i = 0; i < RF12_EEPROM_SIZE; ++i) {
+                byte b = eeprom_read_byte((RF12_EEPROM_ADDR + RF12_EEPROM_SIZE) + i);
+                Serial.print(b, HEX);
+                eeprom_write_byte((RF12_EEPROM_ADDR) + i, b);
+              }
+          Serial.println();
+            }
+          if (value == 123) Serial.println("Restored");
+          if (rf12_config()) initialize(); else Serial.println("Bad CRC");
           }
         break;
-        }   
 #if defined debug
       case 'n': // Clear eeprom
         if (value == 123) {
@@ -836,6 +842,7 @@ static void handleInput (char c) {
           Serial.println("Cleared");
         }
         break;
+/////////////////////
       } // End Switch
 #endif      
     value = top = 0;
