@@ -54,7 +54,7 @@ static char cmd;
 static byte value, stack[RF12_MAXDATA+4], top, sendLen, dest, quiet;
 static byte testbuf[RF12_MAXDATA], testCounter, useHex;
 
-static void displayVersion(uint8_t newline );
+void displayVersion(uint8_t newline );
 
 static void showNibble (byte nibble) {
   char c = '0' + (nibble & 0x0F);
