@@ -824,7 +824,8 @@ static void handleInput (char c) {
           } else {
               for (byte i = 0; i < RF12_EEPROM_SIZE; ++i) {
                 byte b = eeprom_read_byte((RF12_EEPROM_ADDR + RF12_EEPROM_SIZE) + i);
-                Serial.print(b, HEX);
+                showNibble(b >> 4);
+                showNibble(b);
                 eeprom_write_byte((RF12_EEPROM_ADDR) + i, b);
               }
           Serial.println();
