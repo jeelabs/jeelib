@@ -806,7 +806,8 @@ static void handleInput (char c) {
       case 'j':
         for (byte i = 0; i < RF12_EEPROM_SIZE; ++i) {
             byte b = eeprom_read_byte(RF12_EEPROM_ADDR + i);
-            Serial.print(b, HEX);
+            showNibble(b >> 4);
+            showNibble(b);
             if (value == 42) { 
              eeprom_write_byte((RF12_EEPROM_ADDR + RF12_EEPROM_SIZE) + i, b);
             }
