@@ -641,6 +641,15 @@ const int* GravityPlug::getAxes() {
     return data.w;
 }
 
+char GravityPlug::temperature() {
+    send();
+    write(0x08);
+    receive();
+    char temp = read(1) - 60;
+    stop();
+    return temp;
+}
+
 /** Select the channel on the multiplexer.
  *  @param channel A number between 0..15.
  */

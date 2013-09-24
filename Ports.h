@@ -535,6 +535,9 @@ public:
     /// Get accelleration data from GravityPlug.
     /// @return An array with 3 integers. (x,y,z) respectively.
     const int* getAxes();
+    /// Read out the temperature (only for BMA150, not the older BMA020)
+    /// @return temp, in half deg C steps, from -30C to +50C (i.e. times 2)
+    char temperature();
 };
 
 /// Interface for the Input Plug - see http://jeelabs.org/ip
