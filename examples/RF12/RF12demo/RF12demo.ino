@@ -828,10 +828,10 @@ static void handleInput (char c) {
                 showNibble(b);
                 eeprom_write_byte((RF12_EEPROM_ADDR) + i, b);
               }
-          Serial.println();
+            Serial.println();
+            Serial.println("Restored");
             }
-          if (value == 123) Serial.println("Restored");
-          if (rf12_config()) initialize(); else Serial.println("Bad CRC");
+          if (rf12_config()) initialize(); else Serial.println("Initialize failed");
           }
         break;
 #if defined debug
