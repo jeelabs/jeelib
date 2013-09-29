@@ -8,7 +8,18 @@
 #include <JeeLib.h>
 #include <util/crc16.h>
 #include <avr/eeprom.h>
-//#include <avr/pgmspace.h>
+#define ACK_TIME   20  // number of milliseconds to wait for an ack
+#define RETRY_LIMIT 9  // maximum number of times to retry
+#define RADIO_SYNC_MODE 2
+
+char importedConfig[] = 
+///
+/// Highlight the string below and paste in the value obtained from the RF12Demo "0j" command.
+   "B4D4C66D54206932302A206732313220403836382E32323530204D487A00690C";  // C T i20* g212 @868.2250 MHz
+//   "B4D4C64054206932302A206732313220403836382E30303030204D487A00A4F4";  // C T i20* g212 @868.0000 MHz
+//   "94D4C6405420693230206732313220403836382E30303030204D487A0000FCE4";  // C T i20 g212 @868.0000 MHz
+////0....5....10...5....20...5....30...5....40...5....50...5....60..
+///
 
 /// @details
 /// eeprom layout details
@@ -57,12 +68,6 @@ unsigned int frequency;
 #else
 #define SERIAL_BAUD 57600
 #endif
-char importedConfig[] = 
-///
-/// Highlight the string below and paste in the value obtained from the RF12Demo "0j" command.
-   "B4D4C66D54206932302A206732313220403836382E32323530204D487A00690C";
-////0....5....10...5....20...5....30...5....40...5....50...5....60..
-///
 byte h, w;
 
 void setup() {
@@ -72,6 +77,7 @@ void setup() {
 }
 
 void loop() {
+  unsigned int scan;
   for (byte i = 0; i < (RF12_EEPROM_SIZE * 2); i+=2 ) {
     w = ChkHex(importedConfig[i]);
     if (w) h = (w << 4);         // Move into high nibble
@@ -84,7 +90,7 @@ void loop() {
 //    Serial.print(h, HEX);
   }
  Serial.println(); 
- Serial.println(config.crc, HEX);
+// Serial.println(config.crc, HEX);
  
 ///   for (byte i = 0; i < sizeof RF12_EEPROM_SIZE - 2; ++i)
 ///    config.crc = _crc16_update(config.crc, ((byte*) &config)[i]);
@@ -98,15 +104,59 @@ void loop() {
 
     
     Serial.println(config.msg);
-    Serial.println(config.crc, HEX);
+    showNibble(config.crc >> 12);
+    showNibble(config.crc >> 8);
+    showNibble(config.crc >> 4);
+    showNibble(config.crc);
     
     
     if (rf12_config()) Serial.println("Config Initialized");
      
     frequency = (config.ee_frequency_hi << 8) + config.ee_frequency_lo;              // Loose flag nibble to get frequency high order
-    Serial.println(frequency);
-    
+  for (scan = (frequency - 50); scan < (frequency + 50); ++scan)
+  {
+   rf12_control(0xA000 + scan); 
+   Serial.print("Sending "); 
+   Serial.println(scan);
+   delay(50); 
+   byte acked = probe();
+   if (acked){
+     Serial.print("Received "); 
+     Serial.println(scan);
+   }
+      else {
+        Serial.print("No Ack ");
+        Serial.println(scan);
+      }
+  }   
  delay(32767);
+}
+
+static byte probe() 
+  {
+      for (byte i = 0; i < RETRY_LIMIT; ++i) 
+      {
+        while (!rf12_canSend())
+        rf12_recvDone();
+        rf12_sendStart(RF12_HDR_ACK, &config, sizeof config, RADIO_SYNC_MODE);
+        byte acked = waitForAck();
+        if (acked) {
+          return 1;
+        }
+      }
+    return 0;
+  }
+
+// wait a few milliseconds for proper ACK to me, return true if indeed received
+static byte waitForAck() {
+    MilliTimer ackTimer;
+    while (!ackTimer.poll(ACK_TIME)) {
+        if (rf12_recvDone() && rf12_crc == 0 &&
+                // see http://talk.jeelabs.net/topic/811#post-4712
+                rf12_hdr == (RF12_HDR_DST | RF12_HDR_CTL | (config.nodeId & 0x1F)))
+            return 1;
+    }
+    return 0;
 }
 static char ChkHex(char c) {
   if ((c > 64) && (c < 71)) return (c + 9);    // "A" to "F"
