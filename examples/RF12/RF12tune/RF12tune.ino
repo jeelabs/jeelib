@@ -15,7 +15,8 @@
 char importedConfig[] = 
 ///
 /// Highlight the string below and paste in the value obtained from the RF12Demo "0j" command.
-   "B4D4C66D54206932302A206732313220403836382E32323530204D487A00690C";  // C T i20* g212 @868.2250 MHz
+   "89D1066D49206939206732303920403836382E32323530204D487A0000006893";  //   0 I i9 g209 @868.2250 MHz
+//   "B4D4C66D54206932302A206732313220403836382E32323530204D487A00690C";  // C T i20* g212 @868.2250 MHz
 //   "B4D4C64054206932302A206732313220403836382E30303030204D487A00A4F4";  // C T i20* g212 @868.0000 MHz
 //   "94D4C6405420693230206732313220403836382E30303030204D487A0000FCE4";  // C T i20 g212 @868.0000 MHz
 ////0....5....10...5....20...5....30...5....40...5....50...5....60..
@@ -77,7 +78,8 @@ void setup() {
 }
 
 void loop() {
-  unsigned int scan;
+  unsigned int scan,upLow = 0xFFFF,upHigh = 0;
+  
   for (byte i = 0; i < (RF12_EEPROM_SIZE * 2); i+=2 ) {
     w = ChkHex(importedConfig[i]);
     if (w) h = (w << 4);         // Move into high nibble
@@ -104,31 +106,45 @@ void loop() {
 
     
     Serial.println(config.msg);
+    /*
     showNibble(config.crc >> 12);
     showNibble(config.crc >> 8);
     showNibble(config.crc >> 4);
     showNibble(config.crc);
-    
-    
-    if (rf12_config()) Serial.println("Config Initialized");
-     
+    */
+
     frequency = (config.ee_frequency_hi << 8) + config.ee_frequency_lo;              // Loose flag nibble to get frequency high order
+    
+    
+    if (rf12_config()) {
+      Serial.print("Config Initialized ");
+      Serial.println(frequency);
+      delay(50); 
+    }
   for (scan = (frequency - 50); scan < (frequency + 50); ++scan)
   {
    rf12_control(0xA000 + scan); 
-   Serial.print("Sending "); 
-   Serial.println(scan);
-   delay(50); 
+//   Serial.print("Sending "); 
+//   Serial.println(scan);
    byte acked = probe();
    if (acked){
-     Serial.print("Received "); 
-     Serial.println(scan);
+     if (scan > upHigh) upHigh = scan;
+     if (scan < upLow) upLow = scan;
+//     Serial.print("Received "); 
+//     Serial.println(scan);
+//     delay(50); 
    }
       else {
-        Serial.print("No Ack ");
-        Serial.println(scan);
+        Serial.print("No Ack   ");
+        Serial.print(scan);
+        Serial.print("\r");
+        delay(50); 
       }
-  }   
+  }
+Serial.print("Scan Complete "); 
+Serial.print(upLow);
+Serial.print("-");
+Serial.println(upHigh);
  delay(32767);
 }
 
