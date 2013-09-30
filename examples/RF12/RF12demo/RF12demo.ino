@@ -88,8 +88,9 @@ char revP = 94; // Symbol ^ to indicate direction of frequency offset
 static char cmd;
 static byte value, stack[RF12_MAXDATA+4], top, sendLen, dest, sticky, revF = 0, low = 0xFF, high = 0;
 static byte testbuf[RF12_MAXDATA], testCounter, useHex;
+static byte band;
 
-byte band;
+void displayVersion(uint8_t newline );
 
 static void showNibble (byte nibble) {
   char c = '0' + (nibble & 0x0F);
