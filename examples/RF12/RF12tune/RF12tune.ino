@@ -190,7 +190,7 @@ static byte probe()
         rf12_sendStart(RF12_HDR_ACK, &config, sizeof config, RADIO_SYNC_MODE);
         byte acked = waitForAck();
         if (acked) {
-          return i;
+          return i; // Return number of attempts to successfully transmit
         }
       }
     return 0;
