@@ -15,9 +15,9 @@
 char importedConfig[] = 
 ///
 /// Highlight the string below and paste in the value obtained from the RF12Demo "0j" command.
-//   "89D1066D49206939206732303920403836382E32323530204D487A0000006893";  //   0 I i9 g209 @868.2250 MHz
+   "89D1066D49206939206732303920403836382E32323530204D487A0000006893";  //   0 I i9 g209 @868.2250 MHz
 //   "B4D4C66D54206932302A206732313220403836382E32323530204D487A00690C";  // C T i20* g212 @868.2250 MHz
-   "B4D4C64054206932302A206732313220403836382E30303030204D487A00A4F4";  // C T i20* g212 @868.0000 MHz
+//   "B4D4C64054206932302A206732313220403836382E30303030204D487A00A4F4";  // C T i20* g212 @868.0000 MHz
 //   "94D4C6405420693230206732313220403836382E30303030204D487A0000FCE4";  // C T i20 g212 @868.0000 MHz
 ////0....5....10...5....20...5....30...5....40...5....50...5....60..
 ///
@@ -168,7 +168,9 @@ Serial.println(downHigh);
   }
   if (!rf12_config())
     Serial.println("config save failed");
-
+   
+  byte good = probe(); // Transmit new settings
+  
   while(1) // Nothing more
   { 
      delay(32767);
