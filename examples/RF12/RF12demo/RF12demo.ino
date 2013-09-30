@@ -10,17 +10,16 @@
 #include <avr/pgmspace.h>
 #include <util/parity.h>
 
-#define DEBUG 1
-
+#define debug
 // ATtiny's only support outbound serial @ 38400 baud, and no DataFlash logging
 
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
 #define SERIAL_BAUD 38400
+#define JNMicro
 #else
 #define SERIAL_BAUD 57600
 
-// Enabling dataflash code may cause problems with non-JeeLink configurations
-#define DATAFLASH 0
+#define DATAFLASH 0          // Enabling flash for none flash equipped nodes causes odd problems - particularly non-Jee kit
 // check for presence of DataFlash memory on JeeLink
 #define FLASH_MBIT  16  // support for various dataflash sizes: 4/8/16 Mbit
 
@@ -67,7 +66,7 @@ static void activityLed (byte on) {
 /// Useful url: http://blog.strobotics.com.au/2009/07/27/rfm12-tutorial-part-3a/
 // 4 bit
 #define QUIET   0x1      // quiet mode
-#define V10     0x2      // Indicates a version of RF12Demo after version 10.
+#define V10     0x2      // Indicates a version of RF12Demo up to version 10.
 // ----------------
 // 8 bit
 #define COLLECT 0x20     // collect mode, i.e. pass incoming without sending acks
@@ -87,11 +86,10 @@ unsigned int frequency;
 static RF12Config config;
 char revP = 94; // Symbol ^ to indicate direction of frequency offset
 static char cmd;
-static byte value, stack[RF12_MAXDATA+4], top, sendLen, dest, sticky, revF = 0;
+static byte value, stack[RF12_MAXDATA+4], top, sendLen, dest, sticky, revF = 0, low = 0xFF, high = 0;
 static byte testbuf[RF12_MAXDATA], testCounter, useHex;
-static byte band;
 
-void displayVersion(uint8_t newline );
+byte band;
 
 static void showNibble (byte nibble) {
   char c = '0' + (nibble & 0x0F);
@@ -665,7 +663,7 @@ static void handleInput (char c) {
     }
     Serial.print((int) value);
     Serial.println(c);
-
+    word crc = ~0;  
     switch (c) {
       default:
         showHelp();
@@ -683,12 +681,16 @@ static void handleInput (char c) {
         if (value) {
          config.nodeId = (value << 6) + (config.nodeId & 0x3F);
          frequency = 1600;
+         high = 0;  // Reset DRSSI max/min
+         low  = 255;
          saveConfig();
         } else {
             showHelp();
         }
         break;
       case 'o': // Increment frequency within band
+          high = 0;  // Reset DRSSI max/min
+          low = 255;
           if (value == 255) { 
             revF = !revF;
             revP = revP ^ 40;   // Flip the indicator
@@ -814,39 +816,36 @@ static void handleInput (char c) {
         if (value == 42) Serial.println("Backed Up");
 
         if (value == 123) {
-          const uint8_t *ee_shadow = RF12_EEPROM_ADDR + RF12_EEPROM_SIZE;
-          // Check CRC to be restored
-          word crc = ~0;
-          for (byte i = 0; i < RF12_EEPROM_SIZE; ++i)
-            crc = _crc16_update(crc, eeprom_read_byte(ee_shadow + i)); 
-          if (crc)
+          for (byte i = 0; i < RF12_EEPROM_SIZE; ++i) {     // Check CRC to be restored
+	        crc = _crc16_update(crc, eeprom_read_byte(RF12_EEPROM_ADDR + RF12_EEPROM_SIZE + i)); 
+          }
+          if (crc) { 
             Serial.println("Bad CRC"); 
-          else {
-            for (byte i = 0; i < RF12_EEPROM_SIZE; ++i) {
-              byte b = eeprom_read_byte((ee_shadow) + i);
-              showNibble(b >> 4);
-              showNibble(b);
-              eeprom_write_byte((RF12_EEPROM_ADDR) + i, b);
-            }
+          } else {
+              for (byte i = 0; i < RF12_EEPROM_SIZE; ++i) {
+                byte b = eeprom_read_byte((RF12_EEPROM_ADDR + RF12_EEPROM_SIZE) + i);
+                showNibble(b >> 4);
+                showNibble(b);
+                eeprom_write_byte((RF12_EEPROM_ADDR) + i, b);
+              }
             Serial.println();
             Serial.println("Restored");
             }
-          if (rf12_config())
-            initialize();
-          else
-            Serial.println("Initialize failed");
-        }
+          if (rf12_config()) initialize(); else Serial.println("Initialize failed");
+          }
         break;
-#if DEBUG
+#if defined debug
       case 'n': // Clear eeprom
         if (value == 123) {
-          // Use to clear config eeprom then backup to clear backup eeprom
-          for (byte i = 0; i < (RF12_EEPROM_SIZE); ++i)
-            eeprom_write_byte(RF12_EEPROM_ADDR + i, 0xFF);
+          for (byte i = 0; i < (RF12_EEPROM_SIZE); ++i) {  // Use to clear config eeprom then backup to clear backup eeprom
+            byte b = 255;
+            eeprom_write_byte(RF12_EEPROM_ADDR + i, b);
+          }
           Serial.println("Cleared");
         }
         break;
-    } // End Switch
+/////////////////////
+      } // End Switch
 #endif      
     value = top = 0;
     memset(stack, 0, sizeof stack);
@@ -884,15 +883,19 @@ void setup() {
   Serial.begin(SERIAL_BAUD);
   displayVersion(0);
   activityLed(0);
+#if defined JNMicro2
+////////////////////////////////////////////////////////////////////////
+/// Need some code to power up the RFM12B on the new Jeenode Micro   ///
+////////////////////////////////////////////////////////////////////////
 
-  if (rf12_config())
-    initialize();
-  else {
+#endif
+    if (rf12_config()) initialize();
+    else {
     config.nodeId = 0x41; // 433 MHz, node 1
     config.group = 0xD4;  // default group 212
     frequency = 1600;
-    config.flags = 0xC;   // Default flags, quiet off and non V10
-//  saveConfig();         // Don't save to eeprom until we have changes.
+    config.flags = 0xC;        // Default flags, quiet off and non V10
+//    saveConfig();            // Don't save to eeprom until we have changes.
   }
 
 #if DATAFLASH
@@ -903,14 +906,14 @@ void setup() {
 #endif
 }
 void initialize() {
-  config.nodeId = eeprom_read_byte(RF12_EEPROM_ADDR);
-  config.group = eeprom_read_byte(RF12_EEPROM_ADDR + 1);
-  frequency = eeprom_read_byte(RF12_EEPROM_ADDR + 2);
-  config.flags = frequency >> 4;               // Extract the flag nibble
-  if (config.flags & V10)                      // Is this a pre v11 eeprom
-    frequency = 1600; 
-  else // Lose flag nibble to get frequency high order
-    frequency = ((frequency & 0x0F)  << 8) + (eeprom_read_byte(RF12_EEPROM_ADDR + 3));
+    config.nodeId = eeprom_read_byte(RF12_EEPROM_ADDR);
+    config.group = eeprom_read_byte(RF12_EEPROM_ADDR + 1);
+    frequency = eeprom_read_byte(RF12_EEPROM_ADDR + 2);
+    config.flags = frequency >> 4;               // Extract the flag nibble
+    if (config.flags & V10)                      // Is this a pre v11 eeprom
+      frequency = 1600; 
+    else 
+      frequency = ((frequency & 0x0F)  << 8) + (eeprom_read_byte(RF12_EEPROM_ADDR + 3));              // Loose flag nibble to get frequency high order
 }
 void loop() {
   if (Serial.available())
@@ -940,8 +943,21 @@ void loop() {
       if (!useHex)
         Serial.print(' ');
       showByte(rf12_data[i]);
+/// Build a string showing ascii interpretation of rf12_data, if not ascii print a "." just like an IBM core dump JOH
     }
-    Serial.println();
+/// Print string built above
+ //  Code from Thomas Lohmueller known on forum as @tht    //   
+        byte drssi = rf12_getRSSI();
+ /////////////////////////////////////////////////////////   
+    Serial.print(" (");
+    if (drssi > high) high = drssi;
+    if (drssi < low) low = drssi; 
+    Serial.print(low, DEC);
+    Serial.print("-");
+    Serial.print(drssi, DEC);
+    Serial.print("-");
+    Serial.print(high, DEC);  
+    Serial.println(")");
     
     if (rf12_crc == 0) {
       activityLed(1);
