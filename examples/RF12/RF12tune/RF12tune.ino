@@ -72,7 +72,7 @@ unsigned int frequency;
 byte h, w;
 
 void setup() {
-  
+  delay(5000);  // Startup delay to debounce disconnection
   Serial.begin(SERIAL_BAUD);
   Serial.println("\n[RF12tune.0]");
   
@@ -120,6 +120,7 @@ void loop() {
         delay(50); 
       }
   }
+  if ((upHigh == 0) || (upLow == 0xFFFF)) return;  // If nobody answers then restart loop
 Serial.print("Scan up complete "); 
 Serial.print(upLow);
 Serial.print("-");
@@ -145,6 +146,7 @@ delay(100);
         delay(50); 
       }
   }
+  if ((downHigh == 0) || (downLow == 0xFFFF)) return;  // If nobody answers then restart loop
 Serial.print("Scan down complete "); 
 Serial.print(downLow);
 Serial.print("-");
@@ -154,6 +156,7 @@ Serial.println(downHigh);
  frequency = ( ((upLow + downLow) / 2) + ((((upHigh + downHigh) / 2) - ((upLow + downLow)/ 2)) / 2)   );
  Serial.print("Centre frequency offset is ");
  Serial.println(frequency);
+ delay(50);
  config.ee_frequency_hi = frequency >> 8;
  config.ee_frequency_lo = frequency & 0x00FF;
 
@@ -166,11 +169,13 @@ Serial.println(downHigh);
     byte b = ((byte*) &config)[i];
     eeprom_write_byte(RF12_EEPROM_ADDR + i, b);
   }
-  if (!rf12_config())
+  if (!rf12_config()) {
     Serial.println("config save failed");
-   
-  byte good = probe(); // Transmit new settings
-  
+  }
+  else {
+    delay(50);
+    byte good = probe(); // Transmit new settings
+  }
   while(1) // Nothing more
   { 
      delay(32767);
