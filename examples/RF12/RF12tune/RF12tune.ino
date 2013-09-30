@@ -75,10 +75,6 @@ void setup() {
   
   Serial.begin(SERIAL_BAUD);
   Serial.println("\n[RF12tune.0]");
-}
-
-void loop() {
-  unsigned int scan,upLow, upHigh, downLow, downHigh;
   
   for (byte i = 0; i < (RF12_EEPROM_SIZE * 2); i+=2 ) {
     w = ChkHex(importedConfig[i]);
@@ -89,33 +85,16 @@ void loop() {
     showNibble(h);
     eeprom_write_byte((RF12_EEPROM_ADDR) + (i / 2), h);
     ((byte*) &config)[(i/2)] = h;
-//    Serial.print(h, HEX);
   }
  Serial.println(); 
-// Serial.println(config.crc, HEX);
- 
-///   for (byte i = 0; i < sizeof RF12_EEPROM_SIZE - 2; ++i)
-///    config.crc = _crc16_update(config.crc, ((byte*) &config)[i]);
 
-//    uint16_t crc = ~0;
-//    for (uint8_t i = 0; i < RF12_EEPROM_SIZE; ++i) {
-//        byte e = ((byte*) &config)[i]);
-//        crc = _crc16_update(crc, e);//
-//    }
-//    if (crc != 0) Serial.println("Bad CRC");
+    frequency = (config.ee_frequency_hi << 8) + config.ee_frequency_lo;              // Loose flag nibble to get frequency high order    
+}
 
-    
-    Serial.println(config.msg);
-    /*
-    showNibble(config.crc >> 12);
-    showNibble(config.crc >> 8);
-    showNibble(config.crc >> 4);
-    showNibble(config.crc);
-    */
-
-    frequency = (config.ee_frequency_hi << 8) + config.ee_frequency_lo;              // Loose flag nibble to get frequency high order
-    
-    
+void loop() {
+  unsigned int scan, upLow, upHigh, downLow, downHigh;
+    frequency = eeprom_read_byte(RF12_EEPROM_ADDR + 2);
+    frequency = ((frequency & 0x0F)  << 8) + (eeprom_read_byte(RF12_EEPROM_ADDR + 3));              // Loose flag nibble to get frequency high order
     if (rf12_config()) {
       Serial.print("Config Initialized ");
       Serial.println(frequency);
@@ -126,16 +105,12 @@ void loop() {
   for (scan = (frequency - 50); scan < (frequency + 50); ++scan)
   {
    rf12_control(0xA000 + scan); 
-//   Serial.print("Sending "); 
-//   Serial.println(scan);
    byte good = probe();
    if (good){
      if (scan > upHigh) upHigh = scan;
      if (scan < upLow) upLow = scan;
-     Serial.print("\n");
-     Serial.print(good);
-//     Serial.print("Received "); 
-//     Serial.println(scan);
+//     Serial.print("\n");
+//     Serial.print(good);
      delay(50); 
    }
       else {
@@ -155,16 +130,12 @@ delay(100);
   for (scan = (frequency + 50); scan > (frequency - 50); --scan)
   {
    rf12_control(0xA000 + scan); 
-//   Serial.print("Sending "); 
-//   Serial.println(scan);
    byte good = probe();
    if (good){
      if (scan > downHigh) downHigh = scan;
      if (scan < downLow) downLow = scan;
-     Serial.print("\n");
-     Serial.print(good);
-//     Serial.print("Received "); 
-//     Serial.println(scan);
+//     Serial.print("\n");
+//     Serial.print(good);
      delay(50); 
    }
       else {
@@ -178,6 +149,26 @@ Serial.print("Scan down complete ");
 Serial.print(downLow);
 Serial.print("-");
 Serial.println(downHigh);
+
+        
+ frequency = ( ((upLow + downLow) / 2) + ((((upHigh + downHigh) / 2) - ((upLow + downLow)/ 2)) / 2)   );
+ Serial.print("Centre frequency offset is ");
+ Serial.println(frequency);
+ config.ee_frequency_hi = frequency >> 8;
+ config.ee_frequency_lo = frequency & 0x00FF;
+
+  config.crc = ~0;
+  for (byte i = 0; i < sizeof config - 2; ++i)
+    config.crc = _crc16_update(config.crc, ((byte*) &config)[i]);
+
+  // save to EEPROM
+  for (byte i = 0; i < sizeof config; ++i) {
+    byte b = ((byte*) &config)[i];
+    eeprom_write_byte(RF12_EEPROM_ADDR + i, b);
+  }
+  if (!rf12_config())
+    Serial.println("config save failed");
+
  delay(32767);
 }
 
