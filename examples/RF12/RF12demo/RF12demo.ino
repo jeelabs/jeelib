@@ -934,7 +934,6 @@ void loop() {
       showByte(rf12_grp);
     }
     Serial.print(' ');
-/// Clear string showing ascii interpretation of rf12_data, max length == RF12_MAXDATA JOH
     showByte(rf12_hdr);
     for (byte i = 0; i < n; ++i) {
       if (!useHex)
@@ -942,7 +941,22 @@ void loop() {
       showByte(rf12_data[i]);
     }
     Serial.println();
-    
+
+  if (useHex > 1) {  // Print ascii interpretation under hex output
+    Serial.print("ASCII ");
+    for (byte i = 0; i < n; ++i) {
+      if ((rf12_data[i] < 32) || (rf12_data[i] > 126)) 
+        {
+        Serial.print(" .");
+        }
+      else
+        {
+          Serial.print(" ");
+          Serial.print((char) rf12_data[i]);
+        }
+    }
+    Serial.println();
+  }    
     if (rf12_crc == 0) {
       activityLed(1);
 #if not defined(__AVR_ATtiny84__) || not defined(__AVR_ATtiny44__)    
