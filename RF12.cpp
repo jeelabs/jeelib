@@ -130,24 +130,6 @@ static uint16_t frequency;          // Frequency within selected band
 static volatile uint8_t rxfill;     // number of data bytes in rf12_buf
 static volatile int8_t rxstate;     // current transceiver state
 
- //                   Code from Thomas Lohmueller known on forum as @tht               //   
-volatile uint16_t state;            // last seen rfm12b state
-uint8_t drssi;                      // digital rssi state (see binary search tree below and rf12_getRSSI()
-uint8_t drssi_bytes_per_decision;   // number of bytes required per drssi decision
-
-const uint8_t drssi_dec_tree[] = {
-  /* state,drssi,final, returned, up,      dwn */
-	/*  A,   0,    no,    0001 */  3 << 4 | 4,
-	/*  *,   1,    no,     --  */  0 << 4 | 2, // starting value
-	/*  B,   2,    no,    0101 */  5 << 4 | 6
-	/*  C,   3,   yes,    1000 */
-	/*  D,   4,   yes,    1010 */
-	/*  E,   5,   yes,    1100 */
-	/*  F,   6,   yes,    1110 */
-};  //                    \ Bit 1 indicates final state, others the signal strength
-
- //                                                                                  //   
-
 #define RETRIES     8               // stop retrying after 8 times
 #define RETRY_MS    1000            // resend packet every second until ack'ed
 
@@ -310,12 +292,7 @@ static void rf12_interrupt() {
     // a transfer of 2x 16 bits @ 2 MHz over SPI takes 2x 8 us inside this ISR
     // correction: now takes 2 + 8 µs, since sending can be done at 8 MHz
     rf12_xfer(0x0000); 
-    uint16_t in;
-//    char in;      // Compiles but doesn't change returned dB level
-//    state = rf12_control(&in); // How does casting work then? JohnO 
-//    state = rf12_control(255);    // Works but is clumsy and lacks understanding of cast
-    state = rf12_control(15);
-        
+
     if (rxstate == TXRECV) {
         uint8_t in = rf12_xferSlow(RF_RX_FIFO_READ);
 
@@ -324,19 +301,6 @@ static void rf12_interrupt() {
             
         rf12_buf[rxfill++] = in;
         rf12_crc = _crc16_update(rf12_crc, in);
-        
- //         Code from Thomas Lohmueller known on forum as @tht                   //   
-    	    // do drssi binary-tree search
-	        if ( drssi < 3 && ((rxfill-2)%drssi_bytes_per_decision)==0 ) {// not yet final value
-	        	// top nibble when going up, bottom one when going down
-	        	drssi = bitRead(state,8)
-	        			? (drssi_dec_tree[drssi] & B1111)
-	        			: (drssi_dec_tree[drssi] >> 4);
-	            if ( drssi < 3 ) {     // not yet final destination, set new threshold
-                	rf12_xfer(RF_RECV_CONTROL | drssi*2+1);
-            	}
-           	}
- //                                                                           //       
 
         if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX)
             rf12_xfer(RF_IDLE_MODE);
@@ -388,10 +352,6 @@ static void rf12_recvStart () {
         rf12_crc = _crc16_update(~0, group);
 #endif
     rxstate = TXRECV;    
-//  Code from Thomas Lohmueller known on forum as @tht    //   
-    drssi = 1;              // set drssi to start value
-    rf12_xfer(RF_RECV_CONTROL | drssi*2+1);
-//                                                     //
 
     rf12_xfer(RF_RECEIVER_ON);
 }
@@ -444,11 +404,6 @@ uint8_t rf12_recvDone () {
     if (rxstate == TXIDLE)
         rf12_recvStart();
     return 0;
-}
-// return signal strength calculated out of DRSSI bit
-uint8_t rf12_getRSSI() {
-//	return (drssi<3 ? drssi*2+2 : 8|(drssi-3)*2);    // JohnO
-    return (drssi);
 }
 
 /// @details

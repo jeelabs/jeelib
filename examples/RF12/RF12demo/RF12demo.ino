@@ -86,7 +86,7 @@ unsigned int frequency;
 static RF12Config config;
 char revP = 94; // Symbol ^ to indicate direction of frequency offset
 static char cmd;
-static byte value, stack[RF12_MAXDATA+4], top, sendLen, dest, sticky, revF = 0, low = 0xFF, high = 0;
+static byte value, stack[RF12_MAXDATA+4], top, sendLen, dest, sticky, revF = 0;
 static byte testbuf[RF12_MAXDATA], testCounter, useHex;
 static byte band;
 
@@ -682,16 +682,12 @@ static void handleInput (char c) {
         if (value) {
          config.nodeId = (value << 6) + (config.nodeId & 0x3F);
          frequency = 1600;
-         high = 0;  // Reset DRSSI max/min
-         low  = 255;
          saveConfig();
         } else {
             showHelp();
         }
         break;
       case 'o': // Increment frequency within band
-          high = 0;  // Reset DRSSI max/min
-          low = 255;
           if (value == 255) { 
             revF = !revF;
             revP = revP ^ 40;   // Flip the indicator
@@ -944,21 +940,8 @@ void loop() {
       if (!useHex)
         Serial.print(' ');
       showByte(rf12_data[i]);
-/// Build a string showing ascii interpretation of rf12_data, if not ascii print a "." just like an IBM core dump JOH
     }
-/// Print string built above
- //  Code from Thomas Lohmueller known on forum as @tht    //   
-        byte drssi = rf12_getRSSI();
- /////////////////////////////////////////////////////////   
-    Serial.print(" (");
-    if (drssi > high) high = drssi;
-    if (drssi < low) low = drssi; 
-    Serial.print(low, DEC);
-    Serial.print("-");
-    Serial.print(drssi, DEC);
-    Serial.print("-");
-    Serial.print(high, DEC);  
-    Serial.println(")");
+    Serial.println();
     
     if (rf12_crc == 0) {
       activityLed(1);
