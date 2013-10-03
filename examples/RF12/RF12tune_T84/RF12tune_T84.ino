@@ -6,9 +6,6 @@
 /// 2013-09-13 <john<AT>o-hare<DOT>net> http://opensource.org/licenses/mit-license.php
 
 #include <SoftwareSerial.h>
-#define txPin 9  //PA1         AIO1 - > Connect to RX on USB BUB
-#define rxPin 10 //PA0         DIO1 - > Connect to TX on USB BUB
-// 19k200
 #include <JeeLib.h>
 #include <util/crc16.h>
 #include <avr/eeprom.h>
@@ -16,7 +13,7 @@
 #define RETRY_LIMIT 9  // maximum number of times to retry
 #define RADIO_SYNC_MODE 2
 
-char importedConfig[] = 
+const char importedConfig[] PROGMEM = 
 ///
 /// Highlight the string below and paste in the value obtained from the RF12Demo "0j" command.
    "89D1066D49206939206732303920403836382E32323530204D487A0000006893";  //   0 I i9 g209 @868.2250 MHz
@@ -69,34 +66,39 @@ unsigned int frequency;
 
 
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
-#define SERIAL_BAUD 38400
+#define SERIAL_BAUD 19200
 #else
 #define SERIAL_BAUD 57600
 #endif
 byte h, w;
 
 SoftwareSerial mySerial =  SoftwareSerial(rxPin, txPin);
-  
+#define txPin 9  //PA1         AIO1 - > Connect to RX on USB BUB
+#define rxPin 10 //PA0         DIO1 - > Connect to TX on USB BUB
+
 void setup() {
-/*  pinMode(rxPin, INPUT);
+  pinMode(rxPin, INPUT);
   pinMode(txPin, OUTPUT);
-  delay(5000);  // Startup delay to debounce disconnection
-  bitSet(DDRB, 0);  // Power up
-  bitClear(PORTB, 0); // RFM12B
-  mySerial.begin(19200);
-  // mySerial.println("\n[RF12tune.0]");
-*/  
+  
+  delay(5000);  // Startup delay to debounce power disconnection
+  mySerial.begin(SERIAL_BAUD);
+
+//  bitSet(DDRB, 0);  // Power up
+//  bitClear(PORTB, 0); // RFM12B
+
+  showString(PSTR("\n[RF12tune.0] \n\r"));
+  
   for (byte i = 0; i < (RF12_EEPROM_SIZE * 2); i+=2 ) {
-    w = ChkHex(importedConfig[i]);
+    w = ChkHex(getString (importedConfig, i));
     if (w) h = (w << 4);         // Move into high nibble
-    w = ChkHex(importedConfig[(i+1)]);
+    w = ChkHex(getString (importedConfig, i+1));
     if (w) h = h + (w & 0x0F);   // Add in low nibble
-//    showNibble(h >> 4);
-//    showNibble(h);
+    showNibble(h >> 4);
+    showNibble(h);
     eeprom_write_byte((RF12_EEPROM_ADDR) + (i / 2), h);
     ((byte*) &config)[(i/2)] = h;
   }
-// // mySerial.println(); 
+  showString(PSTR("\n\r"));
 
     frequency = (config.ee_frequency_hi << 8) + config.ee_frequency_lo;              // Loose flag nibble to get frequency high order    
 }
@@ -106,8 +108,8 @@ void loop() {
     frequency = eeprom_read_byte(RF12_EEPROM_ADDR + 2);
     frequency = ((frequency & 0x0F)  << 8) + (eeprom_read_byte(RF12_EEPROM_ADDR + 3));              // Loose flag nibble to get frequency high order
     if (rf12_config()) {
-//      // mySerial.print("Config Initialized ");
-//      // mySerial.println(frequency);
+      showString(PSTR("Config Initialized "));
+      mySerial.println(frequency);
       delay(50); 
     }
     upLow = 0xFFFF;
@@ -119,25 +121,23 @@ void loop() {
    if (good){
      if (scan > upHigh) upHigh = scan;
      if (scan < upLow) upLow = scan;
-//     // mySerial.print("\n");
-//     // mySerial.print(good);
      delay(50); 
    }
       else {
-        // mySerial.print("No Ack ");
-        // mySerial.print(scan);
-        // mySerial.print("\r");
+        showString(PSTR("No Ack "));
+        mySerial.print(scan);
+        showString(PSTR("\r"));
         delay(50); 
       }
   }
   if ((upHigh == 0) || (upLow == 0xFFFF)) return;  // If nobody answers then restart loop
-// mySerial.print("Scan up complete "); 
-// mySerial.print(upLow);
-// mySerial.print("-");
-// mySerial.println(upHigh);
-delay(100);
-  downLow = 0xFFFF; 
-  downHigh = 0;
+    showString(PSTR("Scan up complete "));
+    mySerial.print(upLow);
+    showString(PSTR("-"));
+    mySerial.println(upHigh);
+    delay(100);
+    downLow = 0xFFFF; 
+    downHigh = 0;
   for (scan = (frequency + 50); scan > (frequency - 50); --scan)
   {
    rf12_control(0xA000 + scan); 
@@ -145,30 +145,28 @@ delay(100);
    if (good){
      if (scan > downHigh) downHigh = scan;
      if (scan < downLow) downLow = scan;
-//     // mySerial.print("\n");
-//     // mySerial.print(good);
      delay(50); 
    }
       else {
-        // mySerial.print("No Ack ");
-        // mySerial.print(scan);
-        // mySerial.print("\r");
+        showString(PSTR("No Ack "));
+        mySerial.print(scan);
+        showString(PSTR("\r"));
         delay(50); 
       }
   }
   if ((downHigh == 0) || (downLow == 0xFFFF)) return;  // If nobody answers then restart loop
-// mySerial.print("Scan down complete "); 
-// mySerial.print(downLow);
-// mySerial.print("-");
-// mySerial.println(downHigh);
+  showString(PSTR("Scan down complete "));
+  mySerial.print(downLow);
+  showString(PSTR("-"));
+  mySerial.println(downHigh);
 
         
- frequency = ( ((upLow + downLow) / 2) + ((((upHigh + downHigh) / 2) - ((upLow + downLow)/ 2)) / 2)   );
- // mySerial.print("Centre frequency offset is ");
- // mySerial.println(frequency);
- delay(50);
- config.ee_frequency_hi = frequency >> 8;
- config.ee_frequency_lo = frequency & 0x00FF;
+  frequency = ( ((upLow + downLow) / 2) + ((((upHigh + downHigh) / 2) - ((upLow + downLow)/ 2)) / 2)   );
+  showString(PSTR("Centre frequency offset is "));
+  mySerial.println(frequency);
+  delay(50);
+  config.ee_frequency_hi = frequency >> 8;
+  config.ee_frequency_lo = frequency & 0x00FF;
 
   config.crc = ~0;
   for (byte i = 0; i < sizeof config - 2; ++i)
@@ -180,7 +178,7 @@ delay(100);
     eeprom_write_byte(RF12_EEPROM_ADDR + i, b);
   }
   if (!rf12_config()) {
-    // mySerial.println("config save failed");
+    showString(PSTR("config save failed"));
   }
   else {
     delay(50);
@@ -189,6 +187,20 @@ delay(100);
   while(1) // Nothing more
   { 
      delay(32767);
+  }
+}
+static byte getString (PGM_P s, byte i) {
+    char c = pgm_read_byte(s + i);
+    return c;
+}
+static void showString (PGM_P s) {
+  for (;;) {
+    char c = pgm_read_byte(s++);
+    if (c == 0)
+      break;
+    if (c == '\n')
+      mySerial.print('\r');
+    mySerial.print(c);
   }
 }
 
@@ -221,9 +233,9 @@ static byte waitForAck() {
 static char ChkHex(char c) {
   if ((c > 64) && (c < 71)) return (c + 9);    // "A" to "F"
   if ((c > 47) && (c < 58)) return c;          // "0" to "9"
-  // mySerial.print("\nError in importedConfig string '");
-  // mySerial.print(c);
-  // mySerial.println("'");
+    showString(PSTR("\nError in importedConfig string '"));
+  mySerial.print(c);
+  showString(PSTR("'\n\r"));
   return 0;
 }
 /// showNibble code below pinched from RF12Demo 2013-09-22
@@ -231,6 +243,6 @@ static void showNibble (byte nibble) {
   char c = '0' + (nibble & 0x0F);
   if (c > '9')
     c += 7;
-  // mySerial.print(c);
+  mySerial.print(c);
 }
-///    
+
