@@ -12,7 +12,7 @@
 #define RETRY_LIMIT 9  // maximum number of times to retry
 #define RADIO_SYNC_MODE 2
 
-char importedConfig[] = 
+const char importedConfig[] PROGMEM = 
 ///
 /// Highlight the string below and paste in the value obtained from the RF12Demo "0j" command.
    "89D1066D49206939206732303920403836382E32323530204D487A0000006893";  //   0 I i9 g209 @868.2250 MHz
@@ -74,19 +74,19 @@ byte h, w;
 void setup() {
   delay(5000);  // Startup delay to debounce disconnection
   Serial.begin(SERIAL_BAUD);
-  Serial.println("\n[RF12tune.0]");
+  showString(PSTR("\n[RF12tune.0] \n\r"));
   
   for (byte i = 0; i < (RF12_EEPROM_SIZE * 2); i+=2 ) {
-    w = ChkHex(importedConfig[i]);
+    w = ChkHex(getString (importedConfig, i));
     if (w) h = (w << 4);         // Move into high nibble
-    w = ChkHex(importedConfig[(i+1)]);
+    w = ChkHex(getString (importedConfig, i+1));
     if (w) h = h + (w & 0x0F);   // Add in low nibble
     showNibble(h >> 4);
     showNibble(h);
-    eeprom_write_byte((RF12_EEPROM_ADDR) + (i / 2), h);
+//    eeprom_write_byte((RF12_EEPROM_ADDR) + (i / 2), h);
     ((byte*) &config)[(i/2)] = h;
   }
- Serial.println(); 
+  showString(PSTR("\n\r"));
 
     frequency = (config.ee_frequency_hi << 8) + config.ee_frequency_lo;              // Loose flag nibble to get frequency high order    
 }
@@ -96,7 +96,8 @@ void loop() {
     frequency = eeprom_read_byte(RF12_EEPROM_ADDR + 2);
     frequency = ((frequency & 0x0F)  << 8) + (eeprom_read_byte(RF12_EEPROM_ADDR + 3));              // Loose flag nibble to get frequency high order
     if (rf12_config()) {
-      Serial.print("Config Initialized ");
+//      Serial.print("Config Initialized ");
+      showString(PSTR("Config Initialized "));
       Serial.println(frequency);
       delay(50); 
     }
@@ -109,25 +110,27 @@ void loop() {
    if (good){
      if (scan > upHigh) upHigh = scan;
      if (scan < upLow) upLow = scan;
-//     Serial.print("\n");
-//     Serial.print(good);
      delay(50); 
    }
       else {
-        Serial.print("No Ack ");
+//        Serial.print("No Ack ");
+        showString(PSTR("No Ack "));
         Serial.print(scan);
-        Serial.print("\r");
+        showString(PSTR("\r"));
+//        Serial.print("\r");
         delay(50); 
       }
   }
   if ((upHigh == 0) || (upLow == 0xFFFF)) return;  // If nobody answers then restart loop
-Serial.print("Scan up complete "); 
-Serial.print(upLow);
-Serial.print("-");
-Serial.println(upHigh);
-delay(100);
-  downLow = 0xFFFF; 
-  downHigh = 0;
+//    Serial.print("Scan up complete "); 
+    showString(PSTR("Scan up complete "));
+    Serial.print(upLow);
+//    Serial.print("-");
+    showString(PSTR("-"));
+    Serial.println(upHigh);
+    delay(100);
+    downLow = 0xFFFF; 
+    downHigh = 0;
   for (scan = (frequency + 50); scan > (frequency - 50); --scan)
   {
    rf12_control(0xA000 + scan); 
@@ -135,28 +138,31 @@ delay(100);
    if (good){
      if (scan > downHigh) downHigh = scan;
      if (scan < downLow) downLow = scan;
-//     Serial.print("\n");
-//     Serial.print(good);
      delay(50); 
    }
       else {
-        Serial.print("No Ack ");
+//        Serial.print("No Ack ");
+        showString(PSTR("No Ack "));
         Serial.print(scan);
-        Serial.print("\r");
+        showString(PSTR("\r"));
+//        Serial.print("\r");
         delay(50); 
       }
   }
   if ((downHigh == 0) || (downLow == 0xFFFF)) return;  // If nobody answers then restart loop
-Serial.print("Scan down complete "); 
-Serial.print(downLow);
-Serial.print("-");
-Serial.println(downHigh);
+  showString(PSTR("Scan down complete "));
+//  Serial.print("Scan down complete "); 
+  Serial.print(downLow);
+//  Serial.print("-");
+    showString(PSTR("-"));
+  Serial.println(downHigh);
 
         
  frequency = ( ((upLow + downLow) / 2) + ((((upHigh + downHigh) / 2) - ((upLow + downLow)/ 2)) / 2)   );
- Serial.print("Centre frequency offset is ");
- Serial.println(frequency);
- delay(50);
+// Serial.print("Centre frequency offset is ");
+  showString(PSTR("Centre frequency offset is "));
+  Serial.println(frequency);
+  delay(50);
  config.ee_frequency_hi = frequency >> 8;
  config.ee_frequency_lo = frequency & 0x00FF;
 
@@ -170,7 +176,8 @@ Serial.println(downHigh);
     eeprom_write_byte(RF12_EEPROM_ADDR + i, b);
   }
   if (!rf12_config()) {
-    Serial.println("config save failed");
+    showString(PSTR("config save failed"));
+//    Serial.println("config save failed");
   }
   else {
     delay(50);
@@ -179,6 +186,20 @@ Serial.println(downHigh);
   while(1) // Nothing more
   { 
      delay(32767);
+  }
+}
+static byte getString (PGM_P s, byte i) {
+    char c = pgm_read_byte(s + i);
+    return c;
+}
+static void showString (PGM_P s) {
+  for (;;) {
+    char c = pgm_read_byte(s++);
+    if (c == 0)
+      break;
+    if (c == '\n')
+      Serial.print('\r');
+    Serial.print(c);
   }
 }
 
@@ -211,9 +232,11 @@ static byte waitForAck() {
 static char ChkHex(char c) {
   if ((c > 64) && (c < 71)) return (c + 9);    // "A" to "F"
   if ((c > 47) && (c < 58)) return c;          // "0" to "9"
-  Serial.print("\nError in importedConfig string '");
+    showString(PSTR("\nError in importedConfig string '"));
+//  Serial.print("\nError in importedConfig string '");
   Serial.print(c);
-  Serial.println("'");
+  showString(PSTR("'\n\r"));
+//  Serial.println("'");
   return 0;
 }
 /// showNibble code below pinched from RF12Demo 2013-09-22
