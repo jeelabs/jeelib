@@ -15,9 +15,15 @@ const char NodeDescription[] PROGMEM =
    "This nodes description123";  // Maximum length 25 bytes
 ////0....5....10...5....20...5....30...5....40...5....50...5....60..
 
+/// Recommended fuse settings:
+/// lfuse reads as C2
+/// hfuse reads as D7
+/// efuse reads as FF
+
 #include <JeeLib.h>
 #include <util/crc16.h>
 #include <avr/eeprom.h>
+#include <SoftwareSerial.h>
 #define ACK_TIME   20  // number of milliseconds to wait for an ack
 #define RETRY_LIMIT 9  // maximum number of times to retry
 #define RADIO_SYNC_MODE 2
@@ -67,15 +73,26 @@ unsigned int frequency_offset;
 
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
 #define SERIAL_BAUD 19200
+#define txPin 9  //PA1         AIO1 - > Connect to RX on USB BUB
+#define rxPin 10 //PA0         DIO1 - > Connect to TX on USB BUB
+SoftwareSerial mySerial =  SoftwareSerial(rxPin, txPin);
 #else
 #define SERIAL_BAUD 57600
 #endif
 byte h, w;
 
 void setup() {
-  delay(5000);  // Startup delay to debounce disconnection
+#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
+  pinMode(rxPin, INPUT);
+  pinMode(txPin, OUTPUT);
+  mySerial.begin(SERIAL_BAUD);
+//  bitSet(DDRB, 0);    // Power up
+//  bitClear(PORTB, 0); // RFM12B
+#else
   Serial.begin(SERIAL_BAUD);
-  showString(PSTR("\n[RF12tune2.0] \n"));
+#endif
+  delay(5000);  // Startup delay to debounce disconnection
+  showString(PSTR("\n[RF12tune2.0]\n"));
   
   config.nodeId = BAND + NODE;
   config.group = GROUP;
@@ -92,9 +109,15 @@ void setup() {
 void loop() {
   unsigned int scan, upLow, upHigh, downLow, downHigh;
   showString(PSTR("Scanning started "));
+#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)  
+  mySerial.print(frequency_offset);
+  showString(PSTR("+/-"));
+  mySerial.println(SCAN_WIDTH);
+#else
   Serial.print(frequency_offset);
   showString(PSTR("+/-"));
   Serial.println(SCAN_WIDTH);
+#endif
   delay(50); 
 
     upLow = 0xFFFF;
@@ -110,17 +133,27 @@ void loop() {
    }
       else {
         showString(PSTR("No Ack "));
+#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)  
+        mySerial.print(scan);
+#else
         Serial.print(scan);
+#endif
         showString(PSTR("\r"));
         delay(50); 
       }
   }
   if ((upHigh == 0) || (upLow == 0xFFFF)) return;  // If nobody answers then restart loop
     showString(PSTR("Scan up complete "));
+#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)  
+    mySerial.print(upLow);
+    showString(PSTR("-"));
+    mySerial.println(upHigh);
+#else
     Serial.print(upLow);
     showString(PSTR("-"));
     Serial.println(upHigh);
-    delay(100);
+#endif
+    delay(50);
     downLow = 0xFFFF; 
     downHigh = 0;
   for (scan = (frequency_offset + SCAN_WIDTH); scan > (frequency_offset - SCAN_WIDTH); --scan)
@@ -133,22 +166,35 @@ void loop() {
      delay(50); 
    }
       else {
-        showString(PSTR("No Ack "));
-        Serial.print(scan);
+#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)  
+       showString(PSTR("No Ack "));
+        mySerial.print(scan);
+ #else
+        Serial.print(scan); 
+ #endif
         showString(PSTR("\r"));
         delay(50); 
       }
   }
   if ((downHigh == 0) || (downLow == 0xFFFF)) return;  // If nobody answers then restart loop
   showString(PSTR("Scan down complete "));
+#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)   
+  mySerial.print(downLow);
+  showString(PSTR("-"));
+  mySerial.println(downHigh);
+#else
   Serial.print(downLow);
   showString(PSTR("-"));
   Serial.println(downHigh);
-
+#endif
         
  frequency_offset = ( ((upLow + downLow) / 2) + ((((upHigh + downHigh) / 2) - ((upLow + downLow)/ 2)) / 2)   );
   showString(PSTR("Centre frequency offset is "));
+#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)   
+  mySerial.println(frequency_offset);
+#else
   Serial.println(frequency_offset);
+#endif
   delay(50);
   setEEProm();
   while(1) // Nothing more
@@ -166,8 +212,13 @@ static void showString (PGM_P s) {
     if (c == 0)
       break;
     if (c == '\n')
+#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)   
+      mySerial.print('\r');
+    mySerial.print(c);
+#else
       Serial.print('\r');
     Serial.print(c);
+#endif
   }
 }
 static void setEEProm()
@@ -227,6 +278,10 @@ static void showNibble (byte nibble) {
   char c = '0' + (nibble & 0x0F);
   if (c > '9')
     c += 7;
+#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)   
+  mySerial.print(c);
+#else
   Serial.print(c);
+#endif
 }
 
