@@ -1,7 +1,9 @@
 /// @dir RF12tune2
-/// This sketch loads a configuration compatible with rf12.cpp and
-/// then enters a frequency scanning mode to find the
+/// This sketch loads a configuration into eeprom compatible with rf12_config.
+/// It then enters a frequency scanning mode to find the
 /// centre of frequency offset from its partner ack'ing Jeenode.
+/// The eeprom contents are then updated such that rf12_config will pick up
+/// the centre frequency of the acknowledging node as its operational frequency.
 /// 2013-10-04 <john<AT>o-hare<DOT>net> http://opensource.org/licenses/mit-license.php
 
 #define GROUP 209              // Default value 212
@@ -10,7 +12,7 @@
 #define FREQUENCY_OFFSET 1640  // Default value 1600
 ////
 const char NodeDescription[] PROGMEM = 
-   "This nodes description123";  
+   "This nodes description123";  // Maximum length 25 bytes
 ////0....5....10...5....20...5....30...5....40...5....50...5....60..
 
 #include <JeeLib.h>
@@ -19,6 +21,7 @@ const char NodeDescription[] PROGMEM =
 #define ACK_TIME   20  // number of milliseconds to wait for an ack
 #define RETRY_LIMIT 9  // maximum number of times to retry
 #define RADIO_SYNC_MODE 2
+#define SCAN_WIDTH 50
 
 /// @details
 /// eeprom layout details
@@ -89,12 +92,14 @@ void setup() {
 void loop() {
   unsigned int scan, upLow, upHigh, downLow, downHigh;
   showString(PSTR("Scanning started "));
-  Serial.println(frequency_offset);
+  Serial.print(frequency_offset);
+  showString(PSTR("+/-"));
+  Serial.println(SCAN_WIDTH);
   delay(50); 
 
     upLow = 0xFFFF;
     upHigh = 0;
-  for (scan = (frequency_offset - 50); scan < (frequency_offset + 50); ++scan)
+  for (scan = (frequency_offset - SCAN_WIDTH); scan < (frequency_offset + SCAN_WIDTH); ++scan)
   {
    rf12_control(0xA000 + scan); 
    byte good = probe();
@@ -118,7 +123,7 @@ void loop() {
     delay(100);
     downLow = 0xFFFF; 
     downHigh = 0;
-  for (scan = (frequency_offset + 50); scan > (frequency_offset - 50); --scan)
+  for (scan = (frequency_offset + SCAN_WIDTH); scan > (frequency_offset - SCAN_WIDTH); --scan)
   {
    rf12_control(0xA000 + scan); 
    byte good = probe();
