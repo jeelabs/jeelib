@@ -5,6 +5,10 @@
 /// centre of frequency offset from its partner ack'ing Jeenode.
 /// 2013-09-13 <john<AT>o-hare<DOT>net> http://opensource.org/licenses/mit-license.php
 
+
+#define GROUP 212
+#define NODE 9
+
 #include <JeeLib.h>
 #include <util/crc16.h>
 #include <avr/eeprom.h>
@@ -61,7 +65,7 @@ typedef struct {
 } RF12Config;
 //
 static RF12Config config;
-unsigned int frequency;
+unsigned int frequency_offset;
 
 
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
@@ -88,22 +92,22 @@ void setup() {
   }
   showString(PSTR("\n\r"));
 
-    frequency = (config.ee_frequency_hi << 8) + config.ee_frequency_lo;              // Loose flag nibble to get frequency high order    
+    frequency_offset = (config.ee_frequency_hi << 8) + config.ee_frequency_lo;              // Loose flag nibble to get frequency high order    
 }
 
 void loop() {
   unsigned int scan, upLow, upHigh, downLow, downHigh;
-    frequency = eeprom_read_byte(RF12_EEPROM_ADDR + 2);
-    frequency = ((frequency & 0x0F)  << 8) + (eeprom_read_byte(RF12_EEPROM_ADDR + 3));              // Loose flag nibble to get frequency high order
+    frequency_offset = eeprom_read_byte(RF12_EEPROM_ADDR + 2);
+    frequency_offset = ((frequency_offset & 0x0F)  << 8) + (eeprom_read_byte(RF12_EEPROM_ADDR + 3));              // Loose flag nibble to get frequency high order
     if (rf12_config()) {
 //      Serial.print("Config Initialized ");
       showString(PSTR("Config Initialized "));
-      Serial.println(frequency);
+      Serial.println(frequency_offset);
       delay(50); 
     }
     upLow = 0xFFFF;
     upHigh = 0;
-  for (scan = (frequency - 50); scan < (frequency + 50); ++scan)
+  for (scan = (frequency_offset - 50); scan < (frequency_offset + 50); ++scan)
   {
    rf12_control(0xA000 + scan); 
    byte good = probe();
@@ -113,25 +117,21 @@ void loop() {
      delay(50); 
    }
       else {
-//        Serial.print("No Ack ");
         showString(PSTR("No Ack "));
         Serial.print(scan);
         showString(PSTR("\r"));
-//        Serial.print("\r");
         delay(50); 
       }
   }
   if ((upHigh == 0) || (upLow == 0xFFFF)) return;  // If nobody answers then restart loop
-//    Serial.print("Scan up complete "); 
     showString(PSTR("Scan up complete "));
     Serial.print(upLow);
-//    Serial.print("-");
     showString(PSTR("-"));
     Serial.println(upHigh);
     delay(100);
     downLow = 0xFFFF; 
     downHigh = 0;
-  for (scan = (frequency + 50); scan > (frequency - 50); --scan)
+  for (scan = (frequency_offset + 50); scan > (frequency_offset - 50); --scan)
   {
    rf12_control(0xA000 + scan); 
    byte good = probe();
@@ -141,30 +141,25 @@ void loop() {
      delay(50); 
    }
       else {
-//        Serial.print("No Ack ");
         showString(PSTR("No Ack "));
         Serial.print(scan);
         showString(PSTR("\r"));
-//        Serial.print("\r");
         delay(50); 
       }
   }
   if ((downHigh == 0) || (downLow == 0xFFFF)) return;  // If nobody answers then restart loop
   showString(PSTR("Scan down complete "));
-//  Serial.print("Scan down complete "); 
   Serial.print(downLow);
-//  Serial.print("-");
-    showString(PSTR("-"));
+  showString(PSTR("-"));
   Serial.println(downHigh);
 
         
- frequency = ( ((upLow + downLow) / 2) + ((((upHigh + downHigh) / 2) - ((upLow + downLow)/ 2)) / 2)   );
-// Serial.print("Centre frequency offset is ");
+ frequency_offset = ( ((upLow + downLow) / 2) + ((((upHigh + downHigh) / 2) - ((upLow + downLow)/ 2)) / 2)   );
   showString(PSTR("Centre frequency offset is "));
-  Serial.println(frequency);
+  Serial.println(frequency_offset);
   delay(50);
- config.ee_frequency_hi = frequency >> 8;
- config.ee_frequency_lo = frequency & 0x00FF;
+ config.ee_frequency_hi = frequency_offset >> 8;
+ config.ee_frequency_lo = frequency_offset & 0x00FF;
 
   config.crc = ~0;
   for (byte i = 0; i < sizeof config - 2; ++i)
@@ -233,10 +228,8 @@ static char ChkHex(char c) {
   if ((c > 64) && (c < 71)) return (c + 9);    // "A" to "F"
   if ((c > 47) && (c < 58)) return c;          // "0" to "9"
     showString(PSTR("\nError in importedConfig string '"));
-//  Serial.print("\nError in importedConfig string '");
   Serial.print(c);
   showString(PSTR("'\n\r"));
-//  Serial.println("'");
   return 0;
 }
 /// showNibble code below pinched from RF12Demo 2013-09-22
@@ -246,4 +239,4 @@ static void showNibble (byte nibble) {
     c += 7;
   Serial.print(c);
 }
-///    
+
