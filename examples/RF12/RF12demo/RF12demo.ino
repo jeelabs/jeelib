@@ -943,7 +943,13 @@ void loop() {
     Serial.println();
 
   if (useHex > 1) {  // Print ascii interpretation under hex output
-    Serial.print("ASCII ");
+    Serial.print("ASC");
+    if (config.group == 0) {
+      Serial.print("II  ");
+    }
+    Serial.print(" .");
+    Serial.print(char((rf12_hdr & RF12_HDR_MASK) | 0x40)); // Convert node number into a letter, A to Z to undersore (1-31)
+    
     for (byte i = 0; i < n; ++i) {
       if ((rf12_data[i] < 32) || (rf12_data[i] > 126)) 
         {
