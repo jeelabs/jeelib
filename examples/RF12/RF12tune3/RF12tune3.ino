@@ -5,14 +5,9 @@
 /// The eeprom contents are then updated such that rf12_config will pick up
 /// the centre frequency of the acknowledging node as its operational frequency.
 /// 2013-10-04 <john<AT>o-hare<DOT>net> http://opensource.org/licenses/mit-license.php
-
-#define GROUP 209              // Default value 212
-#define BAND 128               // 64 = 433Mhz, 128 = 868Mhz, 192 = 915Mhz
-#define NODE 9
-#define FREQUENCY_OFFSET 1640  // Default value 1600
 ////
 const char NodeConfiguration[] PROGMEM = 
-   "8b 209g i9 o1640 Harvington";  // Maximum length 25 bytes
+   "1640o 8b 209g 9i Harvington";
 ////0....5....10...5....20...5....30...5....40...5....50...5....60..
 
 /// Recommended fuse settings:
@@ -96,12 +91,14 @@ void setup() {
 #endif
   delay(5000);  // Startup delay to debounce disconnection
   showString(PSTR("\n[RF12tune3.0]\n"));
-  while (!enough)
+  while (!enough) {
     command = getCmd();
+Serial.print(value); 
+Serial.println(char(command));
     switch (command) {
       default:
-      for (byte i = loc;; i++ ) {
-        config.msg[i] = getString(NodeConfiguration, i);
+      for (byte i = 0; i < sizeof config.msg; i++ ) {
+        config.msg[i] = getString(NodeConfiguration, (loc + i));
         if (config.msg[i] == 0) {
          break;
         } 
@@ -123,32 +120,36 @@ void setup() {
         }
       break;
       case 'o': // Set frequency offset within band
-      if ((value > (SCAN_WIDTH + 96)) && (value < (3903 - SCAN_WIDTH))) {  // 96 - 3903 is the range of values supported by the RFM12B
+      if ((value > (96 + SCAN_WIDTH )) && (value < (3903 - SCAN_WIDTH))) {  // 96 - 3903 is the range of values supported by the RFM12B
          frequency_offset = value;
       }
     }
+    loc++;
+}
+Serial.println(config.group);
+Serial.println(config.nodeId);
+//Serial.println(config.nodeId);
+Serial.println(frequency_offset);
+delay(32767);
     /////
   setEEProm();  
 }
 
 static byte getCmd() {
+  value = 0;
   for (byte i = 0; i < 5; ++i ) {
     char c = getString(NodeConfiguration, (loc + i));
-    if ((c < 48) || (c > 57)) {  // 0 - 9
-      if (c == 32) {
-        break;
-      }
-      else {
-        byte loc = loc + i;
+    if (c != 32) {
+      if ((c < 48) || (c > 57)) {  // 0 - 9
+        loc = loc + i;        
         return c;
       }
+      else {
+       value = ((value * 10) + (c & 0x0F));
+      }  
     }
-    else {
-     value = ((value * 10) + (c & 0x0F));  
-    }  
   }
 }
-
 static byte bandToFreq (byte band) {
    return band == 4 ? RF12_433MHZ : band == 8 ? RF12_868MHZ : band == 9 ? RF12_915MHZ : 0;
 }
@@ -158,7 +159,7 @@ void loop() {
   showString(PSTR("Scanning started "));
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)  
   mySerial.print(frequency_offset);
-  showString(PSTR("+/-"));
+  showString(PSTR(" +/- "));
   mySerial.println(SCAN_WIDTH);
 #else
   Serial.print(frequency_offset);

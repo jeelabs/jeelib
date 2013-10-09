@@ -6,13 +6,14 @@
 /// the centre frequency of the acknowledging node as its operational frequency.
 /// 2013-10-04 <john<AT>o-hare<DOT>net> http://opensource.org/licenses/mit-license.php
 
-#define GROUP 209              // Default value 212
+#define GROUP 212              // Default value 212
 #define BAND 128               // 64 = 433Mhz, 128 = 868Mhz, 192 = 915Mhz
-#define NODE 9
-#define FREQUENCY_OFFSET 1640  // Default value 1600
+#define NODE 14
+#define FREQUENCY_OFFSET 1800  // Default value 1600
 ////
 const char NodeDescription[] PROGMEM = 
-   "This nodes description123";  // Maximum length 25 bytes
+     "Harvington Gas Monitor";
+//   "This nodes description123";  // Maximum length 25 bytes
 ////0....5....10...5....20...5....30...5....40...5....50...5....60..
 
 /// Recommended fuse settings:
