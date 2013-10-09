@@ -7,7 +7,7 @@
 /// 2013-10-04 <john<AT>o-hare<DOT>net> http://opensource.org/licenses/mit-license.php
 ////
 const char NodeConfiguration[] PROGMEM = 
-   "1640o 8b 209g 9i Harvington";
+   "1640o 8b 209g 9i Harvington Node";
 ////0....5....10...5....20...5....30...5....40...5....50...5....60..
 
 /// Recommended fuse settings:
@@ -75,9 +75,9 @@ SoftwareSerial mySerial =  SoftwareSerial(rxPin, txPin);
 #define SERIAL_BAUD 57600
 #endif
 
-byte h, w, command, loc = 0;
+byte h, w, command, enough = 0, loc = 0;
 unsigned int value = 0;
-boolean enough = 0;
+byte parameters = 0;
 
 void setup() {
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
@@ -89,20 +89,19 @@ void setup() {
 #else
   Serial.begin(SERIAL_BAUD);
 #endif
-  delay(5000);  // Startup delay to debounce disconnection
   showString(PSTR("\n[RF12tune3.0]\n"));
+  delay(5000);  // Startup delay to debounce disconnection
   while (!enough) {
     command = getCmd();
-Serial.print(value); 
-Serial.println(char(command));
     switch (command) {
       default:
       for (byte i = 0; i < sizeof config.msg; i++ ) {
         config.msg[i] = getString(NodeConfiguration, (loc + i));
-        if (config.msg[i] == 0) {
-         break;
-        } 
-        enough = 1;
+        if (config.msg[i] == 0) {    // End of string?
+          parameters = parameters | 0x01;
+          enough = 1;
+          break;
+        }
       }
       break;
       case 'b': // set band: 4 = 433, 8 = 868, 9 = 915
@@ -110,37 +109,59 @@ Serial.println(char(command));
       if (value) {
         config.nodeId = (value << 6) + (config.nodeId & 0x3F);
       }
+      parameters = parameters | 0x02;
       break;
       case 'g': // set network group
       config.group = value;
+      parameters = parameters | 0x04;
       break;
       case 'i': // set node id
-        if ((value > 0) & (value < 32)) {
-          config.nodeId = (config.nodeId & 0xE0) + (value & 0x1F);
-        }
+      if ((value > 0) & (value < 32)) {
+        config.nodeId = (config.nodeId & 0xE0) + (value & 0x1F);
+      }
+      parameters = parameters | 0x08;
       break;
       case 'o': // Set frequency offset within band
       if ((value > (96 + SCAN_WIDTH )) && (value < (3903 - SCAN_WIDTH))) {  // 96 - 3903 is the range of values supported by the RFM12B
          frequency_offset = value;
       }
+      parameters = parameters | 0x10;
+      break;
     }
     loc++;
-}
-Serial.println(config.group);
-Serial.println(config.nodeId);
-//Serial.println(config.nodeId);
-Serial.println(frequency_offset);
-delay(32767);
-    /////
+  }
+
+  if (parameters != 0x1F) {
+    showString(PSTR("Insufficient parameters 0x"));
+    showNibble(0x1F - parameters >> 4);
+    showNibble(0x1F - parameters);
+#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
+    mySerial.println();
+    mySerial.println(config.group);
+    mySerial.println(config.nodeId);
+    mySerial.println(frequency_offset);
+#else
+    Serial.println();
+    Serial.println(config.group);
+    Serial.println(config.nodeId);
+    Serial.println(frequency_offset);
+#endif
+    while(1) // Nothing more
+    { 
+      delay(32767);
+    }
+  }
+
   setEEProm();  
 }
 
 static byte getCmd() {
   value = 0;
-  for (byte i = 0; i < 5; ++i ) {
+  for (byte i = 0;; ++i ) {
     char c = getString(NodeConfiguration, (loc + i));
-    if (c != 32) {
-      if ((c < 48) || (c > 57)) {  // 0 - 9
+    if (c == 0) enough = 1;         // Null, premature end of string
+    if (c != 32) {                  // Space
+      if ((c < 48) || (c > 57)) {   // 0 - 9
         loc = loc + i;        
         return c;
       }
@@ -163,7 +184,7 @@ void loop() {
   mySerial.println(SCAN_WIDTH);
 #else
   Serial.print(frequency_offset);
-  showString(PSTR("+/-"));
+  showString(PSTR(" +/- "));
   Serial.println(SCAN_WIDTH);
 #endif
   delay(50); 
