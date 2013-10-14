@@ -7,7 +7,7 @@
 /// 2013-10-04 <john<AT>o-hare<DOT>net> http://opensource.org/licenses/mit-license.php
 ////
 const char NodeConfiguration[] PROGMEM = 
-   "1640o 8b 209g 9i Harvington Node";
+   "1600o 8b 212g 9i RF12Tune3";
 ////0....5....10...5....20...5....30...5....40...5....50...5....60..
 
 /// Recommended fuse settings:
@@ -66,6 +66,9 @@ unsigned int frequency_offset;
 
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
 #define SERIAL_BAUD 9600
+/// Serial support (output only) for Tiny supported by TinyDebugSerial
+/// http://www.ernstc.dk/arduino/tinycom.html
+/// Connect Tiny85 PB0 to USB-BUB RXD
 #else
 #define SERIAL_BAUD 57600
 #endif
