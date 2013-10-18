@@ -85,9 +85,9 @@ typedef struct {
 
 unsigned int frequency;
 static RF12Config config;
-char revP = 94; // Symbol ^ to indicate direction of frequency offset
 static char cmd;
-static byte value, stack[RF12_MAXDATA+4], top, sendLen, dest, sticky, revF = 0;
+static int value;
+static byte stack[RF12_MAXDATA+4], top, sendLen, dest;
 static byte testbuf[RF12_MAXDATA], testCounter, useHex;
 static byte band;
 
@@ -139,7 +139,7 @@ static void saveConfig () {
   static word bands[4] = { 0, 430, 860, 900 }; // 315, 433, 864, 915 Mhz    
   band = config.nodeId >> 6;
   long wk = frequency;                                        // 96 - 3903 is the range of values supported by the RFM12B
-  wk = wk * (band * 25);                                             // Freqency changes larger in higher bands
+  wk = wk * (band * 25);                                      // Actual freqency changes are larger in higher bands
   long characteristic = wk/10000;
   addInt(config.msg, characteristic + bands[band]);
   byte pos = strlen(config.msg);
@@ -597,8 +597,8 @@ const char helpText1[] PROGMEM =
   "Available commands:" "\n"
   "  <nn> i     - set node ID (standard node ids are 1..30)" "\n"
   "  <n> b      - set MHz band (4 = 433, 8 = 868, 9 = 915)" "\n"
-  "  <nnn> o    - Change frequency offset within the band above" "\n"
-  "               values > 99 are sticky, 255 changes direction" "\n"
+  "  <nnnn> o   - Change frequency offset within the band above" "\n"
+  "               96 - 3903 is the range supported by the RFM12B" "\n"
   "  <nnn> g    - set network group (RFM12 only allows 212, 0 = any)" "\n"
   "  <n> c      - set collect mode (advanced, normally 0)" "\n"
   "  t          - broadcast max-size test packet, request ack" "\n"
@@ -675,7 +675,7 @@ static void handleInput (char c) {
            config.nodeId = (config.nodeId & 0xE0) + (value & 0x1F);
            saveConfig();
         } else {
-           showHelp();
+           Serial.println("\rInvalid");
         }
         break;
       case 'b': // set band: 4 = 433, 8 = 868, 9 = 915
@@ -685,32 +685,29 @@ static void handleInput (char c) {
          frequency = 1600;
          saveConfig();
         } else {
-            showHelp();
+            Serial.println("\rInvalid");
         }
         break;
       case 'o': // Increment frequency within band
-          if (value == 255) { 
-            revF = !revF;
-            revP = revP ^ 40;   // Flip the indicator
-            value=0;
-          } 
-          
           Serial.print(frequency);
-          Serial.print(revP);
 ///
 /// It is important that you keep within your countries ISM spectrum management guidelines
 /// i.e. allowable frequencies and their use when selecting your operating frequencies.
 ///
-          if ((value) || (sticky)) {
-            if (!value) value = sticky;
-            if (value > 99) sticky = value; else sticky=0;     // Make values over 99 sticky
-            if (!revF) frequency = frequency + value; else frequency = frequency - value; 
-            if (frequency < 96) frequency = 3903;  // 96 - 3903 is the range of values supported by the RFM12B
-            if (frequency > 3903) frequency = 96;
-            Serial.println(frequency);
-            saveConfig();           
-          } else            
-          Serial.println();
+          if (value) {
+            if ((value > 95) && (value < 3904)) {  // 96 - 3903 is the range of values supported by the RFM12B
+              frequency = value;
+              Serial.print(">");
+              Serial.println(frequency);
+              saveConfig();
+            }
+            else {
+              Serial.println("\rInvalid");
+            }          
+          } 
+          else {
+            Serial.println();
+          }
         break;
       case 'g': // set network group
         config.group = value;
@@ -745,7 +742,8 @@ static void handleInput (char c) {
         memcpy(testbuf, stack, top);
         break;
       case 'l': // turn activity LED on or off
-        activityLed(value);
+        if (value) activityLed(1);
+        else activityLed(0);
         break;
 #if not defined(__AVR_ATtiny84__) || not defined(__AVR_ATtiny44__)
       case 'f': // send FS20 command: <hchi>,<hclo>,<addr>,<cmd>f
