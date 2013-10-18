@@ -695,7 +695,7 @@ static void handleInput (char c) {
 /// i.e. allowable frequencies and their use when selecting your operating frequencies.
 ///
           if (value) {
-            if ((value > 95) && (value < 3904)) {  // 96 - 3903 is the range of values supported by the RFM12B
+            if ((value > 95) & (value < 3904)) {  // 96 - 3903 is the range of values supported by the RFM12B
               frequency = value;
               Serial.print(">");
               Serial.println(frequency);
@@ -881,7 +881,7 @@ void setup() {
 #endif
   Serial.begin(SERIAL_BAUD);
   displayVersion(0);
-  activityLed(0);
+  activityLed(1);
 
   if (rf12_config())
     initialize();
