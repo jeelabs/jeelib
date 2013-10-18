@@ -838,6 +838,10 @@ static void handleInput (char c) {
         break;
       case 'n': // Clear eeprom
         nodesShow();
+        if ((value > 0) & (value < 31)) {
+          nodes[value] = 0xFF;
+          nodesShow();
+        }
         if (value == 123) {
           // Use to clear config eeprom then backup to clear backup eeprom
           for (byte i = 0; i < (RF12_EEPROM_SIZE); ++i)
@@ -910,8 +914,8 @@ void initialize() {
   else // Lose flag nibble to get frequency high order
     frequency = ((frequency & 0x0F)  << 8) + (eeprom_read_byte(RF12_EEPROM_ADDR + 3));
  /// Initialise node table
-  for (byte i = 1; i < 31; i++ ) { 
-    nodes[i] = eeprom_read_byte(RF12_EEPROM_ADDR + (i*32));
+  for (byte i = 1; i < 31; i++) { 
+    nodes[i] = eeprom_read_byte(RF12_EEPROM_ADDR + (i * 32));
   }
   nodesShow();
 }
@@ -952,17 +956,13 @@ void loop() {
       if (nodes[(rf12_hdr & RF12_HDR_MASK)] == 0xFF) {
         Serial.print("\nNew Node ");
         Serial.print(rf12_hdr & RF12_HDR_MASK);
-        Serial.println();
+        Serial.print("\n    ");
         nodes[(rf12_hdr & RF12_HDR_MASK)] = rf12_hdr & RF12_HDR_MASK;
         for (byte i = 0; i < 32; ++i) {
           eeprom_write_byte(RF12_EEPROM_ADDR + ((rf12_hdr & RF12_HDR_MASK)*32) + i, rf12_data[i]);
         }
       }
     }
-    
-    
-    
-    
     showByte(rf12_hdr);
     for (byte i = 0; i < n; ++i) {
       if (!useHex)
@@ -1003,14 +1003,14 @@ void loop() {
 /// Debug code
         testCounter = 0;
         if ((rf12_hdr & RF12_HDR_MASK) == 31) {          // Special Node 31?
-          for (byte i = 0; i < 31; i++) {
+          for (byte i = 1; i < 31; i++) {
             if (nodes[i] == 0xFF) {            
               testbuf[0] = i;
+              testCounter = 1;
+              Serial.print(i);
               break;
             }
           }
-          testCounter = 1;
-          Serial.print(testbuf[0]);
         }
         rf12_sendStart(RF12_ACK_REPLY, testbuf, testCounter);
         Serial.println();
