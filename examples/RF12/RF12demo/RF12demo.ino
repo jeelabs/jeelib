@@ -89,6 +89,7 @@ static char cmd;
 static int value;
 static byte stack[RF12_MAXDATA+4], top, sendLen, dest;
 static byte testbuf[RF12_MAXDATA], testCounter, useHex;
+static byte nodes[31];
 static byte band;
 
 void displayVersion(uint8_t newline );
@@ -909,6 +910,13 @@ void initialize() {
     frequency = 1600; 
   else // Lose flag nibble to get frequency high order
     frequency = ((frequency & 0x0F)  << 8) + (eeprom_read_byte(RF12_EEPROM_ADDR + 3));
+ /// Initialise node table
+  for (byte i = 1; i < 31; i++ ) { 
+    nodes[i] = eeprom_read_byte(RF12_EEPROM_ADDR + (i*32));
+    Serial.print((nodes[i] & RF12_HDR_MASK));
+    Serial.print(", ");
+  }
+  Serial.println();
 }
 void loop() {
   if (Serial.available())
@@ -932,6 +940,23 @@ void loop() {
       showByte(rf12_grp);
     }
     Serial.print(' ');
+    if ((rf12_hdr & RF12_HDR_MASK) != 31) {
+      if (nodes[(rf12_hdr & RF12_HDR_MASK)] == 0xFF) {
+        Serial.print("/nNew Node ");
+        Serial.println(rf12_hdr & RF12_HDR_MASK);
+        nodes[(rf12_hdr & RF12_HDR_MASK)] = rf12_hdr & RF12_HDR_MASK;
+        eeprom_write_byte(RF12_EEPROM_ADDR + ((rf12_hdr & RF12_HDR_MASK)*32), rf12_hdr);
+        for (byte i = 0; i < 32; ++i) {
+          eeprom_write_byte(RF12_EEPROM_ADDR + ((rf12_hdr & RF12_HDR_MASK)*32) + i, rf12_data[i]);
+          Serial.print(rf12_data[i]);
+        }
+        Serial.println();
+      }
+    }
+    
+    
+    
+    
     showByte(rf12_hdr);
     for (byte i = 0; i < n; ++i) {
       if (!useHex)
@@ -968,14 +993,21 @@ void loop() {
         df_append((const char*) rf12_data - 2, rf12_len + 2);
 #endif
       if (RF12_WANTS_ACK && (config.nodeId & COLLECT) == 0) {
-        Serial.println(" -> ack");
+        Serial.print(" -> ack ");
 /// Debug code
         testCounter = 0;
         if ((rf12_hdr & RF12_HDR_MASK) == 31) {          // Special Node 31?
-          testbuf[0] = 67; // "C"
+          for (byte i = 0; i < 31; i++) {
+            if (nodes[i] == 0xFF) {            
+              testbuf[0] = i;
+              break;
+            }
+          }
           testCounter = 1;
+          Serial.print(testbuf[0]);
         }
         rf12_sendStart(RF12_ACK_REPLY, testbuf, testCounter);
+        Serial.println();
 /// Debug code
       }
       
