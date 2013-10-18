@@ -836,8 +836,8 @@ static void handleInput (char c) {
             Serial.println("Initialize failed");
         }
         break;
-#if DEBUG
       case 'n': // Clear eeprom
+        nodesShow();
         if (value == 123) {
           // Use to clear config eeprom then backup to clear backup eeprom
           for (byte i = 0; i < (RF12_EEPROM_SIZE); ++i)
@@ -845,8 +845,7 @@ static void handleInput (char c) {
           Serial.println("Cleared");
         }
         break;
-    } // End Switch
-#endif      
+    } // End Switch     
     value = top = 0;
     memset(stack, 0, sizeof stack);
   } else if (c == '>') {
@@ -913,11 +912,20 @@ void initialize() {
  /// Initialise node table
   for (byte i = 1; i < 31; i++ ) { 
     nodes[i] = eeprom_read_byte(RF12_EEPROM_ADDR + (i*32));
-    Serial.print((nodes[i] & RF12_HDR_MASK));
-    Serial.print(", ");
+  }
+  nodesShow();
+}
+void nodesShow() {
+  Serial.println("Stored Nodes");
+  for (byte i = 1; i < 31; i++) {
+    if (nodes[i] != 0xFF) {
+      Serial.print(nodes[i] & RF12_HDR_MASK);
+      Serial.print(" ");
+    }
   }
   Serial.println();
-}
+}  
+
 void loop() {
   if (Serial.available())
     handleInput(Serial.read());
@@ -944,7 +952,7 @@ void loop() {
       if (nodes[(rf12_hdr & RF12_HDR_MASK)] == 0xFF) {
         Serial.print("\nNew Node ");
         Serial.print(rf12_hdr & RF12_HDR_MASK);
-        Serial.print(" ");
+        Serial.println();
         nodes[(rf12_hdr & RF12_HDR_MASK)] = rf12_hdr & RF12_HDR_MASK;
         for (byte i = 0; i < 32; ++i) {
           eeprom_write_byte(RF12_EEPROM_ADDR + ((rf12_hdr & RF12_HDR_MASK)*32) + i, rf12_data[i]);
