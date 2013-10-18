@@ -802,7 +802,7 @@ static void handleInput (char c) {
         break;
       case 'j':
         for (byte i = 0; i < RF12_EEPROM_SIZE; ++i) {
-            byte b = eeprom_read_byte(RF12_EEPROM_ADDR + i);
+            byte b = eeprom_read_byte(RF12_EEPROM_ADDR + ((value * 32) + i));
             showNibble(b >> 4);
             showNibble(b);
             if (value == 42) { 
@@ -942,15 +942,13 @@ void loop() {
     Serial.print(' ');
     if ((rf12_hdr & RF12_HDR_MASK) != 31) {
       if (nodes[(rf12_hdr & RF12_HDR_MASK)] == 0xFF) {
-        Serial.print("/nNew Node ");
-        Serial.println(rf12_hdr & RF12_HDR_MASK);
+        Serial.print("\nNew Node ");
+        Serial.print(rf12_hdr & RF12_HDR_MASK);
+        Serial.print(" ");
         nodes[(rf12_hdr & RF12_HDR_MASK)] = rf12_hdr & RF12_HDR_MASK;
-        eeprom_write_byte(RF12_EEPROM_ADDR + ((rf12_hdr & RF12_HDR_MASK)*32), rf12_hdr);
         for (byte i = 0; i < 32; ++i) {
           eeprom_write_byte(RF12_EEPROM_ADDR + ((rf12_hdr & RF12_HDR_MASK)*32) + i, rf12_data[i]);
-          Serial.print(rf12_data[i]);
         }
-        Serial.println();
       }
     }
     

@@ -273,13 +273,8 @@ static byte probe()
         rf12_sendStart(RF12_HDR_ACK, &config, sizeof config, RADIO_SYNC_MODE);
         byte acked = waitForAck();
         if (acked) {
-          if (rf12_len) {
+          if (rf12_len == 1) {
             newNodeId = rf12_data[0];
-            for (byte j = 0; j < rf12_len; ++j)
-            {
-              Serial.print(rf12_data[j], HEX);
-            }
-            Serial.println();
           }
           return i; // Return number of attempts to successfully transmit
         }
