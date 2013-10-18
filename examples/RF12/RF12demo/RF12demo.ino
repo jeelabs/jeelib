@@ -969,7 +969,14 @@ void loop() {
 #endif
       if (RF12_WANTS_ACK && (config.nodeId & COLLECT) == 0) {
         Serial.println(" -> ack");
-        rf12_sendStart(RF12_ACK_REPLY, 0, 0);
+/// Debug code
+        testCounter = 0;
+        if ((rf12_hdr & RF12_HDR_MASK) == 31) {          // Special Node 31?
+          testbuf[0] = 67; // "C"
+          testCounter = 1;
+        }
+        rf12_sendStart(RF12_ACK_REPLY, testbuf, testCounter);
+/// Debug code
       }
       
       activityLed(0);

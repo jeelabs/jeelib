@@ -7,7 +7,7 @@
 /// 2013-10-04 <john<AT>o-hare<DOT>net> http://opensource.org/licenses/mit-license.php
 ////
 const char NodeConfiguration[] PROGMEM = 
-   "1600o 8b 212g 9i RF12Tune3";
+   "1700o 8b 212g 31i RF12Tune3";
 ////0....5....10...5....20...5....30...5....40...5....50...5....60..
 
 /// Recommended fuse settings:
@@ -73,7 +73,7 @@ unsigned int frequency_offset;
 #define SERIAL_BAUD 57600
 #endif
 
-byte h, w, command, enough = 0, loc = 0;
+byte h, w, command, enough = 0, loc = 0, newNodeId;
 unsigned int value = 0;
 byte parameters = 0;
 
@@ -216,6 +216,8 @@ void loop() {
   showString(PSTR("Centre frequency offset is "));
   Serial.println(frequency_offset);
   delay(50);
+  if (newNodeId)
+    config.nodeId = (config.nodeId & 0xE0) + (newNodeId & 0x1F);
   setEEProm();
   while(1) // Nothing more
   { 
@@ -258,7 +260,7 @@ static void setEEProm()
     }
     else {
       delay(50);
-      byte good = probe(); // Transmit new settings
+      byte good = probe(); // Transmit settings
     }
     delay(50);    
   }
@@ -271,6 +273,14 @@ static byte probe()
         rf12_sendStart(RF12_HDR_ACK, &config, sizeof config, RADIO_SYNC_MODE);
         byte acked = waitForAck();
         if (acked) {
+          if (rf12_len) {
+            newNodeId = rf12_data[0];
+            for (byte j = 0; j < rf12_len; ++j)
+            {
+              Serial.print(rf12_data[j], HEX);
+            }
+            Serial.println();
+          }
           return i; // Return number of attempts to successfully transmit
         }
       }
@@ -284,7 +294,7 @@ static byte waitForAck() {
         if (rf12_recvDone() && rf12_crc == 0 &&
                 // see http://talk.jeelabs.net/topic/811#post-4712
                 rf12_hdr == (RF12_HDR_DST | RF12_HDR_CTL | (config.nodeId & 0x1F)))
-            return 1;
+             return 1;
     }
     return 0;
 }
