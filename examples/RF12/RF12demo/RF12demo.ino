@@ -805,11 +805,14 @@ static void handleInput (char c) {
             byte b = eeprom_read_byte(RF12_EEPROM_ADDR + ((value * 32) + i));
             showNibble(b >> 4);
             showNibble(b);
+            testbuf[i] = b;
             if (value == 42) { 
              eeprom_write_byte((RF12_EEPROM_ADDR + RF12_EEPROM_SIZE) + i, b);
             }
         }            
         Serial.println();
+        displayASCII(testbuf, RF12_EEPROM_SIZE);        
+        
         if (value == 42) Serial.println("Backed Up");
 
         if (value == 123) {
@@ -864,6 +867,21 @@ static void handleInput (char c) {
     memset(stack, 0, sizeof stack);
   } else if (' ' < c && c < 'A')
     showHelp();
+}
+
+static void displayASCII(volatile uint8_t* data, byte count) {
+    for (byte i = 0; i < count; ++i) {
+      if ((data[i] < 32) || (data[i] > 126)) 
+        {
+        Serial.print(" .");
+        }
+      else
+        {
+          Serial.print(" ");
+          Serial.print((char) data[i]);
+        }
+    }
+    Serial.println();
 }
 
 void displayVersion(uint8_t newline ) {
@@ -958,7 +976,7 @@ void loop() {
         Serial.print(rf12_hdr & RF12_HDR_MASK);
         Serial.print("\n    ");
         nodes[(rf12_hdr & RF12_HDR_MASK)] = rf12_hdr & RF12_HDR_MASK;
-        for (byte i = 0; i < 32; ++i) {
+        for (byte i = 0; i < rf12_len; ++i) {  // variable n
           eeprom_write_byte(RF12_EEPROM_ADDR + ((rf12_hdr & RF12_HDR_MASK)*32) + i, rf12_data[i]);
         }
       }
@@ -978,19 +996,7 @@ void loop() {
     }
     Serial.print(" .");
     Serial.print(char((rf12_hdr & RF12_HDR_MASK) | 0x40)); // Convert node number into a letter, A to Z to undersore (1-31)
-    
-    for (byte i = 0; i < n; ++i) {
-      if ((rf12_data[i] < 32) || (rf12_data[i] > 126)) 
-        {
-        Serial.print(" .");
-        }
-      else
-        {
-          Serial.print(" ");
-          Serial.print((char) rf12_data[i]);
-        }
-    }
-    Serial.println();
+    displayASCII(rf12_data, n);
   }    
     if (rf12_crc == 0) {
       activityLed(1);
