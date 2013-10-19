@@ -106,7 +106,7 @@ void setup() {
       parameters = parameters | 0x04;
       break;
       case 'i': // set node id
-      if ((value > 0) & (value < 32)) {
+      if ((value > 0) && (value < 32)) {
         config.nodeId = (config.nodeId & 0xE0) + (value & 0x1F);
       }
       parameters = parameters | 0x08;
@@ -216,8 +216,11 @@ void loop() {
   showString(PSTR("Centre frequency offset is "));
   Serial.println(frequency_offset);
   delay(50);
-  if (newNodeId)
+  if (newNodeId) {
     config.nodeId = (config.nodeId & 0xE0) + (newNodeId & 0x1F);
+    showString(PSTR("New Node Number: "));
+    Serial.println(newNodeId);
+  }
   setEEProm();
   while(1) // Nothing more
   { 
@@ -273,8 +276,8 @@ static byte probe()
         rf12_sendStart(RF12_HDR_ACK, &config, sizeof config, RADIO_SYNC_MODE);
         byte acked = waitForAck();
         if (acked) {
-          if (rf12_len == 1) {
-            newNodeId = rf12_data[0];
+          if ((rf12_len == 1) && ((rf12_data[0] & ~RF12_HDR_MASK) == 0xE0)) {  
+            newNodeId = rf12_data[0] & RF12_HDR_MASK;
           }
           return i; // Return number of attempts to successfully transmit
         }

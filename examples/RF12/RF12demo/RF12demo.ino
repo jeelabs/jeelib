@@ -4,6 +4,7 @@
 
 // this version adds flash memory support, 2009-11-19
 // Adding frequency features. 2013-09-05 JohnOH
+
 #include <JeeLib.h>
 #include <util/crc16.h>
 #include <avr/eeprom.h>
@@ -904,6 +905,13 @@ void setup() {
   Serial.begin(SERIAL_BAUD);
   displayVersion(0);
   activityLed(1);
+ /// Initialise node table
+  for (byte i = 1; i < 31; i++) { 
+    nodes[i] = eeprom_read_byte(RF12_EEPROM_ADDR + (i * 32));
+    if (nodes[i] != 0xFF)
+      nodes[i] = 0;   // No commands queued for node.
+  }
+  nodesShow();
 
   if (rf12_config())
     initialize();
@@ -931,17 +939,12 @@ void initialize() {
     frequency = 1600; 
   else // Lose flag nibble to get frequency high order
     frequency = ((frequency & 0x0F)  << 8) + (eeprom_read_byte(RF12_EEPROM_ADDR + 3));
- /// Initialise node table
-  for (byte i = 1; i < 31; i++) { 
-    nodes[i] = eeprom_read_byte(RF12_EEPROM_ADDR + (i * 32));
-  }
-  nodesShow();
 }
 void nodesShow() {
   Serial.println("Stored Nodes");
   for (byte i = 1; i < 31; i++) {
     if (nodes[i] != 0xFF) {
-      Serial.print(nodes[i] & RF12_HDR_MASK);
+      Serial.print(i);
       Serial.print(" ");
     }
   }
@@ -972,11 +975,14 @@ void loop() {
     Serial.print(' ');
     if ((rf12_hdr & RF12_HDR_MASK) != 31) {
       if (nodes[(rf12_hdr & RF12_HDR_MASK)] == 0xFF) {
+        byte len = 32;
         Serial.print("\nNew Node ");
         Serial.print(rf12_hdr & RF12_HDR_MASK);
         Serial.print("\n    ");
-        nodes[(rf12_hdr & RF12_HDR_MASK)] = rf12_hdr & RF12_HDR_MASK;
-        for (byte i = 0; i < rf12_len; ++i) {  // variable n
+        nodes[(rf12_hdr & RF12_HDR_MASK)] = 0;
+        if (rf12_len < 33) len = rf12_len;
+
+        for (byte i = 0; i < len; ++i) {  // variable n
           eeprom_write_byte(RF12_EEPROM_ADDR + ((rf12_hdr & RF12_HDR_MASK)*32) + i, rf12_data[i]);
         }
       }
@@ -1006,21 +1012,26 @@ void loop() {
 #endif
       if (RF12_WANTS_ACK && (config.nodeId & COLLECT) == 0) {
         Serial.print(" -> ack ");
-/// Debug code
         testCounter = 0;
         if ((rf12_hdr & RF12_HDR_MASK) == 31) {          // Special Node 31?
           for (byte i = 1; i < 31; i++) {
             if (nodes[i] == 0xFF) {            
-              testbuf[0] = i;
+              testbuf[0] = i + 0xE0;  // Change Node number request
               testCounter = 1;
-              Serial.print(i);
+              showByte(testbuf[0]);
               break;
             }
           }
         }
+        else {
+          if (nodes[rf12_hdr & RF12_HDR_MASK] != 0) {
+            testbuf[0] = nodes[rf12_hdr & RF12_HDR_MASK];
+            testCounter = 1;
+            showByte(testbuf[0]);
+          }
+        }
         rf12_sendStart(RF12_ACK_REPLY, testbuf, testCounter);
         Serial.println();
-/// Debug code
       }
       
       activityLed(0);
