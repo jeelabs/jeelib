@@ -841,7 +841,6 @@ static void handleInput (char c) {
         }
         break;
       case 'n': // Clear eeprom
-        nodesShow();
         if ((value > 0) & (value < 31)) {
           nodes[value] = 0xFF;
           nodesShow();
@@ -853,6 +852,18 @@ static void handleInput (char c) {
           Serial.println("Cleared");
         }
         break;
+      case 'p': // Post a command for a remote node, collected with next ACK
+                // Format is 20,127p where 20 is the node number and 127 is the desired value to be posted
+                // stack[0] contains the target node
+                // and value contains the command to be posted
+        if ((stack[0] > 1) && (stack[0] < 31) && (value < 255)) { // Assumed RF12Demo node is node 1
+          nodes[stack[0]] = value;
+        }
+        else
+        {
+          nodesShow();
+        }
+       break;
     } // End Switch     
     value = top = 0;
     memset(stack, 0, sizeof stack);
@@ -1029,7 +1040,8 @@ void loop() {
         }
         else {
           if (nodes[rf12_hdr & RF12_HDR_MASK] != 0) {
-            testbuf[0] = nodes[rf12_hdr & RF12_HDR_MASK];
+            testbuf[0] = nodes[rf12_hdr & RF12_HDR_MASK];  // Collect posted value
+            nodes[rf12_hdr & RF12_HDR_MASK] = 0;           // Assume it will be delivered.
             testCounter = 1;
             showByte(testbuf[0]);
           }
