@@ -852,16 +852,24 @@ static void handleInput (char c) {
           Serial.println("Cleared");
         }
         break;
-      case 'p': // Post a command for a remote node, collected with next ACK
-                // Format is 20,127p where 20 is the node number and 127 is the desired value to be posted
-                // stack[0] contains the target node
-                // and value contains the command to be posted
-        if ((stack[0] > 1) && (stack[0] < 31) && (value < 255)) { // Assumed RF12Demo node is node 1
+      case 'p':
+        // Post a command for a remote node, to be collected along with the next ACK
+        // Format is 20,127p where 20 is the node number and 127 is the desired value to be posted
+        // stack[0] contains the target node
+        // and value contains the command to be posted
+        // Assumed RF12Demo node is node 1
+        if ((stack[0] > 1) && (stack[0] < 31) && (value < 255) && (nodes[stack[0]] == 0)) {   // No posting to self(1), special(31) or overwriting pending post
           nodes[stack[0]] = value;
+          nodes[0]++;            // Count post
         }
-        else
-        {
-          nodesShow();
+        else {
+          if ((!stack[0]) && (!value)) {
+            nodesShow();
+          }
+          else
+          {
+            Serial.println("\rInvalid");
+          }
         }
        break;
     } // End Switch     
@@ -917,6 +925,7 @@ void setup() {
   displayVersion(0);
   activityLed(1);
  /// Initialise node table
+  nodes[0] = nodes[1] = 0;          // Used as post counters
   for (byte i = 1; i < 31; i++) { 
     nodes[i] = eeprom_read_byte(RF12_EEPROM_ADDR + (i * 32));
     if (nodes[i] != 0xFF)
@@ -955,7 +964,7 @@ void initialize() {
 /// the command queue is not preserved through a restart of RF12Demo
 void nodesShow() {
   Serial.println("Stored Nodes");
-  for (byte i = 1; i < 31; i++) {
+  for (byte i = 0; i < 31; i++) {
     if (nodes[i] != 0xFF) {
       Serial.print(i);
       Serial.print("(");
@@ -1040,10 +1049,12 @@ void loop() {
         }
         else {
           if (nodes[rf12_hdr & RF12_HDR_MASK] != 0) {
-            testbuf[0] = nodes[rf12_hdr & RF12_HDR_MASK];  // Collect posted value
+            testbuf[0] = nodes[rf12_hdr & RF12_HDR_MASK];  // Pick up posted value
             nodes[rf12_hdr & RF12_HDR_MASK] = 0;           // Assume it will be delivered.
             testCounter = 1;
             showByte(testbuf[0]);
+            Serial.print(" Posted");
+            nodes[1]++;                                    // Count
           }
         }
         rf12_sendStart(RF12_ACK_REPLY, testbuf, testCounter);
