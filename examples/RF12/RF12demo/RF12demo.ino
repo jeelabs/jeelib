@@ -911,7 +911,7 @@ void setup() {
     if (nodes[i] != 0xFF)
       nodes[i] = 0;   // No commands queued for node.
   }
-  nodesShow();
+//  nodesShow();
 
   if (rf12_config())
     initialize();
@@ -940,12 +940,16 @@ void initialize() {
   else // Lose flag nibble to get frequency high order
     frequency = ((frequency & 0x0F)  << 8) + (eeprom_read_byte(RF12_EEPROM_ADDR + 3));
 }
+/// Display stored nodes and show the command queued for each node
+/// the command queue is not preserved through a restart of RF12Demo
 void nodesShow() {
   Serial.println("Stored Nodes");
   for (byte i = 1; i < 31; i++) {
     if (nodes[i] != 0xFF) {
       Serial.print(i);
-      Serial.print(" ");
+      Serial.print("(");
+      Serial.print(nodes[i]);
+      Serial.print(") ");
     }
   }
   Serial.println();
