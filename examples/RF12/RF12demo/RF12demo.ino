@@ -843,8 +843,9 @@ static void handleInput (char c) {
       case 'n': // Clear node entries in RAM & eeprom
         if ((stack[0] > 1) && (stack[0] < 31) && (value == 123) && (nodes[stack[0]] == 0)) {
           nodes[stack[0]] = 0xFF;                                           // Clear RAM entry
-          for (byte i = 0; i < (RF12_EEPROM_SIZE); ++i)
-            eeprom_write_byte(RF12_EEPROM_ADDR + (stack[0]*32) + i, 0xFF);  // Clear eeprom entry
+          for (byte i = 0; i < (RF12_EEPROM_SIZE); ++i) {
+            eeprom_write_byte(RF12_EEPROM_ADDR + (stack[0]*32) + i, 0xFF);  // Clear complete eeprom entry
+          }
         }
         else {
           Serial.println("\rInvalid");
