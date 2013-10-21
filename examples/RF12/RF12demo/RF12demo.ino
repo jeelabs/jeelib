@@ -17,9 +17,10 @@
 
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
 #define SERIAL_BAUD 38400
+#define MAX_NODES 14
 #else
 #define SERIAL_BAUD 57600
-
+#define MAX_NODES 30
 // Enabling dataflash code may cause problems with non-JeeLink configurations
 #define DATAFLASH 0
 // check for presence of DataFlash memory on JeeLink
@@ -90,7 +91,7 @@ static char cmd;
 static int value;
 static byte stack[RF12_MAXDATA+4], top, sendLen, dest;
 static byte testbuf[RF12_MAXDATA], testCounter, useHex;
-static byte nodes[31];
+static byte nodes[MAX_NODES + 1];
 static byte band;
 
 void displayVersion(uint8_t newline );
@@ -673,7 +674,7 @@ static void handleInput (char c) {
         showHelp();
         break;
       case 'i': // set node id
-        if ((value > 0) & (value < 32)) {
+        if ((value > 0) && (value < 32)) {
            config.nodeId = (config.nodeId & 0xE0) + (value & 0x1F);
            saveConfig();
         } else {
@@ -697,7 +698,7 @@ static void handleInput (char c) {
 /// i.e. allowable frequencies and their use when selecting your operating frequencies.
 ///
           if (value) {
-            if ((value > 95) & (value < 3904)) {  // 96 - 3903 is the range of values supported by the RFM12B
+            if ((value > 95) && (value < 3904)) {  // 96 - 3903 is the range of values supported by the RFM12B
               frequency = value;
               Serial.print(">");
               Serial.println(frequency);
@@ -841,7 +842,7 @@ static void handleInput (char c) {
         }
         break;
       case 'n': // Clear node entries in RAM & eeprom
-        if ((stack[0] > 1) && (stack[0] < 31) && (value == 123) && (nodes[stack[0]] == 0)) {
+        if ((stack[0] > 1) && (stack[0] < MAX_NODES+1) && (value == 123) && (nodes[stack[0]] == 0)) {
           nodes[stack[0]] = 0xFF;                                           // Clear RAM entry
           for (byte i = 0; i < (RF12_EEPROM_SIZE); ++i) {
             eeprom_write_byte(RF12_EEPROM_ADDR + (stack[0]*32) + i, 0xFF);  // Clear complete eeprom entry
@@ -857,7 +858,7 @@ static void handleInput (char c) {
         // stack[0] contains the target node
         // and value contains the command to be posted
         // Assumed RF12Demo node is node 1
-        if ((stack[0] > 1) && (stack[0] < 31) && (value < 255) && (nodes[stack[0]] == 0)) {   // No posting to self(1), special(31) or overwriting pending post
+        if ((stack[0] > 1) && (stack[0] < MAX_NODES+1) && (value < 255) && (nodes[stack[0]] == 0)) {   // No posting to self(1), special(31) or overwriting pending post
           nodes[stack[0]] = value;
           nodes[0]++;            // Count post
         }
@@ -925,7 +926,7 @@ void setup() {
   activityLed(1);
  /// Initialise node table
   nodes[0] = nodes[1] = 0;          // Used as post counters
-  for (byte i = 1; i < 31; i++) { 
+  for (byte i = 1; i < MAX_NODES+1; i++) { 
     nodes[i] = eeprom_read_byte(RF12_EEPROM_ADDR + (i * 32));
     if (nodes[i] != 0xFF)
       nodes[i] = 0;   // No commands queued for node.
@@ -962,8 +963,7 @@ void initialize() {
 /// Display stored nodes and show the command queued for each node
 /// the command queue is not preserved through a restart of RF12Demo
 void nodesShow() {
-  Serial.println("Stored Nodes");
-  for (byte i = 0; i < 31; i++) {
+  for (byte i = 0; i < MAX_NODES+1; i++) {
     if (nodes[i] != 0xFF) {
       Serial.print(i);
       Serial.print("(");
@@ -983,11 +983,11 @@ void loop() {
     if (rf12_crc == 0)
       Serial.print("OK");
     else {
-      if (config.flags & ~QUIET);
+      if (config.flags && ~QUIET)
         return;
       Serial.print(" ?");
-      if (n > 16) // print at most 16 bytes if crc is wrong
-        n = 16;
+      if (n > 20) // print at most 20 bytes if crc is wrong
+        n = 20;
     }
     if (useHex)
       Serial.print('X');
@@ -996,20 +996,6 @@ void loop() {
       showByte(rf12_grp);
     }
     Serial.print(' ');
-    if ((rf12_hdr & RF12_HDR_MASK) != 31) {
-      if (nodes[(rf12_hdr & RF12_HDR_MASK)] == 0xFF) {
-        byte len = 32;
-        Serial.print("\nNew Node ");
-        Serial.print(rf12_hdr & RF12_HDR_MASK);
-        Serial.print("\n    ");
-        nodes[(rf12_hdr & RF12_HDR_MASK)] = 0;
-        if (rf12_len < 33) len = rf12_len;
-
-        for (byte i = 0; i < len; ++i) {  // variable n
-          eeprom_write_byte(RF12_EEPROM_ADDR + ((rf12_hdr & RF12_HDR_MASK)*32) + i, rf12_data[i]);
-        }
-      }
-    }
     showByte(rf12_hdr);
     for (byte i = 0; i < n; ++i) {
       if (!useHex)
@@ -1029,18 +1015,35 @@ void loop() {
   }    
     if (rf12_crc == 0) {
       activityLed(1);
+
+    if ((rf12_hdr & RF12_HDR_MASK) != 31) {
+      if (nodes[(rf12_hdr & RF12_HDR_MASK)] == 0xFF) {  // Extend mask to fix
+        byte len = 32;
+        Serial.print("New Node ");                      // Fix me, if THIS node and code (non node 1) receives an ACK targetted at itself a new node is created
+        Serial.println(rf12_hdr & RF12_HDR_MASK);
+        nodes[(rf12_hdr & RF12_HDR_MASK)] = 0;
+        if (rf12_len < 33) 
+          len = rf12_len;
+
+        for (byte i = 0; i < len; ++i) {  // variable n
+          eeprom_write_byte(RF12_EEPROM_ADDR + ((rf12_hdr & RF12_HDR_MASK)*32) + i, rf12_data[i]);
+        }
+      }
+    }
+
 #if not defined(__AVR_ATtiny84__) || not defined(__AVR_ATtiny44__)    
       if (df_present())
         df_append((const char*) rf12_data - 2, rf12_len + 2);
 #endif
       if (RF12_WANTS_ACK && (config.nodeId & COLLECT) == 0) {
-        Serial.print(" -> ack ");
+        Serial.print(" -> ack");
         testCounter = 0;
         if ((rf12_hdr & RF12_HDR_MASK) == 31) {          // Special Node 31?
           for (byte i = 1; i < 31; i++) {
             if (nodes[i] == 0xFF) {            
-              testbuf[0] = i + 0xE0;  // Change Node number request
+              testbuf[0] = i + 0xE0;  // Change Node number request matched in RF12Tune3
               testCounter = 1;
+              Serial.print("Node allocation ");
               showByte(testbuf[0]);
               break;
             }
@@ -1048,11 +1051,13 @@ void loop() {
         }
         else {
           if (nodes[rf12_hdr & RF12_HDR_MASK] != 0) {
-            testbuf[0] = nodes[rf12_hdr & RF12_HDR_MASK];  // Pick up posted value
-            nodes[rf12_hdr & RF12_HDR_MASK] = 0;           // Assume it will be delivered.
+            testbuf[0] = nodes[rf12_hdr & RF12_HDR_MASK];   // Pick up posted value
+            nodes[(rf12_hdr & RF12_HDR_MASK)] = 0;           // Assume it will be delivered.
             testCounter = 1;
+            Serial.print("Posted ");
+            showByte(rf12_hdr & RF12_HDR_MASK);
+            Serial.print(",");
             showByte(testbuf[0]);
-            Serial.print(" Posted");
             nodes[1]++;                                    // Count
           }
         }
