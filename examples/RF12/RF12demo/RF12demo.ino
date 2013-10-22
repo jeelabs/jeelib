@@ -1015,28 +1015,12 @@ void loop() {
   }    
     if (rf12_crc == 0) {
       activityLed(1);
-
-    if ((rf12_hdr & RF12_HDR_MASK) != 31) {
-      if (nodes[(rf12_hdr & RF12_HDR_MASK)] == 0xFF) {  // Extend mask to fix
-        byte len = 32;
-        Serial.print("New Node ");                      // Fix me, if THIS node and code (non node 1) receives an ACK targetted at itself a new node is created
-        Serial.println(rf12_hdr & RF12_HDR_MASK);
-        nodes[(rf12_hdr & RF12_HDR_MASK)] = 0;
-        if (rf12_len < 33) 
-          len = rf12_len;
-
-        for (byte i = 0; i < len; ++i) {  // variable n
-          eeprom_write_byte(RF12_EEPROM_ADDR + ((rf12_hdr & RF12_HDR_MASK)*32) + i, rf12_data[i]);
-        }
-      }
-    }
-
 #if not defined(__AVR_ATtiny84__) || not defined(__AVR_ATtiny44__)    
       if (df_present())
         df_append((const char*) rf12_data - 2, rf12_len + 2);
 #endif
       if (RF12_WANTS_ACK && (config.nodeId & COLLECT) == 0) {
-        Serial.print(" -> ack");
+        Serial.println(" -> ack");
         testCounter = 0;
         if ((rf12_hdr & RF12_HDR_MASK) == 31) {          // Special Node 31?
           for (byte i = 1; i < 31; i++) {
@@ -1050,7 +1034,7 @@ void loop() {
           }
         }
         else {
-          if (nodes[rf12_hdr & RF12_HDR_MASK] != 0) {
+          if ((nodes[(rf12_hdr & RF12_HDR_MASK)] != 0) && (nodes[(rf12_hdr & RF12_HDR_MASK)] != 0xFF)) {
             testbuf[0] = nodes[rf12_hdr & RF12_HDR_MASK];   // Pick up posted value
             nodes[(rf12_hdr & RF12_HDR_MASK)] = 0;           // Assume it will be delivered.
             testCounter = 1;
@@ -1059,12 +1043,26 @@ void loop() {
             Serial.print(",");
             showByte(testbuf[0]);
             nodes[1]++;                                    // Count
+            Serial.println();
           }
         }
         rf12_sendStart(RF12_ACK_REPLY, testbuf, testCounter);
-        Serial.println();
       }
-      
+
+    if ((rf12_hdr & RF12_HDR_MASK) != 31) {
+      if (nodes[(rf12_hdr & RF12_HDR_MASK)] == 0xFF) {
+        byte len = 32;
+        Serial.print("New Node ");                      // Fix me, if THIS node and code (non node 1) receives an ACK targetted at itself a new node is created
+        Serial.println(rf12_hdr & RF12_HDR_MASK);
+        nodes[(rf12_hdr & RF12_HDR_MASK)] = 0;
+        if (rf12_len < 33) 
+          len = rf12_len;
+
+        for (byte i = 0; i < len; ++i) {  // variable n
+          eeprom_write_byte(RF12_EEPROM_ADDR + ((rf12_hdr & RF12_HDR_MASK)*32) + i, rf12_data[i]);
+        }
+      }
+    }      
       activityLed(0);
     }
   }
