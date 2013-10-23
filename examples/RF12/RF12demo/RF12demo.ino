@@ -1022,10 +1022,10 @@ void loop() {
       if (RF12_WANTS_ACK && (config.nodeId & COLLECT) == 0) {
         Serial.println(" -> ack");
         testCounter = 0;
-        if ((rf12_hdr & RF12_HDR_MASK) == 31) {          // Special Node 31?
+        if ((rf12_hdr & (RF12_HDR_MASK + RF12_HDR_DST)) == 31) {          // Special Node 31 source ?
           for (byte i = 1; i < 31; i++) {
             if (nodes[i] == 0xFF) {            
-              testbuf[0] = i + 0xE0;  // Change Node number request matched in RF12Tune3
+              testbuf[0] = i + 0xE0;                                      // Change Node number request matched in RF12Tune3
               testCounter = 1;
               Serial.print("Node allocation ");
               showByte(testbuf[0]);
@@ -1034,8 +1034,8 @@ void loop() {
           }
         }
         else {
-          if ((nodes[(rf12_hdr & RF12_HDR_MASK)] != 0) && (nodes[(rf12_hdr & RF12_HDR_MASK)] != 0xFF)) {
-            testbuf[0] = nodes[rf12_hdr & RF12_HDR_MASK];   // Pick up posted value
+          if (!(rf12_hdr & RF12_HDR_DST) && (nodes[(rf12_hdr & RF12_HDR_MASK)] != 0) && (nodes[(rf12_hdr & RF12_HDR_MASK)] != 0xFF)) {  // Sources Nodes only!
+            testbuf[0] = nodes[rf12_hdr & RF12_HDR_MASK];    // Pick up posted value
             nodes[(rf12_hdr & RF12_HDR_MASK)] = 0;           // Assume it will be delivered.
             testCounter = 1;
             Serial.print("Posted ");
@@ -1048,11 +1048,13 @@ void loop() {
         }
         rf12_sendStart(RF12_ACK_REPLY, testbuf, testCounter);
       }
-
-    if ((rf12_hdr & RF12_HDR_MASK) != 31) {
+///////////////// This code can't come after the sendStart above since the buffer is no longer present /////////////////
+///////////////// How to write to eeprom without delaying sending the ACK?                             /////////////////
+Serial.println(rf12_hdr, HEX);
+    if ((rf12_hdr & (RF12_HDR_MASK | RF12_HDR_DST)) < 31) { // Source node packets only
       if (nodes[(rf12_hdr & RF12_HDR_MASK)] == 0xFF) {
         byte len = 32;
-        Serial.print("New Node ");                      // Fix me, if THIS node and code (non node 1) receives an ACK targetted at itself a new node is created
+        Serial.print("New Node "); 
         Serial.println(rf12_hdr & RF12_HDR_MASK);
         nodes[(rf12_hdr & RF12_HDR_MASK)] = 0;
         if (rf12_len < 33) 
