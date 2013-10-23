@@ -1020,9 +1020,8 @@ void loop() {
         df_append((const char*) rf12_data - 2, rf12_len + 2);
 #endif
       if (RF12_WANTS_ACK && (config.nodeId & COLLECT) == 0) {
-        Serial.println(" -> ack");
         testCounter = 0;
-        if ((rf12_hdr & (RF12_HDR_MASK + RF12_HDR_DST)) == 31) {          // Special Node 31 source ?
+        if ((rf12_hdr & (RF12_HDR_MASK | RF12_HDR_DST)) == 31) {          // Special Node 31 source ?
           for (byte i = 1; i < 31; i++) {
             if (nodes[i] == 0xFF) {            
               testbuf[0] = i + 0xE0;                                      // Change Node number request matched in RF12Tune3
@@ -1046,25 +1045,26 @@ void loop() {
             Serial.println();
           }
         }
+
+        if ((rf12_hdr & (RF12_HDR_MASK | RF12_HDR_DST)) < 31) { // Source node packets only
+          if (nodes[(rf12_hdr & RF12_HDR_MASK)] == 0xFF) {
+            byte len = 32;
+            Serial.print("New Node "); 
+            Serial.println(rf12_hdr & RF12_HDR_MASK);
+            nodes[(rf12_hdr & RF12_HDR_MASK)] = 0;
+            if (rf12_len < 33) 
+              len = rf12_len;
+
+              for (byte i = 0; i < len; ++i) {  // variable n
+///////////////////////////////////////////////  Problem when the line below is not commented out   //////////////////
+              eeprom_write_byte(RF12_EEPROM_ADDR + ((rf12_hdr & RF12_HDR_MASK)*32) + i, rf12_data[i]);
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////              
+            }
+          }
+        }      
+        Serial.println(" -> ack");
         rf12_sendStart(RF12_ACK_REPLY, testbuf, testCounter);
       }
-///////////////// This code can't come after the sendStart above since the buffer is no longer present /////////////////
-///////////////// How to write to eeprom without delaying sending the ACK?                             /////////////////
-Serial.println(rf12_hdr, HEX);
-    if ((rf12_hdr & (RF12_HDR_MASK | RF12_HDR_DST)) < 31) { // Source node packets only
-      if (nodes[(rf12_hdr & RF12_HDR_MASK)] == 0xFF) {
-        byte len = 32;
-        Serial.print("New Node "); 
-        Serial.println(rf12_hdr & RF12_HDR_MASK);
-        nodes[(rf12_hdr & RF12_HDR_MASK)] = 0;
-        if (rf12_len < 33) 
-          len = rf12_len;
-
-        for (byte i = 0; i < len; ++i) {  // variable n
-          eeprom_write_byte(RF12_EEPROM_ADDR + ((rf12_hdr & RF12_HDR_MASK)*32) + i, rf12_data[i]);
-        }
-      }
-    }      
       activityLed(0);
     }
   }
