@@ -1046,6 +1046,23 @@ void loop() {
       if (df_present())
         df_append((const char*) rf12_data - 2, rf12_len + 2);
 #endif
+
+        if (((rf12_hdr & (RF12_HDR_MASK | RF12_HDR_DST)) < 31) &&    // Source node packets only
+           (nodes[(rf12_hdr & RF12_HDR_MASK)] == 0xFF)) {
+            byte len = 32;
+            if (rf12_data[0] == 0xFF)                                // New nodes cannot be learned if packet begins 0xFF
+              rf12_data[0] = 0xFE;                                   // so lets drop the low order bit in byte 0
+            Serial.print("New Node "); 
+            showByte(rf12_hdr & RF12_HDR_MASK);
+            Serial.println();
+            nodes[(rf12_hdr & RF12_HDR_MASK)] = 0;
+            if (rf12_len < 32) 
+              len = rf12_len;
+              for (byte i = 0; i < len; ++i) {  // variable n
+              eeprom_write_byte(RF12_EEPROM_ADDR + (((rf12_hdr & RF12_HDR_MASK) * 32) + i), rf12_data[i]);
+            }
+        }      
+
       if (RF12_WANTS_ACK && (config.nodeId & COLLECT) == 0) {
         Serial.println(" -> ack");
         testCounter = 0;
@@ -1076,21 +1093,6 @@ void loop() {
           }
         }
 
-        if (((rf12_hdr & (RF12_HDR_MASK | RF12_HDR_DST)) < 31) &&    // Source node packets only
-           (nodes[(rf12_hdr & RF12_HDR_MASK)] == 0xFF)) {
-            byte len = 32;
-            if (rf12_data[0] == 0xFF)                                // New nodes cannot be learned if packet begins 0xFF
-              rf12_data[0] = 0xFE;                                   // so lets drop the low order bit in byte 0
-            Serial.print("New Node "); 
-            showByte(rf12_hdr & RF12_HDR_MASK);
-            Serial.println();
-            nodes[(rf12_hdr & RF12_HDR_MASK)] = 0;
-            if (rf12_len < 32) 
-              len = rf12_len;
-              for (byte i = 0; i < len; ++i) {  // variable n
-              eeprom_write_byte(RF12_EEPROM_ADDR + (((rf12_hdr & RF12_HDR_MASK) * 32) + i), rf12_data[i]);
-            }
-        }      
         rf12_sendStart(RF12_ACK_REPLY, testbuf, testCounter);
       }
       activityLed(0);
