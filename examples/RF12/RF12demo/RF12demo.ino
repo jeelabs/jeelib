@@ -4,6 +4,7 @@
 
 // this version adds flash memory support, 2009-11-19
 // Adding frequency features. 2013-09-05 JohnOH
+// Added postbox semaphore feature 2013-10-24 JohnOH
 
 #include <JeeLib.h>
 #include <util/crc16.h>
@@ -92,7 +93,7 @@ static int value;
 static byte stack[RF12_MAXDATA+4], top, sendLen, dest;
 static byte testbuf[RF12_MAXDATA], testCounter, useHex;
 static byte nodes[MAX_NODES + 1];
-static byte band;
+static byte band,postingsIn = 0, postingsOut = 0;
 
 void displayVersion(uint8_t newline );
 
@@ -600,16 +601,20 @@ const char helpText1[] PROGMEM =
   "Available commands:" "\n"
   "  <nn> i     - set node ID (standard node ids are 1..30)" "\n"
   "  <n> b      - set MHz band (4 = 433, 8 = 868, 9 = 915)" "\n"
-  "  <nnnn> o   - Change frequency offset within the band above" "\n"
+  "  <nnnn> o   - change frequency offset within the band above" "\n"
   "               96 - 3903 is the range supported by the RFM12B" "\n"
   "  <nnn> g    - set network group (RFM12 only allows 212, 0 = any)" "\n"
   "  <n> c      - set collect mode (advanced, normally 0)" "\n"
   "  t          - broadcast max-size test packet, request ack" "\n"
   "  ...,<nn> a - send data packet to node <nn>, request ack" "\n"
   "  ...,<nn> s - send data packet to node <nn>, no ack" "\n"
+  "  <n>,<c> j  - eeprom tools for node <n>, c = 42 backup RF12Demo config" "\n"
+  "               restore with c = 123. Display otherwise" "\n"
+  "  <n>,123 n  - remove node <n> entry from eeprom" "\n"
   "  <n> l      - turn activity LED on PB1 on or off" "\n"
+  "  <n>,<d> p  - post semaphore <d> for node <n> to see with its next ack" "\n"
   "  <n> q      - set quiet mode (1 = don't report bad packets)" "\n"
-  "  <n> x      - set reporting format (0 = decimal, 1 = hex)" "\n"
+  "  <n> x      - set reporting format (0 = decimal, 1 = hex, 2 = hex & ascii)" "\n"
   "  123 z      - total power down, needs a reset to start up again" "\n"
   "Remote control commands:" "\n"
   "  <hchi>,<hclo>,<addr>,<cmd> f     - FS20 command (868 MHz)" "\n"
@@ -675,9 +680,11 @@ static void handleInput (char c) {
         break;
       case 'i': // set node id
         if ((value > 0) && (value < 32)) {
-           config.nodeId = (config.nodeId & 0xE0) + (value & 0x1F);
-           saveConfig();
-        } else {
+          nodes[value] = 0;                                      // Prevent allocation of this node number
+          config.nodeId = (config.nodeId & 0xE0) + (value & 0x1F);
+          saveConfig();
+        }
+        else {
            Serial.println("\rInvalid");
         }
         break;
@@ -713,8 +720,13 @@ static void handleInput (char c) {
           }
         break;
       case 'g': // set network group
-        config.group = value;
-        saveConfig();
+        if (value <= 255) {
+          config.group = value;
+          saveConfig();
+        }
+        else {
+          Serial.println("\rInvalid");
+        }
         break;
       case 'c': // set collect mode (off = 0, on = 1)
         if (value)
@@ -803,22 +815,30 @@ static void handleInput (char c) {
         displayVersion(1);
         break;
       case 'j':
-        for (byte i = 0; i < RF12_EEPROM_SIZE; ++i) {
-            byte b = eeprom_read_byte(RF12_EEPROM_ADDR + ((value * 32) + i));
+        if (stack[0] < MAX_NODES + 1) {
+          const uint8_t *ee_entry = RF12_EEPROM_ADDR + (stack[0] * 32);
+          for (byte i = 0; i < RF12_EEPROM_SIZE; ++i) {
+            byte b = eeprom_read_byte(ee_entry + i);  // http://forum.arduino.cc/index.php?topic=122140.0
             showNibble(b >> 4);
-            showNibble(b);
+            showNibble(b); 
             testbuf[i] = b;
-            if (value == 42) { 
-             eeprom_write_byte((RF12_EEPROM_ADDR + RF12_EEPROM_SIZE) + i, b);
+            if ((value == 42) && (stack[0] == 0)) { 
+             eeprom_write_byte(RF12_EEPROM_ADDR + (((config.nodeId & RF12_HDR_MASK)*32) + i), b);
             }
-        }            
-        Serial.println();
-        displayASCII(testbuf, RF12_EEPROM_SIZE);        
-        
-        if (value == 42) Serial.println("Backed Up");
-
-        if (value == 123) {
-          const uint8_t *ee_shadow = RF12_EEPROM_ADDR + RF12_EEPROM_SIZE;
+          }
+          Serial.println();
+          displayASCII(testbuf, RF12_EEPROM_SIZE);           
+        } 
+        else {  
+          Serial.println("\rInvalid");
+        }          
+        if (!value) break;       
+        if (value == 42) {
+          Serial.println("Backed Up");
+          break;
+        }
+        if ((value == 123) && (stack[0] == (config.nodeId & RF12_HDR_MASK))) {   // Only restore this NodeId
+          const uint8_t *ee_shadow = RF12_EEPROM_ADDR + ((config.nodeId & RF12_HDR_MASK)*32);
           // Check CRC to be restored
           word crc = ~0;
           for (byte i = 0; i < RF12_EEPROM_SIZE; ++i)
@@ -840,9 +860,12 @@ static void handleInput (char c) {
           else
             Serial.println("Initialize failed");
         }
-        break;
+        else {
+          Serial.println("\rInvalid");
+        }
+      break;
       case 'n': // Clear node entries in RAM & eeprom
-        if ((stack[0] > 1) && (stack[0] < MAX_NODES+1) && (value == 123) && (nodes[stack[0]] == 0)) {
+        if ((stack[0] > 0) && (stack[0] < MAX_NODES+1) && (value == 123) && (nodes[stack[0]] == 0)) {
           nodes[stack[0]] = 0xFF;                                           // Clear RAM entry
           for (byte i = 0; i < (RF12_EEPROM_SIZE); ++i) {
             eeprom_write_byte(RF12_EEPROM_ADDR + (stack[0]*32) + i, 0xFF);  // Clear complete eeprom entry
@@ -860,10 +883,13 @@ static void handleInput (char c) {
         // Assumed RF12Demo node is node 1
         if ((stack[0] > 1) && (stack[0] < MAX_NODES+1) && (value < 255) && (nodes[stack[0]] == 0)) {   // No posting to self(1), special(31) or overwriting pending post
           nodes[stack[0]] = value;
-          nodes[0]++;            // Count post
+          postingsIn++;            // Count post
         }
         else {
           if ((!stack[0]) && (!value)) {
+            Serial.print(postingsIn);
+            Serial.print(",");
+            Serial.println(postingsOut);
             nodesShow();
           }
           else
@@ -925,11 +951,10 @@ void setup() {
   displayVersion(0);
   activityLed(1);
  /// Initialise node table
-  nodes[0] = nodes[1] = 0;          // Used as post counters
   for (byte i = 1; i < MAX_NODES+1; i++) { 
-    nodes[i] = eeprom_read_byte(RF12_EEPROM_ADDR + (i * 32));
+    nodes[i] = eeprom_read_byte(RF12_EEPROM_ADDR + (i * 32)); // http://forum.arduino.cc/index.php/topic,140376.msg1054626.html
     if (nodes[i] != 0xFF)
-      nodes[i] = 0;   // No commands queued for node.
+      nodes[i] = 0;   // No post waiting for node.
   }
 //  nodesShow();
 
@@ -940,6 +965,7 @@ void setup() {
     config.group = 0xD4;  // default group 212
     frequency = 1600;
     config.flags = 0xC;   // Default flags, quiet off and non V10
+    nodes[(config.nodeId & RF12_HDR_MASK)] = 0;  // Prevent allocation of this nodes number.
 //  saveConfig();         // Don't save to eeprom until we have changes.
   }
 
@@ -959,12 +985,13 @@ void initialize() {
     frequency = 1600; 
   else // Lose flag nibble to get frequency high order
     frequency = ((frequency & 0x0F)  << 8) + (eeprom_read_byte(RF12_EEPROM_ADDR + 3));
+  nodes[(config.nodeId & RF12_HDR_MASK)] = 0;  // Prevent allocation of this nodes number.
 }
 /// Display stored nodes and show the command queued for each node
 /// the command queue is not preserved through a restart of RF12Demo
 void nodesShow() {
-  for (byte i = 0; i < MAX_NODES+1; i++) {
-    if (nodes[i] != 0xFF) {
+  for (byte i = 1; i < MAX_NODES + 1; i++) {
+    if (nodes[i] != 0xFF) {                   // Entry 0 is unused at present
       Serial.print(i);
       Serial.print("(");
       Serial.print(nodes[i]);
@@ -1020,6 +1047,7 @@ void loop() {
         df_append((const char*) rf12_data - 2, rf12_len + 2);
 #endif
       if (RF12_WANTS_ACK && (config.nodeId & COLLECT) == 0) {
+        Serial.println(" -> ack");
         testCounter = 0;
         if ((rf12_hdr & (RF12_HDR_MASK | RF12_HDR_DST)) == 31) {          // Special Node 31 source ?
           for (byte i = 1; i < 31; i++) {
@@ -1027,42 +1055,42 @@ void loop() {
               testbuf[0] = i + 0xE0;                                      // Change Node number request matched in RF12Tune3
               testCounter = 1;
               Serial.print("Node allocation ");
-              showByte(testbuf[0]);
+              showByte(i);
+              Serial.println();
               break;
             }
           }
         }
         else {
-          if (!(rf12_hdr & RF12_HDR_DST) && (nodes[(rf12_hdr & RF12_HDR_MASK)] != 0) && (nodes[(rf12_hdr & RF12_HDR_MASK)] != 0xFF)) {  // Sources Nodes only!
-            testbuf[0] = nodes[rf12_hdr & RF12_HDR_MASK];    // Pick up posted value
-            nodes[(rf12_hdr & RF12_HDR_MASK)] = 0;           // Assume it will be delivered.
+          if (!(rf12_hdr & RF12_HDR_DST) && (nodes[(rf12_hdr & RF12_HDR_MASK)] != 0) && 
+               (nodes[(rf12_hdr & RF12_HDR_MASK)] != 0xFF)) {          // Sources Nodes only!
+            testbuf[0] = nodes[rf12_hdr & RF12_HDR_MASK];              // Pick up posted value
+            nodes[(rf12_hdr & RF12_HDR_MASK)] = 0;                     // Assume it will be delivered.
             testCounter = 1;
             Serial.print("Posted ");
             showByte(rf12_hdr & RF12_HDR_MASK);
             Serial.print(",");
             showByte(testbuf[0]);
-            nodes[1]++;                                    // Count
+            postingsOut++;          // Count as delivered
             Serial.println();
           }
         }
 
-        if ((rf12_hdr & (RF12_HDR_MASK | RF12_HDR_DST)) < 31) { // Source node packets only
-          if (nodes[(rf12_hdr & RF12_HDR_MASK)] == 0xFF) {
+        if (((rf12_hdr & (RF12_HDR_MASK | RF12_HDR_DST)) < 31) &&    // Source node packets only
+           (nodes[(rf12_hdr & RF12_HDR_MASK)] == 0xFF)) {
             byte len = 32;
+            if (rf12_data[0] == 0xFF)                                // New nodes cannot be learned if packet begins 0xFF
+              rf12_data[0] = 0xFE;                                   // so lets drop the low order bit in byte 0
             Serial.print("New Node "); 
-            Serial.println(rf12_hdr & RF12_HDR_MASK);
+            showByte(rf12_hdr & RF12_HDR_MASK);
+            Serial.println();
             nodes[(rf12_hdr & RF12_HDR_MASK)] = 0;
-            if (rf12_len < 33) 
+            if (rf12_len < 32) 
               len = rf12_len;
-
               for (byte i = 0; i < len; ++i) {  // variable n
-///////////////////////////////////////////////  Problem when the line below is not commented out   //////////////////
-              eeprom_write_byte(RF12_EEPROM_ADDR + ((rf12_hdr & RF12_HDR_MASK)*32) + i, rf12_data[i]);
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////              
+              eeprom_write_byte(RF12_EEPROM_ADDR + (((rf12_hdr & RF12_HDR_MASK) * 32) + i), rf12_data[i]);
             }
-          }
         }      
-        Serial.println(" -> ack");
         rf12_sendStart(RF12_ACK_REPLY, testbuf, testCounter);
       }
       activityLed(0);
