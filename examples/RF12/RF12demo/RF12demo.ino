@@ -17,6 +17,10 @@
 // ATtiny's only support outbound serial @ 38400 baud, and no DataFlash logging
 
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
+/// Serial support (output only) for Tiny supported by TinyDebugSerial
+/// http://www.ernstc.dk/arduino/tinycom.html
+/// 9600, 38400, or 115200
+/// Connect Tiny85 PB0 to USB-BUB RXD
 #define SERIAL_BAUD 38400
 #define MAX_NODES 14
 #else
@@ -27,7 +31,7 @@
 // check for presence of DataFlash memory on JeeLink
 #define FLASH_MBIT  16  // support for various dataflash sizes: 4/8/16 Mbit
 
-#define LED_PIN   9 // activity LED, comment out to disable
+#define LED_PIN   9     // activity LED, comment out to disable
 
 #endif
 
@@ -815,7 +819,7 @@ static void handleInput (char c) {
         displayVersion(1);
         break;
       case 'j':
-        if (stack[0] < MAX_NODES + 1) {
+        if (stack[0] <= MAX_NODES) {
           const uint8_t *ee_entry = RF12_EEPROM_ADDR + (stack[0] * 32);
           for (byte i = 0; i < RF12_EEPROM_SIZE; ++i) {
             byte b = eeprom_read_byte(ee_entry + i);  // http://forum.arduino.cc/index.php?topic=122140.0
@@ -865,7 +869,7 @@ static void handleInput (char c) {
         }
       break;
       case 'n': // Clear node entries in RAM & eeprom
-        if ((stack[0] > 0) && (stack[0] < MAX_NODES+1) && (value == 123) && (nodes[stack[0]] == 0)) {
+        if ((stack[0] > 0) && (stack[0] <= MAX_NODES) && (value == 123) && (nodes[stack[0]] == 0)) {
           nodes[stack[0]] = 0xFF;                                           // Clear RAM entry
           for (byte i = 0; i < (RF12_EEPROM_SIZE); ++i) {
             eeprom_write_byte(RF12_EEPROM_ADDR + (stack[0]*32) + i, 0xFF);  // Clear complete eeprom entry
@@ -881,7 +885,7 @@ static void handleInput (char c) {
         // stack[0] contains the target node
         // and value contains the command to be posted
         // Assumed RF12Demo node is node 1
-        if ((stack[0] > 1) && (stack[0] < MAX_NODES+1) && (value < 255) && (nodes[stack[0]] == 0)) {   // No posting to self(1), special(31) or overwriting pending post
+        if ((stack[0] > 1) && (stack[0] <= MAX_NODES) && (value < 255) && (nodes[stack[0]] == 0)) {   // No posting to self(1), special(31) or overwriting pending post
           nodes[stack[0]] = value;
           postingsIn++;            // Count post
         }
@@ -951,7 +955,7 @@ void setup() {
   displayVersion(0);
   activityLed(1);
  /// Initialise node table
-  for (byte i = 1; i < MAX_NODES+1; i++) { 
+  for (byte i = 1; i <= MAX_NODES; i++) { 
     nodes[i] = eeprom_read_byte(RF12_EEPROM_ADDR + (i * 32)); // http://forum.arduino.cc/index.php/topic,140376.msg1054626.html
     if (nodes[i] != 0xFF)
       nodes[i] = 0;   // No post waiting for node.
@@ -990,7 +994,7 @@ void initialize() {
 /// Display stored nodes and show the command queued for each node
 /// the command queue is not preserved through a restart of RF12Demo
 void nodesShow() {
-  for (byte i = 1; i < MAX_NODES + 1; i++) {
+  for (byte i = 1; i <= MAX_NODES; i++) {
     if (nodes[i] != 0xFF) {                   // Entry 0 is unused at present
       Serial.print(i);
       Serial.print("(");
@@ -1047,7 +1051,7 @@ void loop() {
         df_append((const char*) rf12_data - 2, rf12_len + 2);
 #endif
 
-        if (((rf12_hdr & (RF12_HDR_MASK | RF12_HDR_DST)) < 31) &&    // Source node packets only
+        if (((rf12_hdr & (RF12_HDR_MASK | RF12_HDR_DST)) <= MAX_NODES) &&    // Source node packets only
            (nodes[(rf12_hdr & RF12_HDR_MASK)] == 0xFF)) {
             byte len = 32;
             if (rf12_data[0] == 0xFF)                                // New nodes cannot be learned if packet begins 0xFF
@@ -1067,7 +1071,7 @@ void loop() {
         Serial.println(" -> ack");
         testCounter = 0;
         if ((rf12_hdr & (RF12_HDR_MASK | RF12_HDR_DST)) == 31) {          // Special Node 31 source ?
-          for (byte i = 1; i < 31; i++) {
+          for (byte i = 1; i <= MAX_NODES; i++) {
             if (nodes[i] == 0xFF) {            
               testbuf[0] = i + 0xE0;                                      // Change Node number request matched in RF12Tune3
               testCounter = 1;
@@ -1081,7 +1085,7 @@ void loop() {
         else {
           if (!(rf12_hdr & RF12_HDR_DST) && (nodes[(rf12_hdr & RF12_HDR_MASK)] != 0) && 
                (nodes[(rf12_hdr & RF12_HDR_MASK)] != 0xFF)) {          // Sources Nodes only!
-            testbuf[0] = nodes[rf12_hdr & RF12_HDR_MASK];              // Pick up posted value
+            testbuf[0] = nodes[(rf12_hdr & RF12_HDR_MASK)];            // Pick up posted value
             nodes[(rf12_hdr & RF12_HDR_MASK)] = 0;                     // Assume it will be delivered.
             testCounter = 1;
             Serial.print("Posted ");

@@ -68,6 +68,7 @@ unsigned int frequency_offset;
 #define SERIAL_BAUD 9600
 /// Serial support (output only) for Tiny supported by TinyDebugSerial
 /// http://www.ernstc.dk/arduino/tinycom.html
+/// 9600, 38400, or 115200
 /// Connect Tiny85 PB0 to USB-BUB RXD
 #else
 #define SERIAL_BAUD 57600
