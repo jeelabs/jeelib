@@ -132,6 +132,7 @@ static void addInt (char* msg, word v) {
 }
 
 static void saveConfig () {
+/*
   // set up a nice config string to be shown on startup
   memset(config.msg, 0, sizeof config.msg);
   config.flags  &= ~V10;               // Indicate v11 and upwards, unset the eeprom+2 0x20 bit !
@@ -146,7 +147,7 @@ static void saveConfig () {
   
   strcat(config.msg, " g");
   addInt(config.msg, config.group);
-  /*
+
   strcat(config.msg, " @");
   static word bands[4] = { 0, 430, 860, 900 }; // 315, 433, 864, 915 Mhz    
   band = config.nodeId >> 6;
@@ -157,7 +158,7 @@ static void saveConfig () {
   byte pos = strlen(config.msg);
   addInt(config.msg, ((10000 + (wk - (characteristic * 10000)))));; // Adding 10,000 the digit protects the leading zeros
   config.msg[pos] = '.';                                            // Loose the 10,000 digit
-  */
+  
   strcat(config.msg, " MHz");
   
   config.crc = ~0;
@@ -169,15 +170,15 @@ static void saveConfig () {
     byte b = ((byte*) &config)[i];
     eeprom_write_byte(RF12_EEPROM_ADDR + i, b);
   }
-/*
+
   if (!rf12_config())
-    showString(PSTR("config save failed\n")); */
+    showString(PSTR("config save failed\n"));
+*/
 }
 
 static byte bandToFreq (byte band) {
    return band == 4 ? RF12_433MHZ : band == 8 ? RF12_868MHZ : band == 9 ? RF12_915MHZ : 0;
 }
-
 #if not defined(__AVR_ATtiny84__) || not defined(__AVR_ATtiny44__)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 // OOK transmit code
@@ -687,6 +688,7 @@ static void handleInput (char c) {
       default:
         showHelp();
         break;
+/*
       case 'i': // set node id
         if ((value > 0) && (value < 32)) {
           nodes[value] = 0;                                      // Prevent allocation of this node number
@@ -744,6 +746,7 @@ static void handleInput (char c) {
           config.nodeId &= ~COLLECT;
         saveConfig();
         break;
+*/
       case 't': // broadcast a maximum size test packet, request an ack
         cmd = 'a';
 //#if not defined(__AVR_ATtiny84__) || not defined(__AVR_ATtiny44__)
@@ -826,6 +829,7 @@ static void handleInput (char c) {
       case 'v': //display the interpreter version
         displayVersion(1);
         break;
+/*
       case 'j':
         if (stack[0] <= MAX_NODES) {
           const uint8_t *ee_entry = RF12_EEPROM_ADDR + (stack[0] * 32);
@@ -876,6 +880,7 @@ static void handleInput (char c) {
           showString(PSTR("\rInvalid\n"));
         }
       break;
+*/
       case 'n': // Clear node entries in RAM & eeprom
         if ((stack[0] > 0) && (stack[0] <= MAX_NODES) && (value == 123) && (nodes[stack[0]] == 0)) {
           nodes[stack[0]] = 0xFF;                                           // Clear RAM entry
@@ -1068,7 +1073,7 @@ void loop() {
       if (df_present())
         df_append((const char*) rf12_data - 2, rf12_len + 2);
 #endif
-
+*/
         if (((rf12_hdr & (RF12_HDR_MASK | RF12_HDR_DST)) <= MAX_NODES) &&    // Source node packets only
            (nodes[(rf12_hdr & RF12_HDR_MASK)] == 0xFF)) {
             byte len = 32;
@@ -1084,7 +1089,7 @@ void loop() {
               eeprom_write_byte(RF12_EEPROM_ADDR + (((rf12_hdr & RF12_HDR_MASK) * 32) + i), rf12_data[i]);
             }
         }      
-*/
+        
       if (RF12_WANTS_ACK && (config.nodeId & COLLECT) == 0) {
         showString(PSTR(" -> ack\n"));
         testCounter = 0;
