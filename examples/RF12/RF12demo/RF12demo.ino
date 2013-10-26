@@ -3,9 +3,15 @@
 // 2009-05-06 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 // this version adds flash memory support, 2009-11-19
-// Adding frequency features. 2013-09-05 JohnOH
-// Added postbox semaphore feature 2013-10-24 JohnOH
-
+// Adding frequency features. 2013-09-05
+// Added postbox semaphore feature 2013-10-24
+// For the ATTiny84 node number 15 is recommended since
+// this node number cannot be stored in eeprom
+// Node numbers 16-31 can only be used if MAX_NODES and thereby
+// the size of the nodes array is adjusted accordingly
+//
+// ATTiny84 listed to PA0 (DIO1) for command input
+//
 #include <JeeLib.h>
 #include <util/crc16.h>
 #include <avr/eeprom.h>
@@ -37,12 +43,12 @@
 #define LED_PIN   9     // activity LED, comment out to disable
 #endif 
 ///////////   Workplace   //////////
-/*
+
 static unsigned long now () {
   // FIXME 49-day overflow
   return millis() / 1000;
 }
-*/
+
 static void activityLed (byte on) {
 #ifdef LED_PIN
   pinMode(LED_PIN, OUTPUT);
@@ -99,7 +105,7 @@ static char cmd;
 static int value;
 static byte stack[RF12_MAXDATA+4], top, sendLen, dest;
 static byte testbuf[RF12_MAXDATA], testCounter, useHex;
-static byte nodes[MAX_NODES + 1];
+static byte nodes[MAX_NODES + 1];  // [0] is unused
 static byte band,postingsIn = 0, postingsOut = 0;
 
 void displayVersion(uint8_t newline );
@@ -693,8 +699,8 @@ static void handleInput (char c) {
 #endif
       break;
       case 'i': // set node id
-        if ((value > 0) && (value < 32)) {
-          nodes[value] = 0;                                      // Prevent allocation of this node number
+        if ((value > 0) && (value <= MAX_NODES + 1)) {                   // Node 15 can exist but only as the RF12Demo node
+          if (value < MAX_NODES) nodes[value] = 0;                       // Prevent allocation of this node number
           config.nodeId = (config.nodeId & 0xE0) + (value & 0x1F);
           saveConfig();
         }
@@ -712,7 +718,7 @@ static void handleInput (char c) {
             showString(PSTR("\rInvalid\n"));
         }
         break;
- /*
+ 
       case 'o': // Increment frequency within band
           Serial.print(frequency);
 ///
@@ -734,7 +740,7 @@ static void handleInput (char c) {
             Serial.println();
           }
         break;
- */
+ 
       case 'g': // set network group
         if (value <= 255) {
           config.group = value;
@@ -753,11 +759,7 @@ static void handleInput (char c) {
         break;
       case 't': // broadcast a maximum size test packet, request an ack
         cmd = 'a';
-#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
-        sendLen = RF12_MAXDATA - 50;
-#else
         sendLen = RF12_MAXDATA;
-#endif
         dest = 0;
         for (byte i = 0; i < RF12_MAXDATA; ++i)
           testbuf[i] = i + testCounter;
@@ -778,9 +780,6 @@ static void handleInput (char c) {
         if (value) activityLed(1);
         else activityLed(0);
         break;
-#endif
-#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
-#else
       case 'f': // send FS20 command: <hchi>,<hclo>,<addr>,<cmd>f
         rf12_initialize(0, RF12_868MHZ, 0);
         activityLed(1);
@@ -819,10 +818,10 @@ static void handleInput (char c) {
           showString(PSTR("erased\n"));
         }
         break;
+#endif
       case 'z': // put the ATmega in ultra-low power mode (reset needed)
         if (value == 123) Sleep;
         break;
-#endif
         case 'q': // turn quiet mode on or off (don't report bad packets)
         if (value) config.flags |= QUIET;
           else config.flags &= ~QUIET;
