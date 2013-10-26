@@ -599,7 +599,8 @@ static void df_replay (word seqnum, long asof) {
 
 #endif 
 
-#if not defined(__AVR_ATtiny84__) || not defined(__AVR_ATtiny44__)
+#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
+#else 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 const char helpText1[] PROGMEM = 
@@ -637,7 +638,8 @@ const char helpText2[] PROGMEM =
   "  12,34 w                          - wipe entire flash memory" "\n"
 ;
 #endif
-#if not defined(__AVR_ATtiny84__) || not defined(__AVR_ATtiny44__)
+#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
+#else
 static void showString (PGM_P s) {
   for (;;) {
     char c = pgm_read_byte(s++);
@@ -648,9 +650,6 @@ static void showString (PGM_P s) {
     Serial.print(c);
   }
 }
-#endif
-
-#if not defined(__AVR_ATtiny84__) || not defined(__AVR_ATtiny44__)
 static void showHelp () {
     showString(helpText1);
 #endif
@@ -658,11 +657,13 @@ static void showHelp () {
     if (df_present())
       showString(helpText2);
 #endif
-#if not defined(__AVR_ATtiny84__) || not defined(__AVR_ATtiny44__)
+
+#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
+#else
     Serial.println("Current configuration:");
-#endif
-    rf12_config();
+  byte x =    rf12_config();
 }
+#endif
 
 static void handleInput (char c) {
   if ('0' <= c && c <= '9')
@@ -682,8 +683,11 @@ static void handleInput (char c) {
 
     switch (c) {
       default:
+#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
+#else
         showHelp();
-        break;
+#endif
+      break;
       case 'i': // set node id
         if ((value > 0) && (value < 32)) {
           nodes[value] = 0;                                      // Prevent allocation of this node number
@@ -743,10 +747,10 @@ static void handleInput (char c) {
         break;
       case 't': // broadcast a maximum size test packet, request an ack
         cmd = 'a';
-#if not defined(__AVR_ATtiny84__) || not defined(__AVR_ATtiny44__)
-        sendLen = RF12_MAXDATA;
+#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
+        sendLen = RF12_MAXDATA - 50;
 #else
-        sendLen = RF12_MAXDATA - 50;    // Conserve RAM
+        sendLen = RF12_MAXDATA;
 #endif
         dest = 0;
         for (byte i = 0; i < RF12_MAXDATA; ++i)
@@ -917,8 +921,12 @@ static void handleInput (char c) {
     rf12_config(0);
     value = top = 0;
     memset(stack, 0, sizeof stack);
-  } else if (' ' < c && c < 'A')
+  } else if (' ' < c && c < 'A') {
+#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
+#else
     showHelp();
+#endif
+  }
 }
 
 static void displayASCII(volatile uint8_t* data, byte count) {
@@ -949,13 +957,12 @@ void Sleep() {
 }
 
 #if defined(__AVR_ATtiny84__) || not defined(__AVR_ATtiny44__)    
-ttyIn tty =  ttyIn(10); // PA0 in Tiny84
+ttyIn InChar =  ttyIn(10); // PA0 in Tiny84
 #endif
 void setup() {
 #if defined(__AVR_ATtiny84__) || not defined(__AVR_ATtiny44__)    
   delay(1000);        // Delay on startup to avoid ISP/RFM12B interference.
-  tty.begin(19200); // Because ttyIn code is set up for 16MHz processor and we are 8MHz
-//  setPrescaler(0);             // div 1, i.e. speed up to 8 MHz
+  InChar.begin();        // ttyIn code is set up for 16MHz processor and we are 8MHz
 #endif
 
   Serial.begin(SERIAL_BAUD);
@@ -983,7 +990,8 @@ void setup() {
 #if DATAFLASH
   df_initialize();
 #endif 
-#if not defined(__AVR_ATtiny84__) || not defined(__AVR_ATtiny44__)    
+#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
+#else
   showHelp();
 #endif
 }
@@ -1013,9 +1021,9 @@ void nodesShow() {
 }  
 
 void loop() {
-#if defined(__AVR_ATtiny84__) || not defined(__AVR_ATtiny44__)
-  if (tty.available())
-    handleInput(tty.read());
+#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)    
+  if (InChar.available())
+    handleInput(InChar.read());
 #else
   if (Serial.available())
     handleInput(Serial.read());
@@ -1110,13 +1118,18 @@ void loop() {
 
         rf12_sendStart(RF12_ACK_REPLY, testbuf, testCounter);
       }
+#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
+#else  
       activityLed(0);
+#endif
     }
   }
 
   if (cmd && rf12_canSend()) {
-    activityLed(1);
-
+ #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
+#else  
+   activityLed(1);
+#endif
     Serial.print(" -> ");
     Serial.print((int) sendLen);
     Serial.println(" b");
@@ -1126,6 +1139,9 @@ void loop() {
     rf12_sendStart(header, testbuf, sendLen);
     cmd = 0;
 
+#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
+#else  
     activityLed(0);
+#endif
   }
 }
