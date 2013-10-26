@@ -907,9 +907,9 @@ static void handleInput (char c) {
         }
         else {
           if ((!stack[0]) && (!value)) {
-            Serial.print(postingsIn);
+            Serial.print((int)postingsIn);
             showString(PSTR(","));
-            Serial.println(postingsOut);
+            Serial.println((int)postingsOut);
             nodesShow();
           }
           else
@@ -977,21 +977,21 @@ void Sleep() {
 ttyIn InChar =  ttyIn(10); // PA0 in Tiny84
 #endif
 void setup() {
-#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
-  delay(1000);        // Delay on startup to avoid ISP/RFM12B interference.
-  InChar.begin();        // ttyIn code is set up for 16MHz processor and we are 8MHz
-#endif
-
-  Serial.begin(SERIAL_BAUD);
-  displayVersion(0);
-  activityLed(1);
  /// Initialise node table
   for (byte i = 1; i <= MAX_NODES; i++) { 
     nodes[i] = eeprom_read_byte(RF12_EEPROM_ADDR + (i * 32)); // http://forum.arduino.cc/index.php/topic,140376.msg1054626.html
     if (nodes[i] != 0xFF)
       nodes[i] = 0;   // No post waiting for node.
-  }
-//  nodesShow();
+    }
+#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
+  delay(1000);        // Delay on startup to avoid ISP/RFM12B interference.
+  InChar.begin();     // ttyIn code is set up for 16MHz processor and we are 8MHz
+#else
+  activityLed(1);
+#endif
+
+  Serial.begin(SERIAL_BAUD);
+  displayVersion(0);
 
   if (rf12_config())
     initialize();
@@ -1028,9 +1028,9 @@ void initialize() {
 void nodesShow() {
   for (byte i = 1; i <= MAX_NODES; i++) {
     if (nodes[i] != 0xFF) {                   // Entry 0 is unused at present
-      Serial.print(i);
+      Serial.print((int)i);
       showString(PSTR("("));
-      Serial.print(nodes[i]);
+      Serial.print((int)nodes[i]);
       showString(PSTR(") "));
     }
   }
@@ -1089,7 +1089,7 @@ void loop() {
       if (df_present())
         df_append((const char*) rf12_data - 2, rf12_len + 2);
 #endif
-/*
+
         if (((rf12_hdr & (RF12_HDR_MASK | RF12_HDR_DST)) <= MAX_NODES) &&    // Source node packets only
            (nodes[(rf12_hdr & RF12_HDR_MASK)] == 0xFF)) {
             byte len = 32;
@@ -1105,11 +1105,11 @@ void loop() {
               eeprom_write_byte(RF12_EEPROM_ADDR + (((rf12_hdr & RF12_HDR_MASK) * 32) + i), rf12_data[i]);
             }
         }      
-*/
+
       if (RF12_WANTS_ACK && (config.nodeId & COLLECT) == 0) {
         showString(PSTR(" -> ack\n"));
         testCounter = 0;
- /*
+
         if ((rf12_hdr & (RF12_HDR_MASK | RF12_HDR_DST)) == 31) {          // Special Node 31 source ?
           for (byte i = 1; i <= MAX_NODES; i++) {
             if (nodes[i] == 0xFF) {            
@@ -1136,7 +1136,7 @@ void loop() {
             Serial.println();
           }
         }
-*/
+
         rf12_sendStart(RF12_ACK_REPLY, testbuf, testCounter);
       }
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
