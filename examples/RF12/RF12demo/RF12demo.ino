@@ -167,7 +167,7 @@ static void saveConfig () {
     eeprom_write_byte(RF12_EEPROM_ADDR + i, b);
   }
   if (!rf12_config())
-    Serial.println("config save failed");
+    showString(PSTR("config save failed\n"));
 }
 
 static byte bandToFreq (byte band) {
@@ -361,7 +361,7 @@ void df_flush () {
 }
 
 static void df_wipe () {
-  Serial.println("DF W");
+  showString(PSTR("DF W\n"));
   
   df_writeCmd(0xC7); // Chip Erase
   df_deselect();
@@ -369,7 +369,7 @@ static void df_wipe () {
 }
 
 static void df_erase (word block) {
-  Serial.print("DF E ");
+  showString(PSTR("DF E "));
   Serial.println(block);
   
   df_writeCmd(DF_PAGE_ERASE); // Block Erase
@@ -405,11 +405,11 @@ static void df_saveBuf () {
   
   // wait for write to finish before reporting page, seqnum, and time stamp
   df_flush();
-  Serial.print("DF S ");
+  showString(PSTR("DF S "));
   Serial.print(dfLastPage);
-  Serial.print(' ');
+  showString(PSTR(" "));
   Serial.print(dfBuf.seqnum);
-  Serial.print(' ');
+  showString(PSTR(" "));
   Serial.println(dfBuf.timestamp);
   
   // erase next block if we just saved data into a fresh block
@@ -471,9 +471,9 @@ static void df_initialize () {
 
     scanForLastSave();
     
-    Serial.print("DF I ");
+    showString(PSTR("DF I "));
     Serial.print(dfLastPage);
-    Serial.print(' ');
+    showString(PSTR(" "));
     Serial.println(dfBuf.seqnum);
   
     // df_wipe();
@@ -496,13 +496,13 @@ static void df_dump () {
     df_read(page, sizeof dfBuf.data, &curr, sizeof curr);
     if (curr.seqnum == 0xFFFF)
       continue; // page never written to
-    Serial.print(" df# ");
+    showString(PSTR(" df# "));
     Serial.print(page);
-    Serial.print(" : ");
+    showString(PSTR(" : "));
     Serial.print(curr.seqnum);
-    Serial.print(' ');
+    showString(PSTR(" "));
     Serial.print(curr.timestamp);
-    Serial.print(' ');
+    showString(PSTR(" "));
     Serial.println(curr.crc);
   }
 }
@@ -529,9 +529,9 @@ static word scanForMarker (word seqnum, long asof) {
 
 static void df_replay (word seqnum, long asof) {
   word page = scanForMarker(seqnum, asof);
-  Serial.print("r: page ");
+  showString(PSTR("r: page "));
   Serial.print(page);
-  Serial.print(' ');
+  showString(PSTR(" "));
   Serial.println(dfLastPage);
   discardInput();
   word savedSeqnum = dfBuf.seqnum;
@@ -547,9 +547,9 @@ static void df_replay (word seqnum, long asof) {
     for (word i = 0; i < sizeof dfBuf; ++i)
       crc = _crc16_update(crc, dfBuf.data[i]);
     if (crc != 0) {
-      Serial.print("DF C? ");
+      showString(PSTR("DF C? "));
       Serial.print(page);
-      Serial.print(' ');
+      showString(PSTR(" "));
       Serial.println(crc);
       continue;
     }
@@ -558,34 +558,34 @@ static void df_replay (word seqnum, long asof) {
     while (i < sizeof dfBuf.data && dfBuf.data[i] < 255) {
       if (Serial.available())
         break;
-      Serial.print("R ");
+      showString(PSTR("R "));
       Serial.print(dfBuf.seqnum);
-      Serial.print(' ');
+      showString(PSTR(" "));
       Serial.print(dfBuf.timestamp + dfBuf.data[i++]);
-      Serial.print(' ');
+      showString(PSTR(" "));
       Serial.print((int) dfBuf.data[i++]);
       byte n = dfBuf.data[i++];
       while (n-- > 0) {
-        Serial.print(' ');
+        showString(PSTR(" "));
         Serial.print((int) dfBuf.data[i++]);
       }
       Serial.println();
     }
     // at end of each page, report a "DF R" marker, to allow re-starting
-    Serial.print("DF R ");
+    showString(PSTR("DF R "));
     Serial.print(page);
-    Serial.print(' ');
+    showString(PSTR(" "));
     Serial.print(dfBuf.seqnum);
-    Serial.print(' ');
+    showString(PSTR(" "));
     Serial.println(dfBuf.timestamp);
   }
   dfFill = 0; // ram buffer is no longer valid
   dfBuf.seqnum = savedSeqnum + 1; // so next replay will start at a new value
-  Serial.print("DF E ");
+  showString(PSTR("DF E "));
   Serial.print(dfLastPage);
-  Serial.print(' ');
+  showString(PSTR(" "));
   Serial.print(dfBuf.seqnum);
-  Serial.print(' ');
+  showString(PSTR(" "));
   Serial.println(millis());
 }
 
@@ -638,18 +638,19 @@ const char helpText2[] PROGMEM =
   "  12,34 w                          - wipe entire flash memory" "\n"
 ;
 #endif
-#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
-#else
+
 static void showString (PGM_P s) {
   for (;;) {
     char c = pgm_read_byte(s++);
     if (c == 0)
       break;
     if (c == '\n')
-      Serial.print('\r');
+      showString(PSTR("\r"));
     Serial.print(c);
   }
 }
+#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
+#else
 static void showHelp () {
     showString(helpText1);
 #endif
@@ -660,8 +661,8 @@ static void showHelp () {
 
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
 #else
-    Serial.println("Current configuration:");
-  byte x =    rf12_config();
+    showString(PSTR("Current configuration:\n"));
+    rf12_config();
 }
 #endif
 
@@ -673,10 +674,10 @@ static void handleInput (char c) {
       stack[top++] = value;
     value = 0;
   } else if ('a' <= c && c <='z') {
-    Serial.print("> ");
+    showString(PSTR("> "));
     for (byte i = 0; i < top; ++i) {
       Serial.print((int) stack[i]);
-      Serial.print(',');
+      showString(PSTR(","));
     }
     Serial.print((int) value);
     Serial.println(c);
@@ -684,6 +685,7 @@ static void handleInput (char c) {
     switch (c) {
       default:
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
+        showString(PSTR("?\n"));
 #else
         showHelp();
 #endif
@@ -695,7 +697,7 @@ static void handleInput (char c) {
           saveConfig();
         }
         else {
-           Serial.println("\rInvalid");
+           showString(PSTR("\rInvalid\n"));
         }
         break;
       case 'b': // set band: 4 = 433, 8 = 868, 9 = 915
@@ -705,9 +707,10 @@ static void handleInput (char c) {
          frequency = 1600;
          saveConfig();
         } else {
-            Serial.println("\rInvalid");
+            showString(PSTR("\rInvalid\n"));
         }
         break;
+ /*
       case 'o': // Increment frequency within band
           Serial.print(frequency);
 ///
@@ -717,25 +720,26 @@ static void handleInput (char c) {
           if (value) {
             if ((value > 95) && (value < 3904)) {  // 96 - 3903 is the range of values supported by the RFM12B
               frequency = value;
-              Serial.print(">");
+              showString(PSTR(">"));
               Serial.println(frequency);
               saveConfig();
             }
             else {
-              Serial.println("\rInvalid");
+              showString(PSTR("\rInvalid\n"));
             }          
           } 
           else {
             Serial.println();
           }
         break;
+ */
       case 'g': // set network group
         if (value <= 255) {
           config.group = value;
           saveConfig();
         }
         else {
-          Serial.println("\rInvalid");
+          showString(PSTR("\rInvalid\n"));
         }
         break;
       case 'c': // set collect mode (off = 0, on = 1)
@@ -755,7 +759,7 @@ static void handleInput (char c) {
         dest = 0;
         for (byte i = 0; i < RF12_MAXDATA; ++i)
           testbuf[i] = i + testCounter;
-        Serial.print("test ");
+        showString(PSTR("test "));
         Serial.println((int) testCounter); // first byte in test buffer
         ++testCounter;
         break;
@@ -766,11 +770,15 @@ static void handleInput (char c) {
         dest = value;
         memcpy(testbuf, stack, top);
         break;
+#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
+#else
       case 'l': // turn activity LED on or off
         if (value) activityLed(1);
         else activityLed(0);
         break;
-#if not defined(__AVR_ATtiny84__) || not defined(__AVR_ATtiny44__)
+#endif
+#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
+#else
       case 'f': // send FS20 command: <hchi>,<hclo>,<addr>,<cmd>f
         rf12_initialize(0, RF12_868MHZ, 0);
         activityLed(1);
@@ -806,7 +814,7 @@ static void handleInput (char c) {
       case 'w': // wipe entire flash memory
         if (df_present() && stack[0] == 12 && value == 34) {
           df_wipe();
-          Serial.println("erased");
+          showString(PSTR("erased\n"));
         }
         break;
       case 'z': // put the ATmega in ultra-low power mode (reset needed)
@@ -840,11 +848,11 @@ static void handleInput (char c) {
           displayASCII(testbuf, RF12_EEPROM_SIZE);           
         } 
         else {  
-          Serial.println("\rInvalid");
+          showString(PSTR("\rInvalid\n"));
         }          
         if (!value) break;       
         if (value == 42) {
-          Serial.println("Backed Up");
+          showString(PSTR("Backed Up\n"));
           break;
         }
         if ((value == 123) && (stack[0] == (config.nodeId & RF12_HDR_MASK))) {   // Only restore this NodeId
@@ -854,7 +862,7 @@ static void handleInput (char c) {
           for (byte i = 0; i < RF12_EEPROM_SIZE; ++i)
             crc = _crc16_update(crc, eeprom_read_byte(ee_shadow + i)); 
           if (crc)
-            Serial.println("Bad CRC"); 
+            showString(PSTR("Bad CRC\n")); 
           else {
             for (byte i = 0; i < RF12_EEPROM_SIZE; ++i) {
               byte b = eeprom_read_byte((ee_shadow) + i);
@@ -863,15 +871,15 @@ static void handleInput (char c) {
               eeprom_write_byte((RF12_EEPROM_ADDR) + i, b);
             }
             Serial.println();
-            Serial.println("Restored");
+            showString(PSTR("Restored\n"));
             }
           if (rf12_config())
             initialize();
           else
-            Serial.println("Initialize failed");
+            showString(PSTR("Initialize failed\n"));
         }
         else {
-          Serial.println("\rInvalid");
+          showString(PSTR("\rInvalid\n"));
         }
       break;
       case 'n': // Clear node entries in RAM & eeprom
@@ -882,7 +890,7 @@ static void handleInput (char c) {
           }
         }
         else {
-          Serial.println("\rInvalid");
+          showString(PSTR("\rInvalid\n"));
         }
         break;
       case 'p':
@@ -898,13 +906,13 @@ static void handleInput (char c) {
         else {
           if ((!stack[0]) && (!value)) {
             Serial.print(postingsIn);
-            Serial.print(",");
+            showString(PSTR(","));
             Serial.println(postingsOut);
             nodesShow();
           }
           else
           {
-            Serial.println("\rInvalid");
+            showString(PSTR("\rInvalid\n"));
           }
         }
        break;
@@ -933,11 +941,11 @@ static void displayASCII(volatile uint8_t* data, byte count) {
     for (byte i = 0; i < count; ++i) {
       if ((data[i] < 32) || (data[i] > 126)) 
         {
-        Serial.print(" .");
+        showString(PSTR(" ."));
         }
       else
         {
-          Serial.print(" ");
+          showString(PSTR(" "));
           Serial.print((char) data[i]);
         }
     }
@@ -945,11 +953,18 @@ static void displayASCII(volatile uint8_t* data, byte count) {
 }
 
 void displayVersion(uint8_t newline ) {
-  Serial.print("\n[RF12demo.11]");
-  if(newline!=0)  Serial.println();
+  showString(PSTR("\n[RF12demo.11]"));
+  if(newline!=0) {
+#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
+    showString(PSTR(" T "));
+#else
+    showString(PSTR(" M "));
+#endif
+    Serial.println(freeRam());
+  }
 }
 void Sleep() {
-          Serial.println(" sleeping");
+          showString(PSTR(" sleeping"));
           delay(10);
           rf12_sleep(RF12_SLEEP);
           cli();
@@ -1012,9 +1027,9 @@ void nodesShow() {
   for (byte i = 1; i <= MAX_NODES; i++) {
     if (nodes[i] != 0xFF) {                   // Entry 0 is unused at present
       Serial.print(i);
-      Serial.print("(");
+      showString(PSTR("("));
       Serial.print(nodes[i]);
-      Serial.print(") ");
+      showString(PSTR(") "));
     }
   }
   Serial.println();
@@ -1031,51 +1046,52 @@ void loop() {
   if (rf12_recvDone()) {
     byte n = rf12_len;
     if (rf12_crc == 0)
-      Serial.print("OK");
+      showString(PSTR("OK"));
     else {
       if (config.flags && ~QUIET)
         return;
-      Serial.print(" ?");
+      showString(PSTR(" ?"));
       if (n > 20) // print at most 20 bytes if crc is wrong
         n = 20;
     }
     if (useHex)
-      Serial.print('X');
+      showString(PSTR("X"));
     if (config.group == 0) {
-      Serial.print(" G");
+      showString(PSTR(" G"));
       showByte(rf12_grp);
     }
-    Serial.print(' ');
+    showString(PSTR(" "));
     showByte(rf12_hdr);
     for (byte i = 0; i < n; ++i) {
       if (!useHex)
-        Serial.print(' ');
+        showString(PSTR(" "));
       showByte(rf12_data[i]);
     }
     Serial.println();
-
+/*
   if (useHex > 1) {  // Print ascii interpretation under hex output
-    Serial.print("ASC");
+    showString(PSTR("ASC"));
     if (config.group == 0) {
-      Serial.print("II  ");
+      showString(PSTR("II  "));
     }
-    Serial.print(" .");
+    showString(PSTR(" ."));
     Serial.print(char((rf12_hdr & RF12_HDR_MASK) | 0x40)); // Convert node number into a letter, A to Z to undersore (1-31)
     displayASCII(rf12_data, n);
-  }    
+  }
+*/  
     if (rf12_crc == 0) {
       activityLed(1);
 #if not defined(__AVR_ATtiny84__) || not defined(__AVR_ATtiny44__)    
       if (df_present())
         df_append((const char*) rf12_data - 2, rf12_len + 2);
 #endif
-
+/*
         if (((rf12_hdr & (RF12_HDR_MASK | RF12_HDR_DST)) <= MAX_NODES) &&    // Source node packets only
            (nodes[(rf12_hdr & RF12_HDR_MASK)] == 0xFF)) {
             byte len = 32;
             if (rf12_data[0] == 0xFF)                                // New nodes cannot be learned if packet begins 0xFF
               rf12_data[0] = 0xFE;                                   // so lets drop the low order bit in byte 0
-            Serial.print("New Node "); 
+            showString(PSTR("New Node ")); 
             showByte(rf12_hdr & RF12_HDR_MASK);
             Serial.println();
             nodes[(rf12_hdr & RF12_HDR_MASK)] = 0;
@@ -1085,16 +1101,17 @@ void loop() {
               eeprom_write_byte(RF12_EEPROM_ADDR + (((rf12_hdr & RF12_HDR_MASK) * 32) + i), rf12_data[i]);
             }
         }      
-
+*/
       if (RF12_WANTS_ACK && (config.nodeId & COLLECT) == 0) {
-        Serial.println(" -> ack");
+        showString(PSTR(" -> ack\n"));
         testCounter = 0;
+ /*
         if ((rf12_hdr & (RF12_HDR_MASK | RF12_HDR_DST)) == 31) {          // Special Node 31 source ?
           for (byte i = 1; i <= MAX_NODES; i++) {
             if (nodes[i] == 0xFF) {            
               testbuf[0] = i + 0xE0;                                      // Change Node number request matched in RF12Tune3
               testCounter = 1;
-              Serial.print("Node allocation ");
+              showString(PSTR("Node allocation "));
               showByte(i);
               Serial.println();
               break;
@@ -1107,15 +1124,15 @@ void loop() {
             testbuf[0] = nodes[(rf12_hdr & RF12_HDR_MASK)];            // Pick up posted value
             nodes[(rf12_hdr & RF12_HDR_MASK)] = 0;                     // Assume it will be delivered.
             testCounter = 1;
-            Serial.print("Posted ");
+            showString(PSTR("Posted "));
             showByte(rf12_hdr & RF12_HDR_MASK);
-            Serial.print(",");
+            showString(PSTR(","));
             showByte(testbuf[0]);
             postingsOut++;          // Count as delivered
             Serial.println();
           }
         }
-
+*/
         rf12_sendStart(RF12_ACK_REPLY, testbuf, testCounter);
       }
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
@@ -1130,9 +1147,9 @@ void loop() {
 #else  
    activityLed(1);
 #endif
-    Serial.print(" -> ");
+    showString(PSTR(" -> "));
     Serial.print((int) sendLen);
-    Serial.println(" b");
+    showString(PSTR(" b\n"));
     byte header = cmd == 'a' ? RF12_HDR_ACK : 0;
     if (dest)
       header |= RF12_HDR_DST | dest;
@@ -1144,4 +1161,9 @@ void loop() {
     activityLed(0);
 #endif
   }
+}
+int freeRam () {
+  extern int __heap_start, *__brkval; 
+  int v; 
+  return (int) &v - (__brkval == 0 ? (int) &__heap_start : (int) __brkval); 
 }
