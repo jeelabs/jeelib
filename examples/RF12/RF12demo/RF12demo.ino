@@ -699,8 +699,10 @@ static void handleInput (char c) {
 #endif
       break;
       case 'i': // set node id
-        if ((value > 0) && (value <= MAX_NODES + 1)) {                   // Node 15 can exist but only as the RF12Demo node
-          if (value < MAX_NODES) nodes[value] = 0;                       // Prevent allocation of this node number
+        if ((value > 0) && (value <= MAX_NODES + 1)) {                   // Node 15 may exist on T84 but only as the RF12Demo node,
+                                                                         //  eeprom address +0, the encryption key storage will be
+                                                                         //  overwritten by the 42j command, similar for n31 on MEGA
+          if (value < MAX_NODES) nodes[value] = 0;                       // Prevent auto allocation of this node number
           config.nodeId = (config.nodeId & 0xE0) + (value & 0x1F);
           saveConfig();
         }
