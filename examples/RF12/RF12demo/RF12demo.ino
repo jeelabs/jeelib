@@ -973,11 +973,11 @@ void Sleep() {
           Sleepy::powerDown();
 }
 
-#if defined(__AVR_ATtiny84__) || not defined(__AVR_ATtiny44__)    
+#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
 ttyIn InChar =  ttyIn(10); // PA0 in Tiny84
 #endif
 void setup() {
-#if defined(__AVR_ATtiny84__) || not defined(__AVR_ATtiny44__)    
+#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
   delay(1000);        // Delay on startup to avoid ISP/RFM12B interference.
   InChar.begin();        // ttyIn code is set up for 16MHz processor and we are 8MHz
 #endif
