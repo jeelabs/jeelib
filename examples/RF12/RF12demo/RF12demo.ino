@@ -11,8 +11,9 @@
 #include <avr/eeprom.h>
 #include <avr/pgmspace.h>
 #include <util/parity.h>
-
+#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
 #include <ttyIn.h>
+#endif
 
 #define DEBUG 1
 
@@ -34,14 +35,14 @@
 #define FLASH_MBIT  16  // support for various dataflash sizes: 4/8/16 Mbit
 
 #define LED_PIN   9     // activity LED, comment out to disable
-
-#endif
-
+#endif 
+///////////   Workplace   //////////
+/*
 static unsigned long now () {
   // FIXME 49-day overflow
   return millis() / 1000;
 }
-
+*/
 static void activityLed (byte on) {
 #ifdef LED_PIN
   pinMode(LED_PIN, OUTPUT);
@@ -174,7 +175,8 @@ static byte bandToFreq (byte band) {
    return band == 4 ? RF12_433MHZ : band == 8 ? RF12_868MHZ : band == 9 ? RF12_915MHZ : 0;
 }
 
-#if not defined(__AVR_ATtiny84__) || not defined(__AVR_ATtiny44__)
+#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
+#else
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 // OOK transmit code
 
@@ -1068,7 +1070,8 @@ void loop() {
       showByte(rf12_data[i]);
     }
     Serial.println();
-/*
+#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
+#else
   if (useHex > 1) {  // Print ascii interpretation under hex output
     showString(PSTR("ASC"));
     if (config.group == 0) {
@@ -1078,10 +1081,11 @@ void loop() {
     Serial.print(char((rf12_hdr & RF12_HDR_MASK) | 0x40)); // Convert node number into a letter, A to Z to undersore (1-31)
     displayASCII(rf12_data, n);
   }
-*/  
+#endif  
     if (rf12_crc == 0) {
       activityLed(1);
-#if not defined(__AVR_ATtiny84__) || not defined(__AVR_ATtiny44__)    
+#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
+#else
       if (df_present())
         df_append((const char*) rf12_data - 2, rf12_len + 2);
 #endif
