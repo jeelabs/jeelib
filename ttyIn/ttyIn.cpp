@@ -52,6 +52,17 @@ void whackDelay(uint16_t delay) {
 	       : "0" (delay)
 	       );
 }
+/* \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+ from: http://forums.adafruit.com/viewtopic.php?f=22&t=6793
+
+sbiw    %0, 0x01           - subtracts 1 from delay
+ldi %1, 0xFF               - loads -1 to temp
+cpi %A0, 0xFF              - compare low order byte of delay to -1
+cpc %B0, %1                - compare high order byte of dela to temp, (with carry)
+brne .-10                    - repeat if not equal
+: "+r" (delay), "+a" (temp) - this tells us the first param is delay and the second is temp
+: "0" (delay)               - this tells us that delay will not survive
+*\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 //#endif
 
 /******************************************************************************
@@ -109,6 +120,14 @@ void ttyIn::begin()
 /*
   _baudRate = speed;
   switch (_baudRate) {
+  case 115200: // For xmit -only-!
+    _bitDelay = 4; break;
+  case 57600:
+    _bitDelay = 14; break;
+  case 38400:
+    _bitDelay = 24; break;
+  case 31250:
+    _bitDelay = 31; break;
   case 19200:
     _bitDelay = 54; break;
   case 9600:
@@ -117,11 +136,10 @@ void ttyIn::begin()
     _bitDelay = 232; break;
   case 2400:
     _bitDelay = 470; break;
-
   default: */
     _bitDelay = 54;   // 9k6 @ 8MHz, 19k2 @16MHz
 //  }    
-#if defined(__AVR_ATtiny84__)
+#if defined(__AVR_ATtiny84__) && (F_CPU == 8000000)
   PCMSK0 |= (1<<PCINT0);// tell pin change mask to listen to PA0
   GIMSK  |= (1<<PCIE0); // enable PCINT interrupt in the general interrupt mask
 #endif

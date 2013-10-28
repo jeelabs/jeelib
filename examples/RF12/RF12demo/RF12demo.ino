@@ -6,11 +6,9 @@
 // Adding frequency features. 2013-09-05
 // Added postbox semaphore feature 2013-10-24
 // For the ATTiny84 node number 15 is recommended since
-// this node number cannot be stored in eeprom
+// node numbers > 14 cannot be stored in eeprom
 // Node numbers 16-31 can only be used if MAX_NODES and thereby
 // the size of the nodes array is adjusted accordingly
-//
-// ATTiny84 listed to PA0 (DIO1) for command input
 //
 #include <JeeLib.h>
 #include <util/crc16.h>
@@ -29,7 +27,10 @@
 /// Serial support (output only) for Tiny supported by TinyDebugSerial
 /// http://www.ernstc.dk/arduino/tinycom.html
 /// 9600, 38400, or 115200
-/// Connect Tiny84 PB0 to USB-BUB RXD
+/// Connect Tiny84 PB0 to USB-BUB RXD for serial output from sketch.
+///
+/// Connect Tiny84 PA0 to USB-BUB TXD for serial input to sketch.
+/// 9600 at present!
 #define SERIAL_BAUD 9600
 #define MAX_NODES 14
 #else
@@ -58,7 +59,7 @@ static void activityLed (byte on) {
 /// @details
 /// eeprom layout details
 /// byte 0x00 Key storage for encryption algorithm
-///      0x1F   "
+///      0x1F  note: can be overwritten if T84 is Node 15 or M328 is Node 31
 /// ------------------------------------------------------------------------
 /// byte 0x20 Node number in bits                   ***n nnnn                    // 1 - 31
 ///           Collect mode flag                     **0* ****   COLLECT 0x20     // Pass incoming without sending acks
@@ -66,20 +67,28 @@ static void activityLed (byte on) {
 ///             "                                   01** ****   433MHZ  0x40
 ///             "                                   10** ****   868MHZ  0x80
 ///             "                                   11** ****   915MHZ  0xC0
-/// ------------------------------------------------------------------------
-/// byte 0x21 Group number                                11010100    // i.e. 212 0xD4
-/// byte 0x22 Flag Spares                                 11** ****   // Perhaps we could store the output in hex flag here
-///           V10 indicator                               **1* ****   // This bit is set by versions of RF12Demo less than 11
-///           Quiet mode                                  ***1 ****   // don't report bad packets
-///           Frequency offset most significant bite      **** nnnn   // Can't treat as a 12 bit integer
-/// byte 0x23 Frequency offset less significant bits      nnnn nnnn   //  because of little endian constraint
-/// byte 0x24 Text description generate by RF12Demo       "T i20 g0 @868.0000 MHz"
-///      0x3D   "                                         Padded at the end with NUL
-/// byte 0x3E  CRC                                        CRC of values with offset 0x20
-/// byte 0x3F   "                                         through to end of Text string, except NUL's
-/// byte 0x40 32 bytes backup space for configuration, "42j" command
-///      0x59   "
-/// ------------------------------------------------------------------------
+/// --------------------------------------------------------------------------------------------------------------------------
+/// byte 0x021 Group number                                11010100    // i.e. 212 0xD4
+/// byte 0x022 Flag Spares                                 11** ****   // Perhaps we could store the output in hex flag here
+///            V10 indicator                               **1* ****   // This bit is set by versions of RF12Demo less than 11
+///            Quiet mode                                  ***1 ****   // don't report bad packets
+///            Frequency offset most significant bite      **** nnnn   // Can't treat as a 12 bit integer
+/// byte 0x023 Frequency offset less significant bits      nnnn nnnn   //  because of little endian constraint
+/// byte 0x024 Text description generate by RF12Demo       "T i20 g0 @868.0000 MHz"
+///      0x03D   "                                         Padded at the end with NUL
+/// byte 0x03E  CRC                                        CRC of values with offset 0x20
+/// byte 0x03F   "                                         through to end of Text string, except NUL's
+/// byte 0x040 Node 1 first packet capture
+///      0x059   "
+/// byte 0x060 Node 2 first packet capture
+///      0x079   "
+///      ..... 
+///      0x1E0 Node 14 first packet capture      T84 maximum
+///      0x1FF   "
+///      .....
+///      0x3E0 Node 30 first packet capture      M328 maximum
+///      0x3FF   "
+/// --------------------------------------------------------------------------------------------------------------------------
 /// Useful url: http://blog.strobotics.com.au/2009/07/27/rfm12-tutorial-part-3a/
 // 4 bit
 #define QUIET   0x1      // quiet mode
@@ -647,6 +656,10 @@ const char helpText2[] PROGMEM =
 ;
 #endif
 
+/// Save a few bytes of flash by declaring const if used more than once.
+const char INVALID1[] PROGMEM = "\rInvalid\n";
+const char COMMA[] PROGMEM = ",";
+///
 static void showString (PGM_P s) {
   for (;;) {
     char c = pgm_read_byte(s++);
@@ -685,7 +698,7 @@ static void handleInput (char c) {
     showString(PSTR("> "));
     for (byte i = 0; i < top; ++i) {
       Serial.print((int) stack[i]);
-      showString(PSTR(","));
+      showString(COMMA);
     }
     Serial.print((int) value);
     Serial.println(c);
@@ -707,7 +720,7 @@ static void handleInput (char c) {
           saveConfig();
         }
         else {
-           showString(PSTR("\rInvalid\n"));
+           showString(INVALID1);
         }
         break;
       case 'b': // set band: 4 = 433, 8 = 868, 9 = 915
@@ -717,7 +730,7 @@ static void handleInput (char c) {
          frequency = 1600;
          saveConfig();
         } else {
-            showString(PSTR("\rInvalid\n"));
+            showString(INVALID1);
         }
         break;
  
@@ -735,7 +748,7 @@ static void handleInput (char c) {
               saveConfig();
             }
             else {
-              showString(PSTR("\rInvalid\n"));
+              showString(INVALID1);
             }          
           } 
           else {
@@ -749,7 +762,7 @@ static void handleInput (char c) {
           saveConfig();
         }
         else {
-          showString(PSTR("\rInvalid\n"));
+          showString(INVALID1);
         }
         break;
       case 'c': // set collect mode (off = 0, on = 1)
@@ -851,7 +864,7 @@ static void handleInput (char c) {
           displayASCII(testbuf, RF12_EEPROM_SIZE);           
         } 
         else {  
-          showString(PSTR("\rInvalid\n"));
+          showString(INVALID1);
         }          
         if (!value) break;       
         if (value == 42) {
@@ -882,7 +895,7 @@ static void handleInput (char c) {
             showString(PSTR("Initialize failed\n"));
         }
         else {
-          showString(PSTR("\rInvalid\n"));
+          showString(INVALID1);
         }
       break;
       case 'n': // Clear node entries in RAM & eeprom
@@ -893,7 +906,7 @@ static void handleInput (char c) {
           }
         }
         else {
-          showString(PSTR("\rInvalid\n"));
+          showString(INVALID1);
         }
         break;
       case 'p':
@@ -909,13 +922,13 @@ static void handleInput (char c) {
         else {
           if ((!stack[0]) && (!value)) {
             Serial.print((int)postingsIn);
-            showString(PSTR(","));
+            showString(COMMA);
             Serial.println((int)postingsOut);
             nodesShow();
           }
           else
           {
-            showString(PSTR("\rInvalid\n"));
+            showString(INVALID1);
           }
         }
        break;
@@ -1131,7 +1144,7 @@ void loop() {
             testCounter = 1;
             showString(PSTR("Posted "));
             showByte(rf12_hdr & RF12_HDR_MASK);
-            showString(PSTR(","));
+            showString(COMMA);
             showByte(testbuf[0]);
             postingsOut++;          // Count as delivered
             Serial.println();
