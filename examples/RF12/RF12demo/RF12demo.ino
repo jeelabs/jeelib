@@ -15,9 +15,6 @@
 #include <avr/eeprom.h>
 #include <avr/pgmspace.h>
 #include <util/parity.h>
-#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
-#include <ttyIn.h>
-#endif
 
 #define DEBUG 1
 
@@ -29,6 +26,8 @@
 /// 9600, 38400, or 115200
 /// Connect Tiny84 PB0 to USB-BUB RXD for serial output from sketch.
 ///
+/// With thanks for the inspiration by 2006 David A. Mellis and his AFSoftSerial code
+///  All right reserved.
 /// Connect Tiny84 PA0 to USB-BUB TXD for serial input to sketch.
 /// 9600 at present!
 #define SERIAL_BAUD 9600
@@ -43,11 +42,53 @@
 
 #define LED_PIN   9     // activity LED, comment out to disable
 #endif 
-///////////   Workplace   //////////
+static uint8_t _receivePin;
+static int _bitDelay;
+static char _receive_buffer; 
+static uint8_t _receive_buffer_index;
+
+ISR (PCINT0_vect) { 
+  char i, d = 0; 
+  if (digitalRead(10)) 
+    return;       // not ready! 
+  whackDelay(_bitDelay - 8);
+  for (i=0; i<8; i++) { 
+    whackDelay(_bitDelay*2 - 6);  // digitalread takes some time
+    if (digitalRead(10)) 
+      d |= (1 << i); 
+   } 
+  whackDelay(_bitDelay*2);
+  if (_receive_buffer_index)
+    return;
+  _receive_buffer = d;        // save data 
+  _receive_buffer_index = 1;  // got a byte 
+} 
 
 static unsigned long now () {
   // FIXME 49-day overflow
   return millis() / 1000;
+}
+
+void whackDelay(uint16_t delay) { 
+  uint8_t tmp=0;
+
+  asm volatile("sbiw    %0, 0x01 \n\t"
+	       "ldi %1, 0xFF \n\t"
+	       "cpi %A0, 0xFF \n\t"
+	       "cpc %B0, %1 \n\t"
+	       "brne .-10 \n\t"
+	       : "+r" (delay), "+a" (tmp)
+	       : "0" (delay)
+	       );
+} 
+
+static byte inChar(){
+  uint8_t d;
+  if (! _receive_buffer_index)
+    return -1;
+  d = _receive_buffer; // grab first and only byte
+  _receive_buffer_index = 0;
+  return d;
 }
 
 static void activityLed (byte on) {
@@ -987,9 +1028,6 @@ void Sleep() {
           Sleepy::powerDown();
 }
 
-#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
-ttyIn InChar =  ttyIn(10); // PA0 in Tiny84
-#endif
 void setup() {
  /// Initialise node table
   for (byte i = 1; i <= MAX_NODES; i++) { 
@@ -998,8 +1036,13 @@ void setup() {
       nodes[i] = 0;   // No post waiting for node.
     }
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
-  delay(1000);        // Delay on startup to avoid ISP/RFM12B interference.
-  InChar.begin();     // ttyIn code is set up for 16MHz processor and we are 8MHz
+  delay(1000);            // Delay on startup to avoid ISP/RFM12B interference.
+  PCMSK0 |= (1<<PCINT0);  // tell pin change mask to listen to PA0
+  GIMSK  |= (1<<PCIE0);   // enable PCINT interrupt in the general interrupt mask
+  whackDelay(_bitDelay*2); // if we were low this establishes the end
+  pinMode(_receivePin, INPUT);      // PA0
+  digitalWrite(_receivePin, HIGH);  // pullup!
+  _bitDelay = 54;   // 9k6 @ 8MHz, 19k2 @16MHz
 #else
   activityLed(1);
 #endif
@@ -1025,7 +1068,8 @@ void setup() {
 #else
   showHelp();
 #endif
-}
+} // Setup
+
 void initialize() {
   config.nodeId = eeprom_read_byte(RF12_EEPROM_ADDR);
   config.group = eeprom_read_byte(RF12_EEPROM_ADDR + 1);
@@ -1053,8 +1097,7 @@ void nodesShow() {
 
 void loop() {
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)    
-  if (InChar.available())
-    handleInput(InChar.read());
+    handleInput(inChar());
 #else
   if (Serial.available())
     handleInput(Serial.read());
@@ -1124,10 +1167,10 @@ void loop() {
         showString(PSTR(" -> ack\n"));
         testCounter = 0;
 
-        if ((rf12_hdr & (RF12_HDR_MASK | RF12_HDR_DST)) == 31) {          // Special Node 31 source ?
+        if ((rf12_hdr & (RF12_HDR_MASK | RF12_HDR_DST)) == 31) {          // Special Node 31 source node
           for (byte i = 1; i <= MAX_NODES; i++) {
             if (nodes[i] == 0xFF) {            
-              testbuf[0] = i + 0xE0;                                      // Change Node number request matched in RF12Tune3
+              testbuf[0] = i + 0xE0;                                      // Change Node number request - matched in RF12Tune3
               testCounter = 1;
               showString(PSTR("Node allocation "));
               showByte(i);
@@ -1180,7 +1223,7 @@ void loop() {
 #endif
   }
 }
-int freeRam () {
+int freeRam () {    // @jcw's work
   extern int __heap_start, *__brkval; 
   int v; 
   return (int) &v - (__brkval == 0 ? (int) &__heap_start : (int) __brkval); 

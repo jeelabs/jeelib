@@ -7,7 +7,7 @@
 /// 2013-10-04 <john<AT>o-hare<DOT>net> http://opensource.org/licenses/mit-license.php
 ////
 const char NodeConfiguration[] PROGMEM = 
-   "1600o 8b 212g 31i RF12Tune3";
+   "1700o 8b 209g 31i RF12Tune3";
 ////0....5....10...5....20...5....30...5....40...5....50...5....60..
 
 /// Preserve eeprom settings during programming phase.
@@ -19,10 +19,10 @@ const char NodeConfiguration[] PROGMEM =
 #include <JeeLib.h>
 #include <util/crc16.h>
 #include <avr/eeprom.h>
-#define ACK_TIME   20  // number of milliseconds to wait for an ack
-#define RETRY_LIMIT 9  // maximum number of times to retry
+#define ACK_TIME   50  // number of milliseconds to wait for an ack
+#define RETRY_LIMIT 5  // maximum number of times to retry
 #define RADIO_SYNC_MODE 2
-#define SCAN_WIDTH 50
+#define SCAN_WIDTH 30
 
 /// @details
 /// eeprom layout details
@@ -59,6 +59,7 @@ const char NodeConfiguration[] PROGMEM =
 /// --------------------------------------------------------------------------------------------------------------------------
 /// Useful url: http://blog.strobotics.com.au/2009/07/27/rfm12-tutorial-part-3a/
 //
+volatile unsigned long int_count;
 // RF12 configuration setup code
 typedef struct {
   byte nodeId;
@@ -168,14 +169,14 @@ static byte bandToFreq (byte band) {
 
 void loop() {
   unsigned int scan, upLow, upHigh, downLow, downHigh;
-  showString(PSTR("Scanning started "));
+  showString(PSTR("Scanning up started "));
   Serial.print(frequency_offset);
   showString(PSTR(" +/- "));
   Serial.println(SCAN_WIDTH);
-  delay(50); 
 
     upLow = 0xFFFF;
     upHigh = 0;
+    newNodeId=0;
   for (scan = (frequency_offset - SCAN_WIDTH); scan < (frequency_offset + SCAN_WIDTH); ++scan)
   {
    rf12_control(0xA000 + scan); 
@@ -183,23 +184,39 @@ void loop() {
    if (good){
      if (scan > upHigh) upHigh = scan;
      if (scan < upLow) upLow = scan;
+     if (good != 1) {
+       showString(PSTR("\nGood "));
+       Serial.print(int(good));
+       showString(PSTR(" "));
+       Serial.println(int(scan));
+     }
      delay(50); 
    }
-      else {
-        showString(PSTR("No Ack "));
-        Serial.print(scan);
-        showString(PSTR("\r"));
-        delay(50); 
-      }
+   else {
+     showString(PSTR("No Ack "));
+     Serial.print(scan);
+     showString(PSTR("\r"));
+     delay(50); 
+   }
   }
+  
+  Serial.print("\n");
+  Serial.print(int(upLow));
+  Serial.print(" ");
+  Serial.println(int(upHigh));
+  
   if ((upHigh == 0) || (upLow == 0xFFFF)) return;  // If nobody answers then restart loop
-    showString(PSTR("Scan up complete "));
-    Serial.print(upLow);
-    showString(PSTR("-"));
-    Serial.println(upHigh);
-    delay(50);
-    downLow = 0xFFFF; 
-    downHigh = 0;
+  showString(PSTR("Scan up complete "));
+  Serial.print(upLow);
+  showString(PSTR("-"));
+  Serial.println(upHigh);
+  delay(50);
+  downLow = 0xFFFF; 
+  downHigh = 0;
+  showString(PSTR("Scanning down started "));
+  Serial.print(frequency_offset);
+  showString(PSTR(" +/- "));
+  Serial.println(SCAN_WIDTH);
   for (scan = (frequency_offset + SCAN_WIDTH); scan > (frequency_offset - SCAN_WIDTH); --scan)
   {
    rf12_control(0xA000 + scan); 
@@ -207,15 +224,27 @@ void loop() {
    if (good){
      if (scan > downHigh) downHigh = scan;
      if (scan < downLow) downLow = scan;
+     if (good != 1) {
+       showString(PSTR("\nGood "));
+       Serial.print(int(good));
+       showString(PSTR(" "));
+       Serial.println(int(scan));
+     }
      delay(50); 
    }
-      else {
-        showString(PSTR("No Ack "));
-        Serial.print(scan); 
-        showString(PSTR("\r"));
-        delay(50); 
-      }
+   else {
+     showString(PSTR("No Ack "));
+     Serial.print(scan); 
+     showString(PSTR("\r"));
+     delay(50);
+   }
   }
+  
+  Serial.print("\n");
+  Serial.print(int(downLow));
+  Serial.print(" ");
+  Serial.println(int(downHigh));
+  
   if ((downHigh == 0) || (downLow == 0xFFFF)) return;  // If nobody answers then restart loop
   showString(PSTR("Scan down complete "));
   Serial.print(downLow);
@@ -228,15 +257,41 @@ void loop() {
   delay(50);
   if (newNodeId) {
     config.nodeId = (config.nodeId & 0xE0) + (newNodeId & 0x1F);
-    showString(PSTR("New Node Number: "));
-    Serial.println(newNodeId);
+    showString(PSTR("\rNew Node Number is "));
+    Serial.println(int(newNodeId));
+    delay(10);
   }
   setEEProm();
+  Serial.println(int_count);
+  Serial.println("Delaying 32,767");
+  delay(32767);
+/*  /// Lets take a look at the calibration of the oscillator we are using
+  rf12_control(0xC009); // Set up to output a 1MHz clock from RFM12B
+  rf12_control(0x80E7); // Turn off receiver and enable the clock
+#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
+  PCMSK0 |= (1<<PCINT0);  // tell pin change mask to listen to PB0
+  GIMSK  |= (1<<PCIE0);   // enable PCINT interrupt in the general interrupt mask
+#else
+#endif
+  pinMode(10, INPUT);                // PA0
+  digitalWrite(10, HIGH);  // pullup!
+
   while(1) // Nothing more
   { 
-     delay(32767);
+    int_count = 0;
+    delay(1000);
+    Serial.println(int_count);
   }
-}
+*/
+} // Loop
+/*
+ISR (PCINT1_vect) { 
+} 
+ISR (PCINT0_vect) {
+  int_count++;
+} 
+*/
+
 static byte getString (PGM_P s, byte i) {
     char c = pgm_read_byte(s + i);
     return c;
@@ -286,8 +341,12 @@ static byte probe()
         rf12_sendStart(RF12_HDR_ACK, &config, sizeof config, RADIO_SYNC_MODE);
         byte acked = waitForAck();
         if (acked) {
-          if ((rf12_len == 1) && ((rf12_data[0] & ~RF12_HDR_MASK) == 0xE0)) {  
-            newNodeId = rf12_data[0] & RF12_HDR_MASK;
+          if ((rf12_len == 1) && ((rf12_data[0] & 0xE0) == 0xE0)) { 
+            if (!newNodeId) {
+              newNodeId = rf12_data[0] & ~0xE0;
+              showString(PSTR("Node Allocation "));
+              Serial.println(int(newNodeId));
+            }
           }
           return i; // Return number of attempts to successfully transmit
         }
@@ -301,8 +360,12 @@ static byte waitForAck() {
     while (!ackTimer.poll(ACK_TIME)) {
         if (rf12_recvDone() && rf12_crc == 0 &&
                 // see http://talk.jeelabs.net/topic/811#post-4712
-                rf12_hdr == (RF12_HDR_DST | RF12_HDR_CTL | (config.nodeId & 0x1F)))
+              rf12_hdr == (RF12_HDR_DST | RF12_HDR_CTL | (config.nodeId & 0x1F))) {
+              showString(PSTR("Ack "));
+              Serial.print(int((ACK_TIME - ackTimer.remaining())));
+              showString(PSTR("ms  \r"));
              return 1;
+              }
     }
     return 0;
 }
