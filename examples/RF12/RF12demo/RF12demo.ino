@@ -1,4 +1,4 @@
-F/// @dir RF12demo
+/// @dir RF12demo
 /// Configure some values in EEPROM for easy config of the RF12 later on.
 // 2009-05-06 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
@@ -276,8 +276,6 @@ static void fs20cmd(word house, byte addr, byte cmd) {
     delay(10);
   }
 }
-#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
-#else
 static void kakuSend(char addr, byte device, byte on) {
   int cmd = 0x600 | ((device - 1) << 4) | ((addr - 1) & 0xF);
   if (on)
@@ -292,7 +290,7 @@ static void kakuSend(char addr, byte device, byte on) {
     delay(11); // approximate
   }
 }
-#endif
+
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 // DataFlash code
 
@@ -840,18 +838,18 @@ static void handleInput (char c) {
         activityLed(0);
         rf12_config(0);
         break;
-#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
-#else
-      case 'l': // turn activity LED on or off
-        if (value) activityLed(1);
-        else activityLed(0);
-        break;
       case 'k': // send KAKU command: <addr>,<dev>,<on>k
         rf12_initialize(0, RF12_433MHZ, 0);
         activityLed(1);
         kakuSend(stack[0], stack[1], value);
         activityLed(0);
         rf12_config(0);
+        break;
+#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
+#else
+      case 'l': // turn activity LED on or off
+        if (value) activityLed(1);
+        else activityLed(0);
         break;
       case 'd': // dump all log markers
         if (df_present())
@@ -1133,8 +1131,6 @@ void loop() {
       showByte(rf12_data[i]);
     }
     Serial.println();
-#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
-#else
   if (useHex > 1) {  // Print ascii interpretation under hex output
     showString(PSTR("ASC"));
     if (config.group == 0) {
@@ -1144,7 +1140,6 @@ void loop() {
     Serial.print(char((rf12_hdr & RF12_HDR_MASK) | 0x40)); // Convert node number into a letter, A to Z to undersore (1-31)
     displayASCII(rf12_data, n);
   }
-#endif  
     if (rf12_crc == 0) {
       activityLed(1);
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
@@ -1210,7 +1205,7 @@ void loop() {
   }
 
   if (cmd && rf12_canSend()) {
- #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
+#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
 #else  
    activityLed(1);
 #endif
