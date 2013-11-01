@@ -1,4 +1,4 @@
-/// @dir RF12demo
+F/// @dir RF12demo
 /// Configure some values in EEPROM for easy config of the RF12 later on.
 // 2009-05-06 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
@@ -17,6 +17,14 @@
 #include <util/parity.h>
 
 #define DEBUG 1
+
+/// Save a few bytes of flash by declaring const if used more than once.
+const char INVALID1[] PROGMEM = "\rInvalid\n";
+const char COMMA[] PROGMEM = ",";
+const char SPACE[] PROGMEM = " ";
+const char INITFAIL[] PROGMEM = "config save failed\n";
+const char VERSION[] PROGMEM = "\n[RF12demo.11]";
+///
 
 // ATtiny's only support outbound serial @ 38400 baud, and no DataFlash logging
 
@@ -224,15 +232,13 @@ static void saveConfig () {
     eeprom_write_byte(RF12_EEPROM_ADDR + i, b);
   }
   if (!rf12_config())
-    showString(PSTR("config save failed\n"));
+     showString(INITFAIL);
 }
 
 static byte bandToFreq (byte band) {
    return band == 4 ? RF12_433MHZ : band == 8 ? RF12_868MHZ : band == 9 ? RF12_915MHZ : 0;
 }
 
-#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
-#else
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 // OOK transmit code
 
@@ -270,7 +276,8 @@ static void fs20cmd(word house, byte addr, byte cmd) {
     delay(10);
   }
 }
-
+#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
+#else
 static void kakuSend(char addr, byte device, byte on) {
   int cmd = 0x600 | ((device - 1) << 4) | ((addr - 1) & 0xF);
   if (on)
@@ -465,9 +472,9 @@ static void df_saveBuf () {
   df_flush();
   showString(PSTR("DF S "));
   Serial.print(dfLastPage);
-  showString(PSTR(" "));
+  showString(SPACE);
   Serial.print(dfBuf.seqnum);
-  showString(PSTR(" "));
+  showString(SPACE);
   Serial.println(dfBuf.timestamp);
   
   // erase next block if we just saved data into a fresh block
@@ -531,7 +538,7 @@ static void df_initialize () {
     
     showString(PSTR("DF I "));
     Serial.print(dfLastPage);
-    showString(PSTR(" "));
+    showString(SPACE);
     Serial.println(dfBuf.seqnum);
   
     // df_wipe();
@@ -558,9 +565,9 @@ static void df_dump () {
     Serial.print(page);
     showString(PSTR(" : "));
     Serial.print(curr.seqnum);
-    showString(PSTR(" "));
+    showString(SPACE);
     Serial.print(curr.timestamp);
-    showString(PSTR(" "));
+    showString(SPACE);
     Serial.println(curr.crc);
   }
 }
@@ -589,7 +596,7 @@ static void df_replay (word seqnum, long asof) {
   word page = scanForMarker(seqnum, asof);
   showString(PSTR("r: page "));
   Serial.print(page);
-  showString(PSTR(" "));
+  showString(SPACE);
   Serial.println(dfLastPage);
   discardInput();
   word savedSeqnum = dfBuf.seqnum;
@@ -607,7 +614,7 @@ static void df_replay (word seqnum, long asof) {
     if (crc != 0) {
       showString(PSTR("DF C? "));
       Serial.print(page);
-      showString(PSTR(" "));
+      showString(SPACE);
       Serial.println(crc);
       continue;
     }
@@ -618,13 +625,13 @@ static void df_replay (word seqnum, long asof) {
         break;
       showString(PSTR("R "));
       Serial.print(dfBuf.seqnum);
-      showString(PSTR(" "));
+      showString(SPACE);
       Serial.print(dfBuf.timestamp + dfBuf.data[i++]);
-      showString(PSTR(" "));
+      showString(SPACE);
       Serial.print((int) dfBuf.data[i++]);
       byte n = dfBuf.data[i++];
       while (n-- > 0) {
-        showString(PSTR(" "));
+        showString(SPACE);
         Serial.print((int) dfBuf.data[i++]);
       }
       Serial.println();
@@ -632,18 +639,18 @@ static void df_replay (word seqnum, long asof) {
     // at end of each page, report a "DF R" marker, to allow re-starting
     showString(PSTR("DF R "));
     Serial.print(page);
-    showString(PSTR(" "));
+    showString(SPACE);
     Serial.print(dfBuf.seqnum);
-    showString(PSTR(" "));
+    showString(SPACE);
     Serial.println(dfBuf.timestamp);
   }
   dfFill = 0; // ram buffer is no longer valid
   dfBuf.seqnum = savedSeqnum + 1; // so next replay will start at a new value
   showString(PSTR("DF E "));
   Serial.print(dfLastPage);
-  showString(PSTR(" "));
+  showString(SPACE);
   Serial.print(dfBuf.seqnum);
-  showString(PSTR(" "));
+  showString(SPACE);
   Serial.println(millis());
 }
 
@@ -697,10 +704,6 @@ const char helpText2[] PROGMEM =
 ;
 #endif
 
-/// Save a few bytes of flash by declaring const if used more than once.
-const char INVALID1[] PROGMEM = "\rInvalid\n";
-const char COMMA[] PROGMEM = ",";
-///
 static void showString (PGM_P s) {
   for (;;) {
     char c = pgm_read_byte(s++);
@@ -830,18 +833,18 @@ static void handleInput (char c) {
         dest = value;
         memcpy(testbuf, stack, top);
         break;
-#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
-#else
-      case 'l': // turn activity LED on or off
-        if (value) activityLed(1);
-        else activityLed(0);
-        break;
       case 'f': // send FS20 command: <hchi>,<hclo>,<addr>,<cmd>f
         rf12_initialize(0, RF12_868MHZ, 0);
         activityLed(1);
         fs20cmd(256 * stack[0] + stack[1], stack[2], value);
         activityLed(0);
         rf12_config(0);
+        break;
+#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
+#else
+      case 'l': // turn activity LED on or off
+        if (value) activityLed(1);
+        else activityLed(0);
         break;
       case 'k': // send KAKU command: <addr>,<dev>,<on>k
         rf12_initialize(0, RF12_433MHZ, 0);
@@ -889,6 +892,8 @@ static void handleInput (char c) {
       case 'v': //display the interpreter version
         displayVersion(1);
         break;
+#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
+#else
       case 'j':
         if (stack[0] <= MAX_NODES) {
           const uint8_t *ee_entry = RF12_EEPROM_ADDR + (stack[0] * 32);
@@ -933,12 +938,13 @@ static void handleInput (char c) {
           if (rf12_config())
             initialize();
           else
-            showString(PSTR("Initialize failed\n"));
+            showString(INITFAIL);
         }
         else {
           showString(INVALID1);
         }
       break;
+#endif
       case 'n': // Clear node entries in RAM & eeprom
         if ((stack[0] > 0) && (stack[0] <= MAX_NODES) && (value == 123) && (nodes[stack[0]] == 0)) {
           nodes[stack[0]] = 0xFF;                                           // Clear RAM entry
@@ -1002,7 +1008,7 @@ static void displayASCII(volatile uint8_t* data, byte count) {
         }
       else
         {
-          showString(PSTR(" "));
+          showString(SPACE);
           Serial.print((char) data[i]);
         }
     }
@@ -1010,7 +1016,7 @@ static void displayASCII(volatile uint8_t* data, byte count) {
 }
 
 void displayVersion(uint8_t newline ) {
-  showString(PSTR("\n[RF12demo.11]"));
+  showString(VERSION);
   if(newline!=0) {
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
     showString(PSTR(" T "));
@@ -1119,11 +1125,11 @@ void loop() {
       showString(PSTR(" G"));
       showByte(rf12_grp);
     }
-    showString(PSTR(" "));
+    showString(SPACE);
     showByte(rf12_hdr);
     for (byte i = 0; i < n; ++i) {
       if (!useHex)
-        showString(PSTR(" "));
+        showString(SPACE);
       showByte(rf12_data[i]);
     }
     Serial.println();
