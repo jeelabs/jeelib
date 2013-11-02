@@ -38,7 +38,7 @@ const char VERSION[] PROGMEM = "\n[RF12demo.11]";
 ///  All right reserved.
 /// Connect Tiny84 PA0 to USB-BUB TXD for serial input to sketch.
 /// 9600 at present!
-#define SERIAL_BAUD 9600
+#define SERIAL_BAUD 38400
 #define MAX_NODES 14
 #else
 #define SERIAL_BAUD 57600
@@ -1039,6 +1039,12 @@ void setup() {
     if (nodes[i] != 0xFF)
       nodes[i] = 0;   // No post waiting for node.
     }
+#if SERIAL_BAUD == 9600
+#define BITDELAY 54      // 9k6 @ 8MHz, 19k2 @16MHz
+#endif
+#if SERIAL_BAUD == 38400
+#define BITDELAY 11     // 38k4 @ 8MHz, 76k8 @16MHz
+#endif
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
   delay(1000);            // Delay on startup to avoid ISP/RFM12B interference.
   PCMSK0 |= (1<<PCINT0);  // tell pin change mask to listen to PA0
@@ -1046,7 +1052,7 @@ void setup() {
   whackDelay(_bitDelay*2); // if we were low this establishes the end
   pinMode(_receivePin, INPUT);      // PA0
   digitalWrite(_receivePin, HIGH);  // pullup!
-  _bitDelay = 54;   // 9k6 @ 8MHz, 19k2 @16MHz
+  _bitDelay = BITDELAY; 
 #else
   activityLed(1);
 #endif
