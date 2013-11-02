@@ -37,7 +37,7 @@ const char VERSION[] PROGMEM = "\n[RF12demo.11]";
 /// With thanks for the inspiration by 2006 David A. Mellis and his AFSoftSerial code
 ///  All right reserved.
 /// Connect Tiny84 PA0 to USB-BUB TXD for serial input to sketch.
-/// 9600 at present!
+/// 9600 or 38400 at present.
 #define SERIAL_BAUD 38400
 #define MAX_NODES 14
 #else
