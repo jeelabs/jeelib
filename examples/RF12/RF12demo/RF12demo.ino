@@ -40,16 +40,6 @@ const char VERSION[] PROGMEM = "\n[RF12demo.11]";
 /// 9600 or 38400 at present.
 #define SERIAL_BAUD 38400
 #define MAX_NODES 14
-#else
-#define SERIAL_BAUD 57600
-#define MAX_NODES 30
-// Enabling dataflash code may cause problems with non-JeeLink configurations
-#define DATAFLASH 0
-// check for presence of DataFlash memory on JeeLink
-#define FLASH_MBIT  16  // support for various dataflash sizes: 4/8/16 Mbit
-
-#define LED_PIN   9     // activity LED, comment out to disable
-#endif 
 static uint8_t _receivePin;
 static int _bitDelay;
 static char _receive_buffer; 
@@ -71,12 +61,6 @@ ISR (PCINT0_vect) {
   _receive_buffer = d;        // save data 
   _receive_buffer_index = 1;  // got a byte 
 } 
-
-static unsigned long now () {
-  // FIXME 49-day overflow
-  return millis() / 1000;
-}
-
 void whackDelay(uint16_t delay) { 
   uint8_t tmp=0;
 
@@ -97,6 +81,22 @@ static byte inChar(){
   d = _receive_buffer; // grab first and only byte
   _receive_buffer_index = 0;
   return d;
+}
+
+#else
+#define SERIAL_BAUD 57600
+#define MAX_NODES 30
+// Enabling dataflash code may cause problems with non-JeeLink configurations
+#define DATAFLASH 0
+// check for presence of DataFlash memory on JeeLink
+#define FLASH_MBIT  16  // support for various dataflash sizes: 4/8/16 Mbit
+
+#define LED_PIN   9     // activity LED, comment out to disable
+#endif 
+
+static unsigned long now () {
+  // FIXME 49-day overflow
+  return millis() / 1000;
 }
 
 static void activityLed (byte on) {
@@ -165,8 +165,6 @@ static byte stack[RF12_MAXDATA+4], top, sendLen, dest;
 static byte testbuf[RF12_MAXDATA], testCounter, useHex;
 static byte nodes[MAX_NODES + 1];  // [0] is unused
 static byte band,postingsIn = 0, postingsOut = 0;
-
-void displayVersion(uint8_t newline );
 
 static void showNibble (byte nibble) {
   char c = '0' + (nibble & 0x0F);
