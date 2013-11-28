@@ -32,27 +32,30 @@ const char VERSION[] PROGMEM = "\n[RF12demo.11]";
 /// Serial support (output only) for Tiny supported by TinyDebugSerial
 /// http://www.ernstc.dk/arduino/tinycom.html
 /// 9600, 38400, or 115200
-/// Connect Tiny84 PB0 to USB-BUB RXD for serial output from sketch.
+/// "C:\Users\John\Documents\arduino-1.5.4r2\sketchbook\hardware\jeelabs\avr\cores\tiny\TinyDebugSerial.h" Modified 
+///  to moveTinyDebugSerial from PB0 to PA3 to match the Jeenode Micro V3 PCB layout
+/// Connect Tiny84 PA3 to USB-BUB RXD for serial output from sketch. // Jeenode AIO2
 ///
 /// With thanks for the inspiration by 2006 David A. Mellis and his AFSoftSerial code
 ///  All right reserved.
-/// Connect Tiny84 PA0 to USB-BUB TXD for serial input to sketch.
+/// Connect Tiny84 PA2 to USB-BUB TXD for serial input to sketch.    // Jeenode DIO2
 /// 9600 or 38400 at present.
-#define SERIAL_BAUD 38400
+///
+#define SERIAL_BAUD 9600
 #define MAX_NODES 14
-static uint8_t _receivePin;
+#define _receivePin 8
 static int _bitDelay;
 static char _receive_buffer; 
 static uint8_t _receive_buffer_index;
 
 ISR (PCINT0_vect) { 
   char i, d = 0; 
-  if (digitalRead(10)) 
+  if (digitalRead(_receivePin))   // PA2 = Jeenode DIO2
     return;       // not ready! 
   whackDelay(_bitDelay - 8);
   for (i=0; i<8; i++) { 
     whackDelay(_bitDelay*2 - 6);  // digitalread takes some time
-    if (digitalRead(10)) 
+    if (digitalRead(_receivePin)) // PA2 = Jeenode DIO2
       d |= (1 << i); 
    } 
   whackDelay(_bitDelay*2);
@@ -1045,10 +1048,10 @@ void setup() {
 #endif
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
   delay(1000);            // Delay on startup to avoid ISP/RFM12B interference.
-  PCMSK0 |= (1<<PCINT0);  // tell pin change mask to listen to PA0
+  PCMSK0 |= (1<<PCINT2);  // tell pin change mask to listen to PA2
   GIMSK  |= (1<<PCIE0);   // enable PCINT interrupt in the general interrupt mask
   whackDelay(_bitDelay*2); // if we were low this establishes the end
-  pinMode(_receivePin, INPUT);      // PA0
+  pinMode(_receivePin, INPUT);      // PA2
   digitalWrite(_receivePin, HIGH);  // pullup!
   _bitDelay = BITDELAY; 
 #else
