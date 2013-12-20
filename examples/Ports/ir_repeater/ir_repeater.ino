@@ -38,11 +38,18 @@ void loop () {
             
         Serial.print("Got ");
         Serial.print(pos);
-        Serial.println(" bits");
+        Serial.print(" bits:");
+
+        for (byte i = 0; i < pos; i += 8) {
+          Serial.print(' ');
+          Serial.print(outBuf[i/8] >> 4, HEX);
+          Serial.print(outBuf[i/8] & 0xF, HEX);
+        }
+        Serial.println();
             
         // send out IR codes three times at 1-second intervals
         for (byte n = 0; n < 3; ++n) {
-            delay(1000);
+            delay(5000);
             ir.send(outBuf, pos);
             Serial.println(" sent!");
         }
