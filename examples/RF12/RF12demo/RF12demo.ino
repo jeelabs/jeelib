@@ -41,7 +41,7 @@ const char VERSION[] PROGMEM = "\n[RF12demo.11]";
 /// Connect Tiny84 PA2 to USB-BUB TXD for serial input to sketch.    // Jeenode DIO2
 /// 9600 or 38400 at present.
 ///
-#define SERIAL_BAUD 9600
+#define SERIAL_BAUD 38400
 #define MAX_NODES 14
 #define _receivePin 8
 static int _bitDelay;
@@ -960,17 +960,16 @@ static void handleInput (char c) {
         // Format is 20,127p where 20 is the node number and 127 is the desired value to be posted
         // stack[0] contains the target node
         // and value contains the command to be posted
-        // Assumed RF12Demo node is node 1
-        if ((stack[0] > 1) && (stack[0] <= MAX_NODES) && (value < 255) && (nodes[stack[0]] == 0)) {   // No posting to self(1), special(31) or overwriting pending post
-          nodes[stack[0]] = value;
-          postingsIn++;            // Count post
+        if ((!stack[0]) && (!value)) {
+          Serial.print((int)postingsIn);
+          showString(COMMA);
+          Serial.println((int)postingsOut);
+          nodesShow();
         }
         else {
-          if ((!stack[0]) && (!value)) {
-            Serial.print((int)postingsIn);
-            showString(COMMA);
-            Serial.println((int)postingsOut);
-            nodesShow();
+          if ((stack[0] !=(config.nodeId & RF12_HDR_MASK)) && (stack[0] <= MAX_NODES) && (value < 255) && (nodes[stack[0]] == 0)) {   // No posting to special(31) or overwriting pending post
+            nodes[stack[0]] = value;
+            postingsIn++;            // Count post
           }
           else
           {
