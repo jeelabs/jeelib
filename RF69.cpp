@@ -43,7 +43,7 @@ namespace RF69 {
 static volatile uint8_t rxfill;     // number of data bytes in rf12_buf
 static volatile int8_t rxstate;     // current transceiver state
 
-static const ROM_UINT8 configRegs_compat [] = {
+static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x01, 0x04, // OpMode = standby
   0x02, 0x00, // DataModul = packet mode, fsk
   0x03, 0x02, // BitRateMsb, data rate = 49,261 khz
@@ -56,7 +56,7 @@ static const ROM_UINT8 configRegs_compat [] = {
   0x0B, 0x20, // AfcCtrl, afclowbetaon
   0x19, 0x42, // RxBw ...
   0x25, 0x40, // DioMapping1 ...
-  0x29, 0xDC, // RssiThresh ...
+  // 0x29, 0xDC, // RssiThresh ...
   0x2E, 0x88, // SyncConfig = sync on, sync size = 2
   0x2F, 0x2D, // SyncValue1 = 0x2D
   // 0x30, 0x05, // SyncValue2 = 0x05
@@ -87,8 +87,7 @@ static void setMode (uint8_t mode) {
         ;
 }
 
-static void initRadio (const uint8_t* init) {
-    Serial.println(122); Serial.flush();
+static void initRadio (ROM_UINT8* init) {
     spiInit();
     do
         writeReg(REG_SYNCVALUE1, 0xAA);
@@ -102,7 +101,6 @@ static void initRadio (const uint8_t* init) {
         writeReg(cmd, ROM_READ_UINT8(init+1));
         init += 2;
     }
-    Serial.println(123); Serial.flush();
 }
 
 void RF69::setFrequency (uint32_t freq) {
@@ -128,7 +126,6 @@ bool RF69::canSend () {
 #include <RF12.h>
 
 void RF69::configure_compat () {
-    Serial.println(121); Serial.flush();
     initRadio(configRegs_compat);    
     writeReg(REG_SYNCVALUE2, group);
 
@@ -137,7 +134,6 @@ void RF69::configure_compat () {
     writeReg(REG_FRFMSB+2, frf);
 
     rxstate = TXIDLE;
-    Serial.println(124); Serial.flush();
 }
 
 uint16_t RF69::recvDone_compat (uint8_t* buf) {
@@ -146,17 +142,11 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         crc = _crc16_update(~0, group);
         rxstate = TXRECV;
         flushFifo();
-        Serial.println(125); Serial.flush();
         setMode(MODE_RECEIVER);
-        Serial.println(126); Serial.flush();
     } else {
         uint8_t irq2 = readReg(REG_IRQFLAGS2);
-        if (irq2) {
-            Serial.print("I:"); Serial.println(irq2, HEX); Serial.flush();
-        }
         if (rxstate == TXRECV) {
             if (irq2 & (IRQ2_FIFONOTEMPTY | IRQ2_FIFOOVERRUN)) {
-                Serial.println(130); Serial.flush();
                 uint8_t in = readReg(REG_FIFO);
                 if (rxfill == 0)
                     buf[rxfill++] = group;
@@ -164,9 +154,6 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
                 crc = _crc16_update(crc, in);
               
                 if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX) {
-                    Serial.println(131); Serial.flush();
-                    // printf("fill %d grp %d hdr %d len %d\n",
-                    //           rxfill, rf12_grp, rf12_hdr, rf12_len);
                     rxstate = TXIDLE;
                     setMode(MODE_STANDBY);
                     if (rf12_len > RF12_MAXDATA)

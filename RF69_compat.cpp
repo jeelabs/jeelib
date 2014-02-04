@@ -15,13 +15,11 @@ uint8_t rf69_initialize (uint8_t id, uint8_t band, uint8_t group) {
     RF69::group = group;
     RF69::node = id;
     delay(20); // needed to make RFM69 work properly on power-up
-    Serial.println(120); Serial.flush();
     RF69::configure_compat();
     return id;
 }
 
 uint8_t rf69_config (uint8_t show) {
-    Serial.println(119); Serial.flush();
     rf69_initialize(31, RF12_868MHZ, 5);
     return 31; // TODO
 }
