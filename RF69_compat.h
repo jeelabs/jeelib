@@ -20,8 +20,6 @@
 #define rf12_recvDone   rf69_recvDone
 #define rf12_canSend    rf69_canSend
 #define rf12_sendStart  rf69_sendStart
-#define rf12_sendStart  rf69_sendStart
-#define rf12_sendStart  rf69_sendStart
 #define rf12_sendNow    rf69_sendNow
 #define rf12_sendWait   rf69_sendWait
 #define rf12_onOff      rf69_onOff

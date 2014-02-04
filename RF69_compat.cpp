@@ -1,4 +1,3 @@
-#include <RF69_compat.h>
 #include <JeeLib.h>
 
 volatile uint16_t rf69_crc;
@@ -11,33 +10,36 @@ volatile uint8_t rf69_buf[72];
 // }
 
 uint8_t rf69_initialize (uint8_t id, uint8_t band, uint8_t group) {
-    RF69::freq = band == RF12_433MHZ ? 433000000 :
-                 band == RF12_868MHZ ? 868000000 :
-                                       915000000;
+    RF69::frf = band == RF12_433MHZ ? 0x6C4000L : // or 0x6C8000 for 434 MHz?
+                band == RF12_868MHZ ? 0xD90000L : 0xE4C000L;
     RF69::group = group;
     RF69::node = id;
-    RF69::configure();
+    delay(20); // needed to make RFM69 work properly on power-up
+    Serial.println(120); Serial.flush();
+    RF69::configure_compat();
     return id;
 }
 
 uint8_t rf69_config (uint8_t show) {
-    return 0; // TODO
+    Serial.println(119); Serial.flush();
+    rf69_initialize(31, RF12_868MHZ, 5);
+    return 31; // TODO
 }
 
 uint8_t rf69_recvDone () {
-    rf69_crc = RF69::recvDone((uint8_t*) rf69_buf);
+    rf69_crc = RF69::recvDone_compat((uint8_t*) rf69_buf);
     return rf69_crc != ~0;
 }
 
 uint8_t rf69_canSend () {
-    return 1; // TODO
+    return RF69::canSend();
 }
 
 // void rf69_sendStart (uint8_t hdr) {
 // }
 
 void rf69_sendStart (uint8_t hdr, const void* ptr, uint8_t len) {
-    RF69::sendStart(hdr, ptr, len);
+    RF69::sendStart_compat(hdr, ptr, len);
 }
 
 // void rf69_sendStart (uint8_t hdr, const void* ptr, uint8_t len, uint8_t sync) {
