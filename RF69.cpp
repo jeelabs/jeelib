@@ -197,7 +197,4 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
     rxstate = - (2 + rf12_len); // preamble and SYN1/SYN2 are sent by hardware
     flushFifo();
     setMode(MODE_TRANSMITTER);
-    // TODO remove this:
-    while (rxstate < TXIDLE)
-      rf12_recvDone();
 }

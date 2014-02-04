@@ -15,7 +15,7 @@ uint8_t rf69_initialize (uint8_t id, uint8_t band, uint8_t group) {
     RF69::frf = band == RF12_433MHZ ? 0x6C4000L : // or 0x6C8000 for 434 MHz?
                 band == RF12_868MHZ ? 0xD90000L : 0xE4C000L;
     RF69::group = group;
-    RF69::node = id;
+    RF69::node = id & RF12_HDR_MASK;
     delay(20); // needed to make RFM69 work properly on power-up
     RF69::configure_compat();
     return id;
