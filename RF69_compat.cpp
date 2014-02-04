@@ -1,4 +1,6 @@
 #include <JeeLib.h>
+#include <avr/eeprom.h>
+#include <util/crc16.h>
 
 volatile uint16_t rf69_crc;
 volatile uint8_t rf69_buf[72];
@@ -19,9 +21,31 @@ uint8_t rf69_initialize (uint8_t id, uint8_t band, uint8_t group) {
     return id;
 }
 
+// same code as rf12_config, just calling rf69_initialize() instead
 uint8_t rf69_config (uint8_t show) {
-    rf69_initialize(31, RF12_868MHZ, 5);
-    return 31; // TODO
+    uint16_t crc = ~0;
+    for (uint8_t i = 0; i < RF12_EEPROM_SIZE; ++i)
+        crc = _crc16_update(crc, eeprom_read_byte(RF12_EEPROM_ADDR + i));
+    if (crc != 0)
+        return 0;
+        
+    uint8_t nodeId = 0, group = 0;
+    for (uint8_t i = 0; i < RF12_EEPROM_SIZE - 2; ++i) {
+        uint8_t b = eeprom_read_byte(RF12_EEPROM_ADDR + i);
+        if (i == 0)
+            nodeId = b;
+        else if (i == 1)
+            group = b;
+        else if (b == 0)
+            break;
+        else if (show)
+            Serial.print((char) b);
+    }
+    if (show)
+        Serial.println();
+    
+    rf69_initialize(nodeId, nodeId >> 6, group);
+    return nodeId & RF12_HDR_MASK;
 }
 
 uint8_t rf69_recvDone () {
