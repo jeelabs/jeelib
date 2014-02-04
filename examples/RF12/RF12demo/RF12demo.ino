@@ -4,6 +4,7 @@
 
 // this version adds flash memory support, 2009-11-19
 
+#define RF69_COMPAT 0 // define this to use the RF69 driver i.s.o. RF12
 #include <JeeLib.h>
 #include <util/crc16.h>
 #include <util/parity.h>
