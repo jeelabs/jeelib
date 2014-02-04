@@ -4,7 +4,7 @@
 
 // this version adds flash memory support, 2009-11-19
 
-#define RF69_COMPAT 1 // define this to use the RF69 driver i.s.o. RF12
+#define RF69_COMPAT 0 // define this to use the RF69 driver i.s.o. RF12
 #include <JeeLib.h>
 #include <util/crc16.h>
 #include <util/parity.h>
@@ -18,7 +18,7 @@
 #else
 #define SERIAL_BAUD 57600
 
-#define DATAFLASH 0 // check for presence of DataFlash memory on JeeLink
+#define DATAFLASH 1 // check for presence of DataFlash memory on JeeLink
 #define FLASH_MBIT  16  // support for various dataflash sizes: 4/8/16 Mbit
 
 #define LED_PIN   9 // activity LED, comment out to disable
