@@ -5,8 +5,6 @@
 #ifndef RF69_compat_h
 #define RF69_compat_h
 
-#include <stdint.h>
-
 #ifdef RF12_h
 #error This file must be included BEFORE the "JeeLib.h" and "RF12.h" files!
 #endif
@@ -32,7 +30,5 @@
 #define rf12_easySend   rf69_easySend
 #define rf12_encrypt    rf69_encrypt
 #define rf12_control    rf69_control
-
-uint8_t rf69_getRssi ();
 
 #endif
