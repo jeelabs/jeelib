@@ -780,7 +780,7 @@ void loop() {
     }
 #if RF69_COMPAT
     Serial.print(" (");
-    Serial.print(-(rf69_getRssi()>>2));
+    Serial.print(-(RF69::rssi>>1));
     Serial.print(')');
 #endif    
     Serial.println();
