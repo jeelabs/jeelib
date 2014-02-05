@@ -9,6 +9,7 @@
 #define REG_DIOMAPPING1     0x25
 #define REG_IRQFLAGS1       0x27
 #define REG_IRQFLAGS2       0x28
+#define REG_SYNCCONFIG      0x2E
 #define REG_SYNCVALUE1      0x2F
 #define REG_SYNCVALUE2      0x30
 #define REG_NODEADRS        0x39
@@ -135,6 +136,8 @@ bool RF69::sending () {
 
 void RF69::configure_compat () {
     initRadio(configRegs_compat);    
+    // FIXME doesn't seem to work, nothing comes in but noise for group 0
+    // writeReg(REG_SYNCCONFIG, group ? 0x88 : 0x80);
     writeReg(REG_SYNCVALUE2, group);
 
     writeReg(REG_FRFMSB, frf >> 16);
