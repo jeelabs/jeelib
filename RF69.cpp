@@ -6,6 +6,7 @@
 #define REG_OPMODE          0x01
 #define REG_FRFMSB          0x07
 #define REG_RSSIVALUE       0x24
+#define REG_DIOMAPPING1     0x25
 #define REG_IRQFLAGS1       0x27
 #define REG_IRQFLAGS2       0x28
 #define REG_SYNCVALUE1      0x2F
@@ -38,6 +39,7 @@ namespace RF69 {
     uint8_t  group;
     uint8_t  node;
     uint16_t crc;
+    uint8_t  rssi;
 }
 
 static volatile uint8_t rxfill;     // number of data bytes in rf12_buf
@@ -55,7 +57,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   // 0x09, 0x00, // FrfLsb, step = 61.03515625
   0x0B, 0x20, // AfcCtrl, afclowbetaon
   0x19, 0x42, // RxBw ...
-  0x25, 0x40, // DioMapping1 ...
+  0x25, 0x80, // DioMapping1 ...
   // 0x29, 0xDC, // RssiThresh ...
   0x2E, 0x88, // SyncConfig = sync on, sync size = 2
   0x2F, 0x2D, // SyncValue1 = 0x2D
@@ -69,10 +71,12 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 };
 
 static void writeReg (uint8_t addr, uint8_t value) {
+    PreventInterrupt irq0;
     spiTransfer(addr | 0x80, value);
 }
 
 static uint8_t readReg (uint8_t addr) {
+    PreventInterrupt irq0;
     return spiTransfer(addr, 0);
 }
 
@@ -197,4 +201,8 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
     rxstate = - (2 + rf12_len); // preamble and SYN1/SYN2 are sent by hardware
     flushFifo();
     setMode(MODE_TRANSMITTER);
+}
+
+void RF69::interrupt_compat () {
+    rssi = readReg(REG_RSSIVALUE);
 }

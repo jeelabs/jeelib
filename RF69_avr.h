@@ -20,6 +20,11 @@
 
 #define cs_pin      SS_BIT
 
+struct PreventInterrupt {
+    PreventInterrupt () { EIMSK &= ~ _BV(INT0); }
+    ~PreventInterrupt () { EIMSK |= _BV(INT0); }
+};
+
 static void spiInit (void) {
     SS_PORT |= _BV(cs_pin);
     SS_DDR |= _BV(cs_pin);

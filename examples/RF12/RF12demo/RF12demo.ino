@@ -18,7 +18,7 @@
 #else
 #define SERIAL_BAUD 57600
 
-#define DATAFLASH 1 // check for presence of DataFlash memory on JeeLink
+#define DATAFLASH 0 // check for presence of DataFlash memory on JeeLink
 #define FLASH_MBIT  16  // support for various dataflash sizes: 4/8/16 Mbit
 
 #define LED_PIN   9 // activity LED, comment out to disable
@@ -725,7 +725,7 @@ static void handleInput (char c) {
 }
 
 void displayVersion(uint8_t newline ) {
-  Serial.print("\n[RF12demo.10]");
+  Serial.print("\n[RF12demo.11]");
   if(newline!=0)  Serial.println();
 
 }
@@ -745,6 +745,7 @@ void setup() {
   }
 
   df_initialize();
+  quiet = 1;
   
   showHelp();
 }
@@ -777,6 +778,11 @@ void loop() {
         Serial.print(' ');
       showByte(rf12_data[i]);
     }
+#if RF69_COMPAT
+    Serial.print(" (");
+    Serial.print(-(rf69_getRssi()>>2));
+    Serial.print(')');
+#endif    
     Serial.println();
     
     if (rf12_crc == 0) {
