@@ -6,6 +6,19 @@
 volatile uint16_t rf69_crc;
 volatile uint8_t rf69_buf[72];
 
+static byte nodeid; // only used in the easyPoll code
+
+// same as in RF12
+#define RETRIES     8               // stop retrying after 8 times
+#define RETRY_MS    1000            // resend packet every second until ack'ed
+
+// same as in RF12
+static uint8_t ezInterval;          // number of seconds between transmits
+static uint8_t ezSendBuf[RF12_MAXDATA]; // data to send
+static char ezSendLen;              // number of bytes to send
+static uint8_t ezPending;           // remaining number of retries
+static long ezNextSend[2];          // when was last retry [0] or data [1] sent
+
 // void rf69_set_cs (uint8_t pin) {
 // }
 
@@ -23,7 +36,7 @@ uint8_t rf69_initialize (uint8_t id, uint8_t band, uint8_t group) {
     else
         detachInterrupt(0);
     RF69::configure_compat();
-    return id;
+    return nodeid = id;
 }
 
 // same code as rf12_config, just calling rf69_initialize() instead
@@ -91,31 +104,67 @@ void rf69_sendWait (uint8_t mode) {
 }
 
 void rf69_onOff (uint8_t value) {
-    // TODO
+    // NOT IMPLEMENTED
 }
 
 void rf69_sleep (char n) {
-    // TODO
+    RF69::sleep(n == RF12_SLEEP);
 }
 
-// char rf69_lowbat () {
-// }
+char rf69_lowbat () {
+    return 0; // NOT IMPLEMENTED
+}
 
-// void rf69_easyInit (uint8_t secs) {
-// }
+// same as in RF12
+void rf69_easyInit (uint8_t secs) {
+    ezInterval = secs;
+}
 
-// char rf69_easyPoll () {
-// }
+// same as in RF12, but with rf69_* calls i.s.o. rf12_*
+char rf69_easyPoll () {
+    if (rf69_recvDone() && rf12_crc == 0) {
+        byte myAddr = nodeid & RF12_HDR_MASK;
+        if (rf12_hdr == (RF12_HDR_CTL | RF12_HDR_DST | myAddr)) {
+            ezPending = 0;
+            ezNextSend[0] = 0; // flags succesful packet send
+            if (rf12_len > 0)
+                return 1;
+        }
+    }
+    if (ezPending > 0) {
+        byte newData = ezPending == RETRIES;
+        long now = millis();
+        if (now >= ezNextSend[newData] && rf69_canSend()) {
+            ezNextSend[0] = now + RETRY_MS;
+            if (newData)
+                ezNextSend[1] = now +
+                    (ezInterval > 0 ? 1000L * ezInterval
+                                    : (nodeid >> 6) == RF12_868MHZ ?
+                                            13 * (ezSendLen + 10) : 100);
+            rf69_sendStart(RF12_HDR_ACK, ezSendBuf, ezSendLen);
+            --ezPending;
+        }
+    }
+    return ezPending ? -1 : 0;
+}
 
-// char rf69_easySend (const void* data, uint8_t size) {
-// }
+// same as in RF12
+char rf69_easySend (const void* data, uint8_t size) {
+    if (data != 0 && size != 0) {
+        if (ezNextSend[0] == 0 && size == ezSendLen &&
+                                    memcmp(ezSendBuf, data, size) == 0)
+            return 0;
+        memcpy(ezSendBuf, data, size);
+        ezSendLen = size;
+    }
+    ezPending = RETRIES;
+    return 1;
+}
 
-// void rf69_encrypt (const uint8_t*) {
-// }
+void rf69_encrypt (const uint8_t*) {
+    // NOT IMPLEMENTED
+}
 
-// uint16_t rf69_control (uint16_t cmd) {
-// }
-
-uint8_t rf69_getRssi () {
-    return RF69::rssi;
+uint16_t rf69_control (uint16_t cmd) {
+    return 0; // NOT IMPLEMENTED
 }

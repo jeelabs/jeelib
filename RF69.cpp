@@ -130,6 +130,11 @@ bool RF69::sending () {
     return rxstate < TXIDLE;
 }
 
+void RF69::sleep (bool off) {
+    setMode(off ? MODE_SLEEP : MODE_STANDBY);
+    rxstate = TXIDLE;
+}
+
 // References to the RF12 driver above this line will generate compiler errors!
 #include <RF69_compat.h>
 #include <RF12.h>
