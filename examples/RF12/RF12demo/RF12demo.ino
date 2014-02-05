@@ -780,7 +780,10 @@ void loop() {
     }
 #if RF69_COMPAT
     Serial.print(" (");
-    Serial.print(-(RF69::rssi>>1));
+    if (useHex)
+        showByte(RF69::rssi);
+    else
+        Serial.print(-(RF69::rssi>>1));
     Serial.print(')');
 #endif    
     Serial.println();
