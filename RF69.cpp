@@ -57,7 +57,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   // 0x09, 0x00, // FrfLsb, step = 61.03515625
   0x0B, 0x20, // AfcCtrl, afclowbetaon
   0x19, 0x42, // RxBw ...
-  0x25, 0x80, // DioMapping1 ...
+  0x25, 0x80, // DioMapping1 = SyncAddress (Rx)
   // 0x29, 0xDC, // RssiThresh ...
   0x2E, 0x88, // SyncConfig = sync on, sync size = 2
   0x2F, 0x2D, // SyncValue1 = 0x2D
@@ -87,8 +87,8 @@ static void flushFifo () {
 
 static void setMode (uint8_t mode) {
     writeReg(REG_OPMODE, (readReg(REG_OPMODE) & 0xE3) | mode);
-    while ((readReg(REG_IRQFLAGS1) & IRQ1_MODEREADY) == 0)
-        ;
+    // while ((readReg(REG_IRQFLAGS1) & IRQ1_MODEREADY) == 0)
+    //     ;
 }
 
 static void initRadio (ROM_UINT8* init) {
@@ -125,6 +125,10 @@ bool RF69::canSend () {
     return false;
 }
 
+bool RF69::sending () {
+    return rxstate < TXIDLE;
+}
+
 // References to the RF12 driver above this line will generate compiler errors!
 #include <RF69_compat.h>
 #include <RF12.h>
@@ -140,53 +144,44 @@ void RF69::configure_compat () {
     rxstate = TXIDLE;
 }
 
+uint8_t* recvBuf;
+
 uint16_t RF69::recvDone_compat (uint8_t* buf) {
-    if (rxstate == TXIDLE) {
+    switch (rxstate) {
+    case TXIDLE:
         rxfill = rf12_len = 0;
         crc = _crc16_update(~0, group);
+        recvBuf = buf;
         rxstate = TXRECV;
         flushFifo();
         setMode(MODE_RECEIVER);
-    } else {
-        uint8_t irq2 = readReg(REG_IRQFLAGS2);
-        if (rxstate == TXRECV) {
-            if (irq2 & (IRQ2_FIFONOTEMPTY | IRQ2_FIFOOVERRUN)) {
-                uint8_t in = readReg(REG_FIFO);
-                if (rxfill == 0)
-                    buf[rxfill++] = group;
-                buf[rxfill++] = in;
-                crc = _crc16_update(crc, in);
-              
-                if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX) {
-                    rxstate = TXIDLE;
-                    setMode(MODE_STANDBY);
-                    if (rf12_len > RF12_MAXDATA)
-                        crc = 1; // force bad for invalid packet
-                    if (!(rf12_hdr & RF12_HDR_DST) || node == 31 ||
-                            (rf12_hdr & RF12_HDR_MASK) == node)
-                        // it's a broadcast or addressed to this node
-                        return crc;
-                }
-            }
-        } else if ((irq2 & IRQ2_FIFOFULL) == 0) {
-            uint8_t out;
+        break;
+    case TXRECV:
+        if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX) {
+            rxstate = TXIDLE;
+            setMode(MODE_STANDBY);
+            if (rf12_len > RF12_MAXDATA)
+                crc = 1; // force bad crc for invalid packet
+            if (!(rf12_hdr & RF12_HDR_DST) || node == 31 ||
+                    (rf12_hdr & RF12_HDR_MASK) == node)
+                return crc;
+        }
+    case TXDONE:
+        break; // waiting for the IRQ2_PACKETSENT interrupt
+    default:
+        if ((readReg(REG_IRQFLAGS2) & IRQ2_FIFOFULL) == 0) {
+            uint8_t out = 0xAA;
             if (rxstate < 0) {
-                uint8_t pos = 3 + rf12_len + rxstate++;
-                out = buf[pos];
+                out = buf[3 + rf12_len + rxstate];
                 crc = _crc16_update(crc, out);
-            } else if (rxstate == TXDONE) {
-                if ((irq2 & IRQ2_PACKETSENT)) {
-                    rxstate = TXIDLE;
-                    setMode(MODE_STANDBY);
-                }
-                return ~0; // keep transmitting until the packet has been sent
-            } else
-                switch (rxstate++) {
+            } else {
+                switch (rxstate) {
                     case TXCRC1: out = crc; break;
                     case TXCRC2: out = crc >> 8; break;
-                    default:     out = 0xAA;
                 }
-                writeReg(REG_FIFO, out);
+            }
+            writeReg(REG_FIFO, out);
+            ++rxstate;
         }
     }
     return ~0;
@@ -201,8 +196,28 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
     rxstate = - (2 + rf12_len); // preamble and SYN1/SYN2 are sent by hardware
     flushFifo();
     setMode(MODE_TRANSMITTER);
+    writeReg(REG_DIOMAPPING1, 0x00); // PacketSent
 }
 
 void RF69::interrupt_compat () {
-    rssi = readReg(REG_RSSIVALUE);
+    if (rxstate == TXRECV) {
+        rssi = readReg(REG_RSSIVALUE);
+        IRQ_ENABLE; // allow nested interrupts from here on
+        for (;;) { // busy loop, to get each data byte as soon as it comes in
+            if (readReg(REG_IRQFLAGS2) & (IRQ2_FIFONOTEMPTY|IRQ2_FIFOOVERRUN)) {
+                if (rxfill == 0)
+                    recvBuf[rxfill++] = group;
+                uint8_t in = readReg(REG_FIFO);
+                recvBuf[rxfill++] = in;
+                crc = _crc16_update(crc, in);              
+                if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX)
+                    break;
+            }
+        }
+    } else if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
+        // rxstate will be TXDONE at this point
+        rxstate = TXIDLE;
+        setMode(MODE_STANDBY);
+        writeReg(REG_DIOMAPPING1, 0x80); // SyncAddress
+    }
 }

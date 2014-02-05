@@ -17,11 +17,11 @@ uint8_t rf69_initialize (uint8_t id, uint8_t band, uint8_t group) {
     RF69::group = group;
     RF69::node = id & RF12_HDR_MASK;
     delay(20); // needed to make RFM69 work properly on power-up
-    RF69::configure_compat();
     if (RF69::node != 0)
         attachInterrupt(0, RF69::interrupt_compat, RISING);
     else
         detachInterrupt(0);
+    RF69::configure_compat();
     return id;
 }
 
@@ -78,7 +78,8 @@ void rf69_sendNow (uint8_t hdr, const void* ptr, uint8_t len) {
 }
 
 void rf69_sendWait (uint8_t mode) {
-    // TODO
+    while (RF69::sending())
+        ; // TODO low-power modes
 }
 
 void rf69_onOff (uint8_t value) {

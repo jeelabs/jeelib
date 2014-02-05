@@ -1,9 +1,12 @@
+#include <avr/interrupt.h>
 #include <avr/pgmspace.h>
 #include <util/crc16.h>
 
 #define ROM_UINT8       const prog_uint8_t
 #define ROM_READ_UINT8  pgm_read_byte
 #define ROM_DATA        PROGMEM
+
+#define IRQ_ENABLE      sei()
 
 // ATmega168, ATmega328, etc.
 // #define RFM_IRQ     2

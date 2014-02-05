@@ -9,6 +9,7 @@ namespace RF69 {
 
     void setFrequency (uint32_t freq);
     bool canSend ();
+    bool sending ();
     
     void configure_compat ();
     uint16_t recvDone_compat (uint8_t* buf);
