@@ -169,23 +169,6 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
                     (rf12_hdr & RF12_HDR_MASK) == node)
                 return crc;
         }
-    case TXDONE:
-        break; // waiting for the IRQ2_PACKETSENT interrupt
-    default:
-        if ((readReg(REG_IRQFLAGS2) & IRQ2_FIFOFULL) == 0) {
-            uint8_t out = 0xAA;
-            if (rxstate < 0) {
-                out = buf[3 + rf12_len + rxstate];
-                crc = _crc16_update(crc, out);
-            } else {
-                switch (rxstate) {
-                    case TXCRC1: out = crc; break;
-                    case TXCRC2: out = crc >> 8; break;
-                }
-            }
-            writeReg(REG_FIFO, out);
-            ++rxstate;
-        }
     }
     return ~0;
 }
@@ -200,6 +183,24 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
     flushFifo();
     setMode(MODE_TRANSMITTER);
     writeReg(REG_DIOMAPPING1, 0x00); // PacketSent
+    
+    // use busy polling until the last byte fits into the buffer
+    // this makes sure it all happens on time, and that sendWait can sleep
+    while (rxstate < TXDONE)
+        if ((readReg(REG_IRQFLAGS2) & IRQ2_FIFOFULL) == 0) {
+            uint8_t out = 0xAA;
+            if (rxstate < 0) {
+                out = recvBuf[3 + rf12_len + rxstate];
+                crc = _crc16_update(crc, out);
+            } else {
+                switch (rxstate) {
+                    case TXCRC1: out = crc; break;
+                    case TXCRC2: out = crc >> 8; break;
+                }
+            }
+            writeReg(REG_FIFO, out);
+            ++rxstate;
+        }
 }
 
 void RF69::interrupt_compat () {

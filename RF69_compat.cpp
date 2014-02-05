@@ -1,5 +1,6 @@
 #include <JeeLib.h>
 #include <avr/eeprom.h>
+#include <avr/sleep.h>
 #include <util/crc16.h>
 
 volatile uint16_t rf69_crc;
@@ -79,7 +80,14 @@ void rf69_sendNow (uint8_t hdr, const void* ptr, uint8_t len) {
 
 void rf69_sendWait (uint8_t mode) {
     while (RF69::sending())
-        ; // TODO low-power modes
+        if (mode) {
+            set_sleep_mode(mode == 3 ? SLEEP_MODE_PWR_DOWN :
+#ifdef SLEEP_MODE_STANDBY
+                           mode == 2 ? SLEEP_MODE_STANDBY :
+#endif
+                                       SLEEP_MODE_IDLE);
+            sleep_mode();
+        }
 }
 
 void rf69_onOff (uint8_t value) {
