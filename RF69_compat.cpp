@@ -103,17 +103,15 @@ void rf69_sendWait (uint8_t mode) {
         }
 }
 
-void rf69_onOff (uint8_t value) {
-    // NOT IMPLEMENTED
-}
+// void rf69_onOff (uint8_t value) {
+// }
 
 void rf69_sleep (char n) {
     RF69::sleep(n == RF12_SLEEP);
 }
 
-char rf69_lowbat () {
-    return 0; // NOT IMPLEMENTED
-}
+// char rf69_lowbat () {
+// }
 
 // same as in RF12
 void rf69_easyInit (uint8_t secs) {
@@ -161,10 +159,8 @@ char rf69_easySend (const void* data, uint8_t size) {
     return 1;
 }
 
-void rf69_encrypt (const uint8_t*) {
-    // NOT IMPLEMENTED
-}
+// void rf69_encrypt (const uint8_t*) {
+// }
 
-uint16_t rf69_control (uint16_t cmd) {
-    return RF69::control(cmd >> 8, cmd);
-}
+// uint16_t rf69_control (uint16_t cmd) {
+// }

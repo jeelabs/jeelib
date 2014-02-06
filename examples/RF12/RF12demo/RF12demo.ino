@@ -125,6 +125,11 @@ static byte bandToFreq (byte band) {
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 // OOK transmit code
 
+#if RF69_COMPAT // not implemented in RF69 compatibility mode
+static void fs20cmd(word house, byte addr, byte cmd) {}
+static void kakuSend(char addr, byte device, byte on) {}
+#else
+
 // Turn transmitter on or off, but also apply asymmetric correction and account
 // for 25 us SPI overhead to end up with the proper on-the-air pulse widths.
 // With thanks to JGJ Veken for his help in getting these values right.
@@ -174,6 +179,8 @@ static void kakuSend(char addr, byte device, byte on) {
     delay(11); // approximate
   }
 }
+
+#endif
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 // DataFlash code
