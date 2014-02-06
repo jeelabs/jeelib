@@ -24,6 +24,7 @@ rf12_config	KEYWORD2
 rf12_recvDone	KEYWORD2
 rf12_canSend	KEYWORD2
 rf12_sendStart	KEYWORD2
+rf12_sendNow	KEYWORD2
 rf12_sendWait	KEYWORD2
 rf12_onOff	KEYWORD2
 rf12_sleep	KEYWORD2
