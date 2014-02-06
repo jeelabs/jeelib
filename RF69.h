@@ -11,6 +11,7 @@ namespace RF69 {
     bool canSend ();
     bool sending ();
     void sleep (bool off);
+    uint8_t control(uint8_t cmd, uint8_t val);
     
     void configure_compat ();
     uint16_t recvDone_compat (uint8_t* buf);

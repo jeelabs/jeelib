@@ -166,5 +166,5 @@ void rf69_encrypt (const uint8_t*) {
 }
 
 uint16_t rf69_control (uint16_t cmd) {
-    return 0; // NOT IMPLEMENTED
+    return RF69::control(cmd >> 8, cmd);
 }

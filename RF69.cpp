@@ -71,14 +71,17 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0
 };
 
-static void writeReg (uint8_t addr, uint8_t value) {
+uint8_t RF69::control(uint8_t cmd, uint8_t val) {
     PreventInterrupt irq0;
-    spiTransfer(addr | 0x80, value);
+    return spiTransfer(cmd, val);
+}
+
+static void writeReg (uint8_t addr, uint8_t value) {
+    RF69::control(addr | 0x80, value);
 }
 
 static uint8_t readReg (uint8_t addr) {
-    PreventInterrupt irq0;
-    return spiTransfer(addr, 0);
+    return RF69::control(addr, 0);
 }
 
 static void flushFifo () {
