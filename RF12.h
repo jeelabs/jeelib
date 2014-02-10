@@ -40,7 +40,7 @@
 
 // EEPROM address range used by the rf12_config() code
 #define RF12_EEPROM_ADDR ((uint8_t*) 0x20)  ///< Starting offset.
-#define RF12_EEPROM_SIZE 32                 ///< Number of bytes.
+#define RF12_EEPROM_SIZE 48                 ///< Number of bytes.
 #define RF12_EEPROM_EKEY (RF12_EEPROM_ADDR + RF12_EEPROM_SIZE) ///< EE start.
 #define RF12_EEPROM_ELEN 16                 ///< EE number of bytes.
 
@@ -74,7 +74,12 @@ uint8_t rf12_initialize(uint8_t id, uint8_t band, uint8_t group=0xD4, uint16_t f
 /// Initialize the RFM12B module from settings stored in EEPROM by "RF12demo"
 /// don't call rf12_initialize() if you init the hardware with rf12_config().
 /// @return the node ID as 1..31 value (1..26 correspond to nodes 'A'..'Z').
-uint8_t rf12_config(uint8_t show =1);
+uint8_t rf12_config();
+/// Alternate version which does not print to the Serial port.
+uint8_t rf12_configSilent();
+
+/// @deprecated Please switch over to one of the two new 0-arg versions.
+uint8_t rf12_config(uint8_t show);
 
 /// Call this frequently, returns true if a packet has been received.
 uint8_t rf12_recvDone(void);
@@ -87,8 +92,6 @@ uint8_t rf12_canSend(void);
 void rf12_sendStart(uint8_t hdr);
 /// Call this only when rf12_recvDone() or rf12_canSend() return true.
 void rf12_sendStart(uint8_t hdr, const void* ptr, uint8_t len);
-/// Deprecated: use rf12_sendStart(hdr,ptr,len) followed by rf12_sendWait(sync).
-void rf12_sendStart(uint8_t hdr, const void* ptr, uint8_t len, uint8_t sync);
 /// This variant loops on rf12_canSend() and then calls rf12_sendStart() asap.
 void rf12_sendNow(uint8_t hdr, const void* ptr, uint8_t len);
 
