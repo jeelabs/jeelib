@@ -96,6 +96,7 @@
 #endif 
 
 // RF12 command codes
+#define RF_RECV_CONTROL 0x94A0
 #define RF_RECEIVER_ON  0x82DD
 #define RF_XMITTER_ON   0x823D
 #define RF_IDLE_MODE    0x820D
@@ -125,6 +126,7 @@ static uint8_t cs_pin = SS_BIT;     // chip select pin
 
 static uint8_t nodeid;              // address of this node
 static uint8_t group;               // network group
+static uint16_t frequency;          // Frequency within selected band
 static volatile uint8_t rxfill;     // number of data bytes in rf12_buf
 static volatile int8_t rxstate;     // current transceiver state
 
@@ -289,8 +291,8 @@ uint16_t rf12_control(uint16_t cmd) {
 static void rf12_interrupt() {
     // a transfer of 2x 16 bits @ 2 MHz over SPI takes 2x 8 us inside this ISR
     // correction: now takes 2 + 8 µs, since sending can be done at 8 MHz
-    rf12_xfer(0x0000);
-    
+    rf12_xfer(0x0000); 
+
     if (rxstate == TXRECV) {
         uint8_t in = rf12_xferSlow(RF_RX_FIFO_READ);
 
@@ -350,6 +352,7 @@ static void rf12_recvStart () {
         rf12_crc = _crc16_update(~0, group);
 #endif
     rxstate = TXRECV;    
+
     rf12_xfer(RF_RECEIVER_ON);
 }
 
@@ -552,13 +555,15 @@ void rf12_sendWait (uint8_t mode) {
 /// rf12_initialize. The choice whether to use rf12_initialize() or
 /// rf12_config() at the top of every sketch is one of personal preference.
 /// To set EEPROM settings for use with rf12_config() use the RF12demo sketch.
-uint8_t rf12_initialize (uint8_t id, uint8_t band, uint8_t g) {
+uint8_t rf12_initialize (uint8_t id, uint8_t band, uint8_t g, uint16_t f) {
     nodeid = id;
     group = g;
-    
+    frequency = f;
+// caller should validate!    if (frequency < 96) frequency = 1600;
+        
     rf12_spiInit();
 
-    rf12_xfer(0x0000); // intitial SPI transfer added to avoid power-up problem
+    rf12_xfer(0x0000); // initial SPI transfer added to avoid power-up problem
 
     rf12_xfer(RF_SLEEP_MODE); // DC (disable clk pin), enable lbd
     
@@ -568,7 +573,7 @@ uint8_t rf12_initialize (uint8_t id, uint8_t band, uint8_t g) {
         rf12_xfer(0x0000);
         
     rf12_xfer(0x80C7 | (band << 4)); // EL (ena TX), EF (ena RX FIFO), 12.0pF 
-    rf12_xfer(0xA640); // 868MHz 
+    rf12_xfer(0xA000 + frequency); // 96 - 3960 frequency range of values within band 
     rf12_xfer(0xC606); // approx 49.2 Kbps, i.e. 10000/29/(1+6) Kbps
     rf12_xfer(0x94A2); // VDI,FAST,134kHz,0dBm,-91dBm 
     rf12_xfer(0xC2AC); // AL,!ml,DIG,DQD4 
@@ -622,7 +627,6 @@ uint8_t rf12_initialize (uint8_t id, uint8_t band, uint8_t g) {
     
     return nodeid;
 }
-
 /// @details
 /// This can be used to send out slow bit-by-bit On Off Keying signals to other
 /// devices such as remotely controlled power switches operating in the 433,
@@ -652,27 +656,48 @@ void rf12_onOff (uint8_t value) {
 /// @returns the node ID obtained from EEPROM, or 0 if there was none.
 uint8_t rf12_config (uint8_t show) {
     uint16_t crc = ~0;
-    for (uint8_t i = 0; i < RF12_EEPROM_SIZE; ++i)
-        crc = _crc16_update(crc, eeprom_read_byte(RF12_EEPROM_ADDR + i));
+    uint16_t stored_crc = 0;
+    for (uint8_t i = 0; i < RF12_EEPROM_SIZE; ++i) {
+        byte e = eeprom_read_byte(RF12_EEPROM_ADDR + i);
+        crc = _crc16_update(crc, e);
+        if (i == (RF12_EEPROM_SIZE-2)) stored_crc = (e << 8);
+        if (i == (RF12_EEPROM_SIZE-1)) stored_crc = stored_crc + e;
+    }
     if (crc != 0)
         return 0;
         
-    uint8_t nodeId = 0, group = 0;
-    for (uint8_t i = 0; i < RF12_EEPROM_SIZE - 2; ++i) {
+    uint8_t nodeId = 0, group = 0;   
+    uint16_t frequency = 0;  
+     
+    nodeId = eeprom_read_byte(RF12_EEPROM_ADDR + 0);
+    group  = eeprom_read_byte(RF12_EEPROM_ADDR + 1);
+    
+    frequency = eeprom_read_byte(RF12_EEPROM_ADDR + 2);
+
+    char flags = frequency >> 4;
+    if (flags & 0x02)
+      frequency = 1600; 
+    else 
+     frequency = ((frequency & 0x0F) << 8) + (eeprom_read_byte(RF12_EEPROM_ADDR + 3));
+    if (show) {
+        Serial.print (flags, HEX); // Print the values of flags
+        Serial.print(" ");         // Message length not preserved from v10
+    }                                                                                                                          
+    
+    for (uint8_t i = 4; i < RF12_EEPROM_SIZE - 2; ++i) {
         uint8_t b = eeprom_read_byte(RF12_EEPROM_ADDR + i);
-        if (i == 0)
-            nodeId = b;
-        else if (i == 1)
-            group = b;
-        else if (b == 0)
+        if (b < 32)
             break;
-        else if (show)
+        if (show)
             Serial.print((char) b);
     }
-    if (show)
+    if (show) {
+        Serial.print(" 0x");
+        Serial.print(stored_crc, HEX);
         Serial.println();
-    
-    rf12_initialize(nodeId, nodeId >> 6, group);
+    }
+            
+    rf12_initialize(nodeId, nodeId >> 6, group, frequency);
     return nodeId & RF12_HDR_MASK;
 }
 
