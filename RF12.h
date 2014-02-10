@@ -69,7 +69,7 @@ void rf12_set_cs(uint8_t pin);
 void rf12_spiInit(void);
 
 /// Call this once with the node ID, frequency band, and optional group.
-uint8_t rf12_initialize(uint8_t id, uint8_t band, uint8_t group=0xD4, uint16_t frequency=1600);
+uint8_t rf12_initialize(uint8_t id, uint8_t band, uint8_t group=0xD4);
 
 /// Initialize the RFM12B module from settings stored in EEPROM by "RF12demo"
 /// don't call rf12_initialize() if you init the hardware with rf12_config().
