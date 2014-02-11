@@ -517,6 +517,19 @@ public:
     word calcLux(byte iGain =0, byte tInt =2) const;
 };
 
+// Interface for the HYT131 thermometer/hygrometer - see http://jeelabs.org/2012/06/30/new-hyt131-sensor/
+class HYT131 : public DeviceI2C {
+public:
+    // Constructor for the HYT131 sensor.
+    HYT131 (PortI2C& port) : DeviceI2C (port, 0x28) {}
+    
+    // Execute a reading; results are in tenths of degrees and percent, respectively
+    // @param temp in which to store the temperature (int, tenths of degrees C)
+    // @param humi in which to store the humidity (int, tenths of percent)
+    // @param delayFun (optional) supply delayFun that takes ms delay as argument, for low-power waiting during reading (e.g. Sleepy::loseSomeTime()). By default, delay() is used
+    void reading (int& temp, int& humi, byte (*delayFun)(word ms) =0);
+};
+
 /// Interface for the Gravity Plug - see http://jeelabs.org/gp
 class GravityPlug : public DeviceI2C {
     /// Data storage for getAxes() and sensitivity()
