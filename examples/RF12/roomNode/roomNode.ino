@@ -17,7 +17,8 @@
 #define SERIAL  0   // set to 1 to also report readings on the serial port
 #define DEBUG   0   // set to 1 to display each loop() run and PIR trigger
 
-#define SHT11_PORT  1   // defined if SHT11 is connected to a port
+// #define SHT11_PORT  1   // defined if SHT11 is connected to a port
+#define HYT131_PORT 1   // defined if HYT131 is connected to a port
 #define LDR_PORT    4   // defined if LDR is connected to a port's AIO pin
 #define PIR_PORT    4   // defined if PIR is connected to a port's DIO pin
 
@@ -58,6 +59,11 @@ struct {
 
 #if SHT11_PORT
     SHT11 sht11 (SHT11_PORT);
+#endif
+
+#if HYT131_PORT
+    PortI2C hyti2cport (HYT131_PORT);
+    HYT131 hyt131 (hyti2cport);
 #endif
 
 #if LDR_PORT
@@ -162,6 +168,12 @@ static void doMeasure() {
         int humi = 50, temp = 25;
 #endif
         payload.humi = smoothedAverage(payload.humi, humi, firstTime);
+        payload.temp = smoothedAverage(payload.temp, temp, firstTime);
+    #endif
+    #if HYT131_PORT
+        int humi, temp;
+        hyt131.reading(temp, humi);
+        payload.humi = smoothedAverage(payload.humi, humi/10, firstTime);
         payload.temp = smoothedAverage(payload.temp, temp, firstTime);
     #endif
     #if LDR_PORT
