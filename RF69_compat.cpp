@@ -25,7 +25,8 @@ static long ezNextSend[2];          // when was last retry [0] or data [1] sent
 // void rf69_spiInit () {
 // }
 
-uint8_t rf69_initialize (uint8_t id, uint8_t band, uint8_t group) {
+// TODO: the frequency argument is currently ignored
+uint8_t rf69_initialize (uint8_t id, uint8_t band, uint8_t group, uint16_t frequency) {
     RF69::frf = band == RF12_433MHZ ? 0x6C4000L : // or 0x6C8000 for 434 MHz?
                 band == RF12_868MHZ ? 0xD90000L : 0xE4C000L;
     RF69::group = group;
@@ -39,31 +40,43 @@ uint8_t rf69_initialize (uint8_t id, uint8_t band, uint8_t group) {
     return nodeid = id;
 }
 
-// same code as rf12_config, just calling rf69_initialize() instead
-uint8_t rf69_config (uint8_t show) {
+// same code as rf12_config(Silent), just calling rf69_initialize() instead
+uint8_t rf69_configSilent () {
     uint16_t crc = ~0;
-    for (uint8_t i = 0; i < RF12_EEPROM_SIZE; ++i)
-        crc = _crc16_update(crc, eeprom_read_byte(RF12_EEPROM_ADDR + i));
+    for (uint8_t i = 0; i < RF12_EEPROM_SIZE; ++i) {
+        byte e = eeprom_read_byte(RF12_EEPROM_ADDR + i);
+        crc = _crc16_update(crc, e);
+    }
     if (crc != 0)
         return 0;
         
-    uint8_t nodeId = 0, group = 0;
-    for (uint8_t i = 0; i < RF12_EEPROM_SIZE - 2; ++i) {
-        uint8_t b = eeprom_read_byte(RF12_EEPROM_ADDR + i);
-        if (i == 0)
-            nodeId = b;
-        else if (i == 1)
-            group = b;
-        else if (b == 0)
-            break;
-        else if (show)
-            Serial.print((char) b);
-    }
-    if (show)
-        Serial.println();
+    uint8_t nodeId = 0, group = 0;   
+    uint16_t frequency = 0;  
+     
+    nodeId = eeprom_read_byte(RF12_EEPROM_ADDR + 0);
+    group  = eeprom_read_byte(RF12_EEPROM_ADDR + 1);
+    frequency = eeprom_read_word((uint16_t*) (RF12_EEPROM_ADDR + 2));
     
-    rf69_initialize(nodeId, nodeId >> 6, group);
+    rf69_initialize(nodeId, nodeId >> 6, group, frequency);
     return nodeId & RF12_HDR_MASK;
+}
+
+uint8_t rf69_config () {
+    uint8_t id = rf69_configSilent();
+    if (id != 0) {
+        for (uint8_t i = 4; i < RF12_EEPROM_SIZE - 2; ++i) {
+            uint8_t b = eeprom_read_byte(RF12_EEPROM_ADDR + i);
+            if (b < 32)
+                break;
+            Serial.print((char) b);
+        }
+    }
+    return id;
+}
+
+/// @deprecated Please switch over to one of the two new zero-arg versions.
+uint8_t rf69_config (uint8_t show) {
+    return show ? rf69_config() : rf69_configSilent();
 }
 
 uint8_t rf69_recvDone () {
