@@ -1,3 +1,5 @@
+#if !defined(__AVR_ATtiny84__) && !defined(__AVR_ATtiny44__)
+
 #include <JeeLib.h>
 #include <avr/eeprom.h>
 #include <avr/sleep.h>
@@ -179,3 +181,5 @@ char rf69_easySend (const void* data, uint8_t size) {
 
 // uint16_t rf69_control (uint16_t cmd) {
 // }
+
+#endif

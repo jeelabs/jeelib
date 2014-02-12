@@ -112,7 +112,6 @@
 
 // bits in the node id configuration byte
 #define NODE_BAND       0xC0        // frequency band
-#define NODE_ACKANY     0x20        // ack on broadcast packets if set
 #define NODE_ID         0x1F        // id of this node, as A..Z or 1..31
 
 // transceiver states, these determine what to do with each interrupt

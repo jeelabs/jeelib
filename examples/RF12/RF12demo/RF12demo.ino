@@ -10,7 +10,7 @@
 // Node numbers 16-31 can only be used if MAX_NODES and thereby
 // the size of the nodes array is adjusted accordingly
 //
-#define RF69_COMPAT 1 // define this to use the RF69 driver i.s.o. RF12
+#define RF69_COMPAT 0 // define this to use the RF69 driver i.s.o. RF12
 #include <JeeLib.h>
 #include <util/crc16.h>
 #include <avr/eeprom.h>
@@ -72,7 +72,7 @@ ISR (PCINT0_vect) {
         whackDelay(_bitDelay*2 - 6);    // digitalread takes some time
         if (digitalRead(_receivePin)) // PA2 = Jeenode DIO2
             d |= (1 << i);
-     }
+    }
     whackDelay(_bitDelay*2);
     if (_receive_buffer_index)
         return;
@@ -163,10 +163,10 @@ typedef struct {
     byte nodeId;            // used by rf12_config, offset 0
     byte group;             // used by rf12_config, offset 1
     byte format;            // used by rf12_config, offset 2
-    byte hex_output     :2;
-    byte collect_mode   :1;
-    byte quiet_mode     :1;
-    byte spare_flags    :4;
+    byte hex_output   :2;   // 0 = dec, 1 = hex, 2 = hex+ascii
+    byte collect_mode :1;   // 0 = ack, 1 = don't send acks
+    byte quiet_mode   :1;   // 0 = show all, 1 = show only valid packets
+    byte spare_flags  :4;  
     word frequency_offset;  // offset within band
     byte pad[RF12_EEPROM_SIZE-8];
     word crc;
@@ -174,7 +174,7 @@ typedef struct {
 
 static RF12Config config;
 static char cmd;
-static int value;
+static word value;
 static byte stack[RF12_MAXDATA+4], top, sendLen, dest;
 static byte testbuf[RF12_MAXDATA], testCounter;
 
@@ -384,8 +384,7 @@ static void handleInput (char c) {
             // Prevent auto allocation of this node number
                 config.nodeId = (config.nodeId & 0xE0) + (value & 0x1F);
                 saveConfig();
-            }
-            else {
+            } else {
                  showString(INVALID1);
             }
             break;
@@ -393,11 +392,11 @@ static void handleInput (char c) {
         case 'b': // set band: 4 = 433, 8 = 868, 9 = 915
             value = bandToFreq(value);
             if (value) {
-             config.nodeId = (value << 6) + (config.nodeId & 0x3F);
-             config.frequency_offset = 1600;
-             saveConfig();
+                config.nodeId = (value << 6) + (config.nodeId & 0x3F);
+                config.frequency_offset = 1600;
+                saveConfig();
             } else {
-                    showString(INVALID1);
+                showString(INVALID1);
             }
             break;
 
@@ -532,8 +531,7 @@ static void handleInput (char c) {
                 }
                 Serial.println();
                 displayASCII(testbuf, RF12_EEPROM_SIZE);
-            }
-            else {
+            } else {
                 showString(INVALID1);
             }
             if (!value) break;
@@ -562,8 +560,7 @@ static void handleInput (char c) {
                     loadConfig();
                 else
                     showString(INITFAIL);
-            }
-            else {
+            } else {
                 showString(INVALID1);
             }
         break;
@@ -571,12 +568,11 @@ static void handleInput (char c) {
 
         case 'n': // Clear node entries in RAM & eeprom
             if ((stack[0] > 0) && (stack[0] <= MAX_NODES) && (value == 123) && (nodes[stack[0]] == 0)) {
-                nodes[stack[0]] = 0xFF;                                                                                     // Clear RAM entry
+                nodes[stack[0]] = 0xFF; // Clear RAM entry
                 for (byte i = 0; i < (RF12_EEPROM_SIZE); ++i) {
                     eeprom_write_byte(RF12_EEPROM_ADDR + (stack[0]*32) + i, 0xFF);  // Clear complete eeprom entry
                 }
-            }
-            else {
+            } else {
                 showString(INVALID1);
             }
             break;
@@ -591,8 +587,7 @@ static void handleInput (char c) {
                 Serial.print(',');
                 Serial.println((int)postingsOut);
                 nodesShow();
-            }
-            else {
+            } else {
                 if ((stack[0] !=(config.nodeId & RF12_HDR_MASK)) && (stack[0] <= MAX_NODES) && (value < 255) && (nodes[stack[0]] == 0)) {       // No posting to special(31) or overwriting pending post
                     nodes[stack[0]] = value;
                     postingsIn++;                        // Count post
@@ -799,8 +794,7 @@ void loop () {
                             break;
                         }
                     }
-                }
-                else {
+                } else {
                     if (!(rf12_hdr & RF12_HDR_DST) && (nodes[(rf12_hdr & RF12_HDR_MASK)] != 0) &&
                              (nodes[(rf12_hdr & RF12_HDR_MASK)] != 0xFF)) {                  // Sources Nodes only!
                         testbuf[0] = nodes[(rf12_hdr & RF12_HDR_MASK)];                      // Pick up posted value

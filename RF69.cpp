@@ -1,3 +1,5 @@
+#if !defined(__AVR_ATtiny84__) && !defined(__AVR_ATtiny44__)
+
 #include <stdint.h>
 #include <RF69.h>
 #include <RF69_avr.h>
@@ -257,3 +259,5 @@ void RF69::interrupt_compat () {
         writeReg(REG_DIOMAPPING1, 0x80); // SyncAddress
     }
 }
+
+#endif
