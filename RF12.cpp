@@ -664,10 +664,11 @@ uint8_t rf12_configSilent () {
     for (uint8_t i = 0; i < RF12_EEPROM_SIZE; ++i) {
         byte e = eeprom_read_byte(RF12_EEPROM_ADDR + i);
         crc = _crc16_update(crc, e);
+        Serial.print(' ');                    //DEBUG
         Serial.print(e, HEX);                 //DEBUG
     }
     Serial.println();                         //DEBUG
-    if (crc != 0)
+    if (crc || eeprom_read_byte(RF12_EEPROM_ADDR + 2) != RF12_EEPROM_VERSION)
         return 0;
         
     uint8_t nodeId = 0, group = 0;   

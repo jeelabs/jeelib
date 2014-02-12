@@ -10,16 +10,16 @@
 // Node numbers 16-31 can only be used if MAX_NODES and thereby
 // the size of the nodes array is adjusted accordingly
 //
-#define RF69_COMPAT 1 // define this to use the RF69 driver i.s.o. RF12
+#define RF69_COMPAT 0 // define this to use the RF69 driver i.s.o. RF12
 #include <JeeLib.h>
 #include <util/crc16.h>
 #include <avr/eeprom.h>
 #include <avr/pgmspace.h>
 #include <util/parity.h>
 
-#define MAJOR_VERSION 1             // bump when EEPROM layout changes
-#define MINOR_VERSION 2             // bump on other non-trivial changes
-#define VERSION "\n[RF12demo.12]"   // keep in sync with the above
+#define MAJOR_VERSION RF12_EEPROM_VERSION // bump when EEPROM layout changes
+#define MINOR_VERSION 2                   // bump on other non-trivial changes
+#define VERSION "\n[RF12demo.12]"         // keep in sync with the above
 
 #define DEBUG 1
 
@@ -33,8 +33,13 @@ const char CLOSEBRAC[] PROGMEM = ") ";
 ///
 
 // ATtiny's only support outbound serial @ 38400 baud, and no DataFlash logging
-
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
+#define TINY 1
+#else
+#define TINY 0
+#endif
+
+#if TINY
 /// Serial support (output only) for Tiny supported by TinyDebugSerial
 /// http://www.ernstc.dk/arduino/tinycom.html
 /// 9600, 38400, or 115200
@@ -46,7 +51,7 @@ const char CLOSEBRAC[] PROGMEM = ") ";
 ///  All right reserved.
 /// Connect Tiny84 PA2 to USB-BUB TXD for serial input to sketch.    // Jeenode DIO2
 /// 9600 or 38400 at present.
-///
+
 #define SERIAL_BAUD 38400
 #define MAX_NODES 14
 #define _receivePin 8
@@ -69,7 +74,8 @@ ISR (PCINT0_vect) {
     return;
   _receive_buffer = d;        // save data 
   _receive_buffer_index = 1;  // got a byte 
-} 
+}
+
 void whackDelay(uint16_t delay) { 
   uint8_t tmp=0;
 
@@ -113,9 +119,10 @@ static void activityLed (byte on) {
   digitalWrite(LED_PIN, !on);
 #endif
 }
+
 /// @details
-/// eeprom layout details
-/// byte 0x00 Key storage for encryption algorithm
+/// For the EEPROM layout, see http://jeelabs.net/projects/jeelib/wiki/RF12demo
+/// FIXME: this is incorrect - byte 0x00 Key storage for encryption algorithm
 ///      0x1F  note: can be overwritten if T84 is Node 15 or M328 is Node 31
 /// ------------------------------------------------------------------------
 /// byte 0x20 Node number in bits                   ***n nnnn                    // 1 - 31
@@ -151,28 +158,27 @@ static void activityLed (byte on) {
 // ----------------
 // 8 bit
 
-// RF12 configuration setup code
+// RF12 configuration area
 typedef struct {
-  byte nodeId;
-  byte group;
-  char hex_output : 2;
-  char collect_mode : 1;
-  char quiet_mode : 1;
-  char spare_flags : 4;
-  int frequency_offset; // Offset within band
-  byte RF12Demo_Version;
+  byte nodeId;              // used by rf12_config, offset 0
+  byte group;               // used by rf12_config, offset 1
+  byte format;              // used by rf12_config, offset 2
+  byte hex_output   :2;
+  byte collect_mode :1;
+  byte quiet_mode   :1;
+  byte spare_flags  :4;
+  word frequency_offset;    // offset within band
   byte pad[RF12_EEPROM_SIZE-8];
   word crc;
 } RF12Config;
 
-unsigned int frequency;
 static RF12Config config;
 static char cmd;
 static int value;
 static byte stack[RF12_MAXDATA+4], top, sendLen, dest;
 static byte testbuf[RF12_MAXDATA], testCounter;
 static byte nodes[MAX_NODES + 1];  // [0] is unused
-static byte band,postingsIn = 0, postingsOut = 0;
+static byte band, postingsIn = 0, postingsOut = 0;
 
 static void showNibble (byte nibble) {
   char c = '0' + (nibble & 0x0F);
@@ -203,9 +209,8 @@ static void addInt (char* msg, word v) {
 static void saveConfig () {
   // set up a nice config string to be shown on startup
   memset(config.pad, 0, sizeof config.pad);
-  config.frequency_offset = frequency;
 //  byte id = config.nodeId & 0x1F;
-  config.RF12Demo_Version = MAJOR_VERSION;
+  config.format = MAJOR_VERSION;
   config.spare_flags = 0;
   config.crc = ~0;
   Serial.println(sizeof config);
@@ -658,8 +663,7 @@ static void df_replay (word seqnum, long asof) {
 
 #endif 
 
-#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
-#else 
+#if !TINY
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 const char helpText1[] PROGMEM = 
@@ -667,7 +671,7 @@ const char helpText1[] PROGMEM =
   "Available commands:" "\n"
   "  <nn> i     - set node ID (standard node ids are 1..30)" "\n"
   "  <n> b      - set MHz band (4 = 433, 8 = 868, 9 = 915)" "\n"
-  "  <nnnn> o   - change frequency offset within the band above" "\n"
+  "  <nnnn> o   - change frequency offset within the band (default 1600)" "\n"
   "               96 - 3903 is the range supported by the RFM12B" "\n"
   "  <nnn> g    - set network group (RFM12 only allows 212, 0 = any)" "\n"
   "  <n> c      - set collect mode (advanced, normally 0)" "\n"
@@ -708,8 +712,8 @@ static void showString (PGM_P s) {
     Serial.print(c);
   }
 }
-#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
-#else
+
+#if !TINY
 static void showHelp () {
     showString(helpText1);
 #endif
@@ -717,9 +721,7 @@ static void showHelp () {
     if (df_present())
       showString(helpText2);
 #endif
-
-#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
-#else
+#if !TINY
     showString(PSTR("Current configuration:\n"));
     rf12_config();
 }
@@ -743,7 +745,7 @@ static void handleInput (char c) {
 
     switch (c) {
       default:
-#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
+#if TINY
         showString(PSTR("?\n"));
 #else
         showHelp();
@@ -765,7 +767,7 @@ static void handleInput (char c) {
         value = bandToFreq(value);
         if (value) {
          config.nodeId = (value << 6) + (config.nodeId & 0x3F);
-         frequency = 1600;
+         config.frequency_offset = 1600;
          saveConfig();
         } else {
             showString(INVALID1);
@@ -773,16 +775,16 @@ static void handleInput (char c) {
         break;
  
       case 'o': // Increment frequency within band
-          Serial.print(frequency);
+          Serial.print(config.frequency_offset);
 ///
 /// It is important that you keep within your countries ISM spectrum management guidelines
 /// i.e. allowable frequencies and their use when selecting your operating frequencies.
 ///
           if (value) {
             if ((value > 95) && (value < 3904)) {  // 96 - 3903 is the range of values supported by the RFM12B
-              frequency = value;
+              config.frequency_offset = value;
               showString(PSTR(">"));
-              Serial.println(frequency);
+              Serial.println(config.frequency_offset);
               saveConfig();
             }
             else {
@@ -832,17 +834,16 @@ static void handleInput (char c) {
         activityLed(1);
         fs20cmd(256 * stack[0] + stack[1], stack[2], value);
         activityLed(0);
-        rf12_config(0);
+        rf12_configSilent();
         break;
       case 'k': // send KAKU command: <addr>,<dev>,<on>k
         rf12_initialize(0, RF12_433MHZ, 0);
         activityLed(1);
         kakuSend(stack[0], stack[1], value);
         activityLed(0);
-        rf12_config(0);
+        rf12_configSilent();
         break;
-#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
-#else
+#if !TINY
       case 'l': // turn activity LED on or off
         if (value) activityLed(1);
         else activityLed(0);
@@ -875,27 +876,25 @@ static void handleInput (char c) {
       case 'z': // put the ATmega in ultra-low power mode (reset needed)
         if (value == 123) Sleep;
         break;
-        case 'q': // turn quiet mode on or off (don't report bad packets)
-        if (value) config.quiet_mode = true;
-          else config.quiet_mode = false;
+      case 'q': // turn quiet mode on or off (don't report bad packets)
+        config.quiet_mode = value;
         saveConfig();
         break;
       case 'x': // set reporting mode to hex (1) or decimal (0)
-        config.hex_output = value & 0x03;
+        config.hex_output = value;
         saveConfig();
         break;
       case 'v': //display the interpreter version
-        displayVersion(1);
+        displayVersion();
+        Serial.println();
         break;
-#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
-#else
+#if !TINY
       case 'j':
         if (stack[0] <= MAX_NODES) {
           const uint8_t *ee_entry = RF12_EEPROM_ADDR + (stack[0] * 32);
           for (byte i = 0; i < RF12_EEPROM_SIZE; ++i) {
             byte b = eeprom_read_byte(ee_entry + i);  // http://forum.arduino.cc/index.php?topic=122140.0
-            showNibble(b >> 4);
-            showNibble(b); 
+            showByte(b); 
             testbuf[i] = b;
             if ((value == 42) && (stack[0] == 0)) { 
              eeprom_write_byte(RF12_EEPROM_ADDR + (((config.nodeId & RF12_HDR_MASK)*32) + i), b);
@@ -923,8 +922,7 @@ static void handleInput (char c) {
           else {
             for (byte i = 0; i < RF12_EEPROM_SIZE; ++i) {
               byte b = eeprom_read_byte((ee_shadow) + i);
-              showNibble(b >> 4);
-              showNibble(b);
+              showByte(b);
               eeprom_write_byte((RF12_EEPROM_ADDR) + i, b);
             }
             Serial.println();
@@ -980,15 +978,15 @@ static void handleInput (char c) {
     // special case, send to specific band and group, and don't echo cmd
     // input: band,group,node,header,data...
     stack[top++] = value;
-    rf12_initialize(stack[2], bandToFreq(stack[0]), stack[1], frequency);
+    // TODO: frequency offset is kept at default value here, is that ok?
+    rf12_initialize(stack[2], bandToFreq(stack[0]), stack[1]);
     rf12_sendNow(stack[3], stack + 4, top - 4);
     rf12_sendWait(2);
-    rf12_config(0);
+    rf12_configSilent();
     value = top = 0;
     memset(stack, 0, sizeof stack);
   } else if (' ' < c && c < 'A') {
-#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
-#else
+#if !TINY
     showHelp();
 #endif
   }
@@ -1009,17 +1007,16 @@ static void displayASCII(volatile uint8_t* data, byte count) {
     Serial.println();
 }
 
-void displayVersion(uint8_t newline ) {
+void displayVersion () {
   showString(VERSION);
-  if(newline!=0) {
-#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
-    showString(PSTR(" T "));
+#if TINY
+  showString(PSTR("Tiny "));
 #else
-    showString(PSTR(" M "));
+  showString(PSTR("Full "));
 #endif
-    Serial.println(freeRam());
-  }
+  Serial.print(freeRam());
 }
+
 void Sleep() {
           showString(PSTR(" sleeping"));
           delay(10);
@@ -1045,7 +1042,7 @@ void setup() {
 #if SERIAL_BAUD == 38400
 #define BITDELAY 11     // 38k4 @ 8MHz, 76k8 @16MHz
 #endif
-#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
+#if TINY
   delay(1000);            // Delay on startup to avoid ISP/RFM12B interference.
   PCMSK0 |= (1<<PCINT2);  // tell pin change mask to listen to PA2
   GIMSK  |= (1<<PCIE0);   // enable PCINT interrupt in the general interrupt mask
@@ -1053,17 +1050,16 @@ void setup() {
   pinMode(_receivePin, INPUT);      // PA2
   digitalWrite(_receivePin, HIGH);  // pullup!
   _bitDelay = BITDELAY; 
-#else
-  activityLed(1);
 #endif
+  activityLed(1);
 
   Serial.begin(SERIAL_BAUD);
-  displayVersion(0);
+  displayVersion();
 
   if (rf12_config())
     initialize();
   else {
-    config.nodeId = 0x41; // 433 MHz, node 1
+    config.nodeId = 0x81; // 868 MHz, node 1
     config.group = 0xD4;  // default group 212
     config.frequency_offset = 1600;
     config.quiet_mode = true;   // Default flags, quiet on
@@ -1074,8 +1070,7 @@ void setup() {
 #if DATAFLASH
   df_initialize();
 #endif 
-#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
-#else
+#if !TINY
   showHelp();
 #endif
 } // Setup
@@ -1104,8 +1099,8 @@ void nodesShow() {
 }  
 
 void loop() {
-#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)    
-    handleInput(inChar());
+#if TINY    
+  handleInput(inChar());
 #else
   if (Serial.available())
     handleInput(Serial.read());
@@ -1154,8 +1149,7 @@ void loop() {
   }
     if (rf12_crc == 0) {
       activityLed(1);
-#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
-#else
+#if !TINY
       if (df_present())
         df_append((const char*) rf12_data - 2, rf12_len + 2);
 #endif
@@ -1209,18 +1203,13 @@ void loop() {
 
         rf12_sendStart(RF12_ACK_REPLY, testbuf, testCounter);
       }
-#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
-#else  
       activityLed(0);
-#endif
     }
   }
 
   if (cmd && rf12_canSend()) {
-#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
-#else  
-   activityLed(1);
-#endif
+    activityLed(1);
+    
     showString(PSTR(" -> "));
     Serial.print((int) sendLen);
     showString(PSTR(" b\n"));
@@ -1230,10 +1219,7 @@ void loop() {
     rf12_sendStart(header, testbuf, sendLen);
     cmd = 0;
 
-#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
-#else  
     activityLed(0);
-#endif
   }
 }
 int freeRam () {    // @jcw's work

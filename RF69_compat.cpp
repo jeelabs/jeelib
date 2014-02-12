@@ -47,7 +47,7 @@ uint8_t rf69_configSilent () {
         byte e = eeprom_read_byte(RF12_EEPROM_ADDR + i);
         crc = _crc16_update(crc, e);
     }
-    if (crc != 0)
+    if (crc || eeprom_read_byte(RF12_EEPROM_ADDR + 2) != RF12_EEPROM_VERSION)
         return 0;
         
     uint8_t nodeId = 0, group = 0;   
@@ -65,10 +65,12 @@ uint8_t rf69_config () {
     uint8_t id = rf69_configSilent();
     if (id != 0) {
         for (uint8_t i = 4; i < RF12_EEPROM_SIZE - 2; ++i) {
-            uint8_t b = eeprom_read_byte(RF12_EEPROM_ADDR + i);
-            if (b < 32)
+            char b = eeprom_read_byte(RF12_EEPROM_ADDR + i);
+            Serial.print(' ');
+            Serial.print(b, HEX);
+            if (b < ' ' || b > '~')
                 break;
-            Serial.print((char) b);
+            Serial.print(b);
         }
     }
     return id;
