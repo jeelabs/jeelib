@@ -167,7 +167,7 @@ typedef struct {
     byte collect_mode :1;   // 0 = ack, 1 = don't send acks
     byte quiet_mode   :1;   // 0 = show all, 1 = show only valid packets
     byte spare_flags  :4;  
-    word frequency_offset;  // offset within band
+    word frequency_offset;  // used by rf12_config, offset 4
     byte pad[RF12_EEPROM_SIZE-8];
     word crc;
 } RF12Config;
@@ -620,17 +620,11 @@ static void handleInput (char c) {
     }
 }
 
-static void displayASCII(volatile uint8_t* data, byte count) {
+static void displayASCII (const uint8_t* data, byte count) {
     for (byte i = 0; i < count; ++i) {
-        if ((data[i] < 32) || (data[i] > 126))
-            {
-            showString(PSTR(" ."));
-            }
-        else
-            {
-                Serial.print(' ');
-                Serial.print((char) data[i]);
-            }
+        Serial.print(' ');
+        char c = (char) data[i];
+        Serial.print(c < ' ' || c > '~' ? '.' : c);
     }
     Serial.println();
 }
@@ -752,15 +746,15 @@ void loop () {
         showString(PSTR(") "));
 #endif
         Serial.println();
-    if (config.hex_output > 1) {    // Print ascii interpretation under hex output
-        showString(PSTR("ASC"));
-        if (config.group == 0) {
-            showString(PSTR("II  "));
+        if (config.hex_output > 1) { // also print a line as ascii
+            showString(PSTR("ASC "));
+            if (config.group == 0) {
+                showString(PSTR(" II "));
+            }
+            Serial.print(rf12_hdr & RF12_HDR_DST ? '>' : '<');
+            Serial.print((char) ('@' + (rf12_hdr & RF12_HDR_MASK)));
+            displayASCII((const uint8_t*) rf12_data, n);
         }
-        showString(PSTR(" ."));
-        Serial.print(char((rf12_hdr & RF12_HDR_MASK) | 0x40)); // Convert node number into a letter, A to Z to undersore (1-31)
-        displayASCII(rf12_data, n);
-    }
         if (rf12_crc == 0) {
             activityLed(1);
 #if !TINY
