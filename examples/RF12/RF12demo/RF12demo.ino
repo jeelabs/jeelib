@@ -209,8 +209,10 @@ static void saveConfig () {
     eeprom_write_block(&config, RF12_EEPROM_ADDR, sizeof config);
     Serial.println(sizeof config);
 
-    if (!rf12_config())
-         showString(INITFAIL);
+    if (rf12_configSilent())
+        rf12_configDump();
+    else
+        showString(INITFAIL);
 }
 
 static byte bandToFreq (byte band) {
@@ -350,7 +352,7 @@ static void showHelp () {
         showString(helpText2);
 #if !TINY
     showString(PSTR("Current configuration:\n"));
-    rf12_config();
+    rf12_configDump();
 #endif
 }
 
@@ -556,7 +558,7 @@ static void handleInput (char c) {
                     Serial.println();
                     showString(PSTR("Restored\n"));
                     }
-                if (rf12_config())
+                if (rf12_configSilent())
                     loadConfig();
                 else
                     showString(INITFAIL);
@@ -663,7 +665,7 @@ void setup () {
     Serial.begin(SERIAL_BAUD);
     displayVersion();
 
-    if (rf12_config())
+    if (rf12_configSilent())
         loadConfig();
     else {
         memset(&config, 0, sizeof config);
@@ -671,10 +673,12 @@ void setup () {
         config.group = 0xD4;        // default group 212
         config.frequency_offset = 1600;
         config.quiet_mode = true;   // Default flags, quiet on
-        // saveConfig(); // Don't save to eeprom until we have changes.
+        saveConfig();
         rf12_initialize(config.nodeId & RF12_HDR_MASK,
                          config.nodeId >> 6, config.group);
     }
+    
+    rf12_configDump();
 
     // Initialise node table
     Serial.print("Node Table:");

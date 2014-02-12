@@ -642,18 +642,6 @@ void rf12_onOff (uint8_t value) {
 /// As side effect, rf12_config() also writes the current configuration to the
 /// serial port, ending with a newline. Use rf12_configSilent() to avoid this.
 /// @returns the node ID obtained from EEPROM, or 0 if there was none.
-void rf12_configDump () {
-    for (uint8_t i = 4; i < RF12_EEPROM_SIZE - 2; ++i) {
-        uint8_t b = eeprom_read_byte(RF12_EEPROM_ADDR + i);
-        if (b < 32)
-            break;
-        Serial.print((char) b);
-    }
-}
-
-/// @details
-/// This replaces the rf12_config(0) call, so that rf12_config() (without args)
-/// can now avoid pulling in the Serial port code in cases where it's not used.
 uint8_t rf12_configSilent () {
     uint16_t crc = ~0;
     for (uint8_t i = 0; i < RF12_EEPROM_SIZE; ++i) {
@@ -672,6 +660,34 @@ uint8_t rf12_configSilent () {
     
     rf12_initialize(nodeId, nodeId >> 6, group, frequency);
     return nodeId & RF12_HDR_MASK;
+}
+
+/// @details
+/// This replaces rf12_config(0), to be called after rf12_configSilent(). Can be
+/// used to avoid pulling in the Serial port code in cases where it's not used.
+void rf12_configDump () {
+    uint8_t nodeId = eeprom_read_byte(RF12_EEPROM_ADDR);
+    uint16_t freq = eeprom_read_word((uint16_t*) (RF12_EEPROM_ADDR + 4));
+    
+    // " A i1 g178 @ 868 MHz "
+    Serial.print(' ');
+    Serial.print((char) ('@' + (nodeId & RF12_HDR_MASK)));
+    Serial.print(" i");
+    Serial.print(nodeId & RF12_HDR_MASK);
+    Serial.print(" g");
+    Serial.print(eeprom_read_byte(RF12_EEPROM_ADDR + 1));
+    Serial.print(" @ ");
+    uint8_t band = nodeId >> 6;
+    Serial.print(band == RF12_433MHZ ? 433 :
+                 band == RF12_868MHZ ? 868 :
+                 band == RF12_915MHZ ? 915 : 0);
+    Serial.print(" MHz");
+    if (freq != 1600) {
+        Serial.print(" (+");
+        Serial.print(freq);
+        Serial.print(')');
+    }
+    Serial.println();
 }
 
 /// @deprecated Please switch over to rf12_configSilent() and rf12_configDump().
