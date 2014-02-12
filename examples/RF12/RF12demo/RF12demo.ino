@@ -29,7 +29,7 @@
 #else
 #define TINY        0
 #define SERIAL_BAUD 57600   // adjust as needed
-#define DATAFLASH   16      // set to 0 for non-JeeLinks, else 4/8/16 (Mbit)
+#define DATAFLASH   0       // set to 0 for non-JeeLinks, else 4/8/16 (Mbit)
 #define LED_PIN     9       // activity LED, comment out to disable
 #endif
 
@@ -38,17 +38,17 @@ const char INVALID1[] PROGMEM = "\rInvalid\n";
 const char INITFAIL[] PROGMEM = "config save failed\n";
 
 #if TINY
-/// Serial support (output only) for Tiny supported by TinyDebugSerial
-/// http://www.ernstc.dk/arduino/tinycom.html
-/// 9600, 38400, or 115200
-/// "C:\Users\John\Documents\arduino-1.5.4r2\sketchbook\hardware\jeelabs\avr\cores\tiny\TinyDebugSerial.h" Modified 
-///  to moveTinyDebugSerial from PB0 to PA3 to match the Jeenode Micro V3 PCB layout
-/// Connect Tiny84 PA3 to USB-BUB RXD for serial output from sketch. // Jeenode AIO2
-///
-/// With thanks for the inspiration by 2006 David A. Mellis and his AFSoftSerial code
-///  All right reserved.
-/// Connect Tiny84 PA2 to USB-BUB TXD for serial input to sketch.    // Jeenode DIO2
-/// 9600 or 38400 at present.
+// Serial support (output only) for Tiny supported by TinyDebugSerial
+// http://www.ernstc.dk/arduino/tinycom.html
+// 9600, 38400, or 115200
+// hardware\jeelabs\avr\cores\tiny\TinyDebugSerial.h Modified
+//  to moveTinyDebugSerial from PB0 to PA3 to match the Jeenode Micro V3 PCB layout
+// Connect Tiny84 PA3 to USB-BUB RXD for serial output from sketch. // Jeenode AIO2
+//
+// With thanks for the inspiration by 2006 David A. Mellis and his AFSoftSerial code
+//  All right reserved.
+// Connect Tiny84 PA2 to USB-BUB TXD for serial input to sketch.    // Jeenode DIO2
+// 9600 or 38400 at present.
 
 #if SERIAL_BAUD == 9600
 #define BITDELAY 54      // 9k6 @ 8MHz, 19k2 @16MHz
@@ -60,29 +60,29 @@ const char INITFAIL[] PROGMEM = "config save failed\n";
 #define MAX_NODES 14
 #define _receivePin 8
 static int _bitDelay;
-static char _receive_buffer; 
+static char _receive_buffer;
 static uint8_t _receive_buffer_index;
 
-ISR (PCINT0_vect) { 
-  char i, d = 0; 
+ISR (PCINT0_vect) {
+  char i, d = 0;
   if (digitalRead(_receivePin))   // PA2 = Jeenode DIO2
-    return;       // not ready! 
+    return;       // not ready!
   whackDelay(_bitDelay - 8);
-  for (i=0; i<8; i++) { 
+  for (i=0; i<8; i++) {
     whackDelay(_bitDelay*2 - 6);  // digitalread takes some time
     if (digitalRead(_receivePin)) // PA2 = Jeenode DIO2
-      d |= (1 << i); 
-   } 
+      d |= (1 << i);
+   }
   whackDelay(_bitDelay*2);
   if (_receive_buffer_index)
     return;
-  _receive_buffer = d;        // save data 
-  _receive_buffer_index = 1;  // got a byte 
+  _receive_buffer = d;        // save data
+  _receive_buffer_index = 1;  // got a byte
 }
 
 // TODO: replace with code from the std avr libc library:
 //  http://www.nongnu.org/avr-libc/user-manual/group__util__delay__basic.html
-void whackDelay (uint16_t delay) { 
+void whackDelay (uint16_t delay) {
   uint8_t tmp=0;
 
   asm volatile("sbiw    %0, 0x01 \n\t"
@@ -93,7 +93,7 @@ void whackDelay (uint16_t delay) {
 	       : "+r" (delay), "+a" (tmp)
 	       : "0" (delay)
 	       );
-} 
+}
 
 static byte inChar () {
   uint8_t d;
@@ -106,7 +106,7 @@ static byte inChar () {
 
 #else
 #define MAX_NODES 30
-#endif 
+#endif
 
 static unsigned long now () {
   // FIXME 49-day overflow
@@ -146,7 +146,7 @@ static void activityLed (byte on) {
 ///      0x059   "
 /// byte 0x060 Node 2 first packet capture
 ///      0x079   "
-///      ..... 
+///      .....
 ///      0x1E0 Node 14 first packet capture      T84 maximum
 ///      0x1FF   "
 ///      .....
@@ -177,8 +177,9 @@ static char cmd;
 static int value;
 static byte stack[RF12_MAXDATA+4], top, sendLen, dest;
 static byte testbuf[RF12_MAXDATA], testCounter;
+
 static byte nodes[MAX_NODES + 1];  // [0] is unused
-static byte band, postingsIn = 0, postingsOut = 0;
+static byte postingsIn, postingsOut;
 
 static void showNibble (byte nibble) {
   char c = '0' + (nibble & 0x0F);
@@ -291,11 +292,11 @@ static void kakuSend(char addr, byte device, byte on) {
 #define df_wipe()
 #define df_append(x,y)
 
-#endif 
+#endif
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-const char helpText1[] PROGMEM = 
+const char helpText1[] PROGMEM =
 #if TINY
   "?\n"
 #else
@@ -324,15 +325,13 @@ const char helpText1[] PROGMEM =
 #endif
 ;
 
-#if DATAFLASH
-const char helpText2[] PROGMEM = 
+const char helpText2[] PROGMEM =
   "Flash storage (JeeLink only):" "\n"
   "  d                                - dump all log markers" "\n"
   "  <sh>,<sl>,<t3>,<t2>,<t1>,<t0> r  - replay from specified marker" "\n"
   "  123,<bhi>,<blo> e                - erase 4K block" "\n"
   "  12,34 w                          - wipe entire flash memory" "\n"
 ;
-#endif
 
 static void showString (PGM_P s) {
   for (;;) {
@@ -347,10 +346,8 @@ static void showString (PGM_P s) {
 
 static void showHelp () {
     showString(helpText1);
-#if DATAFLASH
     if (df_present())
       showString(helpText2);
-#endif
 #if !TINY
     showString(PSTR("Current configuration:\n"));
     rf12_config();
@@ -376,7 +373,8 @@ static void handleInput (char c) {
     switch (c) {
       default:
         showHelp();
-      break;
+        break;
+
       case 'i': // set node id
         if ((value > 0) && (value <= MAX_NODES + 1)) {
 // Node 15 may exist on T84 but only as the RF12Demo node,
@@ -391,6 +389,7 @@ static void handleInput (char c) {
            showString(INVALID1);
         }
         break;
+
       case 'b': // set band: 4 = 433, 8 = 868, 9 = 915
         value = bandToFreq(value);
         if (value) {
@@ -401,45 +400,37 @@ static void handleInput (char c) {
             showString(INVALID1);
         }
         break;
- 
+
       case 'o': // Increment frequency within band
           Serial.print(config.frequency_offset);
-///
-/// It is important that you keep within your countries ISM spectrum management guidelines
-/// i.e. allowable frequencies and their use when selecting your operating frequencies.
-///
+// Stay within your country's ISM spectrum management guidelines, i.e.
+// allowable frequencies and their use when selecting operating frequencies.
           if (value) {
-            if ((value > 95) && (value < 3904)) {  // 96 - 3903 is the range of values supported by the RFM12B
+            if ((value > 95) && (value < 3904)) {  // supported by the RFM12B
               config.frequency_offset = value;
-              showString(PSTR(">"));
+              Serial.print('>');
               Serial.println(config.frequency_offset);
               saveConfig();
             }
             else {
               showString(INVALID1);
-            }          
-          } 
+            }
+          }
           else {
             Serial.println();
           }
         break;
- 
+
       case 'g': // set network group
-        if (value <= 255) {
-          config.group = value;
-          saveConfig();
-        }
-        else {
-          showString(INVALID1);
-        }
-        break;
-      case 'c': // set collect mode (off = 0, on = 1)
-        if (value)
-          config.collect_mode = true;
-        else
-          config.collect_mode= false;
+        config.group = value;
         saveConfig();
         break;
+
+      case 'c': // set collect mode (off = 0, on = 1)
+        config.collect_mode = value;
+        saveConfig();
+        break;
+
       case 't': // broadcast a maximum size test packet, request an ack
         cmd = 'a';
         sendLen = RF12_MAXDATA;
@@ -450,6 +441,7 @@ static void handleInput (char c) {
         Serial.println((int) testCounter); // first byte in test buffer
         ++testCounter;
         break;
+
       case 'a': // send packet to node ID N, request an ack
       case 's': // send packet to node ID N, no ack
         cmd = c;
@@ -457,6 +449,7 @@ static void handleInput (char c) {
         dest = value;
         memcpy(testbuf, stack, top);
         break;
+
       case 'f': // send FS20 command: <hchi>,<hclo>,<addr>,<cmd>f
         rf12_initialize(0, RF12_868MHZ, 0);
         activityLed(1);
@@ -464,6 +457,7 @@ static void handleInput (char c) {
         activityLed(0);
         rf12_configSilent();
         break;
+
       case 'k': // send KAKU command: <addr>,<dev>,<on>k
         rf12_initialize(0, RF12_433MHZ, 0);
         activityLed(1);
@@ -471,14 +465,37 @@ static void handleInput (char c) {
         activityLed(0);
         rf12_configSilent();
         break;
+
+      case 'z': // put the ATmega in ultra-low power mode (reset needed)
+        if (value == 123)
+          Sleep();
+        break;
+
+      case 'q': // turn quiet mode on or off (don't report bad packets)
+        config.quiet_mode = value;
+        saveConfig();
+        break;
+
+      case 'x': // set reporting mode to hex (1) or decimal (0)
+        config.hex_output = value;
+        saveConfig();
+        break;
+
+      case 'v': //display the interpreter version
+        displayVersion();
+        Serial.println();
+        break;
+
 #if !TINY
       case 'l': // turn activity LED on or off
         activityLed(value);
         break;
+
       case 'd': // dump all log markers
         if (df_present())
           df_dump();
         break;
+
       case 'r': // replay from specified seqnum/time marker
         if (df_present()) {
           word seqnum = (stack[0] << 8) || stack[1];
@@ -487,54 +504,39 @@ static void handleInput (char c) {
           df_replay(seqnum, asof);
         }
         break;
+
       case 'e': // erase specified 4Kb block
         if (df_present() && stack[0] == 123) {
           word block = (stack[1] << 8) | value;
           df_erase(block);
         }
         break;
+
       case 'w': // wipe entire flash memory
         if (df_present() && stack[0] == 12 && value == 34) {
           df_wipe();
           showString(PSTR("erased\n"));
         }
         break;
-#endif
-      case 'z': // put the ATmega in ultra-low power mode (reset needed)
-        if (value == 123)
-          Sleep();
-        break;
-      case 'q': // turn quiet mode on or off (don't report bad packets)
-        config.quiet_mode = value;
-        saveConfig();
-        break;
-      case 'x': // set reporting mode to hex (1) or decimal (0)
-        config.hex_output = value;
-        saveConfig();
-        break;
-      case 'v': //display the interpreter version
-        displayVersion();
-        Serial.println();
-        break;
-#if !TINY
+
       case 'j':
         if (stack[0] <= MAX_NODES) {
           const uint8_t *ee_entry = RF12_EEPROM_ADDR + (stack[0] * 32);
           for (byte i = 0; i < RF12_EEPROM_SIZE; ++i) {
             byte b = eeprom_read_byte(ee_entry + i);  // http://forum.arduino.cc/index.php?topic=122140.0
-            showByte(b); 
+            showByte(b);
             testbuf[i] = b;
-            if ((value == 42) && (stack[0] == 0)) { 
+            if ((value == 42) && (stack[0] == 0)) {
              eeprom_write_byte(RF12_EEPROM_ADDR + (((config.nodeId & RF12_HDR_MASK)*32) + i), b);
             }
           }
           Serial.println();
-          displayASCII(testbuf, RF12_EEPROM_SIZE);           
-        } 
-        else {  
+          displayASCII(testbuf, RF12_EEPROM_SIZE);
+        }
+        else {
           showString(INVALID1);
-        }          
-        if (!value) break;       
+        }
+        if (!value) break;
         if (value == 42) {
           showString(PSTR("Backed Up\n"));
           break;
@@ -544,9 +546,9 @@ static void handleInput (char c) {
           // Check CRC to be restored
           word crc = ~0;
           for (byte i = 0; i < RF12_EEPROM_SIZE; ++i)
-            crc = _crc16_update(crc, eeprom_read_byte(ee_shadow + i)); 
+            crc = _crc16_update(crc, eeprom_read_byte(ee_shadow + i));
           if (crc)
-            showString(PSTR("Bad CRC\n")); 
+            showString(PSTR("Bad CRC\n"));
           else {
             for (byte i = 0; i < RF12_EEPROM_SIZE; ++i) {
               byte b = eeprom_read_byte((ee_shadow) + i);
@@ -566,6 +568,7 @@ static void handleInput (char c) {
         }
       break;
 #endif
+
       case 'n': // Clear node entries in RAM & eeprom
         if ((stack[0] > 0) && (stack[0] <= MAX_NODES) && (value == 123) && (nodes[stack[0]] == 0)) {
           nodes[stack[0]] = 0xFF;                                           // Clear RAM entry
@@ -577,6 +580,7 @@ static void handleInput (char c) {
           showString(INVALID1);
         }
         break;
+
       case 'p':
         // Post a command for a remote node, to be collected along with the next ACK
         // Format is 20,127p where 20 is the node number and 127 is the desired value to be posted
@@ -599,7 +603,8 @@ static void handleInput (char c) {
           }
         }
        break;
-    } // End Switch     
+    } // End Switch
+
     value = top = 0;
     memset(stack, 0, sizeof stack);
   } else if (c == '>') {
@@ -620,7 +625,7 @@ static void handleInput (char c) {
 
 static void displayASCII(volatile uint8_t* data, byte count) {
     for (byte i = 0; i < count; ++i) {
-      if ((data[i] < 32) || (data[i] > 126)) 
+      if ((data[i] < 32) || (data[i] > 126))
         {
         showString(PSTR(" ."));
         }
@@ -637,10 +642,7 @@ void displayVersion () {
   showString(VERSION);
 #if TINY
   showString(PSTR("Tiny "));
-#else
-  showString(PSTR("Full "));
 #endif
-  Serial.print(freeRam());
 }
 
 void Sleep () {
@@ -660,7 +662,7 @@ void setup () {
   whackDelay(_bitDelay*2); // if we were low this establishes the end
   pinMode(_receivePin, INPUT);      // PA2
   digitalWrite(_receivePin, HIGH);  // pullup!
-  _bitDelay = BITDELAY; 
+  _bitDelay = BITDELAY;
 #endif
 
   Serial.begin(SERIAL_BAUD);
@@ -679,16 +681,16 @@ void setup () {
                     config.nodeId >> 6, config.group);
   }
 
-  /// Initialise node table
+  // Initialise node table
   Serial.print("Node Table:");
-  for (byte i = 1; i <= MAX_NODES; i++) { 
+  for (byte i = 1; i <= MAX_NODES; i++) {
     nodes[i] = eeprom_read_byte(RF12_EEPROM_ADDR + (i * RF12_EEPROM_SIZE)); // http://forum.arduino.cc/index.php/topic,140376.msg1054626.html
     if (nodes[i] != 0xFF)
       nodes[i] = 0;   // Indicate no post waiting for node!
       Serial.print(nodes[i]);
   }
   Serial.println();
-  
+
   nodes[(config.nodeId & RF12_HDR_MASK)] = 0;  // Prevent allocation of this nodes number.
 
   df_initialize();
@@ -709,10 +711,10 @@ void nodesShow() {
     }
   }
   Serial.println();
-}  
+}
 
 void loop () {
-#if TINY    
+#if TINY
   handleInput(inChar());
 #else
   if (Serial.available())
@@ -749,7 +751,7 @@ void loop () {
     else
         Serial.print(-(RF69::rssi>>1));
     showString(PSTR(") "));
-#endif    
+#endif
     Serial.println();
   if (config.hex_output > 1) {  // Print ascii interpretation under hex output
     showString(PSTR("ASC"));
@@ -772,16 +774,16 @@ void loop () {
             byte len = 32;
             if (rf12_data[0] == 0xFF)                                // New nodes cannot be learned if packet begins 0xFF
               rf12_data[0] = 0xFE;                                   // so lets drop the low order bit in byte 0
-            showString(PSTR("New Node ")); 
+            showString(PSTR("New Node "));
             showByte(rf12_hdr & RF12_HDR_MASK);
             Serial.println();
             nodes[(rf12_hdr & RF12_HDR_MASK)] = 0;
-            if (rf12_len < 32) 
+            if (rf12_len < 32)
               len = rf12_len;
               for (byte i = 0; i < len; ++i) {  // variable n
               eeprom_write_byte(RF12_EEPROM_ADDR + (((rf12_hdr & RF12_HDR_MASK) * 32) + i), rf12_data[i]);
             }
-        }      
+        }
 
       if (RF12_WANTS_ACK && (config.collect_mode) == 0) {
         showString(PSTR(" -> ack\n"));
@@ -789,7 +791,7 @@ void loop () {
 
         if ((rf12_hdr & (RF12_HDR_MASK | RF12_HDR_DST)) == 31) {          // Special Node 31 source node
           for (byte i = 1; i <= MAX_NODES; i++) {
-            if (nodes[i] == 0xFF) {            
+            if (nodes[i] == 0xFF) {
               testbuf[0] = i + 0xE0;                                      // Change Node number request - matched in RF12Tune3
               testCounter = 1;
               showString(PSTR("Node allocation "));
@@ -800,7 +802,7 @@ void loop () {
           }
         }
         else {
-          if (!(rf12_hdr & RF12_HDR_DST) && (nodes[(rf12_hdr & RF12_HDR_MASK)] != 0) && 
+          if (!(rf12_hdr & RF12_HDR_DST) && (nodes[(rf12_hdr & RF12_HDR_MASK)] != 0) &&
                (nodes[(rf12_hdr & RF12_HDR_MASK)] != 0xFF)) {          // Sources Nodes only!
             testbuf[0] = nodes[(rf12_hdr & RF12_HDR_MASK)];            // Pick up posted value
             nodes[(rf12_hdr & RF12_HDR_MASK)] = 0;                     // Assume it will be delivered.
@@ -822,7 +824,7 @@ void loop () {
 
   if (cmd && rf12_canSend()) {
     activityLed(1);
-    
+
     showString(PSTR(" -> "));
     Serial.print((int) sendLen);
     showString(PSTR(" b\n"));
@@ -834,9 +836,4 @@ void loop () {
 
     activityLed(0);
   }
-}
-int freeRam () {    // @jcw's work
-  extern int __heap_start, *__brkval; 
-  int v; 
-  return (int) &v - (__brkval == 0 ? (int) &__heap_start : (int) __brkval); 
 }
