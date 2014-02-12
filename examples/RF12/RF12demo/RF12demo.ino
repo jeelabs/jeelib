@@ -21,23 +21,21 @@
 #define MINOR_VERSION 2                   // bump on other non-trivial changes
 #define VERSION "\n[RF12demo.12]"         // keep in sync with the above
 
-#define DEBUG 1
+#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
+#define TINY 1
+#define SERIAL_BAUD 38400   // do not change
+#define DATAFLASH   0       // do not change
+#undef  LED_PIN             // do not change
+#else
+#define TINY 0
+#define SERIAL_BAUD 57600   // adjust as needed
+#define DATAFLASH   16      // set to 0 for non-JeeLinks, else 4/8/16 (Mbit)
+#define LED_PIN     9       // activity LED, comment out to disable
+#endif
 
 /// Save a few bytes of flash by declaring const if used more than once.
 const char INVALID1[] PROGMEM = "\rInvalid\n";
-const char COMMA[] PROGMEM = ",";
-const char SPACE[] PROGMEM = " ";
 const char INITFAIL[] PROGMEM = "config save failed\n";
-const char OPENBRAC[] PROGMEM = " (";
-const char CLOSEBRAC[] PROGMEM = ") ";
-///
-
-// ATtiny's only support outbound serial @ 38400 baud, and no DataFlash logging
-#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
-#define TINY 1
-#else
-#define TINY 0
-#endif
 
 #if TINY
 /// Serial support (output only) for Tiny supported by TinyDebugSerial
@@ -52,7 +50,6 @@ const char CLOSEBRAC[] PROGMEM = ") ";
 /// Connect Tiny84 PA2 to USB-BUB TXD for serial input to sketch.    // Jeenode DIO2
 /// 9600 or 38400 at present.
 
-#define SERIAL_BAUD 38400
 #define MAX_NODES 14
 #define _receivePin 8
 static int _bitDelay;
@@ -76,7 +73,7 @@ ISR (PCINT0_vect) {
   _receive_buffer_index = 1;  // got a byte 
 }
 
-void whackDelay(uint16_t delay) { 
+void whackDelay (uint16_t delay) { 
   uint8_t tmp=0;
 
   asm volatile("sbiw    %0, 0x01 \n\t"
@@ -89,7 +86,7 @@ void whackDelay(uint16_t delay) {
 	       );
 } 
 
-static byte inChar(){
+static byte inChar () {
   uint8_t d;
   if (! _receive_buffer_index)
     return -1;
@@ -99,13 +96,7 @@ static byte inChar(){
 }
 
 #else
-#define SERIAL_BAUD 57600
 #define MAX_NODES 30
-// Enabling dataflash code may cause problems with non-JeeLink configurations
-#define DATAFLASH 0
-// check for presence of DataFlash memory on JeeLink
-#define FLASH_MBIT  16  // support for various dataflash sizes: 4/8/16 Mbit
-#define LED_PIN   9     // activity LED, comment out to disable
 #endif 
 
 static unsigned long now () {
@@ -207,24 +198,14 @@ static void addInt (char* msg, word v) {
 }
 
 static void saveConfig () {
-  // set up a nice config string to be shown on startup
-  memset(config.pad, 0, sizeof config.pad);
-//  byte id = config.nodeId & 0x1F;
   config.format = MAJOR_VERSION;
-  config.spare_flags = 0;
   config.crc = ~0;
-  Serial.println(sizeof config);
   for (byte i = 0; i < sizeof config - 2; ++i)
     config.crc = _crc16_update(config.crc, ((byte*) &config)[i]);
 
-  // save to EEPROM
-  Serial.print("Saving:");
-  for (byte i = 0; i < sizeof config; ++i) {
-    byte b = ((byte*) &config)[i];
-    eeprom_write_byte(RF12_EEPROM_ADDR + i, b);
-    Serial.print(b, HEX);
-  }
-  Serial.println();
+  eeprom_write_block(&config, RF12_EEPROM_ADDR, sizeof config);
+  Serial.println(sizeof config);
+
   if (!rf12_config())
      showString(INITFAIL);
 }
@@ -275,6 +256,7 @@ static void fs20cmd(word house, byte addr, byte cmd) {
     delay(10);
   }
 }
+
 static void kakuSend(char addr, byte device, byte on) {
   int cmd = 0x600 | ((device - 1) << 4) | ((addr - 1) & 0xF);
   if (on)
@@ -299,7 +281,7 @@ static void kakuSend(char addr, byte device, byte on) {
 
 #define DF_ENABLE_PIN 8     // PB0
 
-#if FLASH_MBIT == 4
+#if DATAFLASH == 4
 // settings for 0.5 Mbyte flash in JLv2
 #define DF_BLOCK_SIZE 16      // number of pages erased at same time
 #define DF_LOG_BEGIN  32      // first 2 blocks reserved for future use
@@ -309,7 +291,7 @@ static void kakuSend(char addr, byte device, byte on) {
 #define DF_PAGE_ERASE 0x20    // erase one block of flash memory
 #endif
 
-#if FLASH_MBIT == 8
+#if DATAFLASH == 8
 // settings for 1 Mbyte flash in JLv2
 #define DF_BLOCK_SIZE 16      // number of pages erased at same time
 #define DF_LOG_BEGIN  32      // first 2 blocks reserved for future use
@@ -319,7 +301,7 @@ static void kakuSend(char addr, byte device, byte on) {
 #define DF_PAGE_ERASE 0x20    // erase one block of flash memory
 #endif
 
-#if FLASH_MBIT == 16
+#if DATAFLASH == 16
 // settings for 2 Mbyte flash in JLv3
 #define DF_BLOCK_SIZE 256     // number of pages erased at same time
 #define DF_LOG_BEGIN  512     // first 2 blocks reserved for future use
@@ -471,9 +453,9 @@ static void df_saveBuf () {
   df_flush();
   showString(PSTR("DF S "));
   Serial.print(dfLastPage);
-  showString(SPACE);
+  Serial.print(' ');
   Serial.print(dfBuf.seqnum);
-  showString(SPACE);
+  Serial.print(' ');
   Serial.println(dfBuf.timestamp);
   
   // erase next block if we just saved data into a fresh block
@@ -537,7 +519,7 @@ static void df_initialize () {
     
     showString(PSTR("DF I "));
     Serial.print(dfLastPage);
-    showString(SPACE);
+    Serial.print(' ');
     Serial.println(dfBuf.seqnum);
   
     // df_wipe();
@@ -564,9 +546,9 @@ static void df_dump () {
     Serial.print(page);
     showString(PSTR(" : "));
     Serial.print(curr.seqnum);
-    showString(SPACE);
+    Serial.print(' ');
     Serial.print(curr.timestamp);
-    showString(SPACE);
+    Serial.print(' ');
     Serial.println(curr.crc);
   }
 }
@@ -595,7 +577,7 @@ static void df_replay (word seqnum, long asof) {
   word page = scanForMarker(seqnum, asof);
   showString(PSTR("r: page "));
   Serial.print(page);
-  showString(SPACE);
+  Serial.print(' ');
   Serial.println(dfLastPage);
   discardInput();
   word savedSeqnum = dfBuf.seqnum;
@@ -613,7 +595,7 @@ static void df_replay (word seqnum, long asof) {
     if (crc != 0) {
       showString(PSTR("DF C? "));
       Serial.print(page);
-      showString(SPACE);
+      Serial.print(' ');
       Serial.println(crc);
       continue;
     }
@@ -624,13 +606,13 @@ static void df_replay (word seqnum, long asof) {
         break;
       showString(PSTR("R "));
       Serial.print(dfBuf.seqnum);
-      showString(SPACE);
+      Serial.print(' ');
       Serial.print(dfBuf.timestamp + dfBuf.data[i++]);
-      showString(SPACE);
+      Serial.print(' ');
       Serial.print((int) dfBuf.data[i++]);
       byte n = dfBuf.data[i++];
       while (n-- > 0) {
-        showString(SPACE);
+        Serial.print(' ');
         Serial.print((int) dfBuf.data[i++]);
       }
       Serial.println();
@@ -638,18 +620,18 @@ static void df_replay (word seqnum, long asof) {
     // at end of each page, report a "DF R" marker, to allow re-starting
     showString(PSTR("DF R "));
     Serial.print(page);
-    showString(SPACE);
+    Serial.print(' ');
     Serial.print(dfBuf.seqnum);
-    showString(SPACE);
+    Serial.print(' ');
     Serial.println(dfBuf.timestamp);
   }
   dfFill = 0; // ram buffer is no longer valid
   dfBuf.seqnum = savedSeqnum + 1; // so next replay will start at a new value
   showString(PSTR("DF E "));
   Serial.print(dfLastPage);
-  showString(SPACE);
+  Serial.print(' ');
   Serial.print(dfBuf.seqnum);
-  showString(SPACE);
+  Serial.print(' ');
   Serial.println(millis());
 }
 
@@ -663,10 +645,12 @@ static void df_replay (word seqnum, long asof) {
 
 #endif 
 
-#if !TINY
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 const char helpText1[] PROGMEM = 
+#if TINY
+  "?\n"
+#else
   "\n"
   "Available commands:" "\n"
   "  <nn> i     - set node ID (standard node ids are 1..30)" "\n"
@@ -689,8 +673,8 @@ const char helpText1[] PROGMEM =
   "Remote control commands:" "\n"
   "  <hchi>,<hclo>,<addr>,<cmd> f     - FS20 command (868 MHz)" "\n"
   "  <addr>,<dev>,<on> k              - KAKU command (433 MHz)" "\n"
-;
 #endif
+;
 
 #if DATAFLASH
 const char helpText2[] PROGMEM = 
@@ -713,10 +697,8 @@ static void showString (PGM_P s) {
   }
 }
 
-#if !TINY
 static void showHelp () {
     showString(helpText1);
-#endif
 #if DATAFLASH
     if (df_present())
       showString(helpText2);
@@ -724,8 +706,8 @@ static void showHelp () {
 #if !TINY
     showString(PSTR("Current configuration:\n"));
     rf12_config();
-}
 #endif
+}
 
 static void handleInput (char c) {
   if ('0' <= c && c <= '9')
@@ -738,24 +720,22 @@ static void handleInput (char c) {
     showString(PSTR("> "));
     for (byte i = 0; i < top; ++i) {
       Serial.print((int) stack[i]);
-      showString(COMMA);
+      Serial.print(',');
     }
     Serial.print((int) value);
     Serial.println(c);
 
     switch (c) {
       default:
-#if TINY
-        showString(PSTR("?\n"));
-#else
         showHelp();
-#endif
       break;
       case 'i': // set node id
-        if ((value > 0) && (value <= MAX_NODES + 1)) {                   // Node 15 may exist on T84 but only as the RF12Demo node,
-                                                                         //  eeprom address +0, the encryption key storage will be
-                                                                         //  overwritten by the 42j command, similar for n31 on MEGA
-          if (value < MAX_NODES) nodes[value] = 0;                       // Prevent auto allocation of this node number
+        if ((value > 0) && (value <= MAX_NODES + 1)) {
+// Node 15 may exist on T84 but only as the RF12Demo node,
+//  eeprom address +0, the encryption key storage will be
+//  overwritten by the 42j command, similar for n31 on MEGA
+          if (value < MAX_NODES) nodes[value] = 0;
+        // Prevent auto allocation of this node number
           config.nodeId = (config.nodeId & 0xE0) + (value & 0x1F);
           saveConfig();
         }
@@ -845,8 +825,7 @@ static void handleInput (char c) {
         break;
 #if !TINY
       case 'l': // turn activity LED on or off
-        if (value) activityLed(1);
-        else activityLed(0);
+        activityLed(value);
         break;
       case 'd': // dump all log markers
         if (df_present())
@@ -874,7 +853,8 @@ static void handleInput (char c) {
         break;
 #endif
       case 'z': // put the ATmega in ultra-low power mode (reset needed)
-        if (value == 123) Sleep;
+        if (value == 123)
+          Sleep();
         break;
       case 'q': // turn quiet mode on or off (don't report bad packets)
         config.quiet_mode = value;
@@ -929,7 +909,7 @@ static void handleInput (char c) {
             showString(PSTR("Restored\n"));
             }
           if (rf12_config())
-            initialize();
+            loadConfig();
           else
             showString(INITFAIL);
         }
@@ -956,7 +936,7 @@ static void handleInput (char c) {
         // and value contains the command to be posted
         if ((!stack[0]) && (!value)) {
           Serial.print((int)postingsIn);
-          showString(COMMA);
+          Serial.print(',');
           Serial.println((int)postingsOut);
           nodesShow();
         }
@@ -986,9 +966,7 @@ static void handleInput (char c) {
     value = top = 0;
     memset(stack, 0, sizeof stack);
   } else if (' ' < c && c < 'A') {
-#if !TINY
     showHelp();
-#endif
   }
 }
 
@@ -1000,7 +978,7 @@ static void displayASCII(volatile uint8_t* data, byte count) {
         }
       else
         {
-          showString(SPACE);
+          Serial.print(' ');
           Serial.print((char) data[i]);
         }
     }
@@ -1017,18 +995,18 @@ void displayVersion () {
   Serial.print(freeRam());
 }
 
-void Sleep() {
-          showString(PSTR(" sleeping"));
-          delay(10);
-          rf12_sleep(RF12_SLEEP);
-          cli();
-          Sleepy::powerDown();
+void Sleep () {
+    showString(PSTR(" sleeping"));
+    Serial.flush();
+    rf12_sleep(RF12_SLEEP);
+    cli();
+    Sleepy::powerDown();
 }
 
-void setup() {
+void setup () {
   delay(1000);
- /// Initialise node table
- Serial.print("Node Table:");
+  /// Initialise node table
+  Serial.print("Node Table:");
   for (byte i = 1; i <= MAX_NODES; i++) { 
     nodes[i] = eeprom_read_byte(RF12_EEPROM_ADDR + (i * RF12_EEPROM_SIZE)); // http://forum.arduino.cc/index.php/topic,140376.msg1054626.html
     if (nodes[i] != 0xFF)
@@ -1057,15 +1035,16 @@ void setup() {
   displayVersion();
 
   if (rf12_config())
-    initialize();
+    loadConfig();
   else {
+    memset(&config, 0, sizeof config);
     config.nodeId = 0x81; // 868 MHz, node 1
     config.group = 0xD4;  // default group 212
     config.frequency_offset = 1600;
     config.quiet_mode = true;   // Default flags, quiet on
-    nodes[(config.nodeId & RF12_HDR_MASK)] = 0;  // Prevent allocation of this nodes number.
 //  saveConfig();         // Don't save to eeprom until we have changes.
   }
+  nodes[(config.nodeId & RF12_HDR_MASK)] = 0;  // Prevent allocation of this nodes number.
 
 #if DATAFLASH
   df_initialize();
@@ -1075,15 +1054,10 @@ void setup() {
 #endif
 } // Setup
 
-void initialize() {
-    // load from EEPROM
-  for (byte i = 0; i < sizeof config; ++i) {
-    byte b = ((byte*) &config)[i];
-    b = eeprom_read_byte(RF12_EEPROM_ADDR + i);
-  }
-
-  nodes[(config.nodeId & RF12_HDR_MASK)] = 0;  // Prevent allocation of this nodes number.
+void loadConfig () {
+  eeprom_read_block(&config, RF12_EEPROM_ADDR, sizeof config);
 }
+
 /// Display stored nodes and show the command queued for each node
 /// the command queue is not preserved through a restart of RF12Demo
 void nodesShow() {
@@ -1098,7 +1072,7 @@ void nodesShow() {
   Serial.println();
 }  
 
-void loop() {
+void loop () {
 #if TINY    
   handleInput(inChar());
 #else
@@ -1122,20 +1096,20 @@ void loop() {
       showString(PSTR(" G"));
       showByte(rf12_grp);
     }
-    showString(SPACE);
+    Serial.print(' ');
     showByte(rf12_hdr);
     for (byte i = 0; i < n; ++i) {
       if (!config.hex_output)
-        showString(SPACE);
+        Serial.print(' ');
       showByte(rf12_data[i]);
     }
 #if RF69_COMPAT
-    showString(OPENBRAC);
+    showString(PSTR(" ("));
     if (config.hex_output)
         showByte(RF69::rssi);
     else
         Serial.print(-(RF69::rssi>>1));
-    showString(CLOSEBRAC);
+    showString(PSTR(") "));
 #endif    
     Serial.println();
   if (config.hex_output > 1) {  // Print ascii interpretation under hex output
@@ -1194,7 +1168,7 @@ void loop() {
             testCounter = 1;
             showString(PSTR("Posted "));
             showByte(rf12_hdr & RF12_HDR_MASK);
-            showString(COMMA);
+            Serial.print(',');
             showByte(testbuf[0]);
             postingsOut++;          // Count as delivered
             Serial.println();
