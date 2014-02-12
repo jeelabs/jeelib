@@ -10,7 +10,7 @@
 // Node numbers 16-31 can only be used if MAX_NODES and thereby
 // the size of the nodes array is adjusted accordingly
 //
-#define RF69_COMPAT 0 // define this to use the RF69 driver i.s.o. RF12
+#define RF69_COMPAT 1 // define this to use the RF69 driver i.s.o. RF12
 #include <JeeLib.h>
 #include <util/crc16.h>
 #include <avr/eeprom.h>
@@ -22,12 +22,12 @@
 #define VERSION "\n[RF12demo.12]"         // keep in sync with the above
 
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
-#define TINY 1
+#define TINY        1
 #define SERIAL_BAUD 38400   // do not change
 #define DATAFLASH   0       // do not change
 #undef  LED_PIN             // do not change
 #else
-#define TINY 0
+#define TINY        0
 #define SERIAL_BAUD 57600   // adjust as needed
 #define DATAFLASH   16      // set to 0 for non-JeeLinks, else 4/8/16 (Mbit)
 #define LED_PIN     9       // activity LED, comment out to disable
@@ -49,6 +49,13 @@ const char INITFAIL[] PROGMEM = "config save failed\n";
 ///  All right reserved.
 /// Connect Tiny84 PA2 to USB-BUB TXD for serial input to sketch.    // Jeenode DIO2
 /// 9600 or 38400 at present.
+
+#if SERIAL_BAUD == 9600
+#define BITDELAY 54      // 9k6 @ 8MHz, 19k2 @16MHz
+#endif
+#if SERIAL_BAUD == 38400
+#define BITDELAY 11     // 38k4 @ 8MHz, 76k8 @16MHz
+#endif
 
 #define MAX_NODES 14
 #define _receivePin 8
@@ -195,6 +202,10 @@ static void addInt (char* msg, word v) {
   if (v >= 10)
     addInt(msg, v / 10);
   addCh(msg, '0' + v % 10);
+}
+
+static void loadConfig () {
+  eeprom_read_block(&config, RF12_EEPROM_ADDR, sizeof config);
 }
 
 static void saveConfig () {
@@ -1004,24 +1015,9 @@ void Sleep () {
 }
 
 void setup () {
-  delay(1000);
-  /// Initialise node table
-  Serial.print("Node Table:");
-  for (byte i = 1; i <= MAX_NODES; i++) { 
-    nodes[i] = eeprom_read_byte(RF12_EEPROM_ADDR + (i * RF12_EEPROM_SIZE)); // http://forum.arduino.cc/index.php/topic,140376.msg1054626.html
-    if (nodes[i] != 0xFF)
-      nodes[i] = 0;   // Indicate no post waiting for node!
-      Serial.print(nodes[i]);
-    }
-    Serial.println();
-#if SERIAL_BAUD == 9600
-#define BITDELAY 54      // 9k6 @ 8MHz, 19k2 @16MHz
-#endif
-#if SERIAL_BAUD == 38400
-#define BITDELAY 11     // 38k4 @ 8MHz, 76k8 @16MHz
-#endif
+  delay(1000); // FIXME: do we need this?
+
 #if TINY
-  delay(1000);            // Delay on startup to avoid ISP/RFM12B interference.
   PCMSK0 |= (1<<PCINT2);  // tell pin change mask to listen to PA2
   GIMSK  |= (1<<PCIE0);   // enable PCINT interrupt in the general interrupt mask
   whackDelay(_bitDelay*2); // if we were low this establishes the end
@@ -1029,7 +1025,6 @@ void setup () {
   digitalWrite(_receivePin, HIGH);  // pullup!
   _bitDelay = BITDELAY; 
 #endif
-  activityLed(1);
 
   Serial.begin(SERIAL_BAUD);
   displayVersion();
@@ -1043,20 +1038,27 @@ void setup () {
     config.frequency_offset = 1600;
     config.quiet_mode = true;   // Default flags, quiet on
 //  saveConfig();         // Don't save to eeprom until we have changes.
+    rf12_initialize(config.nodeId & RF12_HDR_MASK,
+                    config.nodeId >> 6, config.group);
   }
+
+  /// Initialise node table
+  Serial.print("Node Table:");
+  for (byte i = 1; i <= MAX_NODES; i++) { 
+    nodes[i] = eeprom_read_byte(RF12_EEPROM_ADDR + (i * RF12_EEPROM_SIZE)); // http://forum.arduino.cc/index.php/topic,140376.msg1054626.html
+    if (nodes[i] != 0xFF)
+      nodes[i] = 0;   // Indicate no post waiting for node!
+      Serial.print(nodes[i]);
+  }
+  Serial.println();
+  
   nodes[(config.nodeId & RF12_HDR_MASK)] = 0;  // Prevent allocation of this nodes number.
 
-#if DATAFLASH
   df_initialize();
-#endif 
 #if !TINY
   showHelp();
 #endif
 } // Setup
-
-void loadConfig () {
-  eeprom_read_block(&config, RF12_EEPROM_ADDR, sizeof config);
-}
 
 /// Display stored nodes and show the command queued for each node
 /// the command queue is not preserved through a restart of RF12Demo
