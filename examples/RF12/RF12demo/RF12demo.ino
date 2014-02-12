@@ -10,7 +10,7 @@
 // Node numbers 16-31 can only be used if MAX_NODES and thereby
 // the size of the nodes array is adjusted accordingly
 //
-#define RF69_COMPAT 0 // define this to use the RF69 driver i.s.o. RF12
+#define RF69_COMPAT 1 // define this to use the RF69 driver i.s.o. RF12
 #include <JeeLib.h>
 #include <util/crc16.h>
 #include <avr/eeprom.h>

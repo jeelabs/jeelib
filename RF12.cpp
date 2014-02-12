@@ -642,17 +642,13 @@ void rf12_onOff (uint8_t value) {
 /// As side effect, rf12_config() also writes the current configuration to the
 /// serial port, ending with a newline. Use rf12_configSilent() to avoid this.
 /// @returns the node ID obtained from EEPROM, or 0 if there was none.
-uint8_t rf12_config () {
-    uint8_t id = rf12_configSilent();
-    if (id != 0) {
-        for (uint8_t i = 4; i < RF12_EEPROM_SIZE - 2; ++i) {
-            uint8_t b = eeprom_read_byte(RF12_EEPROM_ADDR + i);
-            if (b < 32)
-                break;
-            Serial.print((char) b);
-        }
+void rf12_configDump () {
+    for (uint8_t i = 4; i < RF12_EEPROM_SIZE - 2; ++i) {
+        uint8_t b = eeprom_read_byte(RF12_EEPROM_ADDR + i);
+        if (b < 32)
+            break;
+        Serial.print((char) b);
     }
-    return id;
 }
 
 /// @details
@@ -663,10 +659,7 @@ uint8_t rf12_configSilent () {
     for (uint8_t i = 0; i < RF12_EEPROM_SIZE; ++i) {
         byte e = eeprom_read_byte(RF12_EEPROM_ADDR + i);
         crc = _crc16_update(crc, e);
-        Serial.print(' ');                    //DEBUG
-        Serial.print(e, HEX);                 //DEBUG
     }
-    Serial.println();                         //DEBUG
     if (crc || eeprom_read_byte(RF12_EEPROM_ADDR + 2) != RF12_EEPROM_VERSION)
         return 0;
         
@@ -675,16 +668,18 @@ uint8_t rf12_configSilent () {
      
     nodeId = eeprom_read_byte(RF12_EEPROM_ADDR + 0);
     group  = eeprom_read_byte(RF12_EEPROM_ADDR + 1);
-    frequency = eeprom_read_word((uint16_t*) (RF12_EEPROM_ADDR + 3));
-    Serial.println(frequency);
+    frequency = eeprom_read_word((uint16_t*) (RF12_EEPROM_ADDR + 4));
     
     rf12_initialize(nodeId, nodeId >> 6, group, frequency);
     return nodeId & RF12_HDR_MASK;
 }
 
-/// @deprecated Please switch over to one of the two new zero-arg versions.
+/// @deprecated Please switch over to rf12_configSilent() and rf12_configDump().
 uint8_t rf12_config (uint8_t show) {
-    return show ? rf12_config() : rf12_configSilent();
+    uint8_t id = rf12_configSilent();
+    if (show)
+        rf12_configDump();
+    return id;
 }
 
 /// @details

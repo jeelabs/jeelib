@@ -74,13 +74,13 @@ uint8_t rf12_initialize(uint8_t id, uint8_t band, uint8_t group=0xD4, uint16_t f
 
 /// Initialize the RFM12B module from settings stored in EEPROM by "RF12demo"
 /// don't call rf12_initialize() if you init the hardware with rf12_config().
-/// @return the node ID as 1..31 value (1..26 correspond to nodes 'A'..'Z').
-uint8_t rf12_config();
-/// Alternate version which does not print to the Serial port.
+/// @return the node ID as 1..31, or 0 if there is no config on EEPROM.
 uint8_t rf12_configSilent();
+/// Call this to send a description of the EEPROM settings to the serial port.
+void rf12_configDump();
 
-/// @deprecated Please switch over to one of the two new 0-arg versions.
-uint8_t rf12_config(uint8_t show);
+/// @deprecated Please switch over to rf12_configSilent() and rf12_configDump().
+uint8_t rf12_config(uint8_t show =1);
 
 /// Call this frequently, returns true if a packet has been received.
 uint8_t rf12_recvDone(void);

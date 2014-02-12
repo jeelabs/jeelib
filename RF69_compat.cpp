@@ -57,30 +57,18 @@ uint8_t rf69_configSilent () {
      
     nodeId = eeprom_read_byte(RF12_EEPROM_ADDR + 0);
     group  = eeprom_read_byte(RF12_EEPROM_ADDR + 1);
-    frequency = eeprom_read_word((uint16_t*) (RF12_EEPROM_ADDR + 3));
+    frequency = eeprom_read_word((uint16_t*) (RF12_EEPROM_ADDR + 4));
     
     rf69_initialize(nodeId, nodeId >> 6, group, frequency);
     return nodeId & RF12_HDR_MASK;
 }
 
-uint8_t rf69_config () {
-    uint8_t id = rf69_configSilent();
-    if (id != 0) {
-        for (uint8_t i = 4; i < RF12_EEPROM_SIZE - 2; ++i) {
-            char b = eeprom_read_byte(RF12_EEPROM_ADDR + i);
-            Serial.print(' ');
-            Serial.print(b, HEX);
-            if (b < ' ' || b > '~')
-                break;
-            Serial.print(b);
-        }
-    }
-    return id;
-}
-
-/// @deprecated Please switch over to one of the two new zero-arg versions.
+/// @deprecated Please switch over to rf12_configSilent() and rf12_configDump().
 uint8_t rf69_config (uint8_t show) {
-    return show ? rf69_config() : rf69_configSilent();
+    uint8_t id = rf69_configSilent();
+    if (show)
+        rf12_configDump();
+    return id;
 }
 
 uint8_t rf69_recvDone () {
