@@ -55,7 +55,7 @@ uint8_t rf69_configSilent () {
      
     nodeId = eeprom_read_byte(RF12_EEPROM_ADDR + 0);
     group  = eeprom_read_byte(RF12_EEPROM_ADDR + 1);
-    frequency = eeprom_read_word((uint16_t*) (RF12_EEPROM_ADDR + 2));
+    frequency = eeprom_read_word((uint16_t*) (RF12_EEPROM_ADDR + 3));
     
     rf69_initialize(nodeId, nodeId >> 6, group, frequency);
     return nodeId & RF12_HDR_MASK;
