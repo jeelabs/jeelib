@@ -28,6 +28,8 @@ const char INVALID1[] PROGMEM = "\rInvalid\n";
 const char COMMA[] PROGMEM = ",";
 const char SPACE[] PROGMEM = " ";
 const char INITFAIL[] PROGMEM = "config save failed\n";
+const char OPENBRAC[] PROGMEM = " (";
+const char CLOSEBRAC[] PROGMEM = ") ";
 ///
 
 // ATtiny's only support outbound serial @ 38400 baud, and no DataFlash logging
@@ -148,7 +150,6 @@ static void activityLed (byte on) {
 // 4 bit
 // ----------------
 // 8 bit
-#define COLLECT 0x20     // collect mode, i.e. pass incoming without sending acks
 
 // RF12 configuration setup code
 typedef struct {
@@ -160,7 +161,7 @@ typedef struct {
   boolean spare_flags : 4;
   int frequency_offset; // Offset within band
   byte RF12Demo_Version;
-  byte pad[RF12_EEPROM_SIZE-6];
+  byte pad[RF12_EEPROM_SIZE-8];
   word crc;
 } RF12Config;
 
@@ -169,7 +170,7 @@ static RF12Config config;
 static char cmd;
 static int value;
 static byte stack[RF12_MAXDATA+4], top, sendLen, dest;
-static byte testbuf[RF12_MAXDATA], testCounter, useHex;
+static byte testbuf[RF12_MAXDATA], testCounter;
 static byte nodes[MAX_NODES + 1];  // [0] is unused
 static byte band,postingsIn = 0, postingsOut = 0;
 
@@ -181,7 +182,7 @@ static void showNibble (byte nibble) {
 }
 
 static void showByte (byte value) {
-  if (useHex) {
+  if (config.hex_output) {
     showNibble(value >> 4);
     showNibble(value);
   } else
@@ -206,6 +207,7 @@ static void saveConfig () {
   byte id = config.nodeId & 0x1F;
   config.RF12Demo_Version = MAJOR_VERSION;
   config.crc = ~0;
+  Serial.println(sizeof config);
   for (byte i = 0; i < sizeof config - 2; ++i)
     config.crc = _crc16_update(config.crc, ((byte*) &config)[i]);
 
@@ -799,9 +801,9 @@ static void handleInput (char c) {
         break;
       case 'c': // set collect mode (off = 0, on = 1)
         if (value)
-          config.nodeId |= COLLECT;
+          config.collect_mode = true;
         else
-          config.nodeId &= ~COLLECT;
+          config.collect_mode= false;
         saveConfig();
         break;
       case 't': // broadcast a maximum size test packet, request an ack
@@ -875,7 +877,8 @@ static void handleInput (char c) {
         saveConfig();
         break;
       case 'x': // set reporting mode to hex (1) or decimal (0)
-        config.hex_output = value;
+        config.hex_output = value & 0x03;
+        saveConfig();
         break;
       case 'v': //display the interpreter version
         displayVersion(1);
@@ -1024,9 +1027,9 @@ void Sleep() {
 void setup() {
  /// Initialise node table
   for (byte i = 1; i <= MAX_NODES; i++) { 
-    nodes[i] = eeprom_read_byte(RF12_EEPROM_ADDR + (i * 32)); // http://forum.arduino.cc/index.php/topic,140376.msg1054626.html
+    nodes[i] = eeprom_read_byte(RF12_EEPROM_ADDR + (i * RF12_EEPROM_SIZE)); // http://forum.arduino.cc/index.php/topic,140376.msg1054626.html
     if (nodes[i] != 0xFF)
-      nodes[i] = 0;   // No post waiting for node.
+      nodes[i] = 0;   // Indicate no post waiting for node!
     }
 #if SERIAL_BAUD == 9600
 #define BITDELAY 54      // 9k6 @ 8MHz, 19k2 @16MHz
@@ -1110,7 +1113,7 @@ void loop() {
       if (n > 20) // print at most 20 bytes if crc is wrong
         n = 20;
     }
-    if (useHex)
+    if (config.hex_output)
       showString(PSTR("X"));
     if (config.group == 0) {
       showString(PSTR(" G"));
@@ -1119,20 +1122,20 @@ void loop() {
     showString(SPACE);
     showByte(rf12_hdr);
     for (byte i = 0; i < n; ++i) {
-      if (!useHex)
+      if (!config.hex_output)
         showString(SPACE);
       showByte(rf12_data[i]);
     }
 #if RF69_COMPAT
-    Serial.print(" (");
-    if (useHex)
+    ShowString(OPENBRAC);
+    if (config.hex_output)
         showByte(RF69::rssi);
     else
         Serial.print(-(RF69::rssi>>1));
-    Serial.print(')');
+    ShowString(CLOSEBRAC);
 #endif    
     Serial.println();
-  if (useHex > 1) {  // Print ascii interpretation under hex output
+  if (config.hex_output > 1) {  // Print ascii interpretation under hex output
     showString(PSTR("ASC"));
     if (config.group == 0) {
       showString(PSTR("II  "));
@@ -1165,7 +1168,7 @@ void loop() {
             }
         }      
 
-      if (RF12_WANTS_ACK && (config.nodeId & COLLECT) == 0) {
+      if (RF12_WANTS_ACK && (config.collect_mode) == 0) {
         showString(PSTR(" -> ack\n"));
         testCounter = 0;
 

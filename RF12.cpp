@@ -664,7 +664,9 @@ uint8_t rf12_configSilent () {
     for (uint8_t i = 0; i < RF12_EEPROM_SIZE; ++i) {
         byte e = eeprom_read_byte(RF12_EEPROM_ADDR + i);
         crc = _crc16_update(crc, e);
+        Serial.print(e, HEX);                 //DEBUG
     }
+    Serial.println();                         //DEBUG
     if (crc != 0)
         return 0;
         
@@ -673,7 +675,8 @@ uint8_t rf12_configSilent () {
      
     nodeId = eeprom_read_byte(RF12_EEPROM_ADDR + 0);
     group  = eeprom_read_byte(RF12_EEPROM_ADDR + 1);
-    frequency = eeprom_read_word((uint16_t*) (RF12_EEPROM_ADDR + 2));
+    frequency = eeprom_read_word((uint16_t*) (RF12_EEPROM_ADDR + 3));
+    Serial.println(frequency);
     
     rf12_initialize(nodeId, nodeId >> 6, group, frequency);
     return nodeId & RF12_HDR_MASK;

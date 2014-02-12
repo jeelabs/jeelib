@@ -40,7 +40,7 @@
 
 // EEPROM address range used by the rf12_config() code
 #define RF12_EEPROM_ADDR ((uint8_t*) 0x20)  ///< Starting offset.
-#define RF12_EEPROM_SIZE 48                 ///< Number of bytes.
+#define RF12_EEPROM_SIZE 16                 ///< Number of bytes.
 #define RF12_EEPROM_EKEY (RF12_EEPROM_ADDR + RF12_EEPROM_SIZE) ///< EE start.
 #define RF12_EEPROM_ELEN 16                 ///< EE number of bytes.
 
