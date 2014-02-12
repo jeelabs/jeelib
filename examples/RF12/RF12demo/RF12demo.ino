@@ -155,10 +155,10 @@ static void activityLed (byte on) {
 typedef struct {
   byte nodeId;
   byte group;
-  unsigned int hex_output : 2;
-  boolean collect_mode : 1;
-  boolean quiet_mode : 1;
-  boolean spare_flags : 4;
+  char hex_output : 2;
+  char collect_mode : 1;
+  char quiet_mode : 1;
+  char spare_flags : 4;
   int frequency_offset; // Offset within band
   byte RF12Demo_Version;
   byte pad[RF12_EEPROM_SIZE-8];
@@ -206,6 +206,7 @@ static void saveConfig () {
   config.frequency_offset = frequency;
 //  byte id = config.nodeId & 0x1F;
   config.RF12Demo_Version = MAJOR_VERSION;
+  config.spare_flags = 0;
   config.crc = ~0;
   Serial.println(sizeof config);
   for (byte i = 0; i < sizeof config - 2; ++i)
