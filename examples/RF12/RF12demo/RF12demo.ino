@@ -10,11 +10,16 @@
 // Node numbers 16-31 can only be used if MAX_NODES and thereby
 // the size of the nodes array is adjusted accordingly
 //
+#define RF69_COMPAT 0 // define this to use the RF69 driver i.s.o. RF12
 #include <JeeLib.h>
 #include <util/crc16.h>
 #include <avr/eeprom.h>
 #include <avr/pgmspace.h>
 #include <util/parity.h>
+
+#define MAJOR_VERSION 1             // bump when EEPROM layout changes
+#define MINOR_VERSION 2             // bump on other non-trivial changes
+#define VERSION "\n[RF12demo.12]"   // keep in sync with the above
 
 #define DEBUG 1
 
@@ -23,7 +28,6 @@ const char INVALID1[] PROGMEM = "\rInvalid\n";
 const char COMMA[] PROGMEM = ",";
 const char SPACE[] PROGMEM = " ";
 const char INITFAIL[] PROGMEM = "config save failed\n";
-const char VERSION[] PROGMEM = "\n[RF12demo.11]";
 ///
 
 // ATtiny's only support outbound serial @ 38400 baud, and no DataFlash logging
@@ -93,7 +97,6 @@ static byte inChar(){
 #define DATAFLASH 0
 // check for presence of DataFlash memory on JeeLink
 #define FLASH_MBIT  16  // support for various dataflash sizes: 4/8/16 Mbit
-
 #define LED_PIN   9     // activity LED, comment out to disable
 #endif 
 
@@ -143,8 +146,6 @@ static void activityLed (byte on) {
 /// --------------------------------------------------------------------------------------------------------------------------
 /// Useful url: http://blog.strobotics.com.au/2009/07/27/rfm12-tutorial-part-3a/
 // 4 bit
-#define QUIET   0x1      // quiet mode
-#define V10     0x2      // Indicates a version of RF12Demo after version 10.
 // ----------------
 // 8 bit
 #define COLLECT 0x20     // collect mode, i.e. pass incoming without sending acks
@@ -153,10 +154,13 @@ static void activityLed (byte on) {
 typedef struct {
   byte nodeId;
   byte group;
-  int ee_frequency_hi : 4;  // Can't use as a 12 bit integer because of how they are stored in a structure.
-  boolean flags : 4;
-  int ee_frequency_lo : 8;  //
-  char msg[RF12_EEPROM_SIZE-6];
+  unsigned int hex_output : 2;
+  boolean collect_mode : 1;
+  boolean quiet_mode : 1;
+  boolean spare_flags : 4;
+  int frequency_offset; // Offset within band
+  byte RF12Demo_Version;
+  byte pad[RF12_EEPROM_SIZE-6];
   word crc;
 } RF12Config;
 
@@ -197,32 +201,10 @@ static void addInt (char* msg, word v) {
 
 static void saveConfig () {
   // set up a nice config string to be shown on startup
-  memset(config.msg, 0, sizeof config.msg);
-  config.flags  &= ~V10;               // Indicate v11 and upwards, unset the eeprom+2 0x20 bit !
-  config.ee_frequency_hi = frequency >> 8;
-  config.ee_frequency_lo = frequency & 0x00FF;
+  memset(config.pad, 0, sizeof config.pad);
+  config.frequency_offset = frequency;
   byte id = config.nodeId & 0x1F;
-  addCh(config.msg, '@' + id);
-  strcat(config.msg, " i");
-  addInt(config.msg, id);
-  if (config.nodeId & COLLECT)
-    addCh(config.msg, '*');
-  
-  strcat(config.msg, " g");
-  addInt(config.msg, config.group);
-  
-  strcat(config.msg, " @");
-  static word bands[4] = { 0, 430, 860, 900 }; // 315, 433, 864, 915 Mhz    
-  band = config.nodeId >> 6;
-  long wk = frequency;                                        // 96 - 3903 is the range of values supported by the RFM12B
-  wk = wk * (band * 25);                                      // Actual freqency changes are larger in higher bands
-  long characteristic = wk/10000;
-  addInt(config.msg, characteristic + bands[band]);
-  byte pos = strlen(config.msg);
-  addInt(config.msg, ((10000 + (wk - (characteristic * 10000)))));; // Adding 10,000 the digit protects the leading zeros
-  config.msg[pos] = '.';                                            // Loose the 10,000 digit
-  strcat(config.msg, " MHz");
-  
+  config.RF12Demo_Version = MAJOR_VERSION;
   config.crc = ~0;
   for (byte i = 0; i < sizeof config - 2; ++i)
     config.crc = _crc16_update(config.crc, ((byte*) &config)[i]);
@@ -242,6 +224,11 @@ static byte bandToFreq (byte band) {
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 // OOK transmit code
+
+#if RF69_COMPAT // not implemented in RF69 compatibility mode
+static void fs20cmd(word house, byte addr, byte cmd) {}
+static void kakuSend(char addr, byte device, byte on) {}
+#else
 
 // Turn transmitter on or off, but also apply asymmetric correction and account
 // for 25 us SPI overhead to end up with the proper on-the-air pulse widths.
@@ -291,6 +278,8 @@ static void kakuSend(char addr, byte device, byte on) {
     delay(11); // approximate
   }
 }
+
+#endif
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 // DataFlash code
@@ -881,12 +870,12 @@ static void handleInput (char c) {
         if (value == 123) Sleep;
         break;
         case 'q': // turn quiet mode on or off (don't report bad packets)
-        if (value) config.flags |= QUIET;
-          else config.flags &= ~QUIET;
+        if (value) config.quiet_mode = true;
+          else config.quiet_mode = false;
         saveConfig();
         break;
       case 'x': // set reporting mode to hex (1) or decimal (0)
-        useHex = value;
+        config.hex_output = value;
         break;
       case 'v': //display the interpreter version
         displayVersion(1);
@@ -1065,8 +1054,8 @@ void setup() {
   else {
     config.nodeId = 0x41; // 433 MHz, node 1
     config.group = 0xD4;  // default group 212
-    frequency = 1600;
-    config.flags = 0xC;   // Default flags, quiet off and non V10
+    config.frequency_offset = 1600;
+    config.quiet_mode = true;   // Default flags, quiet on
     nodes[(config.nodeId & RF12_HDR_MASK)] = 0;  // Prevent allocation of this nodes number.
 //  saveConfig();         // Don't save to eeprom until we have changes.
   }
@@ -1081,14 +1070,12 @@ void setup() {
 } // Setup
 
 void initialize() {
-  config.nodeId = eeprom_read_byte(RF12_EEPROM_ADDR);
-  config.group = eeprom_read_byte(RF12_EEPROM_ADDR + 1);
-  frequency = eeprom_read_byte(RF12_EEPROM_ADDR + 2);
-  config.flags = frequency >> 4;               // Extract the flag nibble
-  if (config.flags & V10)                      // Is this a pre v11 eeprom
-    frequency = 1600; 
-  else // Lose flag nibble to get frequency high order
-    frequency = ((frequency & 0x0F)  << 8) + (eeprom_read_byte(RF12_EEPROM_ADDR + 3));
+    // load from EEPROM
+  for (byte i = 0; i < sizeof config; ++i) {
+    byte b = ((byte*) &config)[i];
+    b = eeprom_read_byte(RF12_EEPROM_ADDR + i);
+  }
+
   nodes[(config.nodeId & RF12_HDR_MASK)] = 0;  // Prevent allocation of this nodes number.
 }
 /// Display stored nodes and show the command queued for each node
@@ -1117,7 +1104,7 @@ void loop() {
     if (rf12_crc == 0)
       showString(PSTR("OK"));
     else {
-      if (config.flags && ~QUIET)
+      if (config.quiet_mode)
         return;
       showString(PSTR(" ?"));
       if (n > 20) // print at most 20 bytes if crc is wrong
@@ -1136,6 +1123,14 @@ void loop() {
         showString(SPACE);
       showByte(rf12_data[i]);
     }
+#if RF69_COMPAT
+    Serial.print(" (");
+    if (useHex)
+        showByte(RF69::rssi);
+    else
+        Serial.print(-(RF69::rssi>>1));
+    Serial.print(')');
+#endif    
     Serial.println();
   if (useHex > 1) {  // Print ascii interpretation under hex output
     showString(PSTR("ASC"));
