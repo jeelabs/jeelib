@@ -10,7 +10,7 @@
 // Node numbers 16-31 can only be used if MAX_NODES and thereby
 // the size of the nodes array is adjusted accordingly
 //
-#define RF69_COMPAT 0 // define this to use the RF69 driver i.s.o. RF12
+#define RF69_COMPAT 1 // define this to use the RF69 driver i.s.o. RF12
 #include <JeeLib.h>
 #include <util/crc16.h>
 #include <avr/eeprom.h>
@@ -204,7 +204,7 @@ static void saveConfig () {
   // set up a nice config string to be shown on startup
   memset(config.pad, 0, sizeof config.pad);
   config.frequency_offset = frequency;
-  byte id = config.nodeId & 0x1F;
+//  byte id = config.nodeId & 0x1F;
   config.RF12Demo_Version = MAJOR_VERSION;
   config.crc = ~0;
   Serial.println(sizeof config);
@@ -212,10 +212,13 @@ static void saveConfig () {
     config.crc = _crc16_update(config.crc, ((byte*) &config)[i]);
 
   // save to EEPROM
+  Serial.print("Saving:");
   for (byte i = 0; i < sizeof config; ++i) {
     byte b = ((byte*) &config)[i];
     eeprom_write_byte(RF12_EEPROM_ADDR + i, b);
+    Serial.print(b, HEX);
   }
+  Serial.println();
   if (!rf12_config())
      showString(INITFAIL);
 }
@@ -1025,12 +1028,16 @@ void Sleep() {
 }
 
 void setup() {
+  delay(1000);
  /// Initialise node table
+ Serial.print("Node Table:");
   for (byte i = 1; i <= MAX_NODES; i++) { 
     nodes[i] = eeprom_read_byte(RF12_EEPROM_ADDR + (i * RF12_EEPROM_SIZE)); // http://forum.arduino.cc/index.php/topic,140376.msg1054626.html
     if (nodes[i] != 0xFF)
       nodes[i] = 0;   // Indicate no post waiting for node!
+      Serial.print(nodes[i]);
     }
+    Serial.println();
 #if SERIAL_BAUD == 9600
 #define BITDELAY 54      // 9k6 @ 8MHz, 19k2 @16MHz
 #endif
@@ -1127,12 +1134,12 @@ void loop() {
       showByte(rf12_data[i]);
     }
 #if RF69_COMPAT
-    ShowString(OPENBRAC);
+    showString(OPENBRAC);
     if (config.hex_output)
         showByte(RF69::rssi);
     else
         Serial.print(-(RF69::rssi>>1));
-    ShowString(CLOSEBRAC);
+    showString(CLOSEBRAC);
 #endif    
     Serial.println();
   if (config.hex_output > 1) {  // Print ascii interpretation under hex output
