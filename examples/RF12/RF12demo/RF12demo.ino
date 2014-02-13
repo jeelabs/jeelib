@@ -6,7 +6,7 @@
 // Adding frequency features, author JohnO, 2013-09-05
 // Major EEPROM format change, refactoring, and cleanup for v12, 2014-02-13
 
-#define RF69_COMPAT 1 // define this to use the RF69 driver i.s.o. RF12
+#define RF69_COMPAT 0 // define this to use the RF69 driver i.s.o. RF12
 
 #include <JeeLib.h>
 #include <util/crc16.h>
