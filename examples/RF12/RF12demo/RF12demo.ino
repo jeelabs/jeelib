@@ -199,16 +199,16 @@ static void showByte (byte value) {
         Serial.print((int) value);
 }
 
-static uint8_t calcCrc (const void* ptr, uint8_t len) {
+static uint16_t calcCrc (const void* ptr, uint8_t len) {
     uint16_t crc = ~0;
-    for (byte i = 0; i < sizeof config - 2; ++i)
+    for (byte i = 0; i < len; ++i)
         crc = _crc16_update(crc, ((const byte*) ptr)[i]);
     return crc;
 }
 
-static uint8_t calcCrcEeprom (const void* ptr, uint8_t len) {
+static uint16_t calcCrcEeprom (const void* ptr, uint8_t len) {
     uint16_t crc = ~0;
-    for (byte i = 0; i < sizeof config - 2; ++i)
+    for (byte i = 0; i < len; ++i)
         crc = _crc16_update(crc, eeprom_read_byte((const byte*) ptr + i));
     return crc;
 }
@@ -220,7 +220,6 @@ static void loadConfig () {
 static void saveConfig () {
     config.format = MAJOR_VERSION;
     config.crc = calcCrc(&config, sizeof config - 2);
-
     eeprom_write_block(&config, RF12_EEPROM_ADDR, sizeof config);
 
     if (rf12_configSilent())
@@ -402,7 +401,7 @@ static void handleInput (char c) {
         rf12_sendNow(stack[3], stack + 4, top - 4);
         rf12_sendWait(2);
         rf12_configSilent();
-    } else {
+    } else if ('a' <= c && c <= 'z') {
         switch (c) {
 
         case 'i': // set node id
@@ -580,7 +579,8 @@ static void handleInput (char c) {
                 for (byte i = 0; i < RF12_EEPROM_SIZE; ++i) {
                     // http://forum.arduino.cc/index.php?topic=122140.0
                     byte b = eeprom_read_byte(ee_entry + i);
-                    showByte(b);
+                    showNibble(b >> 4);
+                    showNibble(b);
                     testbuf[i] = b;
                     if ((value == 42) && (stack[0] == 0)) {
                         eeprom_write_byte(RF12_EEPROM_ADDR + (((config.nodeId & RF12_HDR_MASK)*32) + i), b);
@@ -664,9 +664,9 @@ void setup () {
         saveConfig();
         rf12_configSilent();
     }
-    
-    rf12_configDump();
 
+    rf12_configDump();
+    
     // Initialise node table
     Serial.print("Node Table:");
     for (byte i = 1; i <= MAX_NODES; i++) {
@@ -693,7 +693,7 @@ void nodesShow() {
     for (byte i = 1; i <= MAX_NODES; i++) {
         if (nodes[i] != 0xFF) { // Entry 0 is unused at present
             Serial.print((int) i);
-            Serial.print('()');
+            Serial.print('(');
             Serial.print((int) nodes[i]);
             showString(PSTR(") "));
         }

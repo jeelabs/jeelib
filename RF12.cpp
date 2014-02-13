@@ -667,6 +667,7 @@ uint8_t rf12_configSilent () {
 /// used to avoid pulling in the Serial port code in cases where it's not used.
 void rf12_configDump () {
     uint8_t nodeId = eeprom_read_byte(RF12_EEPROM_ADDR);
+    uint8_t flags = eeprom_read_byte(RF12_EEPROM_ADDR + 3);
     uint16_t freq = eeprom_read_word((uint16_t*) (RF12_EEPROM_ADDR + 4));
     
     // " A i1 g178 @ 868 MHz "
@@ -674,6 +675,8 @@ void rf12_configDump () {
     Serial.print((char) ('@' + (nodeId & RF12_HDR_MASK)));
     Serial.print(" i");
     Serial.print(nodeId & RF12_HDR_MASK);
+    if (flags & 0x04)
+        Serial.print('*');
     Serial.print(" g");
     Serial.print(eeprom_read_byte(RF12_EEPROM_ADDR + 1));
     Serial.print(" @ ");
@@ -686,6 +689,13 @@ void rf12_configDump () {
         Serial.print(" (+");
         Serial.print(freq);
         Serial.print(')');
+    }
+    if (flags & 0x08) {
+        Serial.print(" q1");
+    }
+    if (flags & 0x03) {
+        Serial.print(" x");
+        Serial.print(flags & 0x03);
     }
     Serial.println();
 }
