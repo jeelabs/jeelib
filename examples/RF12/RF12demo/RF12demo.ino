@@ -639,15 +639,12 @@ void setup () {
     rf12_configDump();
     
     // Initialise node table
-    Serial.print("Node Table:");
     for (byte i = 1; i <= MAX_NODES; i++) {
         nodes[i] = eeprom_read_byte(RF12_EEPROM_ADDR + (i * RF12_EEPROM_SIZE));
         // http://forum.arduino.cc/index.php/topic,140376.msg1054626.html
         if (nodes[i] != 0xFF)
             nodes[i] = 0;       // Indicate no post waiting for node!
-        Serial.print(nodes[i]);
     }
-    Serial.println();
 
     // Prevent allocation of this nodes number.
     nodes[(config.nodeId & RF12_HDR_MASK)] = 0;
