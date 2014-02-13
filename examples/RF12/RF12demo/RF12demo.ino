@@ -10,7 +10,7 @@
 // Node numbers 16-31 can only be used if MAX_NODES and thereby
 // the size of the nodes array is adjusted accordingly
 
-#define RF69_COMPAT 1 // define this to use the RF69 driver i.s.o. RF12
+#define RF69_COMPAT 0 // define this to use the RF69 driver i.s.o. RF12
 
 #include <JeeLib.h>
 #include <util/crc16.h>
@@ -125,37 +125,6 @@ static void activityLed (byte on) {
 
 /// @details
 /// For the EEPROM layout, see http://jeelabs.net/projects/jeelib/wiki/RF12demo
-/// FIXME: this is incorrect - byte 0x00 Key storage for encryption algorithm
-///      0x1F  note: can be overwritten if T84 is Node 15 or M328 is Node 31
-/// ------------------------------------------------------------------------
-/// byte 0x20 Node number in bits                   ***n nnnn                    // 1 - 31
-///           Collect mode flag                     **0* ****   COLLECT 0x20     // Pass incoming without sending acks
-///           Band                                  00** ****   Do not use       // Will hang the hardware
-///             "                                   01** ****   433MHZ  0x40
-///             "                                   10** ****   868MHZ  0x80
-///             "                                   11** ****   915MHZ  0xC0
-/// ----------------------------------------------------------------------------
-/// byte 0x021 Group number                                11010100    // i.e. 212 0xD4
-/// byte 0x022 Flag Spares                                 11** ****   // Perhaps we could store the output in hex flag here
-///            V10 indicator                               **1* ****   // This bit is set by versions of RF12Demo less than 11
-///            Quiet mode                                  ***1 ****   // don't report bad packets
-///            Frequency offset most significant bite      **** nnnn   // Can't treat as a 12 bit integer
-/// byte 0x023 Frequency offset less significant bits      nnnn nnnn   //  because of little endian constraint
-/// byte 0x024 Text description generate by RF12Demo       "T i20 g0 @868.0000 MHz"
-///      0x03D   "                                         Padded at the end with NUL
-/// byte 0x03E  CRC                                        CRC of values with offset 0x20
-/// byte 0x03F   "                                         through to end of Text string, except NUL's
-/// byte 0x040 Node 1 first packet capture
-///      0x059   "
-/// byte 0x060 Node 2 first packet capture
-///      0x079   "
-///      .....
-///      0x1E0 Node 14 first packet capture      T84 maximum
-///      0x1FF   "
-///      .....
-///      0x3E0 Node 30 first packet capture      M328 maximum
-///      0x3FF   "
-/// ----------------------------------------------------------------------------
 /// Useful url: http://blog.strobotics.com.au/2009/07/27/rfm12-tutorial-part-3a/
 
 // RF12 configuration area
@@ -219,10 +188,15 @@ static void saveConfig () {
     config.crc = calcCrc(&config, sizeof config - 2);
     eeprom_write_block(&config, RF12_EEPROM_ADDR, sizeof config);
 
+#if !TINY
     if (rf12_configSilent())
         rf12_configDump();
     else
         showString(INITFAIL);
+#else
+    if (!rf12_configSilent())
+        showString(INITFAIL);
+#endif
 }
 
 static byte bandToFreq (byte band) {
@@ -347,7 +321,7 @@ static void showString (PGM_P s) {
         if (c == 0)
             break;
         if (c == '\n')
-            Serial.print('\r');
+            showString(PSTR("\r"));
         Serial.print(c);
     }
 }
@@ -381,7 +355,7 @@ static void handleInput (char c) {
         showString(PSTR("> "));
         for (byte i = 0; i < top; ++i) {
             Serial.print((int) stack[i]);
-            Serial.print(',');
+            showString(PSTR(","));
         }
         Serial.print(value);
         Serial.println(c);
@@ -521,7 +495,7 @@ static void handleInput (char c) {
             // target node and value contains the command to be posted
             if ((!stack[0]) && (!value)) {
                 Serial.print((int)postingsIn);
-                Serial.print(',');
+                showString(PSTR(","));
                 Serial.println((int)postingsOut);
                 nodesShow();
             } else if (stack[0] != (config.nodeId & RF12_HDR_MASK) &&
@@ -619,7 +593,7 @@ static void handleInput (char c) {
 
 static void displayASCII (const uint8_t* data, byte count) {
     for (byte i = 0; i < count; ++i) {
-        Serial.print(' ');
+        showString(PSTR(" "));
         char c = (char) data[i];
         Serial.print(c < ' ' || c > '~' ? '.' : c);
     }
@@ -634,9 +608,9 @@ void displayVersion () {
 }
 
 void setup () {
-    // delay(1000); // FIXME: do we really need this?
-    delay(100); // shortened for now
-
+    delay(100); // shortened for now. Particularly handy with JeeNode Micro V1
+                //                    where ISP interaction can be upset by RF12B
+                //                    startup process.                                   
 #if TINY
     PCMSK0 |= (1<<PCINT2);  // tell pin change mask to listen to PA2
     GIMSK    |= (1<<PCIE0); // enable PCINT interrupt in general interrupt mask
@@ -661,25 +635,24 @@ void setup () {
         saveConfig();
         rf12_configSilent();
     }
-
-    rf12_configDump();
     
+#if !TINY
+    rf12_configDump();
+#endif
+
     // Initialise node table
-    Serial.print("Node Table:");
     for (byte i = 1; i <= MAX_NODES; i++) {
         nodes[i] = eeprom_read_byte(RF12_EEPROM_ADDR + (i * RF12_EEPROM_SIZE));
         // http://forum.arduino.cc/index.php/topic,140376.msg1054626.html
         if (nodes[i] != 0xFF)
             nodes[i] = 0;       // Indicate no post waiting for node!
-        Serial.print(nodes[i]);
     }
-    Serial.println();
 
     // Prevent allocation of this nodes number.
     nodes[(config.nodeId & RF12_HDR_MASK)] = 0;
 
-    df_initialize();
 #if !TINY
+    df_initialize();
     showHelp();
 #endif
 }
@@ -690,7 +663,7 @@ void nodesShow() {
     for (byte i = 1; i <= MAX_NODES; i++) {
         if (nodes[i] != 0xFF) { // Entry 0 is unused at present
             Serial.print((int) i);
-            Serial.print('(');
+            showString(PSTR("("));
             Serial.print((int) nodes[i]);
             showString(PSTR(") "));
         }
@@ -717,16 +690,16 @@ void loop () {
                 n = 20;
         }
         if (config.hex_output)
-            Serial.print('X');
+            showString(PSTR("X"));
         if (config.group == 0) {
             showString(PSTR(" G"));
             showByte(rf12_grp);
         }
-        Serial.print(' ');
+        showString(PSTR(" "));
         showByte(rf12_hdr);
         for (byte i = 0; i < n; ++i) {
             if (!config.hex_output)
-                Serial.print(' ');
+                showString(PSTR(" "));
             showByte(rf12_data[i]);
         }
 #if RF69_COMPAT
@@ -801,7 +774,7 @@ void loop () {
                         testCounter = 1;
                         showString(PSTR("Posted "));
                         showByte(rf12_hdr & RF12_HDR_MASK);
-                        Serial.print(',');
+                        showString(PSTR(","));
                         showByte(testbuf[0]);
                         postingsOut++;                  // Count as delivered
                         Serial.println();
