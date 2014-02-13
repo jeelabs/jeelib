@@ -39,10 +39,11 @@
 #define RF12_915MHZ     3   ///< RFM12B 915 MHz frequency band.
 
 // EEPROM address range used by the rf12_config() code
-#define RF12_EEPROM_ADDR ((uint8_t*) 0x20)  ///< Starting offset.
-#define RF12_EEPROM_SIZE 32                 ///< Number of bytes.
-#define RF12_EEPROM_EKEY (RF12_EEPROM_ADDR + RF12_EEPROM_SIZE) ///< EE start.
-#define RF12_EEPROM_ELEN 16                 ///< EE number of bytes.
+#define RF12_EEPROM_ADDR    ((uint8_t*) 0x20)  ///< Starting offset.
+#define RF12_EEPROM_SIZE    16                 ///< Number of bytes.
+#define RF12_EEPROM_EKEY    ((uint8_t*) 0x40)  ///< EE start, same as before.
+#define RF12_EEPROM_ELEN    16                 ///< EE number of bytes.
+#define RF12_EEPROM_VERSION 1                  ///< Only this version is valid.
 
 /// Shorthand to simplify detecting a request for an ACK.
 #define RF12_WANTS_ACK ((rf12_hdr & RF12_HDR_ACK) && !(rf12_hdr & RF12_HDR_CTL))
@@ -69,11 +70,16 @@ void rf12_set_cs(uint8_t pin);
 void rf12_spiInit(void);
 
 /// Call this once with the node ID, frequency band, and optional group.
-uint8_t rf12_initialize(uint8_t id, uint8_t band, uint8_t group=0xD4);
+uint8_t rf12_initialize(uint8_t id, uint8_t band, uint8_t group=0xD4, uint16_t frequency=1600);
 
 /// Initialize the RFM12B module from settings stored in EEPROM by "RF12demo"
 /// don't call rf12_initialize() if you init the hardware with rf12_config().
-/// @return the node ID as 1..31 value (1..26 correspond to nodes 'A'..'Z').
+/// @return the node ID as 1..31, or 0 if there is no config on EEPROM.
+uint8_t rf12_configSilent();
+/// Call this to send a description of the EEPROM settings to the serial port.
+void rf12_configDump();
+
+/// @deprecated Please switch over to rf12_configSilent() and rf12_configDump().
 uint8_t rf12_config(uint8_t show =1);
 
 /// Call this frequently, returns true if a packet has been received.
@@ -87,8 +93,6 @@ uint8_t rf12_canSend(void);
 void rf12_sendStart(uint8_t hdr);
 /// Call this only when rf12_recvDone() or rf12_canSend() return true.
 void rf12_sendStart(uint8_t hdr, const void* ptr, uint8_t len);
-/// Deprecated: use rf12_sendStart(hdr,ptr,len) followed by rf12_sendWait(sync).
-void rf12_sendStart(uint8_t hdr, const void* ptr, uint8_t len, uint8_t sync);
 /// This variant loops on rf12_canSend() and then calls rf12_sendStart() asap.
 void rf12_sendNow(uint8_t hdr, const void* ptr, uint8_t len);
 
