@@ -9,8 +9,9 @@
 // node numbers > 14 cannot be stored in eeprom
 // Node numbers 16-31 can only be used if MAX_NODES and thereby
 // the size of the nodes array is adjusted accordingly
-//
+
 #define RF69_COMPAT 1 // define this to use the RF69 driver i.s.o. RF12
+
 #include <JeeLib.h>
 #include <util/crc16.h>
 #include <avr/eeprom.h>
@@ -198,18 +199,29 @@ static void showByte (byte value) {
         Serial.print((int) value);
 }
 
+static uint8_t calcCrc (const void* ptr, uint8_t len) {
+    uint16_t crc = ~0;
+    for (byte i = 0; i < sizeof config - 2; ++i)
+        crc = _crc16_update(crc, ((const byte*) ptr)[i]);
+    return crc;
+}
+
+static uint8_t calcCrcEeprom (const void* ptr, uint8_t len) {
+    uint16_t crc = ~0;
+    for (byte i = 0; i < sizeof config - 2; ++i)
+        crc = _crc16_update(crc, eeprom_read_byte((const byte*) ptr + i));
+    return crc;
+}
+
 static void loadConfig () {
     eeprom_read_block(&config, RF12_EEPROM_ADDR, sizeof config);
 }
 
 static void saveConfig () {
     config.format = MAJOR_VERSION;
-    config.crc = ~0;
-    for (byte i = 0; i < sizeof config - 2; ++i)
-        config.crc = _crc16_update(config.crc, ((byte*) &config)[i]);
+    config.crc = calcCrc(&config, sizeof config - 2);
 
     eeprom_write_block(&config, RF12_EEPROM_ADDR, sizeof config);
-    Serial.println(sizeof config);
 
     if (rf12_configSilent())
         rf12_configDump();
@@ -301,15 +313,12 @@ static void kakuSend(char addr, byte device, byte on) {
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 const char helpText1[] PROGMEM =
-#if TINY
-    "?\n"
-#else
     "\n"
     "Available commands:\n"
     "  <nn> i     - set node ID (standard node ids are 1..30)\n"
     "  <n> b      - set MHz band (4 = 433, 8 = 868, 9 = 915)\n"
     "  <nnnn> o   - change frequency offset within the band (default 1600)\n"
-    "               96 - 3903 is the range supported by the RFM12B\n"
+    "               96..3903 is the range supported by the RFM12B\n"
     "  <nnn> g    - set network group (RFM12 only allows 212, 0 = any)\n"
     "  <n> c      - set collect mode (advanced, normally 0)\n"
     "  t          - broadcast max-size test packet, request ack\n"
@@ -321,12 +330,11 @@ const char helpText1[] PROGMEM =
     "  <n> l      - turn activity LED on PB1 on or off\n"
     "  <n>,<d> p  - post semaphore <d> for node <n> to see with its next ack\n"
     "  <n> q      - set quiet mode (1 = don't report bad packets)\n"
-    "  <n> x      - set reporting format (0 = decimal, 1 = hex, 2 = hex & ascii)\n"
+    "  <n> x      - set reporting format (0: decimal, 1: hex, 2: hex+ascii)\n"
     "  123 z      - total power down, needs a reset to start up again\n"
     "Remote control commands:\n"
     "  <hchi>,<hclo>,<addr>,<cmd> f     - FS20 command (868 MHz)\n"
     "  <addr>,<dev>,<on> k              - KAKU command (433 MHz)\n"
-#endif
 ;
 
 const char helpText2[] PROGMEM =
@@ -343,53 +351,70 @@ static void showString (PGM_P s) {
         if (c == 0)
             break;
         if (c == '\n')
-            showString(PSTR("\r"));
+            Serial.print('\r');
         Serial.print(c);
     }
 }
 
 static void showHelp () {
+#if TINY
+    showString("?\n");
+#else
     showString(helpText1);
     if (df_present())
         showString(helpText2);
-#if !TINY
     showString(PSTR("Current configuration:\n"));
     rf12_configDump();
 #endif
 }
 
 static void handleInput (char c) {
-    if ('0' <= c && c <= '9')
+    if ('0' <= c && c <= '9') {
         value = 10 * value + c - '0';
-    else if (c == ',') {
+        return;
+    }
+    
+    if (c == ',') {
         if (top < sizeof stack)
             stack[top++] = value;
         value = 0;
-    } else if ('a' <= c && c <='z') {
+        return;
+    }
+
+    if ('a' <= c && c <= 'z') {
         showString(PSTR("> "));
         for (byte i = 0; i < top; ++i) {
             Serial.print((int) stack[i]);
             Serial.print(',');
         }
-        Serial.print((int) value);
+        Serial.print(value);
         Serial.println(c);
+    }
 
+    // keeping this out of the switch reduces code size (smaller branch table)
+    if (c == '>') {
+        // special case, send to specific band and group, and don't echo cmd
+        // input: band,group,node,header,data...
+        stack[top++] = value;
+        // TODO: frequency offset is taken from global config, is that ok?
+        rf12_initialize(stack[2], bandToFreq(stack[0]), stack[1],
+                            config.frequency_offset);
+        rf12_sendNow(stack[3], stack + 4, top - 4);
+        rf12_sendWait(2);
+        rf12_configSilent();
+    } else {
         switch (c) {
-        default:
-            showHelp();
-            break;
 
         case 'i': // set node id
             if ((value > 0) && (value <= MAX_NODES + 1)) {
-// Node 15 may exist on T84 but only as the RF12Demo node,
-//  eeprom address +0, the encryption key storage will be
-//  overwritten by the 42j command, similar for n31 on MEGA
-                if (value < MAX_NODES) nodes[value] = 0;
-            // Prevent auto allocation of this node number
+                // Node 15 may exist on T84 but only as the RF12Demo node,
+                //  eeprom address +0, the encryption key storage will be
+                //  overwritten by the 42j command, similar for n31 on MEGA
+                if (value < MAX_NODES)
+                    nodes[value] = 0;
+                // Prevent auto allocation of this node number
                 config.nodeId = (config.nodeId & 0xE0) + (value & 0x1F);
                 saveConfig();
-            } else {
-                 showString(INVALID1);
             }
             break;
 
@@ -399,29 +424,16 @@ static void handleInput (char c) {
                 config.nodeId = (value << 6) + (config.nodeId & 0x3F);
                 config.frequency_offset = 1600;
                 saveConfig();
-            } else {
-                showString(INVALID1);
             }
             break;
 
         case 'o': // Increment frequency within band
-                Serial.print(config.frequency_offset);
 // Stay within your country's ISM spectrum management guidelines, i.e.
 // allowable frequencies and their use when selecting operating frequencies.
-                if (value) {
-                    if ((value > 95) && (value < 3904)) {    // supported by the RFM12B
-                        config.frequency_offset = value;
-                        Serial.print('>');
-                        Serial.println(config.frequency_offset);
-                        saveConfig();
-                    }
-                    else {
-                        showString(INVALID1);
-                    }
-                }
-                else {
-                    Serial.println();
-                }
+            if ((value > 95) && (value < 3904)) { // supported by RFM12B
+                config.frequency_offset = value;
+                saveConfig();
+            }
             break;
 
         case 'g': // set network group
@@ -470,8 +482,13 @@ static void handleInput (char c) {
             break;
 
         case 'z': // put the ATmega in ultra-low power mode (reset needed)
-            if (value == 123)
-                Sleep();
+            if (value == 123) {
+                showString(PSTR(" Zzz...\n"));
+                Serial.flush();
+                rf12_sleep(RF12_SLEEP);
+                cli();
+                Sleepy::powerDown();
+            }
             break;
 
         case 'q': // turn quiet mode on or off (don't report bad packets)
@@ -479,7 +496,7 @@ static void handleInput (char c) {
             saveConfig();
             break;
 
-        case 'x': // set reporting mode to hex (1) or decimal (0)
+        case 'x': // set reporting mode to decimal (0), hex (1), hex+ascii (2)
             config.hex_output = value;
             saveConfig();
             break;
@@ -489,7 +506,41 @@ static void handleInput (char c) {
             Serial.println();
             break;
 
-#if !TINY
+        case 'n': // Clear node entries in RAM & eeprom
+            if ((stack[0] > 0) && (stack[0] <= MAX_NODES) && (value == 123) && (nodes[stack[0]] == 0)) {
+                nodes[stack[0]] = 0xFF; // Clear RAM entry
+                for (byte i = 0; i < (RF12_EEPROM_SIZE); ++i) {
+                    // Clear complete eeprom entry
+                    eeprom_write_byte(RF12_EEPROM_ADDR + (stack[0]*32) + i, 0xFF);
+                }
+            } else {
+                showString(INVALID1);
+            }
+            break;
+
+        case 'p':
+            // Post a command for a remote node, to be collected along with
+            // the next ACK. Format is 20,127p where 20 is the node number and
+            // 127 is the desired value to be posted stack[0] contains the
+            // target node and value contains the command to be posted
+            if ((!stack[0]) && (!value)) {
+                Serial.print((int)postingsIn);
+                Serial.print(',');
+                Serial.println((int)postingsOut);
+                nodesShow();
+            } else if (stack[0] != (config.nodeId & RF12_HDR_MASK) &&
+                    stack[0] <= MAX_NODES && value < 255 &&
+                    (nodes[stack[0]] == 0)) {
+                // No posting to special(31) or overwriting pending post
+                nodes[stack[0]] = value;
+                postingsIn++;
+            } else {
+                showString(INVALID1);
+            }
+            break;
+
+// the following commands all get optimised away when TINY is set
+            
         case 'l': // turn activity LED on or off
             activityLed(value);
             break;
@@ -522,6 +573,7 @@ static void handleInput (char c) {
             }
             break;
 
+#if !TINY
         case 'j':
             if (stack[0] <= MAX_NODES) {
                 const uint8_t *ee_entry = RF12_EEPROM_ADDR + (stack[0] * 32);
@@ -536,10 +588,7 @@ static void handleInput (char c) {
                 }
                 Serial.println();
                 displayASCII(testbuf, RF12_EEPROM_SIZE);
-            } else {
-                showString(INVALID1);
             }
-            if (!value) break;
             if (value == 42) {
                 showString(PSTR("Backed Up\n"));
                 break;
@@ -547,83 +596,28 @@ static void handleInput (char c) {
             if (value == 123 && stack[0] == (config.nodeId & RF12_HDR_MASK)) {
                 // Only restore this NodeId
                 const uint8_t *ee_shadow = RF12_EEPROM_ADDR + ((config.nodeId & RF12_HDR_MASK)*32);
-                // Check CRC to be restored
-                word crc = ~0;
-                for (byte i = 0; i < RF12_EEPROM_SIZE; ++i)
-                    crc = _crc16_update(crc, eeprom_read_byte(ee_shadow + i));
-                if (crc)
-                    showString(PSTR("Bad CRC\n"));
-                else {
+                if (calcCrcEeprom(ee_shadow, RF12_EEPROM_SIZE) == 0) {
                     for (byte i = 0; i < RF12_EEPROM_SIZE; ++i) {
                         byte b = eeprom_read_byte((ee_shadow) + i);
-                        showByte(b);
                         eeprom_write_byte((RF12_EEPROM_ADDR) + i, b);
                     }
-                    Serial.println();
                     showString(PSTR("Restored\n"));
                 }
                 if (rf12_configSilent())
                     loadConfig();
                 else
                     showString(INITFAIL);
-            } else {
-                showString(INVALID1);
             }
-        break;
+            break;
 #endif
-
-        case 'n': // Clear node entries in RAM & eeprom
-            if ((stack[0] > 0) && (stack[0] <= MAX_NODES) && (value == 123) && (nodes[stack[0]] == 0)) {
-                nodes[stack[0]] = 0xFF; // Clear RAM entry
-                for (byte i = 0; i < (RF12_EEPROM_SIZE); ++i) {
-                    // Clear complete eeprom entry
-                    eeprom_write_byte(RF12_EEPROM_ADDR + (stack[0]*32) + i, 0xFF);
-                }
-            } else {
-                showString(INVALID1);
-            }
-            break;
-
-        case 'p':
-            // Post a command for a remote node, to be collected along with
-            // the next ACK. Format is 20,127p where 20 is the node number and
-            // 127 is the desired value to be posted stack[0] contains the
-            // target node and value contains the command to be posted
-            if ((!stack[0]) && (!value)) {
-                Serial.print((int)postingsIn);
-                Serial.print(',');
-                Serial.println((int)postingsOut);
-                nodesShow();
-            } else {
-                if (stack[0] != (config.nodeId & RF12_HDR_MASK) &&
-                        stack[0] <= MAX_NODES && value < 255 &&
-                        (nodes[stack[0]] == 0)) {
-                    // No posting to special(31) or overwriting pending post
-                    nodes[stack[0]] = value;
-                    postingsIn++;
-                } else {
-                    showString(INVALID1);
-                }
-            }
-            break;
-        } // End Switch
-
-        value = top = 0;
-        memset(stack, 0, sizeof stack);
-    } else if (c == '>') {
-        // special case, send to specific band and group, and don't echo cmd
-        // input: band,group,node,header,data...
-        stack[top++] = value;
-        // TODO: frequency offset is kept at default value here, is that ok?
-        rf12_initialize(stack[2], bandToFreq(stack[0]), stack[1]);
-        rf12_sendNow(stack[3], stack + 4, top - 4);
-        rf12_sendWait(2);
-        rf12_configSilent();
-        value = top = 0;
-        memset(stack, 0, sizeof stack);
-    } else if (' ' < c && c < 'A') {
-        showHelp();
+        
+        default:
+            showHelp();
+        }
     }
+
+    value = top = 0;
+    memset(stack, 0, sizeof stack);
 }
 
 static void displayASCII (const uint8_t* data, byte count) {
@@ -636,26 +630,20 @@ static void displayASCII (const uint8_t* data, byte count) {
 }
 
 void displayVersion () {
-    showString(VERSION);
+    showString(PSTR(VERSION));
 #if TINY
-    showString(PSTR("Tiny "));
+    showString(PSTR(" Tiny"));
 #endif
 }
 
-void Sleep () {
-    showString(PSTR(" sleeping"));
-    Serial.flush();
-    rf12_sleep(RF12_SLEEP);
-    cli();
-    Sleepy::powerDown();
-}
-
 void setup () {
-    delay(1000); // FIXME: do we need this?
+    // delay(1000); // FIXME: do we really need this?
+    delay(100); // shortened for now
 
 #if TINY
     PCMSK0 |= (1<<PCINT2);  // tell pin change mask to listen to PA2
     GIMSK    |= (1<<PCIE0); // enable PCINT interrupt in general interrupt mask
+    // FIXME: _bitDelay has not yet been initialised here !?
     whackDelay(_bitDelay*2); // if we were low this establishes the end
     pinMode(_receivePin, INPUT);        // PA2
     digitalWrite(_receivePin, HIGH);    // pullup!
@@ -674,8 +662,7 @@ void setup () {
         config.frequency_offset = 1600;
         config.quiet_mode = true;   // Default flags, quiet on
         saveConfig();
-        rf12_initialize(config.nodeId & RF12_HDR_MASK,
-                         config.nodeId >> 6, config.group);
+        rf12_configSilent();
     }
     
     rf12_configDump();
@@ -733,7 +720,7 @@ void loop () {
                 n = 20;
         }
         if (config.hex_output)
-            showString(PSTR("X"));
+            Serial.print('X');
         if (config.group == 0) {
             showString(PSTR(" G"));
             showByte(rf12_grp);
@@ -746,6 +733,7 @@ void loop () {
             showByte(rf12_data[i]);
         }
 #if RF69_COMPAT
+        // display RSSI value after packet data
         showString(PSTR(" ("));
         if (config.hex_output)
                 showByte(RF69::rssi);
@@ -754,6 +742,7 @@ void loop () {
         showString(PSTR(") "));
 #endif
         Serial.println();
+        
         if (config.hex_output > 1) { // also print a line as ascii
             showString(PSTR("ASC "));
             if (config.group == 0) {
@@ -763,6 +752,7 @@ void loop () {
             Serial.print((char) ('@' + (rf12_hdr & RF12_HDR_MASK)));
             displayASCII((const uint8_t*) rf12_data, n);
         }
+        
         if (rf12_crc == 0) {
             activityLed(1);
 #if !TINY
