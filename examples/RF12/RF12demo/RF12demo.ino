@@ -322,7 +322,7 @@ static void showString (PGM_P s) {
             break;
         if (c == '\n')
             printOneChar('\r');
-        Serial.print(c);
+        printOneChar(c);
     }
 }
 
@@ -595,7 +595,7 @@ static void displayASCII (const uint8_t* data, byte count) {
     for (byte i = 0; i < count; ++i) {
         printOneChar(' ');
         char c = (char) data[i];
-        Serial.print(c < ' ' || c > '~' ? '.' : c);
+        printOneChar(c < ' ' || c > '~' ? '.' : c);
     }
     Serial.println();
 }
@@ -719,8 +719,8 @@ void loop () {
             if (config.group == 0) {
                 showString(PSTR(" II "));
             }
-            Serial.print(rf12_hdr & RF12_HDR_DST ? '>' : '<');
-            Serial.print((char) ('@' + (rf12_hdr & RF12_HDR_MASK)));
+            printOneChar(rf12_hdr & RF12_HDR_DST ? '>' : '<');
+            printOneChar('@' + (rf12_hdr & RF12_HDR_MASK));
             displayASCII((const uint8_t*) rf12_data, n);
         }
         
