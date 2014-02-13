@@ -600,7 +600,7 @@ static void displayASCII (const uint8_t* data, byte count) {
     Serial.println();
 }
 
-void displayVersion () {
+static void displayVersion () {
     showString(PSTR(VERSION));
 #if TINY
     showString(PSTR(" Tiny"));
@@ -660,7 +660,7 @@ void setup () {
 
 /// Display stored nodes and show the command queued for each node
 /// the command queue is not preserved through a restart of RF12Demo
-void nodesShow() {
+static void nodesShow() {
     for (byte i = 1; i <= MAX_NODES; i++) {
         if (nodes[i] != 0xFF) { // Entry 0 is unused at present
             Serial.print(i);
