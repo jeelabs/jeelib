@@ -27,6 +27,7 @@
 #define SERIAL_BAUD 38400   // can only be 9600 or 38400
 #define DATAFLASH   0       // do not change
 #undef  LED_PIN             // do not change
+#define rf12_configDump()   // disabled
 #else
 #define TINY        0
 #define SERIAL_BAUD 57600   // adjust as needed
@@ -123,6 +124,10 @@ static void activityLed (byte on) {
 #endif
 }
 
+static void printOneChar (char c) {
+    Serial.print(c);
+}
+
 /// @details
 /// For the EEPROM layout, see http://jeelabs.net/projects/jeelib/wiki/RF12demo
 /// Useful url: http://blog.strobotics.com.au/2009/07/27/rfm12-tutorial-part-3a/
@@ -162,7 +167,7 @@ static void showByte (byte value) {
         showNibble(value >> 4);
         showNibble(value);
     } else
-        Serial.print((int) value);
+        Serial.print(value);
 }
 
 static uint16_t calcCrc (const void* ptr, uint8_t len) {
@@ -188,15 +193,10 @@ static void saveConfig () {
     config.crc = calcCrc(&config, sizeof config - 2);
     eeprom_write_block(&config, RF12_EEPROM_ADDR, sizeof config);
 
-#if !TINY
     if (rf12_configSilent())
         rf12_configDump();
     else
         showString(INITFAIL);
-#else
-    if (!rf12_configSilent())
-        showString(INITFAIL);
-#endif
 }
 
 static byte bandToFreq (byte band) {
@@ -321,7 +321,7 @@ static void showString (PGM_P s) {
         if (c == 0)
             break;
         if (c == '\n')
-            showString(PSTR("\r"));
+            printOneChar('\r');
         Serial.print(c);
     }
 }
@@ -354,8 +354,8 @@ static void handleInput (char c) {
     if ('a' <= c && c <= 'z') {
         showString(PSTR("> "));
         for (byte i = 0; i < top; ++i) {
-            Serial.print((int) stack[i]);
-            showString(PSTR(","));
+            Serial.print(stack[i]);
+            printOneChar(',');
         }
         Serial.print(value);
         Serial.println(c);
@@ -423,7 +423,7 @@ static void handleInput (char c) {
             for (byte i = 0; i < RF12_MAXDATA; ++i)
                 testbuf[i] = i + testCounter;
             showString(PSTR("test "));
-            Serial.println((int) testCounter); // first byte in test buffer
+            Serial.println(testCounter); // first byte in test buffer
             ++testCounter;
             break;
 
@@ -494,9 +494,9 @@ static void handleInput (char c) {
             // 127 is the desired value to be posted stack[0] contains the
             // target node and value contains the command to be posted
             if ((!stack[0]) && (!value)) {
-                Serial.print((int)postingsIn);
-                showString(PSTR(","));
-                Serial.println((int)postingsOut);
+                Serial.print(postingsIn);
+                printOneChar(',');
+                Serial.println(postingsOut);
                 nodesShow();
             } else if (stack[0] != (config.nodeId & RF12_HDR_MASK) &&
                     stack[0] <= MAX_NODES && value < 255 &&
@@ -593,7 +593,7 @@ static void handleInput (char c) {
 
 static void displayASCII (const uint8_t* data, byte count) {
     for (byte i = 0; i < count; ++i) {
-        showString(PSTR(" "));
+        printOneChar(' ');
         char c = (char) data[i];
         Serial.print(c < ' ' || c > '~' ? '.' : c);
     }
@@ -608,9 +608,9 @@ void displayVersion () {
 }
 
 void setup () {
-    delay(100); // shortened for now. Particularly handy with JeeNode Micro V1
-                //                    where ISP interaction can be upset by RF12B
-                //                    startup process.                                   
+    delay(100); // shortened for now. Handy with JeeNode Micro V1 where ISP
+                // interaction can be upset by RF12B startup process.
+
 #if TINY
     PCMSK0 |= (1<<PCINT2);  // tell pin change mask to listen to PA2
     GIMSK    |= (1<<PCIE0); // enable PCINT interrupt in general interrupt mask
@@ -635,24 +635,25 @@ void setup () {
         saveConfig();
         rf12_configSilent();
     }
-    
-#if !TINY
-    rf12_configDump();
-#endif
 
+    rf12_configDump();
+    
     // Initialise node table
+    Serial.print("Node Table:");
     for (byte i = 1; i <= MAX_NODES; i++) {
         nodes[i] = eeprom_read_byte(RF12_EEPROM_ADDR + (i * RF12_EEPROM_SIZE));
         // http://forum.arduino.cc/index.php/topic,140376.msg1054626.html
         if (nodes[i] != 0xFF)
             nodes[i] = 0;       // Indicate no post waiting for node!
+        Serial.print(nodes[i]);
     }
+    Serial.println();
 
     // Prevent allocation of this nodes number.
     nodes[(config.nodeId & RF12_HDR_MASK)] = 0;
 
-#if !TINY
     df_initialize();
+#if !TINY
     showHelp();
 #endif
 }
@@ -662,9 +663,9 @@ void setup () {
 void nodesShow() {
     for (byte i = 1; i <= MAX_NODES; i++) {
         if (nodes[i] != 0xFF) { // Entry 0 is unused at present
-            Serial.print((int) i);
-            showString(PSTR("("));
-            Serial.print((int) nodes[i]);
+            Serial.print(i);
+            printOneChar('(');
+            Serial.print(nodes[i]);
             showString(PSTR(") "));
         }
     }
@@ -690,25 +691,25 @@ void loop () {
                 n = 20;
         }
         if (config.hex_output)
-            showString(PSTR("X"));
+            printOneChar('X');
         if (config.group == 0) {
             showString(PSTR(" G"));
             showByte(rf12_grp);
         }
-        showString(PSTR(" "));
+        printOneChar(' ');
         showByte(rf12_hdr);
         for (byte i = 0; i < n; ++i) {
             if (!config.hex_output)
-                showString(PSTR(" "));
+                printOneChar(' ');
             showByte(rf12_data[i]);
         }
 #if RF69_COMPAT
         // display RSSI value after packet data
         showString(PSTR(" ("));
         if (config.hex_output)
-                showByte(RF69::rssi);
+            showByte(RF69::rssi);
         else
-                Serial.print(-(RF69::rssi>>1));
+            Serial.print(-(RF69::rssi>>1));
         showString(PSTR(") "));
 #endif
         Serial.println();
@@ -725,10 +726,10 @@ void loop () {
         
         if (rf12_crc == 0) {
             activityLed(1);
-#if !TINY
+
             if (df_present())
                 df_append((const char*) rf12_data - 2, rf12_len + 2);
-#endif
+
             if (((rf12_hdr & (RF12_HDR_MASK | RF12_HDR_DST)) <= MAX_NODES) &&
                     // Source node packets only
                     (nodes[(rf12_hdr & RF12_HDR_MASK)] == 0xFF)) {
@@ -774,9 +775,9 @@ void loop () {
                         testCounter = 1;
                         showString(PSTR("Posted "));
                         showByte(rf12_hdr & RF12_HDR_MASK);
-                        showString(PSTR(","));
+                        printOneChar(',');
                         showByte(testbuf[0]);
-                        postingsOut++;                  // Count as delivered
+                        postingsOut++;
                         Serial.println();
                     }
                 }
@@ -791,7 +792,7 @@ void loop () {
         activityLed(1);
 
         showString(PSTR(" -> "));
-        Serial.print((int) sendLen);
+        Serial.print(sendLen);
         showString(PSTR(" b\n"));
         byte header = cmd == 'a' ? RF12_HDR_ACK : 0;
         if (dest)
