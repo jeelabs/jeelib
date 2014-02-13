@@ -954,6 +954,30 @@ long AnalogPlug::reading () {
   return raw;
 }
 
+void HYT131::reading (int& temp, int& humi, byte (*delayFun)(word ms)) {
+    // Start measurement
+    send();
+    stop();
+    
+    // Wait for completion (using user-supplied (low-power?) delay function)
+    if (delayFun)
+        delayFun(100);
+    else
+        delay(100);
+    
+    // Extract readings
+    receive();
+    uint16_t h = (read(0) & 0x3F) << 8;
+    h |= read(0);
+    uint16_t t = read(0) << 6;
+    t |= read(1) >> 2;
+    
+    // convert 0..16383 to 0..100% (*10)
+    humi = (h * 1000L >> 14);
+    // convert 0..16383 to -40 .. 125 (*10)
+    temp = (t * 1650L >> 14) - 400;
+}
+
 DHTxx::DHTxx (byte pinNum) : pin (pinNum) {
   digitalWrite(pin, HIGH);
 }
