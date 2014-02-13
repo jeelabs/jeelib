@@ -25,10 +25,14 @@ static long ezNextSend[2];          // when was last retry [0] or data [1] sent
 // void rf69_spiInit () {
 // }
 
-// TODO: the frequency argument is currently ignored
-uint8_t rf69_initialize (uint8_t id, uint8_t band, uint8_t group, uint16_t frequency) {
-    RF69::frf = band == RF12_433MHZ ? 0x6C4000L : // or 0x6C8000 for 434 MHz?
-                band == RF12_868MHZ ? 0xD90000L : 0xE4C000L;
+uint8_t rf69_initialize (uint8_t id, uint8_t band, uint8_t group, uint16_t off) {
+    uint8_t freq = 0;
+    switch (band) {
+        case RF12_433MHZ: freq = 43; break;
+        case RF12_868MHZ: freq = 86; break;
+        case RF12_915MHZ: freq = 90; break;
+    }
+    RF69::setFrequency(freq * 10000000L + band * 2500L * off);
     RF69::group = group;
     RF69::node = id & RF12_HDR_MASK;
     delay(20); // needed to make RFM69 work properly on power-up
