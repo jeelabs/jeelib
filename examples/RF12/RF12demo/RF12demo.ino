@@ -134,7 +134,7 @@ static void activityLed (byte on) {
 ///             "                                   01** ****   433MHZ  0x40
 ///             "                                   10** ****   868MHZ  0x80
 ///             "                                   11** ****   915MHZ  0xC0
-/// --------------------------------------------------------------------------------------------------------------------------
+/// ----------------------------------------------------------------------------
 /// byte 0x021 Group number                                11010100    // i.e. 212 0xD4
 /// byte 0x022 Flag Spares                                 11** ****   // Perhaps we could store the output in hex flag here
 ///            V10 indicator                               **1* ****   // This bit is set by versions of RF12Demo less than 11
@@ -157,9 +157,6 @@ static void activityLed (byte on) {
 ///      0x3FF   "
 /// ----------------------------------------------------------------------------
 /// Useful url: http://blog.strobotics.com.au/2009/07/27/rfm12-tutorial-part-3a/
-// 4 bit
-// ----------------
-// 8 bit
 
 // RF12 configuration area
 typedef struct {
