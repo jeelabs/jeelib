@@ -1,6 +1,9 @@
 #include <avr/interrupt.h>
-#include <avr/pgmspace.h>
 #include <util/crc16.h>
+
+// prog_uint8_t appears to be deprecated in avr libc, this resolves it for now
+#define __PROG_TYPES_COMPAT__
+#include <avr/pgmspace.h>
 
 #define ROM_UINT8       const prog_uint8_t
 #define ROM_READ_UINT8  pgm_read_byte
