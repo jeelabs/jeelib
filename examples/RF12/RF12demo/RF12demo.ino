@@ -397,14 +397,34 @@ static void handleInput (char c) {
             }
             break;
 
-        case 'o': // Increment frequency within band
+        case 'o': { // Increment frequency within band
 // Stay within your country's ISM spectrum management guidelines, i.e.
 // allowable frequencies and their use when selecting operating frequencies.
             if ((value > 95) && (value < 3904)) { // supported by RFM12B
                 config.frequency_offset = value;
                 saveConfig();
             }
+#if !TINY
+            // display the exact frequency associated with this setting
+            uint8_t freq = 0, band = config.nodeId >> 6;
+            switch (band) {
+                case RF12_433MHZ: freq = 43; break;
+                case RF12_868MHZ: freq = 86; break;
+                case RF12_915MHZ: freq = 90; break;
+            }
+            uint32_t f1 = freq * 100000L + band * 25L * config.frequency_offset;
+            Serial.print((word) (f1 / 10000));
+            printOneChar('.');
+            uint16_t f2 = f1 % 10000;
+            // tedious, but this avoids introducing floating point
+            printOneChar('0' + f2 / 1000);
+            printOneChar('0' + (f2 / 100) % 10);
+            printOneChar('0' + (f2 / 10) % 10);
+            printOneChar('0' + f2 % 10);
+            Serial.println(" MHz");
+#endif
             break;
+        }
 
         case 'g': // set network group
             config.group = value;
