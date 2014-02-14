@@ -58,6 +58,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   // 0x09, 0x00, // FrfLsb, step = 61.03515625
   0x0B, 0x20, // AfcCtrl, afclowbetaon
   0x19, 0x42, // RxBw ...
+  0x1E, 0x2C, // FeiStart, AfcAutoclearOn, AfcAutoOn
   0x25, 0x80, // DioMapping1 = SyncAddress (Rx)
   // 0x29, 0xDC, // RssiThresh ...
   0x2E, 0x88, // SyncConfig = sync on, sync size = 2
