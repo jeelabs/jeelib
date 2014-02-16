@@ -228,13 +228,12 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
 void RF69::interrupt_compat () {
     if (rxstate == TXRECV) {
       
-        rssi = readReg(REG_RSSIVALUE);
         for (;;) {
           afcfei = readReg(REG_AFCFEI);
-          if (afcfei & 0x40) break;   // Wait for Frequency Error Indicator to be valid
+          if (afcfei & 0x40) break;     // Wait for Frequency Error Indicator
         }  
-        rssi2 = readReg(REG_RSSIVALUE);
-        feil = readReg(REG_FEILSB);
+        rssi = readReg(REG_RSSIVALUE);  // RSSI more stable here
+        feil = readReg(REG_FEILSB);     // TODO tidy up word pickup
         fei  = (readReg(REG_FEIMSB) << 8) + feil;
         afcl = readReg(REG_AFCLSB);
         afc  = (readReg(REG_AFCMSB) << 8) + afcl;

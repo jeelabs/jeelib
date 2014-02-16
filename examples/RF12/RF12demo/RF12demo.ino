@@ -10,7 +10,7 @@
 // Node numbers 16-31 can only be used if MAX_NODES and thereby
 // the size of the nodes array is adjusted accordingly
 
-#define RF69_COMPAT 0 // define this to use the RF69 driver i.s.o. RF12
+#define RF69_COMPAT 1 // define this to use the RF69 driver i.s.o. RF12
 
 #include <JeeLib.h>
 #include <util/crc16.h>
@@ -339,6 +339,8 @@ static void showHelp () {
 }
 
 static void handleInput (char c) {
+    // TODO value is now 16 bits to permit offset command, stack only stores 8 bits
+    //      not a problem for offset command but beware.
     if ('0' <= c && c <= '9') {
         value = 10 * value + c - '0';
         return;
@@ -351,7 +353,22 @@ static void handleInput (char c) {
         return;
     }
 
-    if ('a' <= c && c <= 'z') {
+    // keeping this out of the switch reduces code size (smaller branch table)
+    // TODO Using the '>' command with incorrect values hangs the hardware
+    if (c == '>') {
+        // special case, send to specific band and group, and don't echo cmd
+        // input: band,group,node,header,data...
+        stack[top++] = value;
+        // TODO: frequency offset is taken from global config, is that ok?
+        // I suspect not OK, could add a new number on command line, 
+        // the last vlue before '>' as the offset as the only place 16 bit value will available.
+        rf12_initialize(stack[2], bandToFreq(stack[0]), stack[1],
+                            config.frequency_offset);
+        rf12_sendNow(stack[3], stack + 4, top - 4);
+        rf12_sendWait(2);
+        rf12_configSilent();
+        
+    } else if ('a' <= c && c <= 'z') {
         showString(PSTR("> "));
         for (byte i = 0; i < top; ++i) {
             Serial.print(stack[i]);
@@ -359,27 +376,11 @@ static void handleInput (char c) {
         }
         Serial.print(value);
         Serial.println(c);
-    }
-
-    // keeping this out of the switch reduces code size (smaller branch table)
-    if (c == '>') {
-        // special case, send to specific band and group, and don't echo cmd
-        // input: band,group,node,header,data...
-        stack[top++] = value;
-        // TODO: frequency offset is taken from global config, is that ok?
-        rf12_initialize(stack[2], bandToFreq(stack[0]), stack[1],
-                            config.frequency_offset);
-        rf12_sendNow(stack[3], stack + 4, top - 4);
-        rf12_sendWait(2);
-        rf12_configSilent();
-    } else if ('a' <= c && c <= 'z') {
+      
         switch (c) {
 
         case 'i': // set node id
             if ((value > 0) && (value <= MAX_NODES + 1)) {
-                // Node 15 may exist on T84 but only as the RF12Demo node,
-                //  eeprom address +0, the encryption key storage will be
-                //  overwritten by the 42j command, similar for n31 on MEGA
                 if (value < MAX_NODES)
                     nodes[value] = 0;
                 // Prevent auto allocation of this node number
@@ -493,7 +494,7 @@ static void handleInput (char c) {
 
         case 'v': //display the interpreter version
             displayVersion();
-            Serial.println();
+            rf12_configDump();
             break;
 
         case 'n': // Clear node entries in RAM & eeprom
@@ -567,22 +568,17 @@ static void handleInput (char c) {
         case 'j':
             if (stack[0] <= MAX_NODES) {
                 const uint8_t *ee_entry = RF12_EEPROM_ADDR + (stack[0] * 32);
-                for (byte i = 0; i < RF12_EEPROM_SIZE; ++i) {
-                    // http://forum.arduino.cc/index.php?topic=122140.0
-                    byte b = eeprom_read_byte(ee_entry + i);
-                    showNibble(b >> 4);
-                    showNibble(b);
-                    testbuf[i] = b;
-                    if ((value == 42) && (stack[0] == 0)) {
-                        eeprom_write_byte(RF12_EEPROM_ADDR + (((config.nodeId & RF12_HDR_MASK)*32) + i), b);
-                    }
+                eeprom_read_block(&testbuf, RF12_EEPROM_ADDR, sizeof config);
+                // http://forum.arduino.cc/index.php?topic=122140.0
+                for (byte i = 0; i < RF12_EEPROM_SIZE; ++i) {  
+                    showNibble(testbuf[i] >> 4);
+                    showNibble(testbuf[i]);
+                }
+                if ((value == 42) && (stack[0] == 0)) {
+                    eeprom_write_block(&testbuf, (RF12_EEPROM_ADDR - RF12_EEPROM_SIZE), RF12_EEPROM_SIZE);
                 }
                 Serial.println();
                 displayASCII(testbuf, RF12_EEPROM_SIZE);
-            }
-            if (value == 42) {
-                showString(PSTR("Backed Up\n"));
-                break;
             }
             if (value == 123 && stack[0] == (config.nodeId & RF12_HDR_MASK)) {
                 // Only restore this NodeId
@@ -725,9 +721,19 @@ void loop () {
         showString(PSTR(" ("));
         if (config.hex_output)
             showByte(RF69::rssi);
-        else
-            Serial.print(-(RF69::rssi>>1));
-        showString(PSTR(") "));
+        else {
+            byte rf69x2 = RF69::rssi;
+            byte rf69x1 = rf69x2>>1;
+            byte rf69fraction = rf69x2-(rf69x1<<1);
+            Serial.print(-(rf69x1));
+            if (rf69fraction) Serial.print(".5");
+            Serial.print("dB)"); 
+            Serial.print(" afc=");                    // Debug Code
+            Serial.print(RF69::afc);                  // TODO What units is this count?  
+            Serial.print(" fei=");
+            Serial.print((RF69::fei)*61);
+            Serial.print("Hz");
+        }
 #endif
         Serial.println();
         
@@ -752,8 +758,8 @@ void loop () {
                     (nodes[(rf12_hdr & RF12_HDR_MASK)] == 0xFF)) {
                 // New nodes cannot be learned if packet begins 0xFF
                 if (rf12_data[0] == 0xFF)
-                    // so lets drop the low order bit in byte 0
-                    rf12_data[0] = 0xFE;
+                    // so lets drop the high order bit in byte 0
+                    rf12_data[0] = 0xEF;
                 showString(PSTR("New Node "));
                 showByte(rf12_hdr & RF12_HDR_MASK);
                 Serial.println();
@@ -773,7 +779,7 @@ void loop () {
                     for (byte i = 1; i <= MAX_NODES; i++) {
                         if (nodes[i] == 0xFF) {
                             testbuf[0] = i + 0xE0;
-                            // Change Node number request - matched in RF12Tune3
+                            // Change Node number request - matched in RF12Tune
                             testCounter = 1;
                             showString(PSTR("Node allocation "));
                             showByte(i);

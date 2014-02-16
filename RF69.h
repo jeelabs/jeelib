@@ -6,12 +6,10 @@ namespace RF69 {
     extern uint8_t  group;
     extern uint8_t  node;
     extern uint8_t  rssi;
-    extern uint8_t  rssi2;
     extern int16_t  afc;
     extern uint8_t  afcl;
     extern int16_t  fei;
     extern uint8_t  feil;
-    extern uint8_t  afcfei;
     extern uint8_t  rssiconfig;
 
     void setFrequency (uint32_t freq);

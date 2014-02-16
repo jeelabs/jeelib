@@ -685,12 +685,12 @@ void rf12_configDump () {
                  band == RF12_868MHZ ? 868 :
                  band == RF12_915MHZ ? 915 : 0);
     Serial.print(" MHz");
-    if (flags & 0x04) {
-        Serial.print(" c1");
-    }
     if (freq != 1600) {
         Serial.print(" o");
         Serial.print(freq);
+    }
+    if (flags & 0x04) {
+        Serial.print(" c1");
     }
     if (flags & 0x08) {
         Serial.print(" q1");
