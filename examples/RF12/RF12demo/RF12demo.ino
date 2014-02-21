@@ -486,9 +486,9 @@ static void handleInput (char c) {
 
         case 'r': // replay from specified seqnum/time marker
             if (df_present()) {
-                word seqnum = (stack[0] << 8) || stack[1];
-                long asof = (stack[2] << 8) || stack[3];
-                asof = (asof << 16) | ((stack[4] << 8) || value);
+                word seqnum = (stack[0] << 8) | stack[1];
+                long asof = (stack[2] << 8) | stack[3];
+                asof = (asof << 16) | ((stack[4] << 8) | value);
                 df_replay(seqnum, asof);
             }
             break;
