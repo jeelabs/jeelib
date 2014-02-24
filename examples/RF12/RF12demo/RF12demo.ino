@@ -140,7 +140,7 @@ typedef struct {
     byte hex_output   :2;   // 0 = dec, 1 = hex, 2 = hex+ascii
     byte collect_mode :1;   // 0 = ack, 1 = don't send acks
     byte quiet_mode   :1;   // 0 = show all, 1 = show only valid packets
-    byte spare_flags  :4;  
+    byte spare_flags  :4;
     word frequency_offset;  // used by rf12_config, offset 4
     byte pad[RF12_EEPROM_SIZE-8];
     word crc;
@@ -185,13 +185,19 @@ static uint16_t calcCrcEeprom (const void* ptr, uint8_t len) {
 }
 
 static void loadConfig () {
-    eeprom_read_block(&config, RF12_EEPROM_ADDR, sizeof config);
+    // eeprom_read_block(&config, RF12_EEPROM_ADDR, sizeof config);
+    // this uses 166 bytes less flash than eeprom_read_block(), no idea why
+    for (byte i = 0; i < sizeof config; ++ i)
+        ((byte*) &config)[i] = eeprom_read_byte(RF12_EEPROM_ADDR + i);
 }
 
 static void saveConfig () {
     config.format = MAJOR_VERSION;
     config.crc = calcCrc(&config, sizeof config - 2);
-    eeprom_write_block(&config, RF12_EEPROM_ADDR, sizeof config);
+    // eeprom_write_block(&config, RF12_EEPROM_ADDR, sizeof config);
+    // this uses 170 bytes less flash than eeprom_write_block(), no idea why
+    for (byte i = 0; i < sizeof config; ++ i)
+        eeprom_write_byte(RF12_EEPROM_ADDR + i, ((byte*) &config)[i]);
 
     if (rf12_configSilent())
         rf12_configDump();
@@ -328,7 +334,7 @@ static void showString (PGM_P s) {
 
 static void showHelp () {
 #if TINY
-    showString("?\n");
+    showString(PSTR("?\n"));
 #else
     showString(helpText1);
     if (df_present())
@@ -345,7 +351,7 @@ static void handleInput (char c) {
         value = 10 * value + c - '0';
         return;
     }
-    
+
     if (c == ',') {
         if (top < sizeof stack)
             stack[top++] = value;
@@ -360,14 +366,14 @@ static void handleInput (char c) {
         // input: band,group,node,header,data...
         stack[top++] = value;
         // TODO: frequency offset is taken from global config, is that ok?
-        // I suspect not OK, could add a new number on command line, 
+        // I suspect not OK, could add a new number on command line,
         // the last vlue before '>' as the offset as the only place 16 bit value will available.
         rf12_initialize(stack[2], bandToFreq(stack[0]), stack[1],
                             config.frequency_offset);
         rf12_sendNow(stack[3], stack + 4, top - 4);
         rf12_sendWait(2);
         rf12_configSilent();
-        
+
     } else if ('a' <= c && c <= 'z') {
         showString(PSTR("> "));
         for (byte i = 0; i < top; ++i) {
@@ -376,7 +382,7 @@ static void handleInput (char c) {
         }
         Serial.print(value);
         Serial.println(c);
-      
+
         switch (c) {
 
         case 'i': // set node id
@@ -406,6 +412,7 @@ static void handleInput (char c) {
                 saveConfig();
             }
 #if !TINY
+            // this code adds about 400 bytes to flash memory use
             // display the exact frequency associated with this setting
             uint8_t freq = 0, band = config.nodeId >> 6;
             switch (band) {
@@ -494,6 +501,9 @@ static void handleInput (char c) {
         case 'v': //display the interpreter version
             displayVersion();
             rf12_configDump();
+#if TINY
+            Serial.println();
+#endif
             break;
 
         case 'n': // Clear node entries in RAM & eeprom
@@ -530,7 +540,7 @@ static void handleInput (char c) {
             break;
 
 // the following commands all get optimised away when TINY is set
-            
+
         case 'l': // turn activity LED on or off
             activityLed(value);
             break;
@@ -569,7 +579,7 @@ static void handleInput (char c) {
                 const uint8_t *ee_entry = RF12_EEPROM_ADDR + (stack[0] * 32);
                 eeprom_read_block(&testbuf, RF12_EEPROM_ADDR, sizeof config);
                 // http://forum.arduino.cc/index.php?topic=122140.0
-                for (byte i = 0; i < RF12_EEPROM_SIZE; ++i) {  
+                for (byte i = 0; i < RF12_EEPROM_SIZE; ++i) {
                     showNibble(testbuf[i] >> 4);
                     showNibble(testbuf[i]);
                 }
@@ -596,7 +606,7 @@ static void handleInput (char c) {
             }
             break;
 #endif
-        
+
         default:
             showHelp();
         }
@@ -628,7 +638,7 @@ void setup () {
 
 #if TINY
     PCMSK0 |= (1<<PCINT2);  // tell pin change mask to listen to PA2
-    GIMSK    |= (1<<PCIE0); // enable PCINT interrupt in general interrupt mask
+    GIMSK |= (1<<PCIE0);    // enable PCINT interrupt in general interrupt mask
     // FIXME: _bitDelay has not yet been initialised here !?
     whackDelay(_bitDelay*2); // if we were low this establishes the end
     pinMode(_receivePin, INPUT);        // PA2
@@ -652,7 +662,7 @@ void setup () {
     }
 
     rf12_configDump();
-    
+
     // Initialise node table
     for (byte i = 1; i <= MAX_NODES; i++) {
         nodes[i] = eeprom_read_byte(RF12_EEPROM_ADDR + (i * RF12_EEPROM_SIZE));
@@ -726,16 +736,16 @@ void loop () {
             byte rf69fraction = rf69x2-(rf69x1<<1);
             Serial.print(-(rf69x1));
             if (rf69fraction) Serial.print(".5");
-            Serial.print("dB)"); 
+            Serial.print("dB)");
             Serial.print(" afc=");                    // Debug Code
-            Serial.print(RF69::afc);                  // TODO What units is this count?  
+            Serial.print(RF69::afc);                  // TODO What units is this count?
             Serial.print(" fei=");
             Serial.print((RF69::fei)*61);
             Serial.print("Hz");
         }
 #endif
         Serial.println();
-        
+
         if (config.hex_output > 1) { // also print a line as ascii
             showString(PSTR("ASC "));
             if (config.group == 0) {
@@ -745,7 +755,7 @@ void loop () {
             printOneChar('@' + (rf12_hdr & RF12_HDR_MASK));
             displayASCII((const uint8_t*) rf12_data, n);
         }
-        
+
         if (rf12_crc == 0) {
             activityLed(1);
 
