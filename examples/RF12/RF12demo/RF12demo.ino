@@ -175,13 +175,19 @@ static uint16_t calcCrcEeprom (const void* ptr, uint8_t len) {
 }
 
 static void loadConfig () {
-    eeprom_read_block(&config, RF12_EEPROM_ADDR, sizeof config);
+    // eeprom_read_block(&config, RF12_EEPROM_ADDR, sizeof config);
+    // this uses 166 bytes less flash than eeprom_read_block(), no idea why
+    for (byte i = 0; i < sizeof config; ++ i)
+        ((byte*) &config)[i] = eeprom_read_byte(RF12_EEPROM_ADDR + i);
 }
 
 static void saveConfig () {
     config.format = MAJOR_VERSION;
     config.crc = calcCrc(&config, sizeof config - 2);
-    eeprom_write_block(&config, RF12_EEPROM_ADDR, sizeof config);
+    // eeprom_write_block(&config, RF12_EEPROM_ADDR, sizeof config);
+    // this uses 170 bytes less flash than eeprom_write_block(), no idea why
+    for (byte i = 0; i < sizeof config; ++ i)
+        eeprom_write_byte(RF12_EEPROM_ADDR + i, ((byte*) &config)[i]);
 
     if (rf12_configSilent())
         rf12_configDump();
@@ -313,7 +319,7 @@ static void showString (PGM_P s) {
 
 static void showHelp () {
 #if TINY
-    showString("?\n");
+    showString(PSTR("?\n"));
 #else
     showString(helpText1);
     if (df_present())
@@ -382,6 +388,7 @@ static void handleInput (char c) {
                 saveConfig();
             }
 #if !TINY
+            // this code adds about 400 bytes to flash memory use
             // display the exact frequency associated with this setting
             uint8_t freq = 0, band = config.nodeId >> 6;
             switch (band) {
@@ -537,7 +544,7 @@ void setup () {
 
 #if TINY
     PCMSK0 |= (1<<PCINT2);  // tell pin change mask to listen to PA2
-    GIMSK    |= (1<<PCIE0); // enable PCINT interrupt in general interrupt mask
+    GIMSK |= (1<<PCIE0);    // enable PCINT interrupt in general interrupt mask
     // FIXME: _bitDelay has not yet been initialised here !?
     whackDelay(_bitDelay*2); // if we were low this establishes the end
     pinMode(_receivePin, INPUT);        // PA2
