@@ -133,7 +133,7 @@ typedef struct {
     byte hex_output   :2;   // 0 = dec, 1 = hex, 2 = hex+ascii
     byte collect_mode :1;   // 0 = ack, 1 = don't send acks
     byte quiet_mode   :1;   // 0 = show all, 1 = show only valid packets
-    byte spare_flags  :4;  
+    byte spare_flags  :4;
     word frequency_offset;  // used by rf12_config, offset 4
     byte pad[RF12_EEPROM_SIZE-8];
     word crc;
@@ -334,7 +334,7 @@ static void handleInput (char c) {
         value = 10 * value + c - '0';
         return;
     }
-    
+
     if (c == ',') {
         if (top < sizeof stack)
             stack[top++] = value;
@@ -477,10 +477,13 @@ static void handleInput (char c) {
         case 'v': //display the interpreter version and configuration
             displayVersion();
             rf12_configDump();
+#if TINY
+            Serial.println();
+#endif
             break;
 
 // the following commands all get optimised away when TINY is set
-            
+
         case 'l': // turn activity LED on or off
             activityLed(value);
             break;
@@ -568,7 +571,7 @@ void setup () {
         rf12_configSilent();
     }
 
-    rf12_configDump();    
+    rf12_configDump();
     df_initialize();
 #if !TINY
     showHelp();
@@ -616,7 +619,7 @@ void loop () {
         showString(PSTR(") "));
 #endif
         Serial.println();
-        
+
         if (config.hex_output > 1) { // also print a line as ascii
             showString(PSTR("ASC "));
             if (config.group == 0) {
@@ -626,7 +629,7 @@ void loop () {
             printOneChar('@' + (rf12_hdr & RF12_HDR_MASK));
             displayASCII((const uint8_t*) rf12_data, n);
         }
-        
+
         if (rf12_crc == 0) {
             activityLed(1);
 
