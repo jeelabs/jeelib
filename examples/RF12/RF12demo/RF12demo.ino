@@ -167,13 +167,6 @@ static uint16_t calcCrc (const void* ptr, uint8_t len) {
     return crc;
 }
 
-static uint16_t calcCrcEeprom (const void* ptr, uint8_t len) {
-    uint16_t crc = ~0;
-    for (byte i = 0; i < len; ++i)
-        crc = _crc16_update(crc, eeprom_read_byte((const byte*) ptr + i));
-    return crc;
-}
-
 static void loadConfig () {
     // eeprom_read_block(&config, RF12_EEPROM_ADDR, sizeof config);
     // this uses 166 bytes less flash than eeprom_read_block(), no idea why
