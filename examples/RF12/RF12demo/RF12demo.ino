@@ -143,7 +143,7 @@ static RF12Config config;
 static char cmd;
 static word value;
 static byte stack[RF12_MAXDATA+4], top, sendLen, dest;
-static byte testbuf[RF12_MAXDATA], testCounter;
+static byte testCounter;
 
 static void showNibble (byte nibble) {
     char c = '0' + (nibble & 0x0F);
@@ -418,7 +418,7 @@ static void handleInput (char c) {
             sendLen = RF12_MAXDATA;
             dest = 0;
             for (byte i = 0; i < RF12_MAXDATA; ++i)
-                testbuf[i] = i + testCounter;
+                stack[i] = i + testCounter;
             showString(PSTR("test "));
             Serial.println(testCounter); // first byte in test buffer
             ++testCounter;
@@ -429,7 +429,6 @@ static void handleInput (char c) {
             cmd = c;
             sendLen = top;
             dest = value;
-            memcpy(testbuf, stack, top);
             break;
 
         case 'f': // send FS20 command: <hchi>,<hclo>,<addr>,<cmd>f
@@ -630,7 +629,7 @@ void loop () {
             if (RF12_WANTS_ACK && (config.collect_mode) == 0) {
                 showString(PSTR(" -> ack\n"));
                 testCounter = 0;
-                rf12_sendStart(RF12_ACK_REPLY, testbuf, testCounter);
+                rf12_sendStart(RF12_ACK_REPLY, 0, 0);
             }
             activityLed(0);
         }
@@ -645,7 +644,7 @@ void loop () {
         byte header = cmd == 'a' ? RF12_HDR_ACK : 0;
         if (dest)
             header |= RF12_HDR_DST | dest;
-        rf12_sendStart(header, testbuf, sendLen);
+        rf12_sendStart(header, stack, sendLen);
         cmd = 0;
 
         activityLed(0);
