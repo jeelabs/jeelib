@@ -60,7 +60,7 @@ const char INITFAIL[] PROGMEM = "config save failed\n";
 #define _receivePin 8
 static int _bitDelay;
 static char _receive_buffer;
-static uint8_t _receive_buffer_index;
+static byte _receive_buffer_index;
 
 ISR (PCINT0_vect) {
     char i, d = 0;
@@ -81,8 +81,8 @@ ISR (PCINT0_vect) {
 
 // TODO: replace with code from the std avr libc library:
 //  http://www.nongnu.org/avr-libc/user-manual/group__util__delay__basic.html
-void whackDelay (uint16_t delay) {
-    uint8_t tmp=0;
+void whackDelay (word delay) {
+    byte tmp=0;
 
     asm volatile("sbiw      %0, 0x01 \n\t"
                  "ldi %1, 0xFF \n\t"
@@ -95,7 +95,7 @@ void whackDelay (uint16_t delay) {
 }
 
 static byte inChar () {
-    uint8_t d;
+    byte d;
     if (! _receive_buffer_index)
         return -1;
     d = _receive_buffer; // grab first and only byte
@@ -160,8 +160,8 @@ static void showByte (byte value) {
         Serial.print(value);
 }
 
-static uint16_t calcCrc (const void* ptr, uint8_t len) {
-    uint16_t crc = ~0;
+static word calcCrc (const void* ptr, byte len) {
+    word crc = ~0;
     for (byte i = 0; i < len; ++i)
         crc = _crc16_update(crc, ((const byte*) ptr)[i]);
     return crc;
@@ -383,7 +383,7 @@ static void handleInput (char c) {
 #if !TINY
             // this code adds about 400 bytes to flash memory use
             // display the exact frequency associated with this setting
-            uint8_t freq = 0, band = config.nodeId >> 6;
+            byte freq = 0, band = config.nodeId >> 6;
             switch (band) {
                 case RF12_433MHZ: freq = 43; break;
                 case RF12_868MHZ: freq = 86; break;
@@ -392,7 +392,7 @@ static void handleInput (char c) {
             uint32_t f1 = freq * 100000L + band * 25L * config.frequency_offset;
             Serial.print((word) (f1 / 10000));
             printOneChar('.');
-            uint16_t f2 = f1 % 10000;
+            word f2 = f1 % 10000;
             // tedious, but this avoids introducing floating point
             printOneChar('0' + f2 / 1000);
             printOneChar('0' + (f2 / 100) % 10);
@@ -518,7 +518,7 @@ static void handleInput (char c) {
     memset(stack, 0, sizeof stack);
 }
 
-static void displayASCII (const uint8_t* data, byte count) {
+static void displayASCII (const byte* data, byte count) {
     for (byte i = 0; i < count; ++i) {
         printOneChar(' ');
         char c = (char) data[i];
@@ -620,7 +620,7 @@ void loop () {
             }
             printOneChar(rf12_hdr & RF12_HDR_DST ? '>' : '<');
             printOneChar('@' + (rf12_hdr & RF12_HDR_MASK));
-            displayASCII((const uint8_t*) rf12_data, n);
+            displayASCII((const byte*) rf12_data, n);
         }
 
         if (rf12_crc == 0) {
