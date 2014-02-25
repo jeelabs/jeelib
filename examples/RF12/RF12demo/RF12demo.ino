@@ -157,7 +157,7 @@ static void showByte (byte value) {
         showNibble(value >> 4);
         showNibble(value);
     } else
-        Serial.print(value);
+        Serial.print((word) value);
 }
 
 static word calcCrc (const void* ptr, byte len) {
@@ -179,6 +179,7 @@ static void saveConfig () {
     config.crc = calcCrc(&config, sizeof config - 2);
     // eeprom_write_block(&config, RF12_EEPROM_ADDR, sizeof config);
     // this uses 170 bytes less flash than eeprom_write_block(), no idea why
+    eeprom_write_byte(RF12_EEPROM_ADDR, ((byte*) &config)[0]);
     for (byte i = 0; i < sizeof config; ++ i)
         eeprom_write_byte(RF12_EEPROM_ADDR + i, ((byte*) &config)[i]);
 
@@ -330,7 +331,7 @@ static void handleInput (char c) {
 
     if (c == ',') {
         if (top < sizeof stack)
-            stack[top++] = value;
+            stack[top++] = value; // truncated to 8 bits
         value = 0;
         return;
     }
@@ -338,7 +339,7 @@ static void handleInput (char c) {
     if ('a' <= c && c <= 'z') {
         showString(PSTR("> "));
         for (byte i = 0; i < top; ++i) {
-            Serial.print(stack[i]);
+            Serial.print((word) stack[i]);
             printOneChar(',');
         }
         Serial.print(value);
@@ -642,7 +643,7 @@ void loop () {
         activityLed(1);
 
         showString(PSTR(" -> "));
-        Serial.print(sendLen);
+        Serial.print((word) sendLen);
         showString(PSTR(" b\n"));
         byte header = cmd == 'a' ? RF12_HDR_ACK : 0;
         if (dest)
