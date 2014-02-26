@@ -574,7 +574,8 @@ void setup () {
 
 void loop () {
 #if TINY
-    handleInput(inChar());
+    if (_receive_buffer_index)
+        handleInput(inChar());
 #else
     if (Serial.available())
         handleInput(Serial.read());
