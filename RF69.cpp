@@ -51,6 +51,7 @@ namespace RF69 {
     int16_t  afc;
     uint8_t  afcl;
     int16_t  fei;
+    uint8_t  feim;
     uint8_t  feil;
     uint8_t  afcfei;
     uint8_t  rssiconfig;
@@ -232,9 +233,11 @@ void RF69::interrupt_compat () {
           afcfei = readReg(REG_AFCFEI);
           if (afcfei & 0x40) break;     // Wait for Frequency Error Indicator
         }  
-        rssi = readReg(REG_RSSIVALUE);  // RSSI more stable here
+        feim = readReg(REG_FEIMSB);     // TODO tidy up word pickup
         feil = readReg(REG_FEILSB);     // TODO tidy up word pickup
-        fei  = (readReg(REG_FEIMSB) << 8) + feil;
+        fei  = (feim << 8) + feil;
+
+        rssi = readReg(REG_RSSIVALUE);  // RSSI more stable here
         afcl = readReg(REG_AFCLSB);
         afc  = (readReg(REG_AFCMSB) << 8) + afcl;
         IRQ_ENABLE; // allow nested interrupts from here on

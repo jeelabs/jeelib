@@ -19,15 +19,15 @@
 #include <util/parity.h>
 
 #define MAJOR_VERSION RF12_EEPROM_VERSION // bump when EEPROM layout changes
-#define MINOR_VERSION 2                   // bump on other non-trivial changes
-#define VERSION "\n[RF12demo.12]"         // keep in sync with the above
+#define MINOR_VERSION 3                   // bump on other non-trivial changes
+#define VERSION "\n[RF12demo.13]"         // keep in sync with the above
 
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
 #define TINY        1
 #define SERIAL_BAUD 38400   // can only be 9600 or 38400
 #define DATAFLASH   0       // do not change
 #undef  LED_PIN             // do not change
-#define rf12_configDump()   // disabled
+//#define rf12_configDump()   // disabled
 #else
 #define TINY        0
 #define SERIAL_BAUD 57600   // adjust as needed
@@ -74,7 +74,7 @@ ISR (PCINT0_vect) {
     whackDelay(_bitDelay - 8);
     for (i=0; i<8; i++) {
         whackDelay(_bitDelay*2 - 6);    // digitalread takes some time
-        if (digitalRead(_receivePin)) // PA2 = Jeenode DIO2
+        if (digitalRead(_receivePin))   // PA2 = Jeenode DIO2
             d |= (1 << i);
     }
     whackDelay(_bitDelay*2);
@@ -281,6 +281,7 @@ static void kakuSend(char addr, byte device, byte on) {
 #endif
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+//TODO Does this use flash when compiling for Tiny84
 
 const char helpText1[] PROGMEM =
     "\n"
@@ -339,7 +340,7 @@ static void showHelp () {
 }
 
 static void handleInput (char c) {
-    // TODO value is now 16 bits to permit offset command, stack only stores 8 bits
+    //      Variable value is now 16 bits to permit offset command, stack only stores 8 bits
     //      not a problem for offset command but beware.
     if ('0' <= c && c <= '9') {
         value = 10 * value + c - '0';
@@ -371,22 +372,14 @@ static void handleInput (char c) {
         stack[top++] = value;
         // TODO: frequency offset is taken from global config, is that ok?
         // I suspect not OK, could add a new number on command line,
-        // the last vlue before '>' as the offset as the only place 16 bit value will available.
+        // the last vlue before '>' as the offset is the only place a 16 bit value will available.
         rf12_initialize(stack[2], bandToFreq(stack[0]), stack[1],
                             config.frequency_offset);
         rf12_sendNow(stack[3], stack + 4, top - 4);
         rf12_sendWait(2);
         rf12_configSilent();
 
-    } else if ('a' <= c && c <= 'z') {
-        showString(PSTR("> "));
-        for (byte i = 0; i < top; ++i) {
-            Serial.print(stack[i]);
-            printOneChar(',');
-        }
-        Serial.print(value);
-        Serial.println(c);
-
+    } else if (c > ' ') {
         switch (c) {
 
         case 'i': // set node id
@@ -581,28 +574,28 @@ static void handleInput (char c) {
         case 'j':
             if (stack[0] <= MAX_NODES) {
                 const uint8_t *ee_entry = RF12_EEPROM_ADDR + (stack[0] * 32);
-                eeprom_read_block(&testbuf, RF12_EEPROM_ADDR, sizeof config);
+           //     eeprom_read_block(&testbuf, RF12_EEPROM_ADDR, sizeof config);
                 // http://forum.arduino.cc/index.php?topic=122140.0
                 for (byte i = 0; i < RF12_EEPROM_SIZE; ++i) {
-                    showNibble(testbuf[i] >> 4);
-                    showNibble(testbuf[i]);
+//                    showNibble(testbuf[i] >> 4);
+//                    showNibble(testbuf[i]);
                 }
                 if ((value == 42) && (stack[0] == 0)) {
-                    eeprom_write_block(&testbuf, (RF12_EEPROM_ADDR - RF12_EEPROM_SIZE), RF12_EEPROM_SIZE);
+//                    eeprom_write_block(&testbuf, (RF12_EEPROM_ADDR - RF12_EEPROM_SIZE), RF12_EEPROM_SIZE);
                 }
                 Serial.println();
-                displayASCII(testbuf, RF12_EEPROM_SIZE);
+//                displayASCII(testbuf, RF12_EEPROM_SIZE);
             }
             if (value == 123 && stack[0] == (config.nodeId & RF12_HDR_MASK)) {
                 // Only restore this NodeId
                 const uint8_t *ee_shadow = RF12_EEPROM_ADDR + ((config.nodeId & RF12_HDR_MASK)*32);
-                if (calcCrcEeprom(ee_shadow, RF12_EEPROM_SIZE) == 0) {
+        //        if (calcCrcEeprom(ee_shadow, RF12_EEPROM_SIZE) == 0) {
                     for (byte i = 0; i < RF12_EEPROM_SIZE; ++i) {
                         byte b = eeprom_read_byte((ee_shadow) + i);
                         eeprom_write_byte((RF12_EEPROM_ADDR) + i, b);
                     }
                     showString(PSTR("Restored\n"));
-                }
+         //       }
                 if (rf12_configSilent())
                     loadConfig();
                 else
@@ -632,8 +625,15 @@ static void displayASCII (const byte* data, byte count) {
 static void displayVersion () {
     showString(PSTR(VERSION));
 #if TINY
-    showString(PSTR(" Tiny"));
+    showString(PSTR(" Tiny "));
+    Serial.print(freeRam());
 #endif
+}
+
+int freeRam () {    // @jcw's work
+  extern int __heap_start, *__brkval; 
+  int v; 
+  return (int) &v - (__brkval == 0 ? (int) &__heap_start : (int) __brkval); 
 }
 
 void setup () {
@@ -745,8 +745,12 @@ void loop () {
             Serial.print(" afc=");                    // Debug Code
             Serial.print(RF69::afc);                  // TODO What units is this count?
             Serial.print(" fei=");
-            Serial.print((RF69::fei)*61);
-            Serial.print("Hz");
+            Serial.print((RF69::fei));
+            Serial.print("Hz?");
+            Serial.print(" m=");
+            Serial.print((RF69::feim));
+            Serial.print(" l=");
+            Serial.print((RF69::feil));
         }
 #endif
         Serial.println();
@@ -792,7 +796,7 @@ void loop () {
                     // Special Node 31 source node
                     for (byte i = 1; i <= MAX_NODES; i++) {
                         if (nodes[i] == 0xFF) {
-                            testbuf[0] = i + 0xE0;
+                            stack[0] = i + 0xE0;
                             // Change Node number request - matched in RF12Tune
                             testCounter = 1;
                             showString(PSTR("Node allocation "));
@@ -805,7 +809,7 @@ void loop () {
                     if (!(rf12_hdr & RF12_HDR_DST) && (nodes[(rf12_hdr & RF12_HDR_MASK)] != 0) &&
                              (nodes[(rf12_hdr & RF12_HDR_MASK)] != 0xFF)) {
                         // Sources Nodes only!
-                        testbuf[0] = nodes[(rf12_hdr & RF12_HDR_MASK)];
+//                        testbuf[0] = nodes[(rf12_hdr & RF12_HDR_MASK)];
                         // Pick up posted value
                         nodes[(rf12_hdr & RF12_HDR_MASK)] = 0;
                         // Assume it will be delivered.
@@ -813,7 +817,7 @@ void loop () {
                         showString(PSTR("Posted "));
                         showByte(rf12_hdr & RF12_HDR_MASK);
                         printOneChar(',');
-                        showByte(testbuf[0]);
+//                        showByte(testbuf[0]);
                         postingsOut++;
                         Serial.println();
                     }
