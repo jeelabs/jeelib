@@ -1,12 +1,12 @@
 // Include this file instead of RF12.h to use a RFM69 wireless radio module
-// in compatibility mode, i.e. as if it were an RFM12. Not all features are
-// supported, but the main ones such as rf12_recvDone, rf12_sendStart, etc are.
+// in compatibility mode, i.e. as if it were an RFM12, or insert this line
+// before including the <JeeLib.h> header in your code: #define RF69_COMPAT 1
 
 #ifndef RF69_compat_h
 #define RF69_compat_h
 
 #ifdef RF12_h
-#error This file must be included BEFORE the "JeeLib.h" and "RF12.h" files!
+#error This file must be included BEFORE the "RF12.h" header file!
 #endif
 
 #define rf12_crc            rf69_crc
