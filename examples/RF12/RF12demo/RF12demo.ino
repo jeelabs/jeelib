@@ -150,7 +150,6 @@ static byte testCounter;
 
 static byte nodes[MAX_NODES+1];
 static byte postingsIn, postingsOut;
-
 static void showNibble (byte nibble) {
     char c = '0' + (nibble & 0x0F);
     if (c > '9')
@@ -339,7 +338,13 @@ static void handleInput (char c) {
     //      Variable value is now 16 bits to permit offset command, stack only stores 8 bits
     //      not a problem for offset command but beware.
     if ('0' <= c && c <= '9') {
-        value = 10 * value + c - '0';
+        if (!config.hex_output) value = 10 * value + c - '0';
+        else value = 16 * value + c - '0';
+        return;
+    }
+    
+    if (('A' <= c && c <= 'F') && (config.hex_output)) {
+        value = 16 * value + (c - 'A' + 0xA);
         return;
     }
 
@@ -353,10 +358,10 @@ static void handleInput (char c) {
     if ('a' <= c && c <= 'z') {
         showString(PSTR("> "));
         for (byte i = 0; i < top; ++i) {
-            Serial.print((word) stack[i]);
+            showByte(stack[i]);
             printOneChar(',');
         }
-        Serial.print(value);
+        showByte(value);
         Serial.println(c);
     }
 
@@ -565,8 +570,8 @@ static void handleInput (char c) {
                     showNibble(b);
                     showNibble(b>>4);                  
                     if (b != 0xFF) {
-                                        // Clear eeprom byte
-                        eeprom_write_byte((RF12_EEPROM_EKEY)     // Node 0 would overwrite encryption key!
+             // Clear eeprom byte, a node 0 would overwrite encryption key!
+                        eeprom_write_byte((RF12_EEPROM_EKEY)
                           + (stack[0] * RF12_EEPROM_SIZE) + i, 0xFF);
                     }
                 }
