@@ -322,6 +322,8 @@ static void showString (PGM_P s) {
     }
 }
 
+const char messagesF[] PROGMEM = { 0x05, 'T', 'E', 'S', 'T', '1', 0x05,  'T', 'E', 'S', 'T', '2', 0 };
+
 static void showHelp () {
 #if TINY
     showString(PSTR("?\n"));
@@ -335,6 +337,7 @@ static void showHelp () {
 }
 
 static void handleInput (char c) {
+
     //      Variable value is now 16 bits to permit offset command, stack only stores 8 bits
     //      not a problem for offset command but beware.
     if ('0' <= c && c <= '9') {
@@ -503,22 +506,41 @@ static void handleInput (char c) {
             Serial.println();
 #endif
             break;
+         
+        case 'm':  // Message storage
+        
+            for (byte i = 1 ;; i++) {
+                Serial.print("Record ");
+                Serial.print(i);
+                printOneChar(' ');
+                byte len = getString(messagesF, i); 
+                if (!len) break;
+                Serial.println(len);
+                for (byte b=0; b < len; b++) {
+                    showByte(stack[b]);
+                }
+                Serial.println();
+                displayASCII(stack, len);
+                Serial.println();
+            }
+            printOneChar('\r');
+            break;
 
         case 'p':
             // Post a command for a remote node, to be collected along with
-            // the next ACK. Format is 20,127p where 20 is the node number and
-            // 127 is the desired value to be posted stack[0] contains the
-            // target node and value contains the command to be posted
+            // the next ACK. Format is 127,20p where 20 is the node number and
+            // 127 is the desired value to be posted value contains the
+            // target node and stack[0] contains the command to be posted
             if ((!stack[0]) && (!value)) {
                 Serial.print(postingsIn);
                 printOneChar(',');
                 Serial.println(postingsOut);
                 nodesShow();
-            } else if (stack[0] != (config.nodeId & RF12_HDR_MASK) &&
-                    stack[0] <= MAX_NODES && value < 255 &&
-                    (nodes[stack[0]] == 0)) {
+            } else if (value != (config.nodeId & RF12_HDR_MASK) &&
+                    value <= MAX_NODES && stack[0] < 255 &&
+                    (nodes[value] == 0)) {
                 // No posting to special(31) or overwriting pending post
-                nodes[stack[0]] = value;
+                nodes[value] = stack[0];
                 postingsIn++;
             } else {
                 showString(INVALID1);
@@ -561,7 +583,7 @@ static void handleInput (char c) {
             break;
 
         case 'n': // Clear node entries in RAM & EEPROM
-            if ((stack[0] > 0) && (stack[0] <= MAX_NODES) && (value == 123) /* && (nodes[stack[0]] == 0) */ ) {
+            if ((stack[0] > -1) && (stack[0] <= MAX_NODES) && (value == 123) /* && (nodes[stack[0]] == 0) */ ) {
                 nodes[stack[0]] = 0xFF; // Clear RAM entry
                 for (byte i = 0; i < (RF12_EEPROM_SIZE); ++i) {
                                         // Display eeprom byte                  
@@ -570,7 +592,7 @@ static void handleInput (char c) {
                     showNibble(b);
                     showNibble(b>>4);                  
                     if (b != 0xFF) {
-             // Clear eeprom byte, a node 0 would overwrite encryption key!
+             // Clear eeprom byte, a node 0 would overwrite encryption key
                         eeprom_write_byte((RF12_EEPROM_EKEY)
                           + (stack[0] * RF12_EEPROM_SIZE) + i, 0xFF);
                     }
@@ -589,6 +611,42 @@ static void handleInput (char c) {
     memset(stack, 0, sizeof stack);
 }
 
+static byte getString (PGM_P sourceF, byte rec) {
+    byte len, pos; // Scan flash string 
+    byte messagesR[] = { 0x05, 'T', 'E', 'S', 'T', '3', 0x05,  'T', 'E', 'S', 'T', '4', 0x08, 0x00, 0xFF, 0x00, 0xFF, 'J',
+                         'o', 'h', 'n',
+                       0 };
+    byte *sourceR;
+    for  (pos = 1 ;; pos++) {
+        len = pgm_read_byte(sourceF++);
+        if (pos == rec) break; 
+        if (!len) break;
+        sourceF = sourceF + len;
+    }
+    if (len) {
+        for (byte b = 0; b < len ; b++) {
+            stack[b] = pgm_read_byte(sourceF++);
+        }
+        return len;
+    } else {      // Scan ram string
+        sourceR = &messagesR[0];  // Seems a dirty wat to get the address []
+        for  (;; pos++) {
+            len = *sourceR; 
+            sourceR++;
+            if (!len) break;
+            if (pos == rec) break; 
+            sourceR = sourceR + len;
+        }
+    }
+    if (len) {
+        for (byte b = 0; b < len ; b++) {
+            stack[b] = *sourceR;
+            sourceR++;
+        }
+    }
+return len;
+}
+  
 static void displayASCII (const byte* data, byte count) {
     for (byte i = 0; i < count; ++i) {
         printOneChar(' ');
@@ -644,8 +702,8 @@ void setup () {
     rf12_configDump();
 
     // Initialise node table
-    for (byte i = 0; i <= MAX_NODES; i++) {
-        nodes[i] = eeprom_read_byte((RF12_EEPROM_EKEY + RF12_EEPROM_ELEN) + (i * RF12_EEPROM_SIZE));
+    for (byte i = 1; i <= MAX_NODES; i++) {
+        nodes[i] = eeprom_read_byte((RF12_EEPROM_EKEY) + (i * RF12_EEPROM_SIZE));
         // http://forum.arduino.cc/index.php/topic,140376.msg1054626.html
         if (nodes[i] != 0xFF)
             nodes[i] = 0;       // Indicate no post waiting for node!
@@ -663,7 +721,7 @@ void setup () {
 /// Display stored nodes and show the post queued for each node
 /// the post queue is not preserved through a restart of RF12Demo
 static void nodesShow() {
-    for (byte i = 0; i <= MAX_NODES; i++) {
+    for (byte i = 1; i <= MAX_NODES; i++) {
         if (nodes[i] != 0xFF) {
             Serial.print(i);
             printOneChar('(');
@@ -675,6 +733,7 @@ static void nodesShow() {
 }
 
 void loop () {
+
 #if TINY
     if (_receive_buffer_index)
         handleInput(inChar());
@@ -754,6 +813,7 @@ void loop () {
                 Serial.println();
                 nodes[rf12_hdr & RF12_HDR_MASK] = 0;        // Flag node number now in use
                 byte len = rf12_len < RF12_EEPROM_SIZE ? rf12_len : RF12_EEPROM_SIZE;
+            // The section will roll around to start of EEPROM address space for nodes 29 & 30
                 for (byte i = 0; i < len; ++i) {            // Save first packet to EEPROM
                     eeprom_write_byte((RF12_EEPROM_EKEY)    // + RF12_EEPROM_ELEN not required here
                       + (((rf12_hdr & RF12_HDR_MASK) * RF12_EEPROM_SIZE) + i), rf12_data[i]);
