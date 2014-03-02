@@ -23,7 +23,7 @@
 #define SERIAL_BAUD 38400   // can only be 9600 or 38400
 #define DATAFLASH   0       // do not change
 #undef  LED_PIN             // do not change
-//#define rf12_configDump()   // disabled
+#define rf12_configDump()   // disabled
 #else
 #define TINY        0
 #define SERIAL_BAUD 57600   // adjust as needed
@@ -133,7 +133,7 @@ typedef struct {
     byte nodeId;            // used by rf12_config, offset 0
     byte group;             // used by rf12_config, offset 1
     byte format;            // used by rf12_config, offset 2
-    byte hex_output   :2;   // 0 = dec, 1 = hex, 2 = hex+ascii
+    byte output :2;         // 0 = dec, 1 = hex, 2 = dec+ascii, 3 = hex+ascii
     byte collect_mode :1;   // 0 = ack, 1 = don't send acks
     byte quiet_mode   :1;   // 0 = show all, 1 = show only valid packets
     byte spare_flags  :4;
@@ -150,6 +150,11 @@ static byte testCounter;
 
 static byte nodes[MAX_NODES+1];
 static byte postingsIn, postingsOut;
+
+byte messagesR[64] = { 
+                       0 }; // Manditory delimiter
+byte *sourceR;
+
 static void showNibble (byte nibble) {
     char c = '0' + (nibble & 0x0F);
     if (c > '9')
@@ -158,7 +163,7 @@ static void showNibble (byte nibble) {
 }
 
 static void showByte (byte value) {
-    if (config.hex_output) {
+    if (config.output & 0x1) {
         showNibble(value >> 4);
         showNibble(value);
     } else
@@ -341,17 +346,17 @@ static void handleInput (char c) {
     //      Variable value is now 16 bits to permit offset command, stack only stores 8 bits
     //      not a problem for offset command but beware.
     if ('0' <= c && c <= '9') {
-        if (!config.hex_output) value = 10 * value + c - '0';
-        else value = 16 * value + c - '0';
+        if (config.output & 0x1) value = 16 * value + c - '0';
+        else value = 10 * value + c - '0';
         return;
     }
     
-    if (('A' <= c && c <= 'F') && (config.hex_output)) {
+    if (('A' <= c && c <= 'F') && (config.output & 0x1)) {
         value = 16 * value + (c - 'A' + 0xA);
         return;
     }
 
-    if (c == ',') {
+    if (c == ',' || c == ' ') {    // Permit comma or space as delimiters
         if (top < sizeof stack)
             stack[top++] = value; // truncated to 8 bits
         value = 0;
@@ -495,7 +500,7 @@ static void handleInput (char c) {
             break;
 
         case 'x': // set reporting mode to decimal (0), hex (1), hex+ascii (2)
-            config.hex_output = value;
+            config.output = value;
             saveConfig();
             break;
 
@@ -507,23 +512,45 @@ static void handleInput (char c) {
 #endif
             break;
          
-        case 'm':  // Message storage
-        
-            for (byte i = 1 ;; i++) {
-                Serial.print("Record ");
-                Serial.print(i);
-                printOneChar(' ');
-                byte len = getString(messagesF, i); 
-                if (!len) break;
-                Serial.println(len);
-                for (byte b=0; b < len; b++) {
-                    showByte(stack[b]);
+        case 'm':  // Message storage handliing
+            if (value == 123)
+              messagesR[0] = 0;  // Clear RAM message store
+              messagesR[63] = 0;
+            // Store a string in RAM to be used to be used by the 'p' command
+            if (top) {
+                sourceR = &messagesR[0];
+                for (;;) {    // Find end of string
+                    byte len = *sourceR; 
+                    if (!len) break;
+                    sourceR = sourceR + (len + 1);
+                    
                 }
-                Serial.println();
-                displayASCII(stack, len);
-                Serial.println();
+                if ((((sourceR + 1) - &messagesR[0]) + top + 1 ) <= sizeof messagesR) {
+                    Serial.println(((sourceR + 1) - &messagesR[0]) + (top + 1)); // DEBUG
+                    Serial.println(sizeof messagesR);
+                    *sourceR = top; // Start message, overwrite null length byte
+                    memcpy((sourceR + 1), &stack, top);
+                    sourceR = (sourceR + 1) + top;
+                    *sourceR = 0;   // create message string terminator
+                } else {
+                    Serial.println("Insufficient RAM");
+                    value == 1;
+                }
+                                
+            }             
+            if (value == 0) {
+                for (byte i = 1 ;; i++) {
+                    byte len = getString(messagesF, i); 
+                    if (!len) break;
+                    printOneChar('m');
+                    showByte(i);
+                    printOneChar('[');
+                    showByte(len);
+                    Serial.println(']');
+                    displayString(stack, len);
+                    if (config.output > 1) displayASCII(stack, len);
+                }
             }
-            printOneChar('\r');
             break;
 
         case 'p':
@@ -613,10 +640,6 @@ static void handleInput (char c) {
 
 static byte getString (PGM_P sourceF, byte rec) {
     byte len, pos; // Scan flash string 
-    byte messagesR[] = { 0x05, 'T', 'E', 'S', 'T', '3', 0x05,  'T', 'E', 'S', 'T', '4', 0x08, 0x00, 0xFF, 0x00, 0xFF, 'J',
-                         'o', 'h', 'n',
-                       0 };
-    byte *sourceR;
     for  (pos = 1 ;; pos++) {
         len = pgm_read_byte(sourceF++);
         if (pos == rec) break; 
@@ -646,12 +669,29 @@ static byte getString (PGM_P sourceF, byte rec) {
     }
 return len;
 }
+
+static void displayString (const byte* data, byte count) {
+    for (byte i = 0; i < count; ++i) {
+        char c = (char) data[i];
+        showByte(data[i]);
+        if (!config.output & 0x1) printOneChar(' ');
+    }
+    Serial.println();
+}
   
 static void displayASCII (const byte* data, byte count) {
     for (byte i = 0; i < count; ++i) {
-        printOneChar(' ');
-        char c = (char) data[i];
-        printOneChar(c < ' ' || c > '~' ? '.' : c);
+        if (config.output & 0x1) printOneChar(' ');
+        byte c = data[i];                           
+// TODO Understand casting: char c = (char) data[i];
+        if (config.output & 0x2) {
+            if (c > 99) printOneChar(' ');
+            if (c > 9) printOneChar(' ');
+        }
+        char d = (char) data[i];
+// TODO Understand casting: char c = (char) data[i]; duplicate load
+        printOneChar(d < ' ' || d > '~' ? '.' : d);
+        if (config.output & 0x2) printOneChar(' ');
     }
     Serial.println();
 }
@@ -752,7 +792,7 @@ void loop () {
             if (n > 20) // print at most 20 bytes if crc is wrong
                 n = 20;
         }
-        if (config.hex_output)
+        if (config.output & 0x1)
             printOneChar('X');
         if (config.group == 0) {
             showString(PSTR(" G"));
@@ -761,7 +801,7 @@ void loop () {
         printOneChar(' ');
         showByte(rf12_hdr);
         for (byte i = 0; i < n; ++i) {
-            if (!config.hex_output)
+            if (!config.output & 0x1) // Ascii output?
                 printOneChar(' ');
             showByte(rf12_data[i]);
         }
@@ -772,7 +812,7 @@ void loop () {
         Serial.print(" fei=");
         Serial.print((RF69::fei));
         showString(PSTR(" ("));
-        if (config.hex_output)
+        if (config.output & 0x1)                  // Hex output?
             showByte(RF69::rssi);
         else {
             byte rf69x2 = RF69::rssi;
@@ -785,7 +825,7 @@ void loop () {
 #endif
         Serial.println(")");
 
-        if (config.hex_output > 1) { // also print a line as ascii
+        if (config.output & 0x2) { // also print a line as ascii
             showString(PSTR("ASC "));
             if (config.group == 0) {
                 showString(PSTR(" II "));
@@ -841,7 +881,7 @@ void loop () {
                     if (!(rf12_hdr & RF12_HDR_DST) && (nodes[(rf12_hdr & RF12_HDR_MASK)] != 0) &&
                              (nodes[(rf12_hdr & RF12_HDR_MASK)] != 0xFF)) {
                         // Sources Nodes only!
-//                        testbuf[0] = nodes[(rf12_hdr & RF12_HDR_MASK)];
+// TODO                      testbuf[0] = nodes[(rf12_hdr & RF12_HDR_MASK)];
                         // Pick up posted value
                         nodes[(rf12_hdr & RF12_HDR_MASK)] = 0;
                         // Assume it will be delivered.
@@ -849,7 +889,7 @@ void loop () {
                         showString(PSTR("Posted "));
                         showByte(rf12_hdr & RF12_HDR_MASK);
                         printOneChar(',');
-//                        showByte(testbuf[0]);
+// TODO                       showByte(testbuf[0]);
                         postingsOut++;
                         Serial.println();
                     }
