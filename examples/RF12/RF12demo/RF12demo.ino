@@ -644,7 +644,6 @@ static void handleInput (char c) {
     }
 
     value = top = 0;
-    memset(stack, 0, sizeof stack);
 }
 
 static byte getMessage (byte rec) {
