@@ -516,7 +516,6 @@ static void handleInput (char c) {
     }
 
     value = top = 0;
-    memset(stack, 0, sizeof stack);
 }
 
 static void displayASCII (const byte* data, byte count) {
