@@ -40,7 +40,7 @@ const char INITFAIL[] PROGMEM = "config save failed\n";
 // http://www.ernstc.dk/arduino/tinycom.html
 // 9600, 38400, or 115200
 // hardware\jeelabs\avr\cores\tiny\TinyDebugSerial.h Modified to
-// moveTinyDebugSerial from PB0 to PA3 to match the Jeenode Micro V3 PCB layout
+// move TinyDebugSerial from PB0 to PA3 to match the Jeenode Micro V3 PCB layout
 // Connect Tiny84 PA3 to USB-BUB RXD for serial output from sketch.
 // Jeenode AIO2
 //
@@ -152,7 +152,7 @@ static byte nodes[MAX_NODES+1];
 static byte postingsIn, postingsOut;
 
 const char messagesF[] PROGMEM = { 
-                      0x05, 'T', 'e', 's', 't', '1', 
+//                      0x05, 'T', 'e', 's', 't', '1', 
 //                      0x05, 'T', 'e', 's', 't', '2', 
                                0 }; // Mandatory delimiter
 
@@ -361,7 +361,7 @@ static void handleInput (char c) {
         return;
     }
 
-    if (c == ',' || c == ' ') {    // Permit comma or space as delimiters
+    if (c == ',' || c == ' ') {   // Permit comma or space as delimiters
         if (top < sizeof stack)
             stack[top++] = value; // truncated to 8 bits
         value = 0;
@@ -462,7 +462,7 @@ static void handleInput (char c) {
             for (byte i = 0; i < RF12_MAXDATA; ++i)
                 stack[i] = i + testCounter;
             showString(PSTR("test "));
-            Serial.println(testCounter); // first byte in test buffer
+            showByte(testCounter); // first byte in test buffer
             ++testCounter;
             break;
 
@@ -565,17 +565,17 @@ static void handleInput (char c) {
         case 'p':
             // Post a command for a remote node, to be collected along with
             // the next ACK. Format is 127,20p where 20 is the node number and
-            // 127 is the desired value to be posted value contains the
-            // target node and stack[0] contains the command to be posted
-            if ((!stack[0]) && (!value)) {
-                Serial.print(postingsIn);
+            // 127 is the desired number to be posted. The integer "value" contains
+            // the target node and stack[0] contains the number to be posted.
+            // If a message string exists numbered the same as the posted number then
+            // the message string will be substituted for the single byte number
+            // as it is transmitted with the ACK.
+            if (!value) {
+                Serial.print((word) postingsIn);
                 printOneChar(',');
-                Serial.println(postingsOut);
+                Serial.println((word) postingsOut);
                 nodesShow();
-            } else if (value != (config.nodeId & RF12_HDR_MASK) &&
-                    value <= MAX_NODES && stack[0] < 255 &&
-                    (nodes[value] == 0)) {
-                // No posting to special(31) or overwriting pending post
+            } else if (value <= MAX_NODES) {
                 nodes[value] = stack[0];
                 postingsIn++;
             } else {
@@ -619,8 +619,9 @@ static void handleInput (char c) {
             break;
 
         case 'n': // Clear node entries in RAM & EEPROM
-            if ((stack[0] > -1) && (stack[0] <= MAX_NODES) && (value == 123) /* && (nodes[stack[0]] == 0) */ ) {
+            if (stack[0] > 0 && (stack[0] <= MAX_NODES) && (value == 123)) {
                 nodes[stack[0]] = 0xFF; // Clear RAM entry
+            // On a T84 this section will roll around to start of EEPROM address space for nodes 28 - 30
                 for (byte i = 0; i < (RF12_EEPROM_SIZE); ++i) {
                                         // Display eeprom byte                  
                     byte b = eeprom_read_byte((RF12_EEPROM_EKEY)
@@ -774,9 +775,9 @@ void setup () {
 static void nodesShow() {
     for (byte i = 1; i <= MAX_NODES; i++) {
         if (nodes[i] != 0xFF) {
-            Serial.print(i);
+            showByte(i);
             printOneChar('(');
-            Serial.print(nodes[i]);
+            showByte(nodes[i]);
             showString(PSTR(") "));
         }
     }
@@ -833,9 +834,9 @@ void loop () {
             if (rf69fraction) Serial.print(".5");
             Serial.print("dB");
         }
-        Serial.println(")");
+        printOneByte(')');
 #endif
-
+        Serial.println();
         if (config.output & 0x2) { // also print a line as ascii
             showString(PSTR("ASC "));
             if (config.group == 0) {
@@ -864,7 +865,7 @@ void loop () {
                 Serial.println();
                 nodes[rf12_hdr & RF12_HDR_MASK] = 0;        // Flag node number now in use
                 byte len = rf12_len < RF12_EEPROM_SIZE ? rf12_len : RF12_EEPROM_SIZE;
-            // The section will roll around to start of EEPROM address space for nodes 29 & 30
+            // On a T84 this section will roll around to start of EEPROM address space for nodes 28 - 30
                 for (byte i = 0; i < len; ++i) {            // Save first packet to EEPROM
                     eeprom_write_byte((RF12_EEPROM_EKEY)    // + RF12_EEPROM_ELEN not required here
                       + (((rf12_hdr & RF12_HDR_MASK) * RF12_EEPROM_SIZE) + i), rf12_data[i]);
