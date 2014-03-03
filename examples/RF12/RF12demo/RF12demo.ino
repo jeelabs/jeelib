@@ -874,7 +874,7 @@ void loop () {
 
             if (RF12_WANTS_ACK && (config.collect_mode) == 0) {
                 showString(PSTR(" -> ack\n"));
-                testCounter = 0;
+                top = 0;
 
                 if ((rf12_hdr & (RF12_HDR_MASK | RF12_HDR_DST)) == 31) {
                     // Special Node 31 source node
@@ -882,7 +882,7 @@ void loop () {
                         if (nodes[i] == 0xFF) {
                             stack[0] = i + 0xE0;
                             // Change Node number request - matched in RF12Tune
-                            testCounter = 1;
+                            top = 1;
                             showString(PSTR("Node allocation "));
                             showByte(i);
                             Serial.println();
@@ -894,18 +894,17 @@ void loop () {
                              (nodes[(rf12_hdr & RF12_HDR_MASK)] != 0xFF)) {
                         // Sources Nodes only!
                         stack[0] = nodes[(rf12_hdr & RF12_HDR_MASK)];  // Pick up pointer
-                        testCounter = getMessage(stack[0]);             // Check for a message substitution
-                        if (!testCounter) { 
-                            testCounter = 1;                           // No replacement, just use pointer
+                        top = getMessage(stack[0]);                    // Check for a message substitution
+                        if (!top) { 
+                            top = 1;                                   // No replacement, just use pointer
                         }
                         nodes[(rf12_hdr & RF12_HDR_MASK)] = 0;
                         // Assume it will be delivered.
                         showString(PSTR("Posted "));
                         showByte(rf12_hdr & RF12_HDR_MASK);
-                        printOneChar(',');
-                        displayString(stack, testCounter);
+                        printOneChar(':');
+                        displayString(stack, top);
                         postingsOut++;
-                        Serial.println();
                     }
                 }
 
