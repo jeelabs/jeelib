@@ -6,7 +6,7 @@
 // Adding frequency features. 2013-09-05
 // Added postbox semaphore feature 2013-10-24
 
-#define RF69_COMPAT 1 // define this to use the RF69 driver i.s.o. RF12
+#define RF69_COMPAT 0 // define this to use the RF69 driver i.s.o. RF12
 
 #include <JeeLib.h>
 #include <util/crc16.h>
@@ -151,8 +151,15 @@ static byte testCounter;
 static byte nodes[MAX_NODES+1];
 static byte postingsIn, postingsOut;
 
+const char messagesF[] PROGMEM = { 
+                      0x05, 'T', 'e', 's', 't', '1', 
+//                      0x05, 'T', 'e', 's', 't', '2', 
+                               0 }; // Mandatory delimiter
+
+#define MessagesStart 128
 byte messagesR[64] = { 
-                       0 }; // Manditory delimiter
+                      0x05, 'T', 'e', 's', 't', '3',
+                               0 }; // Mandatory delimiter
 byte *sourceR;
 
 static void showNibble (byte nibble) {
@@ -326,8 +333,6 @@ static void showString (PGM_P s) {
         printOneChar(c);
     }
 }
-
-const char messagesF[] PROGMEM = { 0x05, 'T', 'E', 'S', 'T', '1', 0x05,  'T', 'E', 'S', 'T', '2', 0 };
 
 static void showHelp () {
 #if TINY
@@ -513,36 +518,34 @@ static void handleInput (char c) {
             break;
          
         case 'm':  // Message storage handliing
-            if (value == 123)
-              messagesR[0] = 0;  // Clear RAM message store
-              messagesR[63] = 0;
-            // Store a string in RAM to be used to be used by the 'p' command
-            if (top) {
-                sourceR = &messagesR[0];
-                for (;;) {    // Find end of string
-                    byte len = *sourceR; 
-                    if (!len) break;
-                    sourceR = sourceR + (len + 1);
-                    
+            if (value >= MessagesStart) {
+            // Remove a message string from RAM 
+              byte len = getMessage(value);
+                if ((sourceR) && (len)) {       // Is message in RAM
+                    displayString(stack, len);
+                    byte *fromR;
+                    fromR = sourceR;            // Points to next message length
+                    getMessage(255);            // Find end of messages Null
+                    memcpy((fromR - (len + 1)), fromR, ((sourceR - fromR) + 1));                        
+                } else {
+                    value = 0;                  // Trigger a display of messages
                 }
+            }
+            
+            if (top) {
+            // Store a message string in RAM, to be used by the 'p' command
+                getMessage(255);    // Get pointer to end of messages
                 if ((((sourceR + 1) - &messagesR[0]) + top + 1 ) <= sizeof messagesR) {
-                    Serial.println(((sourceR + 1) - &messagesR[0]) + (top + 1)); // DEBUG
-                    Serial.println(sizeof messagesR);
                     *sourceR = top; // Start message, overwrite null length byte
                     memcpy((sourceR + 1), &stack, top);
                     sourceR = (sourceR + 1) + top;
                     *sourceR = 0;   // create message string terminator
-                } else {
-                    Serial.println("Insufficient RAM");
-                    value == 1;
                 }
-                                
             }             
             if (value == 0) {
-                for (byte i = 1 ;; i++) {
-                    byte len = getString(messagesF, i); 
+                for (byte i = MessagesStart; i <= 254; i++) {
+                    byte len = getMessage(i); 
                     if (!len) break;
-                    printOneChar('m');
                     showByte(i);
                     printOneChar('[');
                     showByte(len);
@@ -550,7 +553,13 @@ static void handleInput (char c) {
                     displayString(stack, len);
                     if (config.output > 1) displayASCII(stack, len);
                 }
+                
+                showByte(((sourceR) - &messagesR[0]) + 1);
+                printOneChar('/');                    
+                showByte(sizeof messagesR);
+                Serial.println();                 
             }
+            
             break;
 
         case 'p':
@@ -638,9 +647,11 @@ static void handleInput (char c) {
     memset(stack, 0, sizeof stack);
 }
 
-static byte getString (PGM_P sourceF, byte rec) {
-    byte len, pos; // Scan flash string 
-    for  (pos = 1 ;; pos++) {
+static byte getMessage (byte rec) {
+    byte len, pos;                          // Scan flash string
+    sourceR = 0;                            // Not RAM!
+    PGM_P sourceF = &messagesF[0];          // Start of Flash messages
+    for  (pos = MessagesStart; pos <= 254; pos++) {
         len = pgm_read_byte(sourceF++);
         if (pos == rec) break; 
         if (!len) break;
@@ -651,21 +662,22 @@ static byte getString (PGM_P sourceF, byte rec) {
             stack[b] = pgm_read_byte(sourceF++);
         }
         return len;
-    } else {      // Scan ram string
-        sourceR = &messagesR[0];  // Seems a dirty wat to get the address []
-        for  (;; pos++) {
+    } else {      // Scan RAM string
+        sourceR = &messagesR[0];            // Start of RAM messages
+        for  (; pos <= 254; pos++) {
             len = *sourceR; 
-            sourceR++;
             if (!len) break;
             if (pos == rec) break; 
-            sourceR = sourceR + len;
+            sourceR = sourceR + (len + 1);  // Step past len + message
         }
     }
     if (len) {
+        sourceR++;                // Step past length byte
         for (byte b = 0; b < len ; b++) {
             stack[b] = *sourceR;
             sourceR++;
         }
+    // *sourceR is pointing to the length byte of the next message
     }
 return len;
 }
@@ -822,8 +834,8 @@ void loop () {
             if (rf69fraction) Serial.print(".5");
             Serial.print("dB");
         }
-#endif
         Serial.println(")");
+#endif
 
         if (config.output & 0x2) { // also print a line as ascii
             showString(PSTR("ASC "));
@@ -881,21 +893,23 @@ void loop () {
                     if (!(rf12_hdr & RF12_HDR_DST) && (nodes[(rf12_hdr & RF12_HDR_MASK)] != 0) &&
                              (nodes[(rf12_hdr & RF12_HDR_MASK)] != 0xFF)) {
                         // Sources Nodes only!
-// TODO                      testbuf[0] = nodes[(rf12_hdr & RF12_HDR_MASK)];
-                        // Pick up posted value
+                        stack[0] = nodes[(rf12_hdr & RF12_HDR_MASK)];  // Pick up pointer
+                        testCounter = getMessage(stack[0]);             // Check for a message substitution
+                        if (!testCounter) { 
+                            testCounter = 1;                           // No replacement, just use pointer
+                        }
                         nodes[(rf12_hdr & RF12_HDR_MASK)] = 0;
                         // Assume it will be delivered.
-                        testCounter = 1;
                         showString(PSTR("Posted "));
                         showByte(rf12_hdr & RF12_HDR_MASK);
                         printOneChar(',');
-// TODO                       showByte(testbuf[0]);
+                        displayString(stack, testCounter);
                         postingsOut++;
                         Serial.println();
                     }
                 }
 
-                rf12_sendStart(RF12_ACK_REPLY, 0, 0);
+                rf12_sendStart(RF12_ACK_REPLY, stack, top);
             }
             activityLed(0);
         }
