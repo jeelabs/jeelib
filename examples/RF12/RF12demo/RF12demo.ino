@@ -5,6 +5,7 @@
 // this version adds flash memory support, 2009-11-19
 // Adding frequency features. 2013-09-05
 // Added postbox semaphore feature 2013-10-24
+// Added message storage  substitution feature 2014-03-04
 
 #define RF69_COMPAT 0 // define this to use the RF69 driver i.s.o. RF12
 
@@ -23,7 +24,7 @@
 #define SERIAL_BAUD 38400   // can only be 9600 or 38400
 #define DATAFLASH   0       // do not change
 #undef  LED_PIN             // do not change
-#define rf12_configDump()   // disabled
+//#define rf12_configDump()   // disabled
 #else
 #define TINY        0
 #define SERIAL_BAUD 57600   // adjust as needed
@@ -374,7 +375,7 @@ static void handleInput (char c) {
             showByte(stack[i]);
             printOneChar(',');
         }
-        showByte(value);
+        Serial.print((word)value);
         Serial.println(c);
     }
 
@@ -489,16 +490,6 @@ static void handleInput (char c) {
             rf12_configSilent();
             break;
 
-        case 'z': // put the ATmega in ultra-low power mode (reset needed)
-            if (value == 123) {
-                showString(PSTR(" Zzz...\n"));
-                Serial.flush();
-                rf12_sleep(RF12_SLEEP);
-                cli();
-                Sleepy::powerDown();
-            }
-            break;
-
         case 'q': // turn quiet mode on or off (don't report bad packets)
             config.quiet_mode = value;
             saveConfig();
@@ -578,13 +569,31 @@ static void handleInput (char c) {
             } else if (value <= MAX_NODES) {
                 nodes[value] = stack[0];
                 postingsIn++;
-            } else {
-                showString(INVALID1);
+            }
+            break;
+
+        case 'n': // Clear node entries in RAM & EEPROM
+            if (stack[0] <= MAX_NODES) {
+                nodes[stack[0]] = 0xFF; // Clear RAM entry
+            // On a T84 this section will roll around to start of EEPROM address space for nodes 28 - 30
+                for (byte i = 0; i < (RF12_EEPROM_SIZE); ++i) {
+                                        // Display eeprom byte                  
+                    byte b = eeprom_read_byte((RF12_EEPROM_EKEY)
+                               + (stack[0] * RF12_EEPROM_SIZE) + i);
+                    showNibble(b);
+                    showNibble(b>>4);                  
+                    if (b != 0xFF) {
+             // Clear eeprom byte, a node 0 would overwrite encryption key
+                        eeprom_write_byte((RF12_EEPROM_EKEY)
+                          + (stack[0] * RF12_EEPROM_SIZE) + i, 0xFF);
+                    }
+                }
             }
             break;
 
 // the following commands all get optimised away when TINY is set
 // TODO How does that happen then?
+#if !TINY    // Added this 2014-03-04
 
         case 'l': // turn activity LED on or off
             activityLed(value);
@@ -618,26 +627,17 @@ static void handleInput (char c) {
             }
             break;
 
-        case 'n': // Clear node entries in RAM & EEPROM
-            if (stack[0] > 0 && (stack[0] <= MAX_NODES) && (value == 123)) {
-                nodes[stack[0]] = 0xFF; // Clear RAM entry
-            // On a T84 this section will roll around to start of EEPROM address space for nodes 28 - 30
-                for (byte i = 0; i < (RF12_EEPROM_SIZE); ++i) {
-                                        // Display eeprom byte                  
-                    byte b = eeprom_read_byte((RF12_EEPROM_EKEY)
-                               + (stack[0] * RF12_EEPROM_SIZE) + i);
-                    showNibble(b);
-                    showNibble(b>>4);                  
-                    if (b != 0xFF) {
-             // Clear eeprom byte, a node 0 would overwrite encryption key
-                        eeprom_write_byte((RF12_EEPROM_EKEY)
-                          + (stack[0] * RF12_EEPROM_SIZE) + i, 0xFF);
-                    }
-                }
-            } else {
-                showString(INVALID1);
+        case 'z': // put the ATmega in ultra-low power mode (reset needed)
+            if (value == 123) {
+                showString(PSTR(" Zzz...\n"));
+                Serial.flush();
+                rf12_sleep(RF12_SLEEP);
+                cli();
+                Sleepy::powerDown();
             }
             break;
+
+#endif
 
         default:
             showHelp();
@@ -834,7 +834,7 @@ void loop () {
             if (rf69fraction) Serial.print(".5");
             Serial.print("dB");
         }
-        printOneByte(')');
+        printOneChar(')');
 #endif
         Serial.println();
         if (config.output & 0x2) { // also print a line as ascii

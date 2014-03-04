@@ -657,7 +657,8 @@ uint8_t rf12_configSilent () {
     nodeId = eeprom_read_byte(RF12_EEPROM_ADDR + 0);
     group  = eeprom_read_byte(RF12_EEPROM_ADDR + 1);
     frequency = eeprom_read_word((uint16_t*) (RF12_EEPROM_ADDR + 4));
-    
+// TODO convert away from eeprom_read_word to avoid it being linked    
+
     rf12_initialize(nodeId, nodeId >> 6, group, frequency);
     return nodeId & RF12_HDR_MASK;
 }
@@ -669,6 +670,7 @@ void rf12_configDump () {
     uint8_t nodeId = eeprom_read_byte(RF12_EEPROM_ADDR);
     uint8_t flags = eeprom_read_byte(RF12_EEPROM_ADDR + 3);
     uint16_t freq = eeprom_read_word((uint16_t*) (RF12_EEPROM_ADDR + 4));
+// TODO convert away from eeprom_read_word to avoid it being linked    
     
     // " A i1 g178 @ 868 MHz "
     Serial.print(' ');
