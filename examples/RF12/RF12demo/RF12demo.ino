@@ -33,7 +33,6 @@
 #endif
 
 /// Save a few bytes of flash by declaring const if used more than once.
-const char INVALID1[] PROGMEM = "\rInvalid\n";
 const char INITFAIL[] PROGMEM = "config save failed\n";
 
 #if TINY
@@ -399,8 +398,7 @@ static void handleInput (char c) {
 
         case 'i': // set node id
             if ((value > 0) && (value <= MAX_NODES + 1)) {
-                if (value < MAX_NODES)
-                    nodes[value] = 0;
+                nodes[value] = 0;
                 // Prevent auto allocation of this node number
                 config.nodeId = (config.nodeId & 0xE0) + (value & 0x1F);
                 saveConfig();
@@ -460,8 +458,11 @@ static void handleInput (char c) {
             cmd = 'a';
             sendLen = RF12_MAXDATA;
             dest = 0;
+            if (value) testCounter = value;    // Seed test pattern?
             for (byte i = 0; i < RF12_MAXDATA; ++i)
-                stack[i] = i + testCounter;
+                if (!top) 
+                  stack[i] = i + testCounter;
+                else stack[i] = stack[0];      // fixed byte pattern
             showString(PSTR("test "));
             showByte(testCounter); // first byte in test buffer
             ++testCounter;
@@ -542,7 +543,7 @@ static void handleInput (char c) {
                     showByte(len);
                     Serial.println(']');
                     displayString(stack, len);
-                    if (config.output > 1) displayASCII(stack, len);
+                    if (!config.output & 1) displayASCII(stack, len);
                 }
                 
                 showByte(((sourceR) - &messagesR[0]) + 1);
