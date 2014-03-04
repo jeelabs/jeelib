@@ -5,7 +5,7 @@
 // this version adds flash memory support, 2009-11-19
 // Adding frequency features. 2013-09-05
 // Added postbox semaphore feature 2013-10-24
-// Added message storage  substitution feature 2014-03-04
+// Added message storage substitution feature 2014-03-04
 
 #define RF69_COMPAT 0 // define this to use the RF69 driver i.s.o. RF12
 
@@ -24,6 +24,7 @@
 #define SERIAL_BAUD 38400   // can only be 9600 or 38400
 #define DATAFLASH   0       // do not change
 #undef  LED_PIN             // do not change
+// Uncomment line below to reduce FLASH size
 // #define rf12_configDump()   // disabled
 #else
 #define TINY        0
@@ -504,7 +505,8 @@ static void handleInput (char c) {
             displayVersion();
             rf12_configDump();
 #if TINY
-            Serial.println();
+// Uncomment line below if "#define rf12_configDump()   // disabled" is active
+//            Serial.println();
 #endif
             break;
          
