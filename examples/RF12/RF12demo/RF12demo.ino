@@ -421,7 +421,7 @@ static void handleInput (char c) {
             for (byte i = 0; i < RF12_MAXDATA; ++i)
                 stack[i] = i + testCounter;
             showString(PSTR("test "));
-            Serial.println(testCounter); // first byte in test buffer
+            showByte(testCounter); // first byte in test buffer
             ++testCounter;
             break;
 
