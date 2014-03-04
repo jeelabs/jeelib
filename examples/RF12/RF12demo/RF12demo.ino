@@ -24,7 +24,7 @@
 #define SERIAL_BAUD 38400   // can only be 9600 or 38400
 #define DATAFLASH   0       // do not change
 #undef  LED_PIN             // do not change
-//#define rf12_configDump()   // disabled
+#define rf12_configDump()   // disabled
 #else
 #define TINY        0
 #define SERIAL_BAUD 57600   // adjust as needed
@@ -82,7 +82,7 @@ ISR (PCINT0_vect) {
 
 // TODO: replace with code from the std avr libc library:
 //  http://www.nongnu.org/avr-libc/user-manual/group__util__delay__basic.html
-void whackDelay (word delay) {
+static void whackDelay (word delay) {
     byte tmp=0;
 
     asm volatile("sbiw      %0, 0x01 \n\t"
@@ -689,7 +689,7 @@ static void displayString (const byte* data, byte count) {
         showByte(data[i]);
         if (!config.output & 0x1) printOneChar(' ');
     }
-    Serial.println();
+//    Serial.println();
 }
   
 static void displayASCII (const byte* data, byte count) {
@@ -717,7 +717,7 @@ static void displayVersion () {
 #endif
 }
 
-int freeRam () {    // @jcw's work
+static int freeRam () {    // @jcw's work
   extern int __heap_start, *__brkval; 
   int v; 
   return (int) &v - (__brkval == 0 ? (int) &__heap_start : (int) __brkval); 
@@ -863,7 +863,7 @@ void loop () {
                     rf12_data[0] = 0xEF;
                 showString(PSTR("New Node "));
                 showByte(rf12_hdr & RF12_HDR_MASK);
-                Serial.println();
+ //DEBUG               Serial.println();
                 nodes[rf12_hdr & RF12_HDR_MASK] = 0;        // Flag node number now in use
                 byte len = rf12_len < RF12_EEPROM_SIZE ? rf12_len : RF12_EEPROM_SIZE;
             // On a T84 this section will roll around to start of EEPROM address space for nodes 28 - 30
@@ -874,19 +874,18 @@ void loop () {
             }
 
             if (RF12_WANTS_ACK && (config.collect_mode) == 0) {
-                showString(PSTR(" -> ack\n"));
                 top = 0;
 
                 if ((rf12_hdr & (RF12_HDR_MASK | RF12_HDR_DST)) == 31) {
                     // Special Node 31 source node
                     for (byte i = 1; i <= MAX_NODES; i++) {
                         if (nodes[i] == 0xFF) {
-                            stack[0] = i + 0xE0;
+                            stack[0] = i + 0xE0; // 0xE0 is an arbitary value
                             // Change Node number request - matched in RF12Tune
                             top = 1;
                             showString(PSTR("Node allocation "));
                             showByte(i);
-                            Serial.println();
+ //DEBUG                           Serial.println();
                             break;
                         }
                     }
@@ -894,7 +893,7 @@ void loop () {
                     if (!(rf12_hdr & RF12_HDR_DST) && (nodes[(rf12_hdr & RF12_HDR_MASK)] != 0) &&
                              (nodes[(rf12_hdr & RF12_HDR_MASK)] != 0xFF)) {
                         // Sources Nodes only!
-                        stack[0] = nodes[(rf12_hdr & RF12_HDR_MASK)];  // Pick up pointer
+                        stack[0] = nodes[(rf12_hdr & RF12_HDR_MASK)];  // Pick up message pointer
                         top = getMessage(stack[0]);                    // Check for a message substitution
                         if (!top) { 
                             top = 1;                                   // No replacement, just use pointer
@@ -903,13 +902,14 @@ void loop () {
                         // Assume it will be delivered.
                         showString(PSTR("Posted "));
                         showByte(rf12_hdr & RF12_HDR_MASK);
-                        printOneChar(':');
+                        printOneChar(' ');
                         displayString(stack, top);
                         postingsOut++;
                     }
                 }
-
-                rf12_sendStart(RF12_ACK_REPLY, stack, top);
+                showString(PSTR(" -> ack\n"));
+                rf12_sendStart(RF12_ACK_REPLY, &stack, top);
+                top = 0;
             }
             activityLed(0);
         }

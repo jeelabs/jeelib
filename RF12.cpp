@@ -8,12 +8,12 @@
 #include <avr/eeprom.h>
 #include <avr/sleep.h>
 #if ARDUINO >= 100
-#include <Arduino.h> // Arduino 1.0
+#include <Arduino.h>  // Arduino 1.0
 #else
 #include <WProgram.h> // Arduino 0022
 #endif
 
-// #define OPTIMIZE_SPI 1  // uncomment this to write to the RFM12B @ 8 Mhz
+#define OPTIMIZE_SPI 1  // uncomment this to write to the RFM12B @ 8 Mhz
 
 // pin change interrupts are currently only supported on ATmega328's
 // #define PINCHG_IRQ 1    // uncomment this to use pin-change interrupts
@@ -676,7 +676,7 @@ void rf12_configDump () {
     Serial.print(' ');
     Serial.print((char) ('@' + (nodeId & RF12_HDR_MASK)));
     Serial.print(" i");
-    Serial.print(nodeId & RF12_HDR_MASK);
+    Serial.print((word)nodeId & RF12_HDR_MASK);
     if (flags & 0x04)
         Serial.print('*');
     Serial.print(" g");
@@ -689,7 +689,7 @@ void rf12_configDump () {
     Serial.print(" MHz");
     if (freq != 1600) {
         Serial.print(" o");
-        Serial.print((word)freq);
+        Serial.print(freq);
     }
     if (flags & 0x08) {
         Serial.print(" q1");
