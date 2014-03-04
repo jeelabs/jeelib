@@ -632,7 +632,6 @@ void loop () {
 
             if (RF12_WANTS_ACK && (config.collect_mode) == 0) {
                 showString(PSTR(" -> ack\n"));
-                testCounter = 0;
                 rf12_sendStart(RF12_ACK_REPLY, 0, 0);
             }
             activityLed(0);
