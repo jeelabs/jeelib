@@ -24,7 +24,7 @@
 #define SERIAL_BAUD 38400   // can only be 9600 or 38400
 #define DATAFLASH   0       // do not change
 #undef  LED_PIN             // do not change
-#define rf12_configDump()   // disabled
+// #define rf12_configDump()   // disabled
 #else
 #define TINY        0
 #define SERIAL_BAUD 57600   // adjust as needed
@@ -33,7 +33,7 @@
 #endif
 
 /// Save a few bytes of flash by declaring const if used more than once.
-const char INITFAIL[] PROGMEM = "config save failed\n";
+const char INITFAIL[] PROGMEM = "init failed\n";
 
 #if TINY
 // Serial support (output only) for Tiny supported by TinyDebugSerial
@@ -59,7 +59,6 @@ const char INITFAIL[] PROGMEM = "config save failed\n";
 
 #define MAX_NODES 30
 #define _receivePin 8
-static int _bitDelay;
 static char _receive_buffer;
 static byte _receive_buffer_index;
 
@@ -67,13 +66,13 @@ ISR (PCINT0_vect) {
     char i, d = 0;
     if (digitalRead(_receivePin))       // PA2 = Jeenode DIO2
         return;                         // not ready!
-    whackDelay(_bitDelay - 8);
+    whackDelay(BITDELAY - 8);
     for (i=0; i<8; i++) {
-        whackDelay(_bitDelay*2 - 6);    // digitalread takes some time
+        whackDelay(BITDELAY*2 - 6);     // digitalread takes some time
         if (digitalRead(_receivePin))   // PA2 = Jeenode DIO2
             d |= (1 << i);
     }
-    whackDelay(_bitDelay*2);
+    whackDelay(BITDELAY*2);
     if (_receive_buffer_index)
         return;
     _receive_buffer = d;                // save data
@@ -730,11 +729,9 @@ void setup () {
 #if TINY
     PCMSK0 |= (1<<PCINT2);  // tell pin change mask to listen to PA2
     GIMSK |= (1<<PCIE0);    // enable PCINT interrupt in general interrupt mask
-    // FIXME: _bitDelay has not yet been initialised here !?
-    whackDelay(_bitDelay*2); // if we were low this establishes the end
+    whackDelay(BITDELAY*2); // if we were low this establishes the end
     pinMode(_receivePin, INPUT);        // PA2
     digitalWrite(_receivePin, HIGH);    // pullup!
-    _bitDelay = BITDELAY;
 #endif
 
     Serial.begin(SERIAL_BAUD);
@@ -861,9 +858,8 @@ void loop () {
                 if (rf12_data[0] == 0xFF)
                     // so lets drop the high order bit in byte 0
                     rf12_data[0] = 0xEF;
-                showString(PSTR("New Node "));
+                showString(PSTR("New Node i"));
                 showByte(rf12_hdr & RF12_HDR_MASK);
- //DEBUG               Serial.println();
                 nodes[rf12_hdr & RF12_HDR_MASK] = 0;        // Flag node number now in use
                 byte len = rf12_len < RF12_EEPROM_SIZE ? rf12_len : RF12_EEPROM_SIZE;
             // On a T84 this section will roll around to start of EEPROM address space for nodes 28 - 30
@@ -885,7 +881,7 @@ void loop () {
                             top = 1;
                             showString(PSTR("Node allocation "));
                             showByte(i);
- //DEBUG                           Serial.println();
+                            printOneChar('i');
                             break;
                         }
                     }
@@ -900,7 +896,7 @@ void loop () {
                         }
                         nodes[(rf12_hdr & RF12_HDR_MASK)] = 0;
                         // Assume it will be delivered.
-                        showString(PSTR("Posted "));
+                        showString(PSTR("Posted i"));
                         showByte(rf12_hdr & RF12_HDR_MASK);
                         printOneChar(' ');
                         displayString(stack, top);
