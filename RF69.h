@@ -7,11 +7,9 @@ namespace RF69 {
     extern uint8_t  node;
     extern uint8_t  rssi;
     extern int16_t  afc;
-    extern uint8_t  afcl;
     extern int16_t  fei;
-    extern uint8_t  feim;
-    extern uint8_t  feil;
     extern uint8_t  rssiconfig;
+    extern uint16_t interruptCount;
 
     void setFrequency (uint32_t freq);
     bool canSend ();

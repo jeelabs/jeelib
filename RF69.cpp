@@ -36,6 +36,8 @@
 #define IRQ2_PACKETSENT     0x08
 #define IRQ2_PAYLOADREADY   0x04
 
+#define FeiDone             0x40
+
 #define RF_MAX   72
 
 // transceiver states, these determine what to do with each interrupt
@@ -47,18 +49,15 @@ namespace RF69 {
     uint8_t  node;
     uint16_t crc;
     uint8_t  rssi;
-    uint8_t  rssi2;
     int16_t  afc;
-    uint8_t  afcl;
     int16_t  fei;
-    uint8_t  feim;
-    uint8_t  feil;
-    uint8_t  afcfei;
     uint8_t  rssiconfig;
+    uint16_t interruptCount;
 }
 
 static volatile uint8_t rxfill;     // number of data bytes in rf12_buf
 static volatile int8_t rxstate;     // current transceiver state
+static volatile uint8_t afcfei;     // RegAfcFei
 
 static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x01, 0x04, // OpMode = standby
@@ -228,18 +227,16 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
 
 void RF69::interrupt_compat () {
     if (rxstate == TXRECV) {
-      
+        interruptCount++;
         for (;;) {
           afcfei = readReg(REG_AFCFEI);
-          if (afcfei & 0x40) break;     // Wait for Frequency Error Indicator
+          if (afcfei & FeiDone) break; // Wait for completion
         }  
-        feim = readReg(REG_FEIMSB);     // TODO tidy up word pickup
-        feil = readReg(REG_FEILSB);     // TODO tidy up word pickup
-        fei  = (feim << 8) + feil;
-
-        rssi = readReg(REG_RSSIVALUE);  // RSSI more stable here
-        afcl = readReg(REG_AFCLSB);
-        afc  = (readReg(REG_AFCMSB) << 8) + afcl;
+        rssi = readReg(REG_RSSIVALUE); // RSSI more stable here
+        fei  = readReg(REG_FEIMSB);
+        fei  = (fei << 8) + readReg(REG_FEILSB);
+        afc  = readReg(REG_AFCMSB);
+        afc  = (afc << 8) + readReg(REG_AFCLSB);
         IRQ_ENABLE; // allow nested interrupts from here on
         for (;;) { // busy loop, to get each data byte as soon as it comes in
             if (readReg(REG_IRQFLAGS2) & (IRQ2_FIFONOTEMPTY|IRQ2_FIFOOVERRUN)) {
