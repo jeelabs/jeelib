@@ -21,6 +21,8 @@
 #define rf12_len        rf12_buf[2]
 /// Shorthand for first RFM12B data byte in rf12_buf.
 #define rf12_data       (rf12_buf + 3)
+/// Shorthand for first RFM12B data byte in rf12_buf when in raw mode.
+#define rf12_raw_data       (rf12_buf + 1)
 
 /// RFM12B CTL bit mask.
 #define RF12_HDR_CTL    0x80
@@ -122,6 +124,9 @@ char rf12_easySend(const void* data, uint8_t size);
 
 /// Enable encryption (null arg disables it again).
 void rf12_encrypt(const uint8_t*);
+
+/// Enable raw receive mode with fixed packet length.
+void rf12_setRawRecvMode(uint8_t fixed_pkt_len);
 
 /// Low-level control of the RFM12B via direct register access.
 /// http://tools.jeelabs.org/rfm12b is useful for calculating these.
