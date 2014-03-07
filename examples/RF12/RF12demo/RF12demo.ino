@@ -7,7 +7,7 @@
 // Added postbox semaphore feature 2013-10-24
 // Added message storage feature 2014-03-04
 
-#define RF69_COMPAT  0   // define this to use the RF69 driver i.s.o. RF12
+#define RF69_COMPAT  1   // define this to use the RF69 driver i.s.o. RF12
 #define OOK          0   // Define this to include OOK code f, k
 #define JNuMOSFET    0   // Define to power up RFM12B on JNu2/3
 #define configSTRING 1   // Define to include "A i1 g210 @ 868 MHz q1"
@@ -152,6 +152,7 @@ static char cmd;
 static word value;
 static byte stack[RF12_MAXDATA+4], top, sendLen, dest;
 static byte testCounter;
+static word messageCount = 0;
 
 static byte nodes[MAX_NODES+1];
 
@@ -485,21 +486,28 @@ static void handleInput (char c) {
 
         case 't': // broadcast a maximum size test packet, request an ack
             // Various test packets may be requested:
-            //   0,t will transmit repeated byte 0x00
-            // 170,t will transmit repeated byte 0xAA, bits alternating
-            // 255,t will transmit repeated byte 0xFF
-            //   0t will transmit bytes incrementing from 0x00, changing but biased 0
-            // 190t will transmit bytes incrementing from 0xBF, changing but biased 1
+            //   50,0,t will transmit byte 0x00 repeated 50 times
+            // 64,170,t will transmit 64 bytes of 0xAA, repeated bits alternating
+            // 66,255,t will transmit 66 bytes of 0xFF
+            //       0t will transmit 66 bytes incrementing from 0x00, changing but biased 0
+            //     190t will transmit 66 bytes incrementing from 0xBF, changing but biased 1
+            //   20,48t will transmit 20 bytes incrementing from 0x30
+            //      0,t will transmit a zero length packet
             cmd = 'a';
-            sendLen = 32;//RF12_MAXDATA;
+            Serial.println(stack[0]);
+            Serial.println(stack[1]);
+            if (top >= 1 && stack[0] <= RF12_MAXDATA)
+              sendLen = stack[0];
+            else sendLen = RF12_MAXDATA;
             dest = 0;
-            if (value) testCounter = value;    // Seed test pattern?
-            for (byte i = 0; i < RF12_MAXDATA; ++i)
-                if (!top) 
-                  stack[i] = i + testCounter;
-                else stack[i] = stack[0];      // fixed byte pattern
+            if (value) testCounter = value;  // Seed test pattern?
+            for (byte i = 0; i < RF12_MAXDATA; ++i) {
+                if (top == 2) 
+                  stack[i] = stack[1];       // fixed byte pattern
+                else stack[i] = i + testCounter;
+            } 
             showString(PSTR("test "));
-            showByte(testCounter); // first byte in test buffer
+            if (sendLen) showByte(stack[0]); // first byte in test buffer
             ++testCounter;
             break;
 
@@ -841,7 +849,6 @@ static void nodesShow() {
 }
 
 void loop () {
-
 #if TINY
     if (_receive_buffer_index)
         handleInput(inChar());
@@ -850,6 +857,7 @@ void loop () {
         handleInput(Serial.read());
 #endif
     if (rf12_recvDone()) {
+        messageCount++;
         byte n = rf12_len;
         byte crc = false;
         if (rf12_crc == 0) {
@@ -898,7 +906,10 @@ void loop () {
             byte rf69fraction = rf69x2-(rf69x1<<1);
             Serial.print(-(rf69x1));
             if (rf69fraction) Serial.print(".5");
-            Serial.print("dB");
+            Serial.print("dB C=");
+            Serial.print(messageCount);
+            printOneChar('/');
+            Serial.print(RF69::interruptCount);
         }
         printOneChar(')');
 #endif
