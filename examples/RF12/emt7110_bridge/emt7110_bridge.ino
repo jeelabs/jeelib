@@ -22,12 +22,12 @@ uint8_t payload[EMT7110_PKT_LEN];
 //
 // This structure and code would normally be used in a receiving JeeNode to interpret the packet
 // rather than here since all it does here is to transform the data into LE format (how nice it
-// would have been if the AVR would have been BE like its big brother AVR32) 
-// 
+// would have been if the AVR would have been BE like its big brother AVR32)
+//
 
 struct emt7110_data {
 	uint8_t device_type;			// Always 0x25 for EMT7110
-	uint32_t device_address :24;	
+	uint32_t device_address :24;
 	uint8_t pairing_mode :1;		// Is the device in pairing mode?
 	uint8_t grid_power :1;			// Is the device connected to the grid?
 	uint16_t power :14;			// Power usage in W * 2
@@ -46,7 +46,7 @@ void emt7110_decode(struct emt7110_data *data, const uint8_t* rawdata)
 	data->pairing_mode = rawdata[4] & 0x80 > 0;
 	data->power = (rawdata[4] & 0x3F) * 0x100 + rawdata[5];
 	data->current = rawdata[6] * 0x100 + rawdata[7];
-	data->voltage = rawdata[8]; 
+	data->voltage = rawdata[8];
 	data->unknown1 = rawdata[9] & 0x80;
 	data->unknown2 = rawdata[9] & 0x40;
 	data->energy = (rawdata[9] & 0x3F) * 0x100 + rawdata[10];
@@ -81,15 +81,16 @@ void loop()
 		;
 	
 	if (rf12_raw_data[0] == EMT7110_DEVICE_TYPE &&
-	    emt7110_checksum((const uint8_t*) rf12_raw_data) == 0)
+		emt7110_checksum((const uint8_t*) rf12_raw_data) == 0)
 	{
 		
-#ifdef RAWTRANSMIT 
+#ifdef RAWTRANSMIT
 		memcpy(&payload, (const void*)rf12_raw_data, EMT7110_PKT_LEN);
 #else
 		emt7110_decode(&payload, (const uint8_t*)rf12_raw_data);
 #endif
-		
+
+		rf12_setRawRecvMode(0);
 		rf12_initialize(1, RF12_868MHZ, 5);
 		rf12_sendNow(0, &payload, sizeof(payload));
 		rf12_sendWait(1);
