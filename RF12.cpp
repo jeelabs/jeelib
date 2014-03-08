@@ -70,10 +70,10 @@
 
 #elif defined(__AVR_ATmega32U4__) //Arduino Leonardo 
 
-#define RFM_IRQ     3	    // PD0, INT0, Digital3 
+#define RFM_IRQ     3       // PD0, INT0, Digital3 
 #define SS_DDR      DDRB
 #define SS_PORT     PORTB
-#define SS_BIT      6	    // Dig10, PB6
+#define SS_BIT      6       // Dig10, PB6
 
 #define SPI_SS      17    // PB0, pin 8, Digital17
 #define SPI_MISO    14    // PB3, pin 11, Digital14
@@ -150,9 +150,9 @@ void (*crypter)(uint8_t);           // does en-/decryption (null if disabled)
 // function to set chip select pin from within sketch
 void rf12_set_cs (uint8_t pin) {
 #if defined(__AVR_ATmega32U4__) //Arduino Leonardo 
-  cs_pin = pin - 4; 	        // Dig10 (PB6), Dig9 (PB5), or Dig8 (PB4)
+  cs_pin = pin - 4;             // Dig10 (PB6), Dig9 (PB5), or Dig8 (PB4)
 #elif defined(__AVR_ATmega168__) || defined(__AVR_ATmega328__) || defined (__AVR_ATmega328P__) // ATmega168, ATmega328
-  cs_pin = pin - 8; 	        // Dig10 (PB2), Dig9 (PB1), or Dig8 (PB0)
+  cs_pin = pin - 8;             // Dig10 (PB2), Dig9 (PB1), or Dig8 (PB0)
 #endif
 }
 
@@ -341,15 +341,12 @@ static void rf12_interrupt () {
 #endif
 
 static void rf12_recvStart () {
-	if (rf12_fixed_pkt_len) {
-		rf12_len = rf12_fixed_pkt_len;
-		rf12_grp = rf12_hdr = 0;
-		rxfill = 3;
-	}
-	else
-	{
-		rxfill = rf12_len = 0;
-	}
+    if (rf12_fixed_pkt_len) {
+        rf12_len = rf12_fixed_pkt_len;
+        rf12_grp = rf12_hdr = 0;
+        rxfill = 3;
+    } else
+        rxfill = rf12_len = 0;
     rf12_crc = ~0;
 #if RF12_VERSION >= 2
     if (group != 0)
@@ -881,9 +878,8 @@ char rf12_easySend (const void* data, uint8_t size) {
 ///       ;
 ///   rf12_sendStart(...);
 ///   ... etc, ACKs or whatever ...
-void rf12_setRawRecvMode(uint8_t fixed_pkt_len)
-{
-	rf12_fixed_pkt_len = fixed_pkt_len > RF_MAX ? RF_MAX : fixed_pkt_len;
+void rf12_setRawRecvMode(uint8_t fixed_pkt_len) {
+    rf12_fixed_pkt_len = fixed_pkt_len > RF_MAX ? RF_MAX : fixed_pkt_len;
 }
 
 // XXTEA by David Wheeler, adapted from http://en.wikipedia.org/wiki/XXTEA
