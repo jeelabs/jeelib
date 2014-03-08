@@ -37,6 +37,8 @@
 #define IRQ2_PAYLOADREADY   0x04
 
 #define FeiDone             0x40
+#define RssiStart           0x01
+#define RssiDone            0x02
 
 #define RF_MAX   72
 
@@ -52,12 +54,13 @@ namespace RF69 {
     int16_t  afc;
     int16_t  fei;
     uint8_t  rssiconfig;
+    uint8_t  afcfei;
     uint16_t interruptCount;
 }
 
 static volatile uint8_t rxfill;     // number of data bytes in rf12_buf
 static volatile int8_t rxstate;     // current transceiver state
-static volatile uint8_t afcfei;     // RegAfcFei
+//static volatile uint8_t afcfei;     // RegAfcFei
 
 static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x01, 0x04, // OpMode = standby
@@ -80,7 +83,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x37, 0x00, // PacketConfig1 = fixed, no crc, filt off
   0x38, 0x00, // PayloadLength = 0, unlimited
   0x3C, 0x8F, // FifoTresh, not empty, level 15
-  0x3D, 0x10, // PacketConfig2, interpkt = 1, autorxrestart off
+//j  0x3D, 0x10, // PacketConfig2, interpkt = 1, autorxrestart off
   0x6F, 0x20, // TestDagc ...
   0
 };
@@ -228,15 +231,16 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
 void RF69::interrupt_compat () {
     if (rxstate == TXRECV) {
         interruptCount++;
-        for (;;) {
-          afcfei = readReg(REG_AFCFEI);
-          if (afcfei & FeiDone) break; // Wait for completion
-        }  
-        rssi = readReg(REG_RSSIVALUE); // RSSI more stable here
-        fei  = readReg(REG_FEIMSB);
-        fei  = (fei << 8) + readReg(REG_FEILSB);
-        afc  = readReg(REG_AFCMSB);
-        afc  = (afc << 8) + readReg(REG_AFCLSB);
+        rssi = readReg(REG_RSSIVALUE);
+        if (readReg(REG_AFCFEI) & FeiDone) {
+            fei  = readReg(REG_FEIMSB);
+            fei  = (fei << 8) + readReg(REG_FEILSB);
+            afc  = readReg(REG_AFCMSB);
+            afc  = (afc << 8) + readReg(REG_AFCLSB);
+        } else {
+            fei = afc = ~0;
+        }
+
         IRQ_ENABLE; // allow nested interrupts from here on
         for (;;) { // busy loop, to get each data byte as soon as it comes in
             if (readReg(REG_IRQFLAGS2) & (IRQ2_FIFONOTEMPTY|IRQ2_FIFOOVERRUN)) {

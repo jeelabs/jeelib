@@ -494,8 +494,6 @@ static void handleInput (char c) {
             //   20,48t will transmit 20 bytes incrementing from 0x30
             //      0,t will transmit a zero length packet
             cmd = 'a';
-            Serial.println(stack[0]);
-            Serial.println(stack[1]);
             if (top >= 1 && stack[0] <= RF12_MAXDATA)
               sendLen = stack[0];
             else sendLen = RF12_MAXDATA;
@@ -767,10 +765,26 @@ static void displayASCII (const byte* data, byte count) {
 }
 
 static void displayVersion () {
+//    writeReg(0x4E, 0x04);
     showString(PSTR(VERSION));
+            printOneChar(' ');
+            Serial.print(messageCount);
+            printOneChar('/');
+            Serial.print(RF69::interruptCount);
+            printOneChar(' ');
+            RF69::interruptCount = messageCount = 0;
+//            for (;;) {
+//                if (readReg(0x4E = 0)) {
+//                    showByte(readReg(0x4F));
+//                    break;
+//                }
+//            }
+                
+
 #if TINY
     showString(PSTR(" Tiny "));
     Serial.print(freeRam());
+
 #endif
 }
 
@@ -906,10 +920,7 @@ void loop () {
             byte rf69fraction = rf69x2-(rf69x1<<1);
             Serial.print(-(rf69x1));
             if (rf69fraction) Serial.print(".5");
-            Serial.print("dB C=");
-            Serial.print(messageCount);
-            printOneChar('/');
-            Serial.print(RF69::interruptCount);
+            Serial.print("dB");
         }
         printOneChar(')');
 #endif
