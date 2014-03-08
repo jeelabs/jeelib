@@ -141,6 +141,7 @@ static long ezNextSend[2];          // when was last retry [0] or data [1] sent
 volatile uint16_t rf12_crc;         // running crc value
 volatile uint8_t rf12_buf[RF_MAX];  // recv/xmit buf, including hdr & crc bytes
 long rf12_seq;                      // seq number of encrypted packet (or -1)
+static uint8_t rf12_fixed_pkt_len;  // fixed packet length reception
 
 static uint32_t seqNum;             // encrypted send sequence number
 static uint32_t cryptKey[4];        // encryption key to use
@@ -340,7 +341,15 @@ static void rf12_interrupt () {
 #endif
 
 static void rf12_recvStart () {
-    rxfill = rf12_len = 0;
+	if (rf12_fixed_pkt_len) {
+		rf12_len = rf12_fixed_pkt_len;
+		rf12_grp = rf12_hdr = 0;
+		rxfill = 3;
+	}
+	else
+	{
+		rxfill = rf12_len = 0;
+	}
     rf12_crc = ~0;
 #if RF12_VERSION >= 2
     if (group != 0)
@@ -844,6 +853,37 @@ char rf12_easySend (const void* data, uint8_t size) {
     }
     ezPending = RETRIES;
     return 1;
+}
+
+/// @details
+/// When receiving data from other RFM12B/RFM12/RFM01 based units (Fine Offset
+/// weather stations, EMR power measurement plugs etc) is is convenient to let
+/// the RF12 driver handle HW interfacing but not use it's data protocol.
+/// Setting a fixed packet len for reception using this function disables the
+/// protocol handling when receiving data.
+/// Only the global variable
+///    * volatile byte rf12_data -   A pointer to the received data.
+/// will contain useful data when rf12_recvDone() returns success
+/// The buffer will contain fixed_pkt_len bytes of data to interpreted in
+/// whatever way is appropriate.
+/// Setting fixed_pkt_len to 0 (the default) returns to normal protocol behaviour.
+///
+/// Normal use in a "bridge" JeeNode would be (in a loop):
+///   rf12_initialize(...);
+///   rf12_control(...);         Whatever needed to match sender
+///   rf12_setRawRecvMode(...);
+///   while (!rf12_recvDone())
+///       ;
+///   ... interpret data ...
+///   rf12_setRawRecvMode(0);
+///   rf12_initialize(...);
+///   while (!rf12_canSend())
+///       ;
+///   rf12_sendStart(...);
+///   ... etc, ACKs or whatever ...
+void rf12_setRawRecvMode(uint8_t fixed_pkt_len)
+{
+	rf12_fixed_pkt_len = fixed_pkt_len > RF_MAX ? RF_MAX : fixed_pkt_len;
 }
 
 // XXTEA by David Wheeler, adapted from http://en.wikipedia.org/wiki/XXTEA
