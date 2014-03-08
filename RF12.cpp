@@ -141,6 +141,7 @@ static long ezNextSend[2];          // when was last retry [0] or data [1] sent
 volatile uint16_t rf12_crc;         // running crc value
 volatile uint8_t rf12_buf[RF_MAX];  // recv/xmit buf, including hdr & crc bytes
 long rf12_seq;                      // seq number of encrypted packet (or -1)
+static uint8_t rf12_fixed_pkt_len;  // fixed packet length reception
 
 static uint32_t seqNum;             // encrypted send sequence number
 static uint32_t cryptKey[4];        // encryption key to use
@@ -284,7 +285,7 @@ uint16_t rf12_control(uint16_t cmd) {
 }
 
 static void rf12_interrupt () {
-    // a transfer of 2x 16 bits @ 2 MHz over SPI takes 2x 8 us inside this ISR
+    // a transfer of 2x 16 bits @ 2 MHz over SPI takes 2x 8 µs inside this ISR
     // correction: now takes 2 + 8 µs, since sending can be done at 8 MHz
     rf12_xfer(0x0000); 
 
@@ -295,10 +296,17 @@ static void rf12_interrupt () {
             rf12_buf[rxfill++] = group;
             
         rf12_buf[rxfill++] = in;
-        rf12_crc = _crc16_update(rf12_crc, in);
 
-        if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX)
-            rf12_xfer(RF_IDLE_MODE);
+	if (rf12_fixed_pkt_len) {
+            if (rxfill > rf12_fixed_pkt_len)
+                rf12_xfer(RF_IDLE_MODE);          
+        }
+        else {
+            rf12_crc = _crc16_update(rf12_crc, in);
+
+            if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX)
+                rf12_xfer(RF_IDLE_MODE);
+        }
     } else {
         uint8_t out;
 
@@ -381,17 +389,25 @@ static void rf12_recvStart () {
 ///      }
 /// @see http://jeelabs.org/2010/12/11/rf12-acknowledgements/
 uint8_t rf12_recvDone () {
-    if (rxstate == TXRECV && (rxfill >= rf12_len + 5 || rxfill >= RF_MAX)) {
-        rxstate = TXIDLE;
-        if (rf12_len > RF12_MAXDATA)
-            rf12_crc = 1; // force bad crc if packet length is invalid
-        if (!(rf12_hdr & RF12_HDR_DST) || (nodeid & NODE_ID) == 31 ||
-                (rf12_hdr & RF12_HDR_MASK) == (nodeid & NODE_ID)) {
-            if (rf12_crc == 0 && crypter != 0)
-                crypter(0);
-            else
-                rf12_seq = -1;
-            return 1; // it's a broadcast packet or it's addressed to this node
+    if (rxstate == TXRECV) {
+        if (rf12_fixed_pkt_len) {
+            if (rxfill > rf12_fixed_pkt_len) {
+                rxstate = TXIDLE;
+                return 1;
+            }
+        }
+        else if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX) {
+            rxstate = TXIDLE;
+            if (rf12_len > RF12_MAXDATA)
+                rf12_crc = 1; // force bad crc if packet length is invalid
+            if (!(rf12_hdr & RF12_HDR_DST) || (nodeid & NODE_ID) == 31 ||
+                    (rf12_hdr & RF12_HDR_MASK) == (nodeid & NODE_ID)) {
+                if (rf12_crc == 0 && crypter != 0)
+                    crypter(0);
+                else
+                    rf12_seq = -1;
+                return 1; // it's a broadcast packet or it's addressed to this node
+            }
         }
     }
     if (rxstate == TXIDLE)
@@ -566,14 +582,14 @@ uint8_t rf12_initialize (uint8_t id, uint8_t band, uint8_t g, uint16_t f) {
     rf12_xfer(0xC2AC); // AL,!ml,DIG,DQD4 
     if (group != 0) {
         rf12_xfer(0xCA83); // FIFO8,2-SYNC,!ff,DR 
-        rf12_xfer(0xCE00 | group); // SYNC=2DXX； 
+        rf12_xfer(0xCE00 | group); // SYNC=2DXX 
     } else {
         rf12_xfer(0xCA8B); // FIFO8,1-SYNC,!ff,DR 
-        rf12_xfer(0xCE2D); // SYNC=2D； 
+        rf12_xfer(0xCE2D); // SYNC=2D 
     }
     rf12_xfer(0xC483); // @PWR,NO RSTRIC,!st,!fi,OE,EN 
     rf12_xfer(0x9850); // !mp,90kHz,MAX OUT 
-    rf12_xfer(0xCC77); // OB1，OB0, LPX,！ddy，DDIT，BW0 
+    rf12_xfer(0xCC77); // OB1, OB0, LPX, !ddy, DDIT, BW0 
     rf12_xfer(0xE000); // NOT USE 
     rf12_xfer(0xC800); // NOT USE 
     rf12_xfer(0xC049); // 1.66MHz,3.1V 
@@ -845,6 +861,39 @@ char rf12_easySend (const void* data, uint8_t size) {
     ezPending = RETRIES;
     return 1;
 }
+
+/// @details
+/// When receiving data from other RFM12B/RFM12/RFM01 based units (Fine Offset
+/// weather stations, EMR power measurement plugs etc) is is convenient to let
+/// the RF12 driver handle HW interfacing but not use it's data protocol. 
+/// Setting a fixed packet len for reception using this function disables the
+/// protocol handling when receiving data. 
+/// Only the global variable
+///    * volatile byte rf12_raw_data -
+/// 		    A pointer to the received data.
+/// will contain useful data when rf12_recvDone() returns success
+/// The buffer will contain fixed_pkt_len bytes of data to interpreted in
+/// whatever way is appropriate.
+/// Setting fixed_pkt_len to 0 (the default) returns to normal protocol behaviour.
+///
+/// Normal use in a "bridge" JeeNode would be (in a loop):
+///   rf12_initialize(...);
+///   rf12_control(...);         Whatever needed to match sender
+///   rf12_setRawRecvMode(...);
+///   while (!rf12_recvDone())
+///       ;
+///   ... interpret data ...
+///   rf12_setRawRecvMode(0);
+///   rf12_initialize(...);
+///   while (!rf12_canSend())
+///       ;
+///   rf12_sendStart(...);
+///   ... etc, ACKs or whatever ...
+void rf12_setRawRecvMode(uint8_t fixed_pkt_len)
+{
+    rf12_fixed_pkt_len = fixed_pkt_len > RF_MAX ? RF_MAX : fixed_pkt_len;
+}
+
 
 // XXTEA by David Wheeler, adapted from http://en.wikipedia.org/wiki/XXTEA
 
