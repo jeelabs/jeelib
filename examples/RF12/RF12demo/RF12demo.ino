@@ -871,7 +871,12 @@ void loop () {
         handleInput(Serial.read());
 #endif
     if (rf12_recvDone()) {
-        messageCount++;
+#if RF69_COMPAT
+        int afc = (RF69::afc);                  // Grab values before next interrupt
+        int fei = (RF69::fei);
+        byte rf69x2 = RF69::rssi;
+#endif
+      messageCount++;
         byte n = rf12_len;
         byte crc = false;
         if (rf12_crc == 0) {
@@ -907,15 +912,14 @@ void loop () {
 #if RF69_COMPAT
         // display RSSI value after packet data
         Serial.print(" afc=");                    // Debug Code
-        Serial.print(RF69::afc);                  // TODO What units is this count?
+        Serial.print(afc);                        // TODO What units is this count?
         Serial.print(" fei=");
-        Serial.print((RF69::fei));
+        Serial.print(fei);
         showString(PSTR(" ("));
         
         if (config.output & 0x1)                  // Hex output?
-            showByte(RF69::rssi);
+            showByte(rf69x2);
         else {
-            byte rf69x2 = RF69::rssi;
             byte rf69x1 = rf69x2>>1;
             byte rf69fraction = rf69x2-(rf69x1<<1);
             Serial.print(-(rf69x1));
