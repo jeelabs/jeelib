@@ -118,6 +118,7 @@ static void setMode (uint8_t mode) {
 }
 
 static void initRadio (ROM_UINT8* init) {
+    // What is this doing?
     spiInit();
     do
         writeReg(REG_SYNCVALUE1, 0xAA);
@@ -165,10 +166,20 @@ void RF69::sleep (bool off) {
 #include <RF12.h>
 
 void RF69::configure_compat () {
-    initRadio(configRegs_compat);    
+    initRadio(configRegs_compat);
+    if(group == 0) {
+        writeReg(REG_SYNCCONFIG, 0x98);   // 4 byte sync
+        writeReg(REG_SYNCGROUP, 0);
+    } else {
+        writeReg(REG_SYNCCONFIG, 0xA0);   // 5 byte sync
+        writeReg(REG_SYNCGROUP, group);
+    }
+    // FIXME Although group 0 interrupt triggers nicely
+    //       packet isn't passed to RF12Demo    
+    
     // FIXME doesn't seem to work, nothing comes in but noise for group 0
     // writeReg(REG_SYNCCONFIG, group ? 0x88 : 0x80);
-    writeReg(REG_SYNCGROUP, group);
+//    writeReg(REG_SYNCGROUP, group);
 
     writeReg(REG_FRFMSB, frf >> 16);
     writeReg(REG_FRFMSB+1, frf >> 8);
