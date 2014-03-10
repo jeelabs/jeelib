@@ -215,7 +215,7 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
     for (int i = 0; i < len; ++i)
         rf12_data[i] = ((const uint8_t*) ptr)[i];
     rf12_hdr = hdr & RF12_HDR_DST ? hdr : (hdr & ~RF12_HDR_MASK) + node;  
-    rf12_crc = _crc16_update(~0, group);
+    crc = _crc16_update(~0, group);
     rxstate = - (2 + rf12_len); // preamble and SYN1/SYN2 are sent by hardware
     flushFifo();
     setMode(MODE_TRANSMITTER);
@@ -228,11 +228,11 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
             uint8_t out = 0xAA;
             if (rxstate < 0) {
                 out = recvBuf[3 + rf12_len + rxstate];
-                rf12_crc = _crc16_update(rf12_crc, out);
+                crc = _crc16_update(crc, out);
             } else {
                 switch (rxstate) {
-                    case TXCRC1: out = rf12_crc; break;
-                    case TXCRC2: out = rf12_crc >> 8; break;
+                    case TXCRC1: out = crc; break;
+                    case TXCRC2: out = crc >> 8; break;
                 }
             }
             writeReg(REG_FIFO, out);
@@ -257,8 +257,10 @@ void RF69::interrupt_compat () {
         crc = ~0;
         for (;;) { // busy loop, to get each data byte as soon as it comes in
             if (readReg(REG_IRQFLAGS2) & (IRQ2_FIFONOTEMPTY|IRQ2_FIFOOVERRUN)) {
-                if (rxfill == 0 && group != 0) 
+                if (rxfill == 0 && group != 0) { 
                     recvBuf[rxfill++] = group;
+                    crc = _crc16_update(crc, group);
+                }
 
                 uint8_t in = readReg(REG_FIFO);
                 recvBuf[rxfill++] = in;
