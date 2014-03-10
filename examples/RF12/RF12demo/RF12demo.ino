@@ -498,7 +498,7 @@ static void handleInput (char c) {
               sendLen = stack[0];
             else sendLen = RF12_MAXDATA;
             dest = 0;
-            if (value) testCounter = value;  // Seed test pattern?
+            if (value != 0) testCounter = value;  // Seed test pattern?
             for (byte i = 0; i < RF12_MAXDATA; ++i) {
                 if (top == 2) 
                   stack[i] = stack[1];       // fixed byte pattern
@@ -771,7 +771,11 @@ static void displayVersion () {
             Serial.print(messageCount);
             printOneChar('/');
             Serial.print(RF69::interruptCount);
+            printOneChar('[');
+//            Serial.print(RF69::control(0x33, 0));
+            printOneChar(']');
             printOneChar(' ');
+            
             RF69::interruptCount = messageCount = 0;
 //            for (;;) {
 //                if (readReg(0x4E = 0)) {
