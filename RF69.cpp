@@ -228,12 +228,11 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
             uint8_t out = 0xAA;
             if (rxstate < 0) {
                 out = recvBuf[3 + rf12_len + rxstate];
-                crc = _crc16_update(crc, out);
-//                rf12_crc = _crc16_update(rf12_crc, out);
+                rf12_crc = _crc16_update(rf12_crc, out);
             } else {
                 switch (rxstate) {
-                    case TXCRC1: out = crc; break;
-                    case TXCRC2: out = crc >> 8; break;
+                    case TXCRC1: out = rf12_crc; break;
+                    case TXCRC2: out = rf12_crc >> 8; break;
                 }
             }
             writeReg(REG_FIFO, out);
