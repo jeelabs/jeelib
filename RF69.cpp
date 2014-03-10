@@ -41,6 +41,9 @@
 #define RssiStart           0x01
 #define RssiDone            0x02
 
+#define fourByteSync        0x98
+#define fiveByteSync        0xA0
+
 #define RF_MAX   72
 
 // transceiver states, these determine what to do with each interrupt
@@ -84,7 +87,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x30, 0xAA, // SyncValue2 = 0xAA
   0x31, 0xAA, // SyncValue3 = 0xAA
   0x32, 0x2D, // SyncValue4 = 0x2D
-    // 0x33, 0x05, // SyncValue2 = 0x05, Group
+    // 0x33, 0x05, // SyncValue5 = 0x05, Group
   0x37, 0x00, // PacketConfig1 = fixed, no crc, filt off
   0x38, 0x00, // PayloadLength = 0, unlimited
   0x3C, 0x8F, // FifoTresh, not empty, level 15
@@ -118,8 +121,8 @@ static void setMode (uint8_t mode) {
 }
 
 static void initRadio (ROM_UINT8* init) {
-    // What is this doing?
     spiInit();
+    // What is all this doing?
     do
         writeReg(REG_SYNCVALUE1, 0xAA);
     while (readReg(REG_SYNCVALUE1) != 0xAA);
@@ -168,21 +171,17 @@ void RF69::sleep (bool off) {
 void RF69::configure_compat () {
     initRadio(configRegs_compat);
     if(group == 0) {
-        writeReg(REG_SYNCCONFIG, 0x98);   // 4 byte sync
-//        writeReg(REG_SYNCGROUP, 0);
+        writeReg(REG_SYNCCONFIG, fourByteSync);
     } else {
-        writeReg(REG_SYNCCONFIG, 0xA0);   // 5 byte sync
+        writeReg(REG_SYNCCONFIG, fiveByteSync);
         writeReg(REG_SYNCGROUP, group);
     }
     // FIXME Group 0 interrupt triggers nicely, not too much!
-    //       non group 0 packet not passed to RF12Demo unless node == 31
+    //       non group 0 packets not passed to RF12Demo unless node == 31
     //       Packets passed to RF12Demo all fail CRC check 
     //       #468 issue controls passing.
-    //       CRC may relate to the group# in the CRC?    
+    //       CRC may relate to the group# in the CRC?   
     
-    // FIXME doesn't seem to work, nothing comes in but noise for group 0
-    // writeReg(REG_SYNCCONFIG, group ? 0x88 : 0x80);
-//    writeReg(REG_SYNCGROUP, group);
 
     writeReg(REG_FRFMSB, frf >> 16);
     writeReg(REG_FRFMSB+1, frf >> 8);
@@ -263,8 +262,10 @@ void RF69::interrupt_compat () {
         IRQ_ENABLE; // allow nested interrupts from here on
         for (;;) { // busy loop, to get each data byte as soon as it comes in
             if (readReg(REG_IRQFLAGS2) & (IRQ2_FIFONOTEMPTY|IRQ2_FIFOOVERRUN)) {
-                if (rxfill == 0)
-                    recvBuf[rxfill++] = group;
+                if (rxfill == 0) {
+                    if(group != 0) recvBuf[rxfill++] = group;
+                    else crc = _crc16_update(~0, group);
+                }
                 uint8_t in = readReg(REG_FIFO);
                 recvBuf[rxfill++] = in;
                 crc = _crc16_update(crc, in);              
