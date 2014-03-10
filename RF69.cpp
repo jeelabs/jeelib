@@ -234,8 +234,8 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
 }
 
 void RF69::interrupt_compat () {
+    interruptCount++;
     if (rxstate == TXRECV) {
-        interruptCount++;
         rssi = readReg(REG_RSSIVALUE);
         if (readReg(REG_AFCFEI) & FeiDone) {
             fei  = readReg(REG_FEIMSB);
