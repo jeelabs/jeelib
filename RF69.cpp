@@ -169,13 +169,16 @@ void RF69::configure_compat () {
     initRadio(configRegs_compat);
     if(group == 0) {
         writeReg(REG_SYNCCONFIG, 0x98);   // 4 byte sync
-        writeReg(REG_SYNCGROUP, 0);
+//        writeReg(REG_SYNCGROUP, 0);
     } else {
         writeReg(REG_SYNCCONFIG, 0xA0);   // 5 byte sync
         writeReg(REG_SYNCGROUP, group);
     }
-    // FIXME Although group 0 interrupt triggers nicely
-    //       packet isn't passed to RF12Demo    
+    // FIXME Group 0 interrupt triggers nicely, not too much!
+    //       non group 0 packet not passed to RF12Demo unless node == 31
+    //       Packets passed to RF12Demo all fail CRC check 
+    //       #468 issue controls passing.
+    //       CRC may relate to the group# in the CRC?    
     
     // FIXME doesn't seem to work, nothing comes in but noise for group 0
     // writeReg(REG_SYNCCONFIG, group ? 0x88 : 0x80);
