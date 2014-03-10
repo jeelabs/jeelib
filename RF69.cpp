@@ -229,6 +229,7 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
             if (rxstate < 0) {
                 out = recvBuf[3 + rf12_len + rxstate];
                 crc = _crc16_update(crc, out);
+//                rf12_crc = _crc16_update(rf12_crc, out);
             } else {
                 switch (rxstate) {
                     case TXCRC1: out = crc; break;
@@ -254,12 +255,12 @@ void RF69::interrupt_compat () {
         }
 
         IRQ_ENABLE; // allow nested interrupts from here on
+        crc = ~0;
         for (;;) { // busy loop, to get each data byte as soon as it comes in
             if (readReg(REG_IRQFLAGS2) & (IRQ2_FIFONOTEMPTY|IRQ2_FIFOOVERRUN)) {
-                if (rxfill == 0) {
-                    if(group != 0) recvBuf[rxfill++] = group;
-                    else crc = _crc16_update(~0, group);
-                }
+                if (rxfill == 0 && group != 0) 
+                    recvBuf[rxfill++] = group;
+
                 uint8_t in = readReg(REG_FIFO);
                 recvBuf[rxfill++] = in;
                 crc = _crc16_update(crc, in);              
