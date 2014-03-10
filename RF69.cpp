@@ -175,13 +175,7 @@ void RF69::configure_compat () {
     } else {
         writeReg(REG_SYNCCONFIG, fiveByteSync);
         writeReg(REG_SYNCGROUP, group);
-    }
-    // FIXME Group 0 interrupt triggers nicely, not too much!
-    //       non group 0 packets not passed to RF12Demo unless node == 31
-    //       Packets passed to RF12Demo all fail CRC check 
-    //       #468 issue controls passing.
-    //       CRC may relate to the group# in the CRC?   
-    
+    }   
 
     writeReg(REG_FRFMSB, frf >> 16);
     writeReg(REG_FRFMSB+1, frf >> 8);
