@@ -496,7 +496,7 @@ static void handleInput (char c) {
             cmd = 'a';
             if (top >= 1 && stack[0] <= RF12_MAXDATA)
               sendLen = stack[0];
-            else sendLen = RF12_MAXDATA;
+            else sendLen = 64; //jRF12_MAXDATA;
             dest = 0;
             if (value != 0) testCounter = value;  // Seed test pattern?
             for (byte i = 0; i < RF12_MAXDATA; ++i) {
@@ -544,6 +544,28 @@ static void handleInput (char c) {
             break;
 
         case 'v': // display the interpreter version
+            Serial.print(messageCount);
+            printOneChar('/');
+            Serial.print(RF69::interruptCount);
+            printOneChar('[');
+            showByte(RF69::control(0x00, 0));
+            printOneChar(' ');
+            showByte(RF69::control(0x01, 0));
+            printOneChar(' ');
+            showByte(RF69::control(0x25, 0));
+            printOneChar(' ');
+            showByte(RF69::control(0x27, 0));
+            printOneChar(' ');
+            showByte(RF69::control(0x28, 0));
+            printOneChar(' ');
+            showByte(RF69::control(0x2E, 0));
+            printOneChar(']');
+            Serial.println(digitalRead(2));
+            Serial.println(sizeof stack);
+            Serial.println(sizeof stack - 9);
+            
+//            RF69::interruptCount = messageCount = 0;
+
             displayVersion();
             rf12_configDump();
 #if configSTRING
@@ -559,7 +581,7 @@ static void handleInput (char c) {
             // if any higher numbered messages are queued.
               byte len = getMessage(value);
                 if ((sourceR) && (len)) {       // Is message in RAM
-                    displayString(&stack[1], len);
+                   displayString(&stack[((sizeof stack - (len + 1)) + 0)], len + 1);
                     Serial.println();
                     byte *fromR;
                     fromR = sourceR;            // Points to next message length
@@ -584,14 +606,13 @@ static void handleInput (char c) {
                 for (byte i = MessagesStart; i <= 254; i++) {
                     byte len = getMessage(i); 
                     if (!len) break;
-                    showByte(i);
-                    printOneChar('[');
-                    showByte(len);
-                    Serial.println(']');
-                    displayString(&stack[1], len);
+                    Serial.print(i);
+                    printOneChar(' ');   
+                    displayString(&stack[((sizeof stack - (len + 1)) + 0)], len + 1);
                     Serial.println();
                     if (config.output & 2) {
-                        displayASCII(&stack[1], len);
+                    showString(PSTR("    "));
+                        displayASCII(&stack[((sizeof stack - (len + 1)) + 0)], len + 1);
                         Serial.println();
                     }
                 }
@@ -702,13 +723,14 @@ static byte getMessage (byte rec) {
     PGM_P sourceF = &messagesF[0];          // Start of Flash messages
     for  (pos = MessagesStart; pos <= 254; pos++) {
         len = pgm_read_byte(sourceF++);
-        if (pos == rec) break; 
         if (!len) break;
+        if (pos == rec) break; 
         sourceF = sourceF + len;
     }
     if (len) {
-        for (byte b = 0; b < len ; b++) {
-            stack[b] = pgm_read_byte(sourceF++);
+        sourceF++;                          // Step past length
+        for (byte b = 1; b <= len ; b++) {
+            stack[((sizeof stack - (len + 1)) + b)] = pgm_read_byte(sourceF++);
         }
         return len;
     } else {      // Scan RAM string
@@ -721,9 +743,10 @@ static byte getMessage (byte rec) {
         }
     }
     if (len) {
-        sourceR++;                // Step past length byte
-        for (byte b = 1; b <= len ; b++) {   // Message will be stored from stack[1]
-            stack[b] = *sourceR;
+            sourceR++;                      // Step past length
+            for (byte b = 1; b <= len ; b++) {   // Message will be stored at top end of stack
+            // String is copied to top end of stack
+            stack[((sizeof stack - (len + 1)) + b)] = *sourceR;
             sourceR++;
         }
     // *sourceR is pointing to the length byte of the next message
@@ -765,25 +788,7 @@ static void displayASCII (const byte* data, byte count) {
 }
 
 static void displayVersion () {
-//    writeReg(0x4E, 0x04);
     showString(PSTR(VERSION));
-            printOneChar(' ');
-            Serial.print(messageCount);
-            printOneChar('/');
-            Serial.print(RF69::interruptCount);
-            printOneChar('[');
-//            Serial.print(RF69::control(0x33, 0));
-            printOneChar(']');
-            printOneChar(' ');
-            
-            RF69::interruptCount = messageCount = 0;
-//            for (;;) {
-//                if (readReg(0x4E = 0)) {
-//                    showByte(readReg(0x4F));
-//                    break;
-//                }
-//            }
-                
 
 #if TINY
     showString(PSTR(" Tiny "));
@@ -992,15 +997,16 @@ void loop () {
             }
 
             if (RF12_WANTS_ACK && (config.collect_mode) == 0) {
-                top = 0;
+                byte ackLen = 0;
 
                 if ((rf12_hdr & (RF12_HDR_MASK | RF12_HDR_DST)) == 31) {
                     // Special Node 31 source node
                     for (byte i = 1; i <= MAX_NODES; ++i) { // TODO Will this be able to allocate node 30, ++i versus i++
                         if (nodes[i] == 0xFF) {
+                            // TODO Sending E0 could be mistaken for posting Ex
                             stack[0] = i + 0xE0; // 0xE0 is an arbitary value
                             // Change Node number request - matched in RF12Tune
-                            top = 1;
+                            ackLen = 1;
                             showString(PSTR("Node allocation "));
                             crlf = true;
                             showByte(i);
@@ -1012,27 +1018,25 @@ void loop () {
                     if (!(rf12_hdr & RF12_HDR_DST) && (nodes[(rf12_hdr & RF12_HDR_MASK)] != 0) &&
                              (nodes[(rf12_hdr & RF12_HDR_MASK)] != 0xFF)) {
                         // Sources Nodes only!
-                        stack[0] = nodes[(rf12_hdr & RF12_HDR_MASK)]; // Pick up message pointer
-                        top = getMessage(stack[0]);                   // Check for a message to be appended
-                        if (!top) { 
-                            top = 1;                                  // No replacement, just use pointer
-                        } else {
-                            top++;                                    // Include pointer in Post
+                        stack[sizeof stack - 1] = nodes[(rf12_hdr & RF12_HDR_MASK)]; // Pick up message pointer
+                        ackLen = getMessage(stack[sizeof stack - 1]);                // Check for a message to be appended
+                        if (ackLen){
+                            stack[(sizeof stack - (ackLen + 1))] = nodes[(rf12_hdr & RF12_HDR_MASK)];
                         }
+                        ackLen++;                                                    // If 0 or message length then +1 for length byte 
                         nodes[(rf12_hdr & RF12_HDR_MASK)] = 0;
                         // Assume it will be delivered.
                         showString(PSTR("Posted i"));
                         crlf = true;
                         showByte(rf12_hdr & RF12_HDR_MASK);
                         printOneChar(' ');
-                        displayString(&stack[0], top);                    // 1 more tham Message length!                      
+                        displayString(&stack[sizeof stack - ackLen], ackLen);        // 1 more tham Message length!                      
                         postingsOut++;
                     }
                 }
                 showString(PSTR(" -> ack"));
                 crlf = true;
-                rf12_sendStart(RF12_ACK_REPLY, &stack, top);
-                top = 0;
+                rf12_sendStart(RF12_ACK_REPLY, &stack[sizeof stack - ackLen], ackLen);
             }
             if (crlf) Serial.println();
             activityLed(0);

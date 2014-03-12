@@ -258,8 +258,7 @@ void RF69::interrupt_compat () {
         // Rolling window!
         // What happens with we see sync but no payload?
         for (;;) { // busy loop, to get each data byte as soon as it comes in
-//            if (readReg(REG_IRQFLAGS2) & (IRQ2_FIFONOTEMPTY|IRQ2_FIFOOVERRUN)) {
-            if (readReg(REG_IRQFLAGS2) & (IRQ2_FIFONOTEMPTY)) {
+            if (readReg(REG_IRQFLAGS2) & (IRQ2_FIFONOTEMPTY|IRQ2_FIFOOVERRUN)) {
                 if (rxfill == 0 && group != 0) { 
                     recvBuf[rxfill++] = group;
                     crc = _crc16_update(crc, group);
