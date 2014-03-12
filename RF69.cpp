@@ -18,6 +18,9 @@
 #define REG_SYNCCONFIG      0x2E
 #define REG_SYNCVALUE1      0x2F
 #define REG_SYNCVALUE2      0x30
+#define REG_SYNCVALUE3      0x31
+#define REG_SYNCVALUE4      0x32
+#define REG_SYNCVALUE5      0x33
 #define REG_SYNCGROUP       0x33
 #define REG_NODEADRS        0x39
 #define REG_PACKETCONFIG2   0x3D
@@ -57,14 +60,11 @@ namespace RF69 {
     uint8_t  rssi;
     int16_t  afc;
     int16_t  fei;
-    uint8_t  rssiconfig;
-    uint8_t  afcfei;
     uint16_t interruptCount;
 }
 
 static volatile uint8_t rxfill;     // number of data bytes in rf12_buf
 static volatile int8_t rxstate;     // current transceiver state
-//static volatile uint8_t afcfei;     // RegAfcFei
 
 static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x01, 0x04, // OpMode = standby
@@ -82,16 +82,16 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x25, 0x80, // DioMapping1 = SyncAddress (Rx)
   // 0x29, 0xDC, // RssiThresh ...
 
-  0x2E, 0xA0, //j sync size = 5// 0x88, // SyncConfig = sync on, sync size = 2
+  0x2E, 0xA0, // SyncConfig = sync on, sync size = 5
   0x2F, 0xAA, // SyncValue1 = 0xAA
   0x30, 0xAA, // SyncValue2 = 0xAA
   0x31, 0xAA, // SyncValue3 = 0xAA
   0x32, 0x2D, // SyncValue4 = 0x2D
-    // 0x33, 0x05, // SyncValue5 = 0x05, Group
+    // 0x33, 0xD4, // SyncValue5 = 212, Group
   0x37, 0x00, // PacketConfig1 = fixed, no crc, filt off
   0x38, 0x00, // PayloadLength = 0, unlimited
   0x3C, 0x8F, // FifoTresh, not empty, level 15
-  0x3D, 0x10, // PacketConfig2, interpkt = 1, autorxrestart off
+//  0x3D, 0x10, // PacketConfig2, interpkt = 1, autorxrestart off
   0x6F, 0x20, // TestDagc ...
   0
 };
@@ -116,8 +116,8 @@ static void flushFifo () {
 
 static void setMode (uint8_t mode) {
     writeReg(REG_OPMODE, (readReg(REG_OPMODE) & 0xE3) | mode);
-    // while ((readReg(REG_IRQFLAGS1) & IRQ1_MODEREADY) == 0)
-    //     ;
+    while ((readReg(REG_IRQFLAGS1) & IRQ1_MODEREADY) == 0)
+         ;
 }
 
 static void initRadio (ROM_UINT8* init) {
@@ -242,19 +242,20 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
 
 void RF69::interrupt_compat () {
     interruptCount++;
-    if (rxstate == TXRECV) {
-        rssi = readReg(REG_RSSIVALUE);
-        if (readReg(REG_AFCFEI) & FeiDone) {
-            fei  = readReg(REG_FEIMSB);
-            fei  = (fei << 8) + readReg(REG_FEILSB);
-            afc  = readReg(REG_AFCMSB);
-            afc  = (afc << 8) + readReg(REG_AFCLSB);
-        } else {
-            fei = afc = ~0;
-        }
-
         IRQ_ENABLE; // allow nested interrupts from here on
+        // Interrupt will remain asserted until FIFO empty or exit RX mode
+
+        if (rxstate == TXRECV) {
+        rssi = readReg(REG_RSSIVALUE);
+        fei  = readReg(REG_FEIMSB);
+        fei  = (fei << 8) + readReg(REG_FEILSB);
+        afc  = readReg(REG_AFCMSB);
+        afc  = (afc << 8) + readReg(REG_AFCLSB);
+
         crc = ~0;
+        // What happens if we empty the FIFO before packet reception complete
+        // or if the FIFO is bigger than we eat - should be 66 max? - 
+        // Rolling window!
         for (;;) { // busy loop, to get each data byte as soon as it comes in
             if (readReg(REG_IRQFLAGS2) & (IRQ2_FIFONOTEMPTY|IRQ2_FIFOOVERRUN)) {
                 if (rxfill == 0 && group != 0) { 
@@ -269,7 +270,10 @@ void RF69::interrupt_compat () {
                     break;
             }
         }
+    // Make sure IRQ0 is deasserted
+    setMode(MODE_STANDBY);   
     } else if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
+// We have just had an interrupt, mode standby should deassert IRQ0
         // rxstate will be TXDONE at this point
         rxstate = TXIDLE;
         setMode(MODE_STANDBY);

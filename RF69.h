@@ -8,7 +8,6 @@ namespace RF69 {
     extern uint8_t  rssi;
     extern int16_t  afc;
     extern int16_t  fei;
-    extern uint8_t  rssiconfig;
     extern uint16_t interruptCount;
 
     void setFrequency (uint32_t freq);
