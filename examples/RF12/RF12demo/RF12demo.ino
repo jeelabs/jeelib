@@ -7,7 +7,7 @@
 // Added postbox semaphore feature 2013-10-24
 // Added message storage feature 2014-03-04
 
-#define RF69_COMPAT  1   // define this to use the RF69 driver i.s.o. RF12
+#define RF69_COMPAT  0   // define this to use the RF69 driver i.s.o. RF12
 #define OOK          0   // Define this to include OOK code f, k
 #define JNuMOSFET    0   // Define to power up RFM12B on JNu2/3
 #define configSTRING 1   // Define to include "A i1 g210 @ 868 MHz q1"
@@ -166,10 +166,12 @@ static unsigned int maxFEI[MAX_NODES+1];
 #endif
 
 static byte postingsIn, postingsOut;
-
+  
 const char messagesF[] PROGMEM = { 
-//                      0x05, 'T', 'e', 's', 't', '1', 
-//                      0x05, 'T', 'e', 's', 't', '2', 
+#if !Tiny
+                      0x05, 'T', 'e', 's', 't', '1', 
+                      0x05, 'T', 'e', 's', 't', '2', 
+#endif
                                0 }; // Mandatory delimiter
 
 #define MessagesStart 129
@@ -177,6 +179,7 @@ byte messagesR[64] = {
                       0x05, 'T', 'e', 's', 't', '3',      // Can be removed from RAM with "129m"
                                0 }; // Mandatory delimiter
 byte *sourceR;
+byte topMessage;    // Used to store highest message number
 
 static void showNibble (byte nibble) {
     char c = '0' + (nibble & 0x0F);
@@ -368,7 +371,6 @@ static void showHelp () {
 }
 
 static void handleInput (char c) {
-
     //      Variable value is now 16 bits to permit offset command, stack only stores 8 bits
     //      not a problem for offset command but beware.
     if ('0' <= c && c <= '9') {
@@ -574,22 +576,31 @@ static void handleInput (char c) {
             break;
 
 #if MESSAGING         
-        case 'm':  // Message storage handliing
-            if (value >= MessagesStart) {
-            // Remove a message string from RAM:
-            // messages should not be removed if queued or
-            // if any higher numbered messages are queued.
-              byte len = getMessage(value);
-                if ((sourceR) && (len)) {       // Is message in RAM
-                   displayString(&stack[((sizeof stack - (len + 1)) + 0)], len + 1);
+        case 'm': 
+        // Message storage handliing
+        // Remove a message string from RAM:
+        // messages should not be removed if queued or
+        // when any higher numbered messages are queued.
+            byte *fromR;
+            getMessage(255);                // Find highest message number
+            if ((value >= MessagesStart) && (value <= topMessage)) {
+                byte len = getMessage(value);
+                fromR = sourceR;                // Points to next message length byte, if RAM
+                if ((sourceR) && (len)) {       // Is message in RAM?
+                    byte valid = true;
+                    for (byte i = 1; i <= MAX_NODES; i++) {                         // Scan for message in use
+                        if (nodes[i] >= (byte) value && nodes[i] <= topMessage) {   // If so, or higher then can't
+                            showString(PSTR("In use i"));
+                            Serial.println((word) i);
+                            valid = false;
+                        }
+                    }
+                    displayString(&stack[sizeof stack - (len + 1)], len + 1);
                     Serial.println();
-                    byte *fromR;
-                    fromR = sourceR;            // Points to next message length
-                    getMessage(255);            // Find end of messages Null
-                    memcpy((fromR - (len + 1)), fromR, ((sourceR - fromR) + 1));                        
-                } else {
-                    value = 0;                  // Trigger a display of messages
-                }
+                    if ((valid) && (value <= topMessage)) {
+                        memcpy((fromR - (len + 1)), fromR, ((sourceR - fromR) + 1));  
+                    }                      
+                } 
             }
             
             if (top) {
@@ -600,19 +611,20 @@ static void handleInput (char c) {
                     memcpy((sourceR + 1), &stack, top);
                     sourceR = (sourceR + 1) + top;
                     *sourceR = 0;   // create message string terminator
+                    value = ~0;
                 }
             }             
             if (value == 0) {
                 for (byte i = MessagesStart; i <= 254; i++) {
                     byte len = getMessage(i); 
                     if (!len) break;
-                    Serial.print(i);
-                    printOneChar(' ');   
-                    displayString(&stack[((sizeof stack - (len + 1)) + 0)], len + 1);
+                    printOneChar('m'); 
+                    stack[sizeof stack - (len + 1)] = i;  // Store message number  
+                    displayString(&stack[sizeof stack - (len + 1)], len + 1);
                     Serial.println();
                     if (config.output & 2) {
-                    showString(PSTR("    "));
-                        displayASCII(&stack[((sizeof stack - (len + 1)) + 0)], len + 1);
+                    printOneChar(' '); 
+                        displayASCII(&stack[sizeof stack - (len + 1)], len + 1);
                         Serial.println();
                     }
                 }
@@ -718,40 +730,42 @@ static void handleInput (char c) {
 }
 
 static byte getMessage (byte rec) {
+    if (rec < MessagesStart) return 0;
     byte len, pos;                          // Scan flash string
     sourceR = 0;                            // Not RAM!
     PGM_P sourceF = &messagesF[0];          // Start of Flash messages
-    for  (pos = MessagesStart; pos <= 254; pos++) {
+    for  (pos = MessagesStart; pos < 254; pos++) {
         len = pgm_read_byte(sourceF++);
         if (!len) break;
         if (pos == rec) break; 
         sourceF = sourceF + len;
     }
     if (len) {
-        sourceF++;                          // Step past length
-        for (byte b = 1; b <= len ; b++) {
-            stack[((sizeof stack - (len + 1)) + b)] = pgm_read_byte(sourceF++);
+        // String is copied to top end of stack
+        for (byte b = 0; b < len ; b++) {
+            stack[(sizeof stack - (len) + b)] = pgm_read_byte(sourceF++);
         }
+//      *sourceF points to next length byte
         return len;
     } else {      // Scan RAM string
         sourceR = &messagesR[0];            // Start of RAM messages
-        for  (; pos <= 254; pos++) {
+        for  (; pos < 254; pos++) {
             len = *sourceR; 
-            if (!len) break;
+            if (!len) {
+                topMessage = pos - 1;    
+                return 0;             // Not found
+            }
             if (pos == rec) break; 
             sourceR = sourceR + (len + 1);  // Step past len + message
         }
     }
-    if (len) {
-            sourceR++;                      // Step past length
-            for (byte b = 1; b <= len ; b++) {   // Message will be stored at top end of stack
-            // String is copied to top end of stack
-            stack[((sizeof stack - (len + 1)) + b)] = *sourceR;
-            sourceR++;
+    for (byte b = 0; b < len ; b++) {
+        // String is copied to top end of stack
+        stack[(sizeof stack - (len) + b)] = *(++sourceR);
         }
     // *sourceR is pointing to the length byte of the next message
-    }
-return len;
+    sourceR++;  // *sourceR is now pointing to the length byte of the next message
+    return len;
 }
 
 static void displayString (const byte* data, byte count) {
@@ -872,6 +886,7 @@ static void nodesShow() {
 }
 
 void loop () {
+
 #if TINY
     if (_receive_buffer_index)
         handleInput(inChar());
