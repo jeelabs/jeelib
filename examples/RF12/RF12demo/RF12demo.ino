@@ -647,10 +647,10 @@ static void handleInput (char c) {
             // as it is transmitted with the ACK.
             
             if (!value) {
+                nodesShow();
                 Serial.print((word) postingsIn);
                 printOneChar(',');
                 Serial.println((word) postingsOut);
-                nodesShow();
             } else if (value <= MAX_NODES) {
                 nodes[value] = stack[0];
                 postingsIn++;
@@ -777,18 +777,18 @@ static void displayString (const byte* data, byte count) {
 }
 
 static void printPos (byte c) {
-        if (!(config.output & 0x1)) {
-            if (c > 99) printOneChar(' ');
-            if (c > 9) printOneChar(' ');
-        } else {
+        if (config.output & 0x1) { // Hex output?
             printOneChar(' ');
+        } else {
+            if (c > 99) printOneChar('_');
+            if (c > 9) printOneChar('_');
         }
 }
 
 static void printASCII (byte c) {
-        printPos(c);
 // TODO Understand casting: char c = (char) data[i];
         char d = (char) c;
+        printPos((byte) c);
         printOneChar(d < ' ' || d > '~' ? '.' : d);
         if (!(config.output & 0x1)) printOneChar(' ');
 }       
@@ -916,9 +916,11 @@ void loop () {
         }
         if (config.output & 0x1)
             printOneChar('X');
- 
+        else printOneChar(' ');
         if (config.group == 0) {
             showString(PSTR(" G"));
+            showByte(rf12_grp);
+        } else if (!crc) {
             showByte(rf12_grp);
         }
         printOneChar(' ');
@@ -954,29 +956,35 @@ void loop () {
 #endif
         Serial.println();
         if (config.output & 0x2) { // also print a line as ascii
+            showString(PSTR("ASC"));                        // 'OK'
             if (crc) {
-                showString(PSTR("  "));                      // 'OK'
-                if (config.output & 1) printOneChar(' ');    // 'X'
-                printOneChar(rf12_hdr & RF12_HDR_DST ? '>' : '<');
-//                if (!(config.output & 1)) printOneChar(' ');                           // 'G'
-                printOneChar(' ');                           // 'G'
+                printOneChar(' ');                       // ''
                 if (config.group == 0) {
+                    printOneChar(' ');                       // 'G'
                     printASCII(rf12_grp);                    // grp
+                    if (config.output & 1) printOneChar(' ');//#####
                 }
-//                printPos(rf12_hdr);
+                printOneChar(rf12_hdr & RF12_HDR_DST ? '>' : '<');
+                if ((rf12_hdr > 99) && (!(config.output & 1))) printPos(' ');
                 printOneChar('@' + (rf12_hdr & RF12_HDR_MASK));
                 if (!(config.output & 1)) printOneChar(' ');
             } else {
-                if (config.output & 1) showString(PSTR("   "));
-                else showString(PSTR(" "));
+                printOneChar('?');                            // '?'
+                if (config.output & 1) {
+                    printOneChar('X');                   // 'X'
+ //                   printOneChar(' ');                            // ''
+                } else {
+                   printOneChar(' ');                            // ''
+                }  
+                if (config.group == 0) {
+                    printOneChar('G');                     // 'G'
+                }
+                printASCII(rf12_grp);      // grp
+                if (config.output & 1) {
+                     printOneChar(' ');                        // 'G'
+                }
                 if (config.group == 0) {
                     printOneChar(' ');                        // 'G'
-                }
-                if (config.output & 1) {
-                    printASCII(rf12_grp);  // grp
-                    printOneChar(' ');
-                } else {
-                    printASCII(rf12_grp);  // grp
                 }
                 printASCII(rf12_hdr);      // hdr
                 printASCII(rf12_len);      // len

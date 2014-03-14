@@ -241,6 +241,7 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
 }
 
 void RF69::interrupt_compat () {
+    uint8_t f = false;
     interruptCount++;
         IRQ_ENABLE; // allow nested interrupts from here on
         // Interrupt will remain asserted until FIFO empty or exit RX mode
@@ -253,11 +254,18 @@ void RF69::interrupt_compat () {
         afc  = (afc << 8) + readReg(REG_AFCLSB);
 
         crc = ~0;
+        for (uint16_t i = 0; i < 256; i++) {
+            if (readReg(REG_IRQFLAGS2) & (IRQ2_FIFONOTEMPTY|IRQ2_FIFOOVERRUN)) {
+                f = true;
+                break;
+            }
+        }
         // What happens if we empty the FIFO before packet reception complete
         // or if the FIFO is bigger than we eat - should be 66 max? - 
         // Rolling window!
         // What happens with we see sync but no payload?
-        for (;;) { // busy loop, to get each data byte as soon as it comes in
+    if (f) {
+        for (;;) { // busy loop, to get each data byte as soon as it comes in 
             if (readReg(REG_IRQFLAGS2) & (IRQ2_FIFONOTEMPTY|IRQ2_FIFOOVERRUN)) {
                 if (rxfill == 0 && group != 0) { 
                     recvBuf[rxfill++] = group;
@@ -271,13 +279,14 @@ void RF69::interrupt_compat () {
                     break;
             }
         }
+    } 
 // Make sure FIFO is empty - might deassert IRQ0
-//    if (readReg(REG_IRQFLAGS2) & (IRQ2_FIFONOTEMPTY)) {
-//        uint8_t in = readReg(REG_FIFO);
-//        }
+    if (readReg(REG_IRQFLAGS2) & (IRQ2_FIFONOTEMPTY)) {
+        uint8_t in = readReg(REG_FIFO);
+        }
     // Make sure IRQ0 is deasserted
     setMode(MODE_STANDBY);
-    writeReg(REG_DIOMAPPING1, 0x80); // SyncAddress   
+    writeReg(REG_DIOMAPPING1, 0x80); // SyncAddress  
     } else if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
         // rxstate will be TXDONE at this point
         rxstate = TXIDLE;
