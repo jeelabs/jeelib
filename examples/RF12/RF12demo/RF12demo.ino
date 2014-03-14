@@ -7,7 +7,7 @@
 // Added postbox semaphore feature 2013-10-24
 // Added message storage feature 2014-03-04
 
-#define RF69_COMPAT  0   // define this to use the RF69 driver i.s.o. RF12
+#define RF69_COMPAT  1   // define this to use the RF69 driver i.s.o. RF12
 #define OOK          0   // Define this to include OOK code f, k
 #define JNuMOSFET    0   // Define to power up RFM12B on JNu2/3
 #define configSTRING 1   // Define to include "A i1 g210 @ 868 MHz q1"
@@ -159,10 +159,10 @@ static byte nodes[MAX_NODES+1];
 #if RF69_COMPAT
 static byte minRSSI[MAX_NODES+1];
 static byte maxRSSI[MAX_NODES+1];
-static unsigned int minAFC[MAX_NODES+1];
-static unsigned int maxAFC[MAX_NODES+1];
-static unsigned int minFEI[MAX_NODES+1];
-static unsigned int maxFEI[MAX_NODES+1];
+static signed int minAFC[MAX_NODES+1];
+static signed int maxAFC[MAX_NODES+1];
+static signed int minFEI[MAX_NODES+1];
+static signed int maxFEI[MAX_NODES+1];
 #endif
 
 static byte postingsIn, postingsOut;
@@ -498,7 +498,7 @@ static void handleInput (char c) {
             cmd = 'a';
             if (top >= 1 && stack[0] <= RF12_MAXDATA)
               sendLen = stack[0];
-            else sendLen = 64; //jRF12_MAXDATA;
+            else sendLen = RF12_MAXDATA;
             dest = 0;
             if (value != 0) testCounter = value;  // Seed test pattern?
             for (byte i = 0; i < RF12_MAXDATA; ++i) {
@@ -562,12 +562,7 @@ static void handleInput (char c) {
             printOneChar(' ');
             showByte(RF69::control(0x2E, 0));
             printOneChar(']');
-            Serial.println(digitalRead(2));
-            Serial.println(sizeof stack);
-            Serial.println(sizeof stack - 9);
-            
-//            RF69::interruptCount = messageCount = 0;
-
+//            Serial.println(digitalRead(2));
             displayVersion();
             rf12_configDump();
 #if configSTRING
@@ -820,7 +815,14 @@ static int freeRam () {    // @jcw's work
 void setup () {
     delay(100);   // shortened for now. Handy with JeeNode Micro V1 where ISP
                   // interaction can be upset by RF12B startup process.
-                
+// Initialise min/max arrays
+memset(minRSSI,255,sizeof(minRSSI));
+memset(maxRSSI,0,sizeof(maxRSSI));
+memset(minAFC,255,sizeof(minAFC));
+memset(maxAFC,0,sizeof(maxAFC));
+memset(minFEI,255,sizeof(minFEI));
+memset(maxFEI,0,sizeof(maxFEI));
+
 #if JNuMOSFET     // Power up the wireless hardware
     bitSet(DDRB, 0);
     bitClear(PORTB, 0);
@@ -878,11 +880,25 @@ static void nodesShow() {
             showByte(i);
             printOneChar('(');
             showByte(nodes[i]);
-            showString(PSTR(")\t"));
-            if (!(n & 7)) Serial.println();
+            showString(PSTR(") RSSI "));
+            showByte(minRSSI[i]);
+            printOneChar('/');
+            showByte(maxRSSI[i]);
+
+            showString(PSTR(" AFC "));
+            Serial.print(minAFC[i]);
+            printOneChar('/');
+            Serial.print(maxAFC[i]);
+            
+            showString(PSTR(" FEI "));
+            Serial.print(minFEI[i]);
+            printOneChar('/');
+            Serial.print(maxFEI[i]);
+
+           /* if (!(n & 7))*/ Serial.println();
         }
     }
-    Serial.println();
+//    Serial.println();
 }
 
 void loop () {
@@ -896,9 +912,24 @@ void loop () {
 #endif
     if (rf12_recvDone()) {
 #if RF69_COMPAT
-        int afc = (RF69::afc);                  // Grab values before next interrupt
-        int fei = (RF69::fei);
+        signed int afc = (RF69::afc);                  // Grab values before next interrupt
+        signed int fei = (RF69::fei);
         byte rf69x2 = RF69::rssi;
+        // Check/update to min/max
+        if (afc < (minAFC[(rf12_hdr & RF12_HDR_MASK)]))
+          minAFC[(rf12_hdr & RF12_HDR_MASK)] = afc;   
+        if (afc > (maxAFC[(rf12_hdr & RF12_HDR_MASK)]))
+          maxAFC[(rf12_hdr & RF12_HDR_MASK)] = afc;
+          
+        if (fei < (minFEI[(rf12_hdr & RF12_HDR_MASK)]))       
+          minFEI[(rf12_hdr & RF12_HDR_MASK)] = fei;   
+        if (fei > (maxFEI[(rf12_hdr & RF12_HDR_MASK)]))
+          maxFEI[(rf12_hdr & RF12_HDR_MASK)] = fei;   
+
+        if (rf69x2 < (minRSSI[(rf12_hdr & RF12_HDR_MASK)]))
+          minRSSI[(rf12_hdr & RF12_HDR_MASK)] = rf69x2;   
+        if (rf69x2 > (maxRSSI[(rf12_hdr & RF12_HDR_MASK)]))
+          maxRSSI[(rf12_hdr & RF12_HDR_MASK)] = rf69x2;   
 #endif
       messageCount++;
         byte n = rf12_len;
@@ -969,22 +1000,22 @@ void loop () {
                 printOneChar('@' + (rf12_hdr & RF12_HDR_MASK));
                 if (!(config.output & 1)) printOneChar(' ');
             } else {
-                printOneChar('?');                            // '?'
+                printOneChar('?');                       // '?'
                 if (config.output & 1) {
                     printOneChar('X');                   // 'X'
- //                   printOneChar(' ');                            // ''
+ //                   printOneChar(' ');                 // ''
                 } else {
-                   printOneChar(' ');                            // ''
+                   printOneChar(' ');                    // ''
                 }  
                 if (config.group == 0) {
-                    printOneChar('G');                     // 'G'
+                    printOneChar('G');                   // 'G'
                 }
-                printASCII(rf12_grp);      // grp
+                printASCII(rf12_grp);                    // grp
                 if (config.output & 1) {
-                     printOneChar(' ');                        // 'G'
+                     printOneChar(' ');                  // ' '
                 }
                 if (config.group == 0) {
-                    printOneChar(' ');                        // 'G'
+                    printOneChar(' ');                   // ' '
                 }
                 printASCII(rf12_hdr);      // hdr
                 printASCII(rf12_len);      // len

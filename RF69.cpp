@@ -89,7 +89,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x32, 0x2D, // SyncValue4 = 0x2D
     // 0x33, 0xD4, // SyncValue5 = 212, Group
   0x37, 0x00, // PacketConfig1 = fixed, no crc, filt off
-  0x38, 0x00, // PayloadLength = 0, unlimited
+  0x38, 0x50, // PayloadLength = 0, unlimited
   0x3C, 0x8F, // FifoTresh, not empty, level 15
   0x3D, 0x10, // PacketConfig2, interpkt = 1, autorxrestart off
   0x6F, 0x20, // TestDagc ...
@@ -247,45 +247,46 @@ void RF69::interrupt_compat () {
         // Interrupt will remain asserted until FIFO empty or exit RX mode
 
         if (rxstate == TXRECV) {
-        rssi = readReg(REG_RSSIVALUE);
-        fei  = readReg(REG_FEIMSB);
-        fei  = (fei << 8) + readReg(REG_FEILSB);
-        afc  = readReg(REG_AFCMSB);
-        afc  = (afc << 8) + readReg(REG_AFCLSB);
+            rssi = readReg(REG_RSSIVALUE);
+            fei  = readReg(REG_FEIMSB);
+            fei  = (fei << 8) + readReg(REG_FEILSB);
+            afc  = readReg(REG_AFCMSB);
+            afc  = (afc << 8) + readReg(REG_AFCLSB);
 
-        crc = ~0;
-        for (uint16_t i = 0; i < 256; i++) {
-            if (readReg(REG_IRQFLAGS2) & (IRQ2_FIFONOTEMPTY|IRQ2_FIFOOVERRUN)) {
-                f = true;
-                break;
-            }
-        }
-        // What happens if we empty the FIFO before packet reception complete
-        // or if the FIFO is bigger than we eat - should be 66 max? - 
-        // Rolling window!
-        // What happens with we see sync but no payload?
-    if (f) {
-        for (;;) { // busy loop, to get each data byte as soon as it comes in 
-            if (readReg(REG_IRQFLAGS2) & (IRQ2_FIFONOTEMPTY|IRQ2_FIFOOVERRUN)) {
-                if (rxfill == 0 && group != 0) { 
-                    recvBuf[rxfill++] = group;
-                    crc = _crc16_update(crc, group);
-                }
-
-                uint8_t in = readReg(REG_FIFO);
-                recvBuf[rxfill++] = in;
-                crc = _crc16_update(crc, in);              
-                if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX)
+            crc = ~0;
+            for (uint16_t i = 0; i < 1024; i++) {
+                if (readReg(REG_IRQFLAGS2) & (IRQ2_FIFONOTEMPTY|IRQ2_FIFOOVERRUN)) {
+                    f = true;
                     break;
+                }
             }
-        }
-    } 
+            // What happens if we empty the FIFO before packet reception complete
+            // or if the FIFO is bigger than we eat - should be 66 max? - 
+            // Rolling window!
+            // What happens with we see sync but no payload?
+    if (f) {
+            for (;;) { // busy loop, to get each data byte as soon as it comes in 
+                if (readReg(REG_IRQFLAGS2) & (IRQ2_FIFONOTEMPTY|IRQ2_FIFOOVERRUN)) {
+                    if (rxfill == 0 && group != 0) { 
+                        recvBuf[rxfill++] = group;
+                        crc = _crc16_update(crc, group);
+                    }
+
+                    uint8_t in = readReg(REG_FIFO);
+                    recvBuf[rxfill++] = in;
+                    crc = _crc16_update(crc, in);              
+                    if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX)
+                        break;
+                }
+            }
+           } 
 // Make sure FIFO is empty - might deassert IRQ0
-    if (readReg(REG_IRQFLAGS2) & (IRQ2_FIFONOTEMPTY)) {
-        uint8_t in = readReg(REG_FIFO);
-        }
+          if (readReg(REG_IRQFLAGS2) & (IRQ2_FIFONOTEMPTY)) {
+          uint8_t in = readReg(REG_FIFO);
+          }
     // Make sure IRQ0 is deasserted
     setMode(MODE_STANDBY);
+    setMode(MODE_RECEIVER);
     writeReg(REG_DIOMAPPING1, 0x80); // SyncAddress  
     } else if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
         // rxstate will be TXDONE at this point
