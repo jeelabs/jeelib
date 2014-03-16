@@ -67,17 +67,17 @@ static volatile uint8_t rxfill;     // number of data bytes in rf12_buf
 static volatile int8_t rxstate;     // current transceiver state
 
 static ROM_UINT8 configRegs_compat [] ROM_DATA = {
-  0x01, 0x04, // OpMode = standby
-  0x02, 0x00, // DataModul = packet mode, fsk
+ // 0x01, 0x04, // OpMode = standby
+ // 0x02, 0x00, // DataModul = packet mode, fsk
   0x03, 0x02, // BitRateMsb, data rate = 49,261 khz
   0x04, 0x8A, // BitRateLsb, divider = 32 MHz / 650
-  0x05, 0x05, // FdevMsb = 90 KHz
-  0x06, 0xC3, // FdevLsb = 90 KHz
+  0x05, 0x02, // FdevMsb = 90 KHz
+  0x06, 0xE1, // FdevLsb = 90 KHz
   // 0x07, 0xD9, // FrfMsb, freq = 868.000 MHz
   // 0x08, 0x00, // FrfMib, divider = 14221312
   // 0x09, 0x00, // FrfLsb, step = 61.03515625
-  0x0B, 0x20, // AfcCtrl, afclowbetaon
-  0x19, 0x42, // RxBw ...
+//  0x0B, 0x20, // AfcCtrl, afclowbetaon
+  0x19, 0x41, // RxBw ...
   0x1E, 0x2C, // FeiStart, AfcAutoclearOn, AfcAutoOn
   0x25, 0x80, // DioMapping1 = SyncAddress (Rx)
   // 0x29, 0xDC, // RssiThresh ...
@@ -89,10 +89,10 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x32, 0x2D, // SyncValue4 = 0x2D
     // 0x33, 0xD4, // SyncValue5 = 212, Group
   0x37, 0x00, // PacketConfig1 = fixed, no crc, filt off
-  0x38, 0x50, // PayloadLength = 0, unlimited
+  0x38, 0x00, //j0x50, // PayloadLength = 0, unlimited
   0x3C, 0x8F, // FifoTresh, not empty, level 15
   0x3D, 0x10, // PacketConfig2, interpkt = 1, autorxrestart off
-  0x6F, 0x20, // TestDagc ...
+  0x6F, 0x30, //j0x20, // TestDagc ...
   0
 };
 
