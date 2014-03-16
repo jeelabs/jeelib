@@ -156,7 +156,7 @@ bool RF69::canSend () {
 }
 
 bool RF69::sending () {
-    return rxstate < TXIDLE;
+    return rxstate < TXIDLE; // What happens here? return a value less than whatever TXIDLE is valued?
 }
 
 void RF69::sleep (bool off) {
@@ -224,8 +224,8 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
     // use busy polling until the last byte fits into the buffer
     // this makes sure it all happens on time, and that sendWait can sleep
     while (rxstate < TXDONE)
-        if ((readReg(REG_IRQFLAGS2) & IRQ2_FIFOFULL) == 0) {
-            uint8_t out = 0xAA;
+        if ((readReg(REG_IRQFLAGS2) & IRQ2_FIFOFULL) == 0) { // FIFO is only 64 bytes! 
+            uint8_t out = 0xAA; // I'm lost here too, why not have it with the writeReg
             if (rxstate < 0) {
                 out = recvBuf[3 + rf12_len + rxstate];
                 crc = _crc16_update(crc, out);
@@ -235,18 +235,18 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
                     case TXCRC2: out = crc >> 8; break;
                 }
             }
-            writeReg(REG_FIFO, out);
+            writeReg(REG_FIFO, out); // Presume this outputs the 0xAA preample to finish packet?
             ++rxstate;
         }
 }
 
 void RF69::interrupt_compat () {
-    uint8_t f = false;
     interruptCount++;
-        IRQ_ENABLE; // allow nested interrupts from here on
         // Interrupt will remain asserted until FIFO empty or exit RX mode
 
         if (rxstate == TXRECV) {
+            IRQ_ENABLE; // allow nested interrupts from here on
+            uint8_t f = false;
             rssi = readReg(REG_RSSIVALUE);
             fei  = readReg(REG_FEIMSB);
             fei  = (fei << 8) + readReg(REG_FEILSB);
