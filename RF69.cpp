@@ -71,13 +71,13 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
  // 0x02, 0x00, // DataModul = packet mode, fsk
   0x03, 0x02, // BitRateMsb, data rate = 49,261 khz
   0x04, 0x8A, // BitRateLsb, divider = 32 MHz / 650
-  0x05, 0x02, // FdevMsb = 90 KHz
-  0x06, 0xE1, // FdevLsb = 90 KHz
+  0x05, 0x05, // FdevMsb = 90 KHz
+  0x06, 0xC3, // FdevLsb = 90 KHz
   // 0x07, 0xD9, // FrfMsb, freq = 868.000 MHz
   // 0x08, 0x00, // FrfMib, divider = 14221312
   // 0x09, 0x00, // FrfLsb, step = 61.03515625
 //  0x0B, 0x20, // AfcCtrl, afclowbetaon
-  0x19, 0x41, // RxBw ...
+  0x19, 0x49, // RxBw ...
   0x1E, 0x2C, // FeiStart, AfcAutoclearOn, AfcAutoOn
   0x25, 0x80, // DioMapping1 = SyncAddress (Rx)
   // 0x29, 0xDC, // RssiThresh ...
