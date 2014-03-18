@@ -78,9 +78,9 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   // 0x09, 0x00, // FrfLsb, step = 61.03515625
 //  0x0B, 0x20, // AfcCtrl, afclowbetaon
   0x19, 0x49, // RxBw ...
-  0x1E, 0x2C, // FeiStart, AfcAutoclearOn, AfcAutoOn
+  0x1E, 0x0C, //M17 0x2C, // FeiStart, AfcAutoclearOn, AfcAutoOn
   0x25, 0x80, // DioMapping1 = SyncAddress (Rx)
-  // 0x29, 0xDC, // RssiThresh ...
+  0x29, 0xE4, // RssiThresh ...
 
   0x2E, 0xA0, // SyncConfig = sync on, sync size = 5
   0x2F, 0xAA, // SyncValue1 = 0xAA
@@ -194,14 +194,19 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         recvBuf = buf;
         rxstate = TXRECV;
         flushFifo();
+//        writeReg(REG_IRQFLAGS2, 0x10); // Clear FIFO with FifoOverrun
         setMode(MODE_RECEIVER);
         break;
     case TXRECV:
         if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX) {
             rxstate = TXIDLE;
             setMode(MODE_STANDBY);
-            if (rf12_len > RF12_MAXDATA)
-                crc = 1; // force bad crc for invalid packet
+//    writeReg(REG_DIOMAPPING1, 0x80); // SyncAddress
+ 
+            if (rf12_len > RF12_MAXDATA) {
+                crc = 1; // force bad crc for invalid packet                
+//                writeReg(REG_IRQFLAGS2, 0x10); // Clear FIFO with FifoOverrun
+            }
             if (!(rf12_hdr & RF12_HDR_DST) || node == 31 ||
                     (rf12_hdr & RF12_HDR_MASK) == node)
                 return crc;

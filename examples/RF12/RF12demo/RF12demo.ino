@@ -775,8 +775,8 @@ static void printPos (byte c) {
         if (config.output & 0x1) { // Hex output?
             printOneChar(' ');
         } else {
-            if (c > 99) printOneChar('_');
-            if (c > 9) printOneChar('_');
+            if (c > 99) printOneChar(' ');
+            if (c > 9) printOneChar(' ');
         }
 }
 
@@ -818,10 +818,10 @@ void setup () {
 // Initialise min/max arrays
 memset(minRSSI,255,sizeof(minRSSI));
 memset(maxRSSI,0,sizeof(maxRSSI));
-memset(minAFC,255,sizeof(minAFC));
-memset(maxAFC,0,sizeof(maxAFC));
-memset(minFEI,255,sizeof(minFEI));
-memset(maxFEI,0,sizeof(maxFEI));
+memset(minAFC,127,sizeof(minAFC));
+memset(maxAFC,128,sizeof(maxAFC));
+memset(minFEI,127,sizeof(minFEI));
+memset(maxFEI,128,sizeof(maxFEI));
 
 #if JNuMOSFET     // Power up the wireless hardware
     bitSet(DDRB, 0);
