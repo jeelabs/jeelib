@@ -507,11 +507,7 @@ static void handleInput (char c) {
                 else stack[i] = i + testCounter;
             } 
             showString(PSTR("test "));
-<<<<<<< HEAD
             if (sendLen) showByte(stack[0]); // first byte in test buffer
-=======
-            showByte(testCounter); // first byte in test buffer
->>>>>>> master
             ++testCounter;
             break;
 
@@ -767,16 +763,12 @@ static byte getMessage (byte rec) {
     return len;
 }
 
-<<<<<<< HEAD
 static void displayString (const byte* data, byte count) {
     for (byte i = 0; i < count; ++i) {
         char c = (char) data[i];
         showByte(data[i]);
         if (!(config.output & 0x1)) printOneChar(' ');
     }
-=======
-    value = top = 0;
->>>>>>> master
 }
 
 static void printPos (byte c) {
@@ -1059,7 +1051,6 @@ void loop () {
             }
 
             if (RF12_WANTS_ACK && (config.collect_mode) == 0) {
-<<<<<<< HEAD
                 byte ackLen = 0;
 
                 if ((rf12_hdr & (RF12_HDR_MASK | RF12_HDR_DST)) == 31) {
@@ -1100,10 +1091,6 @@ void loop () {
                 showString(PSTR(" -> ack"));
                 crlf = true;
                 rf12_sendStart(RF12_ACK_REPLY, &stack[sizeof stack - ackLen], ackLen);
-=======
-                showString(PSTR(" -> ack\n"));
-                rf12_sendStart(RF12_ACK_REPLY, 0, 0);
->>>>>>> master
             }
             if (crlf) Serial.println();
             activityLed(0);
