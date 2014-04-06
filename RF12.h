@@ -126,6 +126,9 @@ char rf12_easySend(const void* data, uint8_t size);
 /// Enable encryption (null arg disables it again).
 void rf12_encrypt(const uint8_t*);
 
+/// Enable raw receive mode with fixed packet length.
+void rf12_setRawRecvMode(uint8_t fixed_pkt_len);
+
 /// Low-level control of the RFM12B via direct register access.
 /// http://tools.jeelabs.org/rfm12b is useful for calculating these.
 uint16_t rf12_control(uint16_t cmd);
