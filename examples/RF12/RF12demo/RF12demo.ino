@@ -652,7 +652,26 @@ static void handleInput (char c) {
             }
             break;
 
-        case 'n': // Clear node entries in RAM & EEPROM
+        case 'n': 
+          // Show and set RFMxx registers
+          Serial.println(top);
+          Serial.print(stack[0]);
+          Serial.print(",");
+          Serial.println(stack[1]);
+          Serial.println(value);
+          if (top == 2) {
+              if (stack[0] == 1) {
+                  Serial.print("returned=");
+#if RF69_COMPAT
+                  showByte(RF69::control(stack[1], value)); // Prints out Register value before any change requested.
+                  Serial.println();
+#else
+                  Serial.println((word)(rf12_control(value)));
+#endif
+              }
+          }
+          // TODO Review eeprom usage when supporting multiple groups.
+ /*       // Clear node entries in RAM & EEPROM
             if (stack[0] <= MAX_NODES) {
                 nodes[stack[0]] = 0xFF; // Clear RAM entry
             // On a T84 this section will roll around to start of EEPROM address space for nodes 28 - 30
@@ -669,6 +688,7 @@ static void handleInput (char c) {
                     }
                 }
             }
+ */
             break;
 #endif
 
@@ -815,6 +835,7 @@ static int freeRam () {    // @jcw's work
 void setup () {
     delay(100);   // shortened for now. Handy with JeeNode Micro V1 where ISP
                   // interaction can be upset by RF12B startup process.
+#if RF69_COMPAT
 // Initialise min/max arrays
 memset(minRSSI,255,sizeof(minRSSI));
 memset(maxRSSI,0,sizeof(maxRSSI));
@@ -822,7 +843,7 @@ memset(minAFC,127,sizeof(minAFC));
 memset(maxAFC,128,sizeof(maxAFC));
 memset(minFEI,127,sizeof(minFEI));
 memset(maxFEI,128,sizeof(maxFEI));
-
+#endif
 #if JNuMOSFET     // Power up the wireless hardware
     bitSet(DDRB, 0);
     bitClear(PORTB, 0);
@@ -880,6 +901,7 @@ static void nodesShow() {
             showByte(i);
             printOneChar('(');
             showByte(nodes[i]);
+#if RF69_COMPAT            
             showString(PSTR(") RSSI "));
             showByte(minRSSI[i]);
             printOneChar('/');
@@ -894,7 +916,9 @@ static void nodesShow() {
             Serial.print(minFEI[i]);
             printOneChar('/');
             Serial.print(maxFEI[i]);
-
+#else
+            showString(PSTR(")"));
+#endif
            /* if (!(n & 7))*/ Serial.println();
         }
     }
@@ -1057,7 +1081,7 @@ void loop () {
                     // Special Node 31 source node
                     for (byte i = 1; i <= MAX_NODES; ++i) { // TODO Will this be able to allocate node 30, ++i versus i++
                         if (nodes[i] == 0xFF) {
-                            // TODO Sending E0 could be mistaken for posting Ex
+                            // TODO Sending E0 could be mistaken for posting En where n == a node number
                             stack[0] = i + 0xE0; // 0xE0 is an arbitary value
                             // Change Node number request - matched in RF12Tune
                             ackLen = 1;
