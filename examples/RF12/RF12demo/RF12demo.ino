@@ -189,6 +189,14 @@ static void showNibble (byte nibble) {
     Serial.print(c);
 }
 
+static void showWord (unsigned int value) {
+    if (config.output & 0x1) {
+        showByte (value >> 8);
+        showByte (value);
+    } else
+        Serial.print(value);    
+}
+
 static void showByte (byte value) {
     if (config.output & 0x1) {
         showNibble(value >> 4);
@@ -405,7 +413,7 @@ static void handleInput (char c) {
             showByte(stack[i]);
             printOneChar(',');
         }
-        Serial.print((word)value);
+        showWord(value);
         Serial.println(c);
     }
 // TODO Should we not have an "else" here instead of the "else if" below?
@@ -895,7 +903,7 @@ memset(pktCount,0,sizeof(pktCount));
 static void nodesShow() {
     byte n = 0;
     for (byte i = 1; i <= MAX_NODES; i++) {
-        if (nodes[i] != 0xFF) {
+        if (nodes[i] != 0xFF && pktCount[i]) {
             n++;
             showByte(i);
             printOneChar('(');

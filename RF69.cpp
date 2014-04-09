@@ -80,7 +80,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x19, 0x49, // RxBw ...
   0x1E, 0x0C, //M17 0x2C, // FeiStart, AfcAutoclearOn, AfcAutoOn
   0x25, 0x80, // DioMapping1 = SyncAddress (Rx)
-  0x29, 0xE4, // RssiThresh ...
+  0x29, 0xC4, // RssiThresh ...
 
   0x2E, 0xA0, // SyncConfig = sync on, sync size = 5
   0x2F, 0xAA, // SyncValue1 = 0xAA
@@ -286,7 +286,8 @@ void RF69::interrupt_compat () {
                 }
             }
 //           }
-           writeReg(REG_IRQFLAGS2, 0x10); // Clear FIFO with FifoOverrun 
+           writeReg(REG_IRQFLAGS2, 0x10); // Clear FIFO with FifoOverrun
+           writeReg(REG_AFCFEI, 0x5F);    // Clear AFC 
 // Make sure FIFO is empty - might deassert IRQ0
 //          if (readReg(REG_IRQFLAGS2) & (IRQ2_FIFONOTEMPTY)) {
 //          uint8_t in = readReg(REG_FIFO);
@@ -299,6 +300,7 @@ void RF69::interrupt_compat () {
         // rxstate will be TXDONE at this point
         rxstate = TXIDLE;
         writeReg(REG_IRQFLAGS2, 0x10); // Clear FIFO with FifoOverrun 
+        writeReg(REG_AFCFEI, 0x5F);    // Clear AFC 
 // We have just had an interrupt, mode standby should deassert IRQ0
 // If we are in standby that is!
 // Make sure FIFO is empty - might deassert IRQ0
