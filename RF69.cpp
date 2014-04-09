@@ -287,7 +287,7 @@ void RF69::interrupt_compat () {
             }
 //           }
            writeReg(REG_IRQFLAGS2, 0x10); // Clear FIFO with FifoOverrun
-           writeReg(REG_AFCFEI, 0x5F);    // Clear AFC 
+           writeReg(REG_AFCFEI, 0x0E);    // Clear AFC 
 // Make sure FIFO is empty - might deassert IRQ0
 //          if (readReg(REG_IRQFLAGS2) & (IRQ2_FIFONOTEMPTY)) {
 //          uint8_t in = readReg(REG_FIFO);
@@ -300,7 +300,7 @@ void RF69::interrupt_compat () {
         // rxstate will be TXDONE at this point
         rxstate = TXIDLE;
         writeReg(REG_IRQFLAGS2, 0x10); // Clear FIFO with FifoOverrun 
-        writeReg(REG_AFCFEI, 0x5F);    // Clear AFC 
+        writeReg(REG_AFCFEI, 0x0E);    // Clear AFC 
 // We have just had an interrupt, mode standby should deassert IRQ0
 // If we are in standby that is!
 // Make sure FIFO is empty - might deassert IRQ0
