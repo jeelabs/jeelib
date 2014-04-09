@@ -164,7 +164,8 @@ static signed int maxAFC[MAX_NODES+1];
 static signed int minFEI[MAX_NODES+1];
 static signed int maxFEI[MAX_NODES+1];
 #endif
-
+static unsigned int pktCount[MAX_NODES+1];
+static unsigned int CRCbadCount = 0;
 static byte postingsIn, postingsOut;
   
 const char messagesF[] PROGMEM = { 
@@ -547,7 +548,9 @@ static void handleInput (char c) {
 
         case 'v': // display the interpreter version
             Serial.print(messageCount);
-            printOneChar('/');
+            printOneChar('(');
+            Serial.print(CRCbadCount);
+            printOneChar(')');
             Serial.print(RF69::interruptCount);
             printOneChar('[');
             showByte(RF69::control(0x00, 0));
@@ -654,14 +657,8 @@ static void handleInput (char c) {
 
         case 'n': 
           // Show and set RFMxx registers
-          Serial.println(top);
-          Serial.print(stack[0]);
-          Serial.print(",");
-          Serial.println(stack[1]);
-          Serial.println(value);
           if (top == 2) {
               if (stack[0] == 1) {
-                  Serial.print("returned=");
 #if RF69_COMPAT
                   showByte(RF69::control(stack[1], value)); // Prints out Register value before any change requested.
                   Serial.println();
@@ -836,7 +833,7 @@ void setup () {
     delay(100);   // shortened for now. Handy with JeeNode Micro V1 where ISP
                   // interaction can be upset by RF12B startup process.
 #if RF69_COMPAT
-// Initialise min/max arrays
+// Initialise min/max/count arrays
 memset(minRSSI,255,sizeof(minRSSI));
 memset(maxRSSI,0,sizeof(maxRSSI));
 memset(minAFC,127,sizeof(minAFC));
@@ -844,6 +841,8 @@ memset(maxAFC,128,sizeof(maxAFC));
 memset(minFEI,127,sizeof(minFEI));
 memset(maxFEI,128,sizeof(maxFEI));
 #endif
+memset(pktCount,0,sizeof(pktCount));
+
 #if JNuMOSFET     // Power up the wireless hardware
     bitSet(DDRB, 0);
     bitClear(PORTB, 0);
@@ -901,8 +900,10 @@ static void nodesShow() {
             showByte(i);
             printOneChar('(');
             showByte(nodes[i]);
+            printOneChar(')');
+            Serial.print(pktCount[i]); 
 #if RF69_COMPAT            
-            showString(PSTR(") RSSI "));
+            showString(PSTR(" RSSI "));
             showByte(minRSSI[i]);
             printOneChar('/');
             showByte(maxRSSI[i]);
@@ -916,8 +917,6 @@ static void nodesShow() {
             Serial.print(minFEI[i]);
             printOneChar('/');
             Serial.print(maxFEI[i]);
-#else
-            showString(PSTR(")"));
 #endif
            /* if (!(n & 7))*/ Serial.println();
         }
@@ -955,6 +954,7 @@ void loop () {
         if (rf69x2 > (maxRSSI[(rf12_hdr & RF12_HDR_MASK)]))
           maxRSSI[(rf12_hdr & RF12_HDR_MASK)] = rf69x2;   
 #endif
+      pktCount[(rf12_hdr & RF12_HDR_MASK)]++;
       messageCount++;
         byte n = rf12_len;
         byte crc = false;
@@ -1024,6 +1024,7 @@ void loop () {
                 printOneChar('@' + (rf12_hdr & RF12_HDR_MASK));
                 if (!(config.output & 1)) printOneChar(' ');
             } else {
+                CRCbadCount++;
                 printOneChar('?');                       // '?'
                 if (config.output & 1) {
                     printOneChar('X');                   // 'X'
