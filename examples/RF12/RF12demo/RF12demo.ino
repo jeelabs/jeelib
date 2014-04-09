@@ -938,30 +938,33 @@ void loop () {
         signed int afc = (RF69::afc);                  // Grab values before next interrupt
         signed int fei = (RF69::fei);
         byte rf69x2 = RF69::rssi;
-        // Check/update to min/max
-        if (afc < (minAFC[(rf12_hdr & RF12_HDR_MASK)]))
-          minAFC[(rf12_hdr & RF12_HDR_MASK)] = afc;   
-        if (afc > (maxAFC[(rf12_hdr & RF12_HDR_MASK)]))
-          maxAFC[(rf12_hdr & RF12_HDR_MASK)] = afc;
-          
-        if (fei < (minFEI[(rf12_hdr & RF12_HDR_MASK)]))       
-          minFEI[(rf12_hdr & RF12_HDR_MASK)] = fei;   
-        if (fei > (maxFEI[(rf12_hdr & RF12_HDR_MASK)]))
-          maxFEI[(rf12_hdr & RF12_HDR_MASK)] = fei;   
-
-        if (rf69x2 < (minRSSI[(rf12_hdr & RF12_HDR_MASK)]))
-          minRSSI[(rf12_hdr & RF12_HDR_MASK)] = rf69x2;   
-        if (rf69x2 > (maxRSSI[(rf12_hdr & RF12_HDR_MASK)]))
-          maxRSSI[(rf12_hdr & RF12_HDR_MASK)] = rf69x2;   
-#endif
-      pktCount[(rf12_hdr & RF12_HDR_MASK)]++;
-      messageCount++;
+#endif  
         byte n = rf12_len;
         byte crc = false;
         if (rf12_crc == 0) {
             showString(PSTR("OK"));
             crc = true;        
+#if RF69_COMPAT
+            // Check/update to min/max/count
+            if (afc < (minAFC[(rf12_hdr & RF12_HDR_MASK)]))
+              minAFC[(rf12_hdr & RF12_HDR_MASK)] = afc;   
+            if (afc > (maxAFC[(rf12_hdr & RF12_HDR_MASK)]))
+              maxAFC[(rf12_hdr & RF12_HDR_MASK)] = afc;
+          
+            if (fei < (minFEI[(rf12_hdr & RF12_HDR_MASK)]))       
+              minFEI[(rf12_hdr & RF12_HDR_MASK)] = fei;   
+            if (fei > (maxFEI[(rf12_hdr & RF12_HDR_MASK)]))
+              maxFEI[(rf12_hdr & RF12_HDR_MASK)] = fei;   
+
+            if (rf69x2 < (minRSSI[(rf12_hdr & RF12_HDR_MASK)]))
+              minRSSI[(rf12_hdr & RF12_HDR_MASK)] = rf69x2;   
+            if (rf69x2 > (maxRSSI[(rf12_hdr & RF12_HDR_MASK)]))
+              maxRSSI[(rf12_hdr & RF12_HDR_MASK)] = rf69x2;   
+#endif
+            pktCount[(rf12_hdr & RF12_HDR_MASK)]++;
+            messageCount++;
         } else {
+            CRCbadCount++;
             if (config.quiet_mode)
                 return;
             crc = false;
@@ -1024,7 +1027,6 @@ void loop () {
                 printOneChar('@' + (rf12_hdr & RF12_HDR_MASK));
                 if (!(config.output & 1)) printOneChar(' ');
             } else {
-                CRCbadCount++;
                 printOneChar('?');                       // '?'
                 if (config.output & 1) {
                     printOneChar('X');                   // 'X'
