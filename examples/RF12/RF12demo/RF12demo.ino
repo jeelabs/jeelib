@@ -903,7 +903,7 @@ memset(pktCount,0,sizeof(pktCount));
 static void nodesShow() {
     byte n = 0;
     for (byte i = 1; i <= MAX_NODES; i++) {
-        if (nodes[i] != 0xFF && pktCount[i]) {
+        if (nodes[i] != 0xFF) {
             n++;
             showByte(i);
             printOneChar('(');
