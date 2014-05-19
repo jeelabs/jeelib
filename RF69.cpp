@@ -79,21 +79,21 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 //  0x0B, 0x20, // AfcCtrl, afclowbetaon
   0x19, 0x42, // RxBw ...
   0x1A, 0x91, // 0x8B,   // Channel filter BW
-  0x1E, 0x0C, //M17 0x2C, // FeiStart, AfcAutoclearOn, AfcAutoOn
+  0x1E, 0x0C, // AfcAutoclearOn, AfcAutoOn
   0x25, 0x80, // DioMapping1 = SyncAddress (Rx)
-  0x29, 0xE4, // 0xC4, // RssiThresh ...
+  0x29, 0xE4, // RssiThresh ...
 
   0x2E, 0xA0, // SyncConfig = sync on, sync size = 5
   0x2F, 0xAA, // SyncValue1 = 0xAA
   0x30, 0xAA, // SyncValue2 = 0xAA
   0x31, 0xAA, // SyncValue3 = 0xAA
   0x32, 0x2D, // SyncValue4 = 0x2D
-    // 0x33, 0xD4, // SyncValue5 = 212, Group
+//0x33, 0xD4, // SyncValue5 = 212, Group
   0x37, 0x00, // PacketConfig1 = fixed, no crc, filt off
-  0x38, 0x00, //j0x50, // PayloadLength = 0, unlimited
+  0x38, 0x00, // PayloadLength = 0, unlimited
   0x3C, 0x8F, // FifoTresh, not empty, level 15
   0x3D, 0x10, // PacketConfig2, interpkt = 1, autorxrestart off
-  0x6F, 0x30, //j0x20, // TestDagc ...
+  0x6F, 0x30, // TestDagc ...
   0
 };
 
@@ -157,7 +157,7 @@ bool RF69::canSend () {
 }
 
 bool RF69::sending () {
-    return rxstate < TXIDLE; // What happens here? return a value less than whatever TXIDLE is valued?
+    return rxstate < TXIDLE;
 }
 
 void RF69::sleep (bool off) {
@@ -195,18 +195,15 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         recvBuf = buf;
         rxstate = TXRECV;
         flushFifo();
-//        writeReg(REG_IRQFLAGS2, 0x10); // Clear FIFO with FifoOverrun
         setMode(MODE_RECEIVER);
         break;
     case TXRECV:
         if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX) {
             rxstate = TXIDLE;
             setMode(MODE_STANDBY);
-//    writeReg(REG_DIOMAPPING1, 0x80); // SyncAddress
  
             if (rf12_len > RF12_MAXDATA) {
                 crc = 1; // force bad crc for invalid packet                
-//                writeReg(REG_IRQFLAGS2, 0x10); // Clear FIFO with FifoOverrun
             }
             if (!(rf12_hdr & RF12_HDR_DST) || node == 31 ||
                     (rf12_hdr & RF12_HDR_MASK) == node)
@@ -241,7 +238,7 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
                     case TXCRC2: out = crc >> 8; break;
                 }
             }
-            writeReg(REG_FIFO, out); // Presume this outputs the 0xAA postamble to finish packet?
+            writeReg(REG_FIFO, out);
             ++rxstate;
         }
 }
@@ -260,18 +257,6 @@ void RF69::interrupt_compat () {
             afc  = (afc << 8) + readReg(REG_AFCLSB);
 
             crc = ~0;
-            /*
-            for (uint16_t i = 0; i < 1024; i++) {
-                if (readReg(REG_IRQFLAGS2) & (IRQ2_FIFONOTEMPTY|IRQ2_FIFOOVERRUN)) {
-                    f = true;
-                    break;
-                }
-            }
-            // What happens if we empty the FIFO before packet reception complete
-            // or if the FIFO is bigger than we eat - should be 66 max? - 
-            // Rolling window!
-            // What happens with we see sync but no payload?
-    if (f) { */
             for (;;) { // busy loop, to get each data byte as soon as it comes in 
                 if (readReg(REG_IRQFLAGS2) & (IRQ2_FIFONOTEMPTY|IRQ2_FIFOOVERRUN)) {
                     if (rxfill == 0 && group != 0) { 
@@ -286,30 +271,11 @@ void RF69::interrupt_compat () {
                         break;
                 }
             }
-//           }
-           writeReg(REG_IRQFLAGS2, 0x10); // Clear FIFO with FifoOverrun
            writeReg(REG_AFCFEI, 0x02);    // Clear AFC  **fixes AFC volatility
-// Make sure FIFO is empty - might deassert IRQ0
-//          if (readReg(REG_IRQFLAGS2) & (IRQ2_FIFONOTEMPTY)) {
-//          uint8_t in = readReg(REG_FIFO);
-//          }
-    // Make sure IRQ0 is deasserted
-//    setMode(MODE_STANDBY);
-//    setMode(MODE_RECEIVER);
-//    writeReg(REG_DIOMAPPING1, 0x80); // SyncAddress  
     } else if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
         // rxstate will be TXDONE at this point
         rxstate = TXIDLE;
-        writeReg(REG_IRQFLAGS2, 0x10); // Clear FIFO with FifoOverrun 
-//        writeReg(REG_AFCFEI, 0x2F);    // Clear AFC, start FEI 
-// We have just had an interrupt, mode standby should deassert IRQ0
-// If we are in standby that is!
-// Make sure FIFO is empty - might deassert IRQ0
-//        if (readReg(REG_IRQFLAGS2) & (IRQ2_FIFONOTEMPTY|IRQ2_FIFOOVERRUN)) {
-//            uint8_t in = readReg(REG_FIFO);
-//        }
         setMode(MODE_STANDBY);
-        writeReg(REG_IRQFLAGS2, 0x10); // Clear FIFO with FifoOverrun
         writeReg(REG_DIOMAPPING1, 0x80); // SyncAddress
         }
 }

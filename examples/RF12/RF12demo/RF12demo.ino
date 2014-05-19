@@ -560,20 +560,6 @@ static void handleInput (char c) {
             Serial.print(CRCbadCount);
             printOneChar(')');
             Serial.print(RF69::interruptCount);
-            printOneChar('[');
-            showByte(RF69::control(0x00, 0));
-            printOneChar(' ');
-            showByte(RF69::control(0x01, 0));
-            printOneChar(' ');
-            showByte(RF69::control(0x25, 0));
-            printOneChar(' ');
-            showByte(RF69::control(0x27, 0));
-            printOneChar(' ');
-            showByte(RF69::control(0x28, 0));
-            printOneChar(' ');
-            showByte(RF69::control(0x2E, 0));
-            printOneChar(']');
-//            Serial.println(digitalRead(2));
             displayVersion();
             rf12_configDump();
 #if configSTRING
