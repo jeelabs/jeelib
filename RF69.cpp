@@ -288,7 +288,7 @@ void RF69::interrupt_compat () {
             }
 //           }
            writeReg(REG_IRQFLAGS2, 0x10); // Clear FIFO with FifoOverrun
-//           writeReg(REG_AFCFEI, 0x2F);    // Clear AFC, start FEI 
+           writeReg(REG_AFCFEI, 0x02);    // Clear AFC  **fixes AFC volatility
 // Make sure FIFO is empty - might deassert IRQ0
 //          if (readReg(REG_IRQFLAGS2) & (IRQ2_FIFONOTEMPTY)) {
 //          uint8_t in = readReg(REG_FIFO);
