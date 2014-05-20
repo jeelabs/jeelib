@@ -13,6 +13,7 @@
 #define configSTRING 1   // Define to include "A i1 g210 @ 868 MHz q1"
 #define MESSAGING    1   // Define to include message posting code m, p, n
 
+#define REG_SYNCGROUP       0x33
 #include <JeeLib.h>
 #include <util/crc16.h>
 #include <avr/eeprom.h>
@@ -1109,8 +1110,9 @@ void loop () {
                         postingsOut++;
                     }
                 }
-                showString(PSTR(" -> ack"));
+                showString(PSTR(" -> ack G"));
                 crlf = true;
+                showByte(RF69::control(REG_SYNCGROUP | 0x80, rf12_grp));
                 rf12_sendStart(RF12_ACK_REPLY, &stack[sizeof stack - ackLen], ackLen);
             }
             if (crlf) Serial.println();

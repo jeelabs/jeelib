@@ -173,11 +173,11 @@ void RF69::sleep (bool off) {
 
 void RF69::configure_compat () {
     initRadio(configRegs_compat);
+    writeReg(REG_SYNCGROUP, group);
     if(group == 0) {
         writeReg(REG_SYNCCONFIG, fourByteSync);
     } else {
         writeReg(REG_SYNCCONFIG, fiveByteSync);
-        writeReg(REG_SYNCGROUP, group);
     }   
 
     writeReg(REG_FRFMSB, frf >> 16);
@@ -216,6 +216,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
 }
 
 void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
+
     rf12_len = len;
     for (int i = 0; i < len; ++i)
         rf12_data[i] = ((const uint8_t*) ptr)[i];
@@ -223,6 +224,10 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
     crc = _crc16_update(~0, group);
     rxstate = - (2 + rf12_len); // preamble and SYN1/SYN2 are sent by hardware
     flushFifo();
+
+    // REG_SYNCGROUP must be set to appropriate group before the next line.
+    writeReg(REG_SYNCCONFIG, fiveByteSync);
+
     setMode(MODE_TRANSMITTER);
     writeReg(REG_DIOMAPPING1, 0x00); // PacketSent
     
@@ -243,6 +248,11 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
             writeReg(REG_FIFO, out);
             ++rxstate;
         }
+        
+        if (group == 0) {            // Allow receiving from all groups
+            writeReg(REG_SYNCCONFIG, fourByteSync);
+        }
+
 }
 
 void RF69::interrupt_compat () {
