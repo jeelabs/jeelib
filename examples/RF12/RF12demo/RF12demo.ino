@@ -1112,7 +1112,12 @@ void loop () {
                 }
                 showString(PSTR(" -> ack G"));
                 crlf = true;
-                showByte(RF69::control(REG_SYNCGROUP | 0x80, rf12_grp));
+                showByte(RF69::control(REG_SYNCGROUP | 0x80, rf12_grp)); // DEBUG
+                Serial.println();                                        // DEBUG
+                showByte(RF12_ACK_REPLY);                                // DEBUG
+                Serial.println();                                        // DEBUG
+                showByte(RF69::control(0x2E, 0));                        // DEBUG
+                Serial.println();                                        // DEBUG
                 rf12_sendStart(RF12_ACK_REPLY, &stack[sizeof stack - ackLen], ackLen);
             }
             if (crlf) Serial.println();

@@ -174,7 +174,7 @@ void RF69::sleep (bool off) {
 void RF69::configure_compat () {
     initRadio(configRegs_compat);
     writeReg(REG_SYNCGROUP, group);
-    if(group == 0) {
+    if (group == 0) {
         writeReg(REG_SYNCCONFIG, fourByteSync);
     } else {
         writeReg(REG_SYNCCONFIG, fiveByteSync);
@@ -220,13 +220,15 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
     rf12_len = len;
     for (int i = 0; i < len; ++i)
         rf12_data[i] = ((const uint8_t*) ptr)[i];
-    rf12_hdr = hdr & RF12_HDR_DST ? hdr : (hdr & ~RF12_HDR_MASK) + node;  
-    crc = _crc16_update(~0, group);
+    rf12_hdr = hdr & RF12_HDR_DST ? hdr : (hdr & ~RF12_HDR_MASK) + node; 
+    crc = _crc16_update(~0, 8);    //DEBUG
     rxstate = - (2 + rf12_len); // preamble and SYN1/SYN2 are sent by hardware
     flushFifo();
 
-    // REG_SYNCGROUP must be set to appropriate group before the next line.
+    // REG_SYNCGROUP must have been set to appropriate group before this.
     writeReg(REG_SYNCCONFIG, fiveByteSync);
+    while (readReg(REG_SYNCCONFIG) != fiveByteSync);
+
 
     setMode(MODE_TRANSMITTER);
     writeReg(REG_DIOMAPPING1, 0x00); // PacketSent
@@ -251,6 +253,7 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
         
         if (group == 0) {            // Allow receiving from all groups
             writeReg(REG_SYNCCONFIG, fourByteSync);
+            while (readReg(REG_SYNCCONFIG) != fourByteSync);
         }
 
 }
@@ -261,7 +264,7 @@ void RF69::interrupt_compat () {
         // Interrupt will remain asserted until FIFO empty or exit RX mode
 
         if (rxstate == TXRECV) {
-            uint8_t f = false;
+//            uint8_t f = false;
             rssi = readReg(REG_RSSIVALUE);
             fei  = readReg(REG_FEIMSB);
             fei  = (fei << 8) + readReg(REG_FEILSB);
