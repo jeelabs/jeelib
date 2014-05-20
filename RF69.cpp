@@ -44,6 +44,8 @@
 #define RssiStart           0x01
 #define RssiDone            0x02
 
+#define AfcClear            0x02
+
 #define fourByteSync        0x98
 #define fiveByteSync        0xA0
 
@@ -263,7 +265,6 @@ void RF69::interrupt_compat () {
                         recvBuf[rxfill++] = group;
                         crc = _crc16_update(crc, group);
                     }
-
                     uint8_t in = readReg(REG_FIFO);
                     recvBuf[rxfill++] = in;
                     crc = _crc16_update(crc, in);              
@@ -271,11 +272,11 @@ void RF69::interrupt_compat () {
                         break;
                 }
             }
-           writeReg(REG_AFCFEI, 0x02);    // Clear AFC  **fixes AFC volatility
-    } else if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
-        // rxstate will be TXDONE at this point
-        rxstate = TXIDLE;
-        setMode(MODE_STANDBY);
-        writeReg(REG_DIOMAPPING1, 0x80); // SyncAddress
+            writeReg(REG_AFCFEI, AfcClear);  // Clear AFC, fixes AFC volatility
+        } else if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
+            // rxstate will be TXDONE at this point
+            rxstate = TXIDLE;
+            setMode(MODE_STANDBY);
+            writeReg(REG_DIOMAPPING1, 0x80); // SyncAddress
         }
 }
