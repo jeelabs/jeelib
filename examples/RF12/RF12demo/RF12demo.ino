@@ -938,7 +938,7 @@ void loop () {
         byte crc = false;
         if (rf12_crc == 0) {
             showString(PSTR("OK"));
-            crc = true;        
+            crc = true;
 #if RF69_COMPAT
             // Check/update to min/max/count
             if (afc < (minAFC[(rf12_hdr & RF12_HDR_MASK)]))
@@ -1110,14 +1110,16 @@ void loop () {
                         postingsOut++;
                     }
                 }
-                showString(PSTR(" -> ack G"));
                 crlf = true;
-                showByte(RF69::control(REG_SYNCGROUP | 0x80, rf12_grp)); // DEBUG
-                Serial.println();                                        // DEBUG
-                showByte(RF12_ACK_REPLY);                                // DEBUG
-                Serial.println();                                        // DEBUG
-                showByte(RF69::control(0x2E, 0));                        // DEBUG
-                Serial.println();                                        // DEBUG
+                showString(PSTR(" -> ack"));
+#if RF69_COMPAT
+                if (config.group = 0) {
+                    showString(PSTR(" G"));
+                    Serial.print(rf12_grp);
+                    RF69::control(REG_SYNCGROUP | 0x80, rf12_grp);
+                    Serial.println(); 
+                }
+#endif
                 rf12_sendStart(RF12_ACK_REPLY, &stack[sizeof stack - ackLen], ackLen);
             }
             if (crlf) Serial.println();
@@ -1134,7 +1136,11 @@ void loop () {
         byte header = cmd == 'a' ? RF12_HDR_ACK : 0;
         if (dest)
             header |= RF12_HDR_DST | dest;
-        showByte(RF69::control(REG_SYNCGROUP | 0x80, rf12_grp)); // DEBUG
+#if RF69_COMPAT
+        if (config.group = 0) {
+            RF69::control(REG_SYNCGROUP | 0x80, rf12_grp);
+        }
+#endif
         Serial.println();                                        // DEBUG
         rf12_sendStart(header, stack, sendLen);
         cmd = 0;
