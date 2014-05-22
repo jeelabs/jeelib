@@ -13,7 +13,7 @@
 #define configSTRING 1   // Define to include "A i1 g210 @ 868 MHz q1"
 #define MESSAGING    1   // Define to include message posting code m, p, n
 
-#define REG_SYNCGROUP       0x33
+#define REG_SYNCGROUP  0x33  // RFM69 only - register containing group number
 #include <JeeLib.h>
 #include <util/crc16.h>
 #include <avr/eeprom.h>
@@ -556,11 +556,6 @@ static void handleInput (char c) {
             break;
 
         case 'v': // display the interpreter version
-            Serial.print(messageCount);
-            printOneChar('(');
-            Serial.print(CRCbadCount);
-            printOneChar(')');
-            Serial.print(RF69::interruptCount);
             displayVersion();
             rf12_configDump();
 #if configSTRING
@@ -641,9 +636,6 @@ static void handleInput (char c) {
             
             if (!value) {
                 nodesShow();
-                Serial.print((word) postingsIn);
-                printOneChar(',');
-                Serial.println((word) postingsOut);
             } else if (value <= MAX_NODES) {
                 nodes[value] = stack[0];
                 postingsIn++;
@@ -651,6 +643,7 @@ static void handleInput (char c) {
             break;
 
         case 'n': 
+          if ((top == 0) & (!value)) nodeStats();
           // Show and set RFMxx registers
           if (top == 2) {
               if (stack[0] == 1) {
@@ -885,10 +878,24 @@ memset(pktCount,0,sizeof(pktCount));
 #endif
 }
 
+static void nodeStats() {
+    Serial.print((word) postingsIn);
+    printOneChar(',');
+    Serial.println((word) postingsOut);
+    Serial.print(messageCount);
+    printOneChar('(');
+    Serial.print(CRCbadCount);
+    printOneChar(')');
+#if RF69_COMPAT            
+    Serial.print(RF69::interruptCount);
+#endif
+    Serial.println();
+}
+
 /// Display stored nodes and show the post queued for each node
 /// the post queue is not preserved through a restart of RF12Demo
 static void nodesShow() {
-    byte n = 0;
+  byte n = 0;
     for (byte i = 1; i <= MAX_NODES; i++) {
         if (nodes[i] != 0xFF) {
             n++;
@@ -1113,7 +1120,7 @@ void loop () {
                 crlf = true;
                 showString(PSTR(" -> ack"));
 #if RF69_COMPAT
-                if (config.group = 0) {
+                if (config.group == 0) {
                     showString(PSTR(" G"));
                     Serial.print(rf12_grp);
                     RF69::control(REG_SYNCGROUP | 0x80, rf12_grp);
@@ -1137,7 +1144,7 @@ void loop () {
         if (dest)
             header |= RF12_HDR_DST | dest;
 #if RF69_COMPAT
-        if (config.group = 0) {
+        if (config.group == 0) {
             RF69::control(REG_SYNCGROUP | 0x80, rf12_grp);
         }
 #endif

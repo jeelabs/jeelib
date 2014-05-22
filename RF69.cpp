@@ -46,6 +46,9 @@
 
 #define AfcClear            0x02
 
+#define oneByteSync         0x80
+#define twoByteSync         0x88
+#define threeByteSync       0x90
 #define fourByteSync        0x98
 #define fiveByteSync        0xA0
 
@@ -83,7 +86,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x1A, 0x91, // 0x8B,   // Channel filter BW
   0x1E, 0x0C, // AfcAutoclearOn, AfcAutoOn
   0x25, 0x80, // DioMapping1 = SyncAddress (Rx)
-  0x29, 0xE4, // RssiThresh ...
+  0x29, 0xC4, // RssiThresh ...
 
   0x2E, 0xA0, // SyncConfig = sync on, sync size = 5
   0x2F, 0xAA, // SyncValue1 = 0xAA
@@ -221,14 +224,15 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
     for (int i = 0; i < len; ++i)
         rf12_data[i] = ((const uint8_t*) ptr)[i];
     rf12_hdr = hdr & RF12_HDR_DST ? hdr : (hdr & ~RF12_HDR_MASK) + node; 
-    crc = _crc16_update(~0, 8);    //DEBUG
     rxstate = - (2 + rf12_len); // preamble and SYN1/SYN2 are sent by hardware
     flushFifo();
-
-    // REG_SYNCGROUP must have been set to appropriate group before this.
+    
+/*  All packets are transmitted with a 5 byte header SYN1/SYN2/SYN3/2D/Group  
+    even when the group is zero                                               */
+    
+    // REG_SYNCGROUP must have been set to an appropriate group before this.
     writeReg(REG_SYNCCONFIG, fiveByteSync);
-    while (readReg(REG_SYNCCONFIG) != fiveByteSync);
-
+    crc = _crc16_update(~0, readReg(REG_SYNCGROUP));
 
     setMode(MODE_TRANSMITTER);
     writeReg(REG_DIOMAPPING1, 0x00); // PacketSent
@@ -236,8 +240,8 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
     // use busy polling until the last byte fits into the buffer
     // this makes sure it all happens on time, and that sendWait can sleep
     while (rxstate < TXDONE)
-        if ((readReg(REG_IRQFLAGS2) & IRQ2_FIFOFULL) == 0) { // FIFO is only 64 bytes! 
-            uint8_t out = 0xAA; // I'm lost here too, why not have it with the writeReg
+        if ((readReg(REG_IRQFLAGS2) & IRQ2_FIFOFULL) == 0) { // FIFO is 64 bytes
+            uint8_t out = 0xAA; // To be used at end of packet
             if (rxstate < 0) {
                 out = recvBuf[3 + rf12_len + rxstate];
                 crc = _crc16_update(crc, out);
@@ -250,11 +254,9 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
             writeReg(REG_FIFO, out);
             ++rxstate;
         }
-        
-        if (group == 0) {            // Allow receiving from all groups
-            writeReg(REG_SYNCCONFIG, fourByteSync);
-            while (readReg(REG_SYNCCONFIG) != fourByteSync);
-        }
+
+/*  At this point packet is typically in the FIFO but not fully transmitted.
+    transmission complete will be indicated by an interrupt                   */
 
 }
 
@@ -264,7 +266,6 @@ void RF69::interrupt_compat () {
         // Interrupt will remain asserted until FIFO empty or exit RX mode
 
         if (rxstate == TXRECV) {
-//            uint8_t f = false;
             rssi = readReg(REG_RSSIVALUE);
             fei  = readReg(REG_FEIMSB);
             fei  = (fei << 8) + readReg(REG_FEILSB);
@@ -277,7 +278,7 @@ void RF69::interrupt_compat () {
                     if (rxfill == 0 && group != 0) { 
                         recvBuf[rxfill++] = group;
                         crc = _crc16_update(crc, group);
-                    }
+                    } 
                     uint8_t in = readReg(REG_FIFO);
                     recvBuf[rxfill++] = in;
                     crc = _crc16_update(crc, in);              
@@ -291,5 +292,9 @@ void RF69::interrupt_compat () {
             rxstate = TXIDLE;
             setMode(MODE_STANDBY);
             writeReg(REG_DIOMAPPING1, 0x80); // SyncAddress
+            
+            if (group == 0) {               // Allow receiving from all groups
+                writeReg(REG_SYNCCONFIG, fourByteSync);
+            }
         }
 }
