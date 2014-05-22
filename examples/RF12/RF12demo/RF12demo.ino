@@ -1134,6 +1134,8 @@ void loop () {
         byte header = cmd == 'a' ? RF12_HDR_ACK : 0;
         if (dest)
             header |= RF12_HDR_DST | dest;
+        showByte(RF69::control(REG_SYNCGROUP | 0x80, rf12_grp)); // DEBUG
+        Serial.println();                                        // DEBUG
         rf12_sendStart(header, stack, sendLen);
         cmd = 0;
 
