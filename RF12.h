@@ -43,6 +43,7 @@
 #define RF12_EEPROM_SIZE    16                 ///< Number of bytes.
 #define RF12_EEPROM_EKEY    ((uint8_t*) 0x40)  ///< EE start, same as before.
 #define RF12_EEPROM_ELEN    16                 ///< EE number of bytes.
+#define RF12_EEPROM_NODEMAP ((uint8_t*) 0x50)  ///< Visible Nodes Matrix.
 #define RF12_EEPROM_VERSION 1                  ///< Only this version is valid.
 
 /// Shorthand to simplify detecting a request for an ACK.

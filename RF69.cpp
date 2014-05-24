@@ -81,7 +81,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   // 0x07, 0xD9, // FrfMsb, freq = 868.000 MHz
   // 0x08, 0x00, // FrfMib, divider = 14221312
   // 0x09, 0x00, // FrfLsb, step = 61.03515625
-//  0x0B, 0x20, // AfcCtrl, afclowbetaon
+  0x0B, 0x20, // AfcCtrl, afclowbetaon
   0x19, 0x42, // RxBw ...
   0x1A, 0x91, // 0x8B,   // Channel filter BW
   0x1E, 0x0C, // AfcAutoclearOn, AfcAutoOn
@@ -98,7 +98,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x38, 0x00, // PayloadLength = 0, unlimited
   0x3C, 0x8F, // FifoTresh, not empty, level 15
   0x3D, 0x10, // PacketConfig2, interpkt = 1, autorxrestart off
-  0x6F, 0x30, // TestDagc ...
+  0x6F, 0x20, // 0x30, // TestDagc ...
   0
 };
 
