@@ -1,7 +1,6 @@
 /// @dir RF12demo
 /// Configure some values in EEPROM for easy config of the RF12 later on.
 // 2009-05-06 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
-
 // this version adds flash memory support, 2009-11-19
 // Adding frequency features. 2013-09-05
 // Added postbox semaphore feature 2013-10-24
@@ -9,7 +8,7 @@
 // Add acknowledgement to all node groups 2014-05-20
 // Increase support to 100 nodes mixed between all groups 2014-05-24
 
-#define RF69_COMPAT  0   // define this to use the RF69 driver i.s.o. RF12
+#define RF69_COMPAT  1   // define this to use the RF69 driver i.s.o. RF12
 #define OOK          0   // Define this to include OOK code f, k
 #define JNuMOSFET    0   // Define to power up RFM12B on JNu2/3
 #define configSTRING 1   // Define to include "A i1 g210 @ 868 MHz q1"
@@ -43,6 +42,8 @@
 
 /// Save a few bytes of flash by declaring const if used more than once.
 const char INITFAIL[] PROGMEM = "init failed\n";
+static byte NodeMap = 255;
+static byte newNodeMap = 255;
 
 #if TINY
 // Serial support (output only) for Tiny supported by TinyDebugSerial
@@ -157,16 +158,18 @@ static byte stack[RF12_MAXDATA+4], top, sendLen, dest;
 static byte testCounter;
 static word messageCount = 0;
 
-static byte semaphores[MAX_NODES] = {0xFF}; // How can I initialize every entry to 0xFF ?
+static byte semaphores[MAX_NODES]; // How can I initialize every entry to 0xFF ?
 
 #if RF69_COMPAT
 static byte minRSSI[MAX_NODES];
 static byte maxRSSI[MAX_NODES];
 static signed int minFEI[MAX_NODES];
 static signed int maxFEI[MAX_NODES];
+static byte CRCbadMinRSSI = 255;
+static byte CRCbadMaxRSSI = 0;
 #endif
-static unsigned int pktCount[MAX_NODES];
 static unsigned int CRCbadCount = 0;
+static unsigned int pktCount[MAX_NODES];
 static byte postingsIn, postingsOut;
   
 const char messagesF[] PROGMEM = { 
@@ -317,7 +320,6 @@ static void kakuSend(char addr, byte device, byte on) {
 #endif
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-//TODO Does this use flash when compiling for Tiny84
 
 const char helpText1[] PROGMEM =
     "\n"
@@ -335,7 +337,7 @@ const char helpText1[] PROGMEM =
     "  <n>,n     - remove node <n> entry from eeprom\n"
     "  <n>l      - turn activity LED on PB1 on or off\n"
     "  ...,m     - Add message string to memory\n"
-    "  <d>,<n>p  - post semaphore <d> for node <n> to see with its next ack\n"
+    "  <g>,<n>,p - post semaphore <p> for group <g>, node <n> to see with its next ack\n"
     "  <n>q      - set quiet mode (1 = don't report bad packets)\n"
     "  <n>x      - set reporting format (0: decimal, 2: decimal+ascii\n"
     "            -  1: hex, 3: hex+ascii)\n"
@@ -417,8 +419,6 @@ static void handleInput (char c) {
         showWord(value);
         Serial.println(c);
     }
-// TODO Should we not have an "else" here instead of the "else if" below?
-// 
     // keeping this out of the switch reduces code size (smaller branch table)
     // TODO Using the '>' command with incorrect values hangs the hardware
     if (c == '>') {
@@ -435,13 +435,11 @@ static void handleInput (char c) {
         rf12_configSilent();
 
     } else if (c > ' ') {
-// TODO Do we need the "else if" - see above    
+// TODO Do we need the "else if" above    
         switch (c) {
 
         case 'i': // set node id
-            if ((value > 0) && (value <= 30 + 1)) {
-//todo                nodes[value] = 0;
-                // Prevent auto allocation of this node number
+            if ((value > 0) && (value <= 31)) {
                 config.nodeId = (config.nodeId & 0xE0) + (value & 0x1F);
                 saveConfig();
             }
@@ -576,7 +574,7 @@ static void handleInput (char c) {
                 fromR = sourceR;                // Points to next message length byte, if RAM
                 if ((sourceR) && (len)) {       // Is message in RAM?
                     byte valid = true;
-                    for (byte i = 0; i <= MAX_NODES; i++) {                             // Scan for message in use
+                    for (byte i = 0; i <= MAX_NODES; i++) {                                   // Scan for message in use
                         if (semaphores[i] >= (byte) value && semaphores[i] <= topMessage) {   // If so, or higher then can't
                             showString(PSTR("In use i"));
                             Serial.println((word) i);
@@ -626,34 +624,45 @@ static void handleInput (char c) {
             break;
 
         case 'p':
-            // Post a command for a remote node, to be collected along with
-            // the next ACK. Format is 127,20p where 20 is the node number and
-            // 127 is the desired number to be posted. The integer "value" contains
-            // the target node and stack[0] contains the number to be posted.
-            // If a message string exists numbered the same as the posted number then
-            // the message string will be substituted for the single byte number
-            // as it is transmitted with the ACK.
+            // Post a semaphore for a remote node, to be collected along with
+            // the next ACK. Format is 212,20,127p where 212 is the group and 20 
+            // is the node number 127 is the desired value to be posted. 
+            // The byte stack[0] contains the target group and stack[1] contains the 
+            // node number. If a message string exists numbered the same as the posted
+            // number then the message string will be substituted for the single byte
+            // number as it is transmitted with the ACK.
             
-            if (!value) {
-                nodesShow();
-            } else if (value <= MAX_NODES) {
-                  // Need to convert node number to a NodeMap to index semaphore store
-// TODO                  semaphores[value] = stack[0];
-                  postingsIn++;
+            if (top == 0) {
+                nodeShow();
+            } else if (stack[1] <= MAX_NODES) {
+                  Serial.print("g");
+                  Serial.print(stack[0]);
+                  Serial.print(" i");
+                  Serial.println(stack[1]);
+                  byte i = getIndex(stack[0], stack[1]);
+                  if (i < 0xFF) { 
+                      semaphores[i] = value;
+                      postingsIn++;
+                  }
+                  for ( i = 0; i < MAX_NODES; i++) {
+                      showByte(semaphores[i]);
+                      if (!(config.output & 0x1)) printOneChar(' ');
+                  }
+                  Serial.println();
             }
             break;
 #endif
 
         case 'n': 
-          if ((top == 0) & (!value)) nodeStats();
-          else {
+          if ((top == 0) && (!value)) nodeStats();
+          else if (top == 1) {
 
               for (byte i = 0; i < 4; ++i) {
                     // Display eeprom byte                  
                     byte b = eeprom_read_byte((RF12_EEPROM_NODEMAP) + (value * 4) + i);
-                    showNibble(b>>4);
-                    showNibble(b);
-                    
+                    showByte(b);
+                    if (!(config.output & 0x1)) printOneChar(' ');
+
                     if ((stack[0] == 123) & ((b & 0x7F) != 0x80) & (i == 0)) {
                         // Set the removed flag 0x80
                         eeprom_write_byte((RF12_EEPROM_NODEMAP) + (value * 4) + i, (b | 0x80));
@@ -842,8 +851,6 @@ void setup () {
 // Initialise min/max/count arrays
 memset(minRSSI,255,sizeof(minRSSI));
 memset(maxRSSI,0,sizeof(maxRSSI));
-memset(minAFC,127,sizeof(minAFC));
-memset(maxAFC,128,sizeof(maxAFC));
 memset(minFEI,127,sizeof(minFEI));
 memset(maxFEI,128,sizeof(maxFEI));
 #endif
@@ -878,18 +885,7 @@ memset(pktCount,0,sizeof(pktCount));
     }
 
     rf12_configDump();
-/*
-    // Initialise node table
-    for (byte i = 1; i <= MAX_NODES; i++) {
-        nodes[i] = eeprom_read_byte((RF12_EEPROM_EKEY) + (i * RF12_EEPROM_SIZE));
-        // http://forum.arduino.cc/index.php/topic,140376.msg1054626.html
-        if (nodes[i] != 0xFF)
-            nodes[i] = 0;       // Indicate no post waiting for node!
-    }
 
-    // Prevent allocation of this nodes number.
-    nodes[(config.nodeId & RF12_HDR_MASK)] = 0;
-*/
     df_initialize();
 #if !TINY
     showHelp();
@@ -904,7 +900,15 @@ static void nodeStats() {
     printOneChar('(');
     Serial.print(CRCbadCount);
     printOneChar(')');
-#if RF69_COMPAT            
+#if RF69_COMPAT
+    if (!CRCbadMaxRSSI) {
+        printOneChar(' ');
+        printOneChar('>');
+        Serial.print(CRCbadMinRSSI);    
+        printOneChar('<');
+        Serial.print(CRCbadMaxRSSI);
+    }
+    printOneChar(' ');
     Serial.print(RF69::interruptCount);
 #endif
     Serial.println();
@@ -912,60 +916,60 @@ static void nodeStats() {
 
 /// Display stored nodes and show the post queued for each node
 /// the post queue is not preserved through a restart of RF12Demo
-static void nodesShow() {
-  // TODO Need to use the semaphore index to get the node/group from eeprom
-  byte n = 0;
-/*
-    for (byte i = 1; i <= MAX_NODES; i++) {
-        if (nodes[i] != 0xFF) {
-            n++;
-            showByte(i);
-            printOneChar('(');
-            showByte(nodes[i]);
-            printOneChar(')');
-            Serial.print(pktCount[i]); 
+static void nodeShow() {
+  byte n = 0, g = 0, index = 0;
+  for (index = 0; index < MAX_NODES; index++) {  // MAX_NODES must be < 255;
+      n = eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4));
+      http://forum.arduino.cc/index.php/topic,140376.msg1054626.html
+      if (n & 0x80) {                             // Erased or empty entry?
+          if (n == 0xFF) break;                   // Empty, assume end of table
+      } else {
+          g = eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4) + 1);
+          showByte(index);
+          showString(PSTR(" g"));      
+          showByte(g);
+          showString(PSTR(" i"));      
+          showByte(n & RF12_HDR_MASK);
+          showString(PSTR(" rx:"));      
+          Serial.print(pktCount[index]); 
+          showString(PSTR(" post:"));      
+          showByte(semaphores[index]);
 #if RF69_COMPAT            
-            showString(PSTR(" RSSI "));
-            showByte(minRSSI[i]);
-            printOneChar('/');
-            showByte(maxRSSI[i]);
-
-            showString(PSTR(" FEI "));
-            Serial.print(minFEI[i]);
-            printOneChar('/');
-            Serial.print(maxFEI[i]);
+          if (!pktCount[index]) {
+              showString(PSTR(" fei "));
+              Serial.print(minFEI[index]);
+              printOneChar('/');
+              Serial.print(maxFEI[index]);
+              showString(PSTR(" rssi "));
+              showByte(minRSSI[index]);
+              printOneChar('/');
+              showByte(maxRSSI[index]);
+          }
 #endif
-            Serial.println();
+          Serial.println();
         }
     }
-*/
 }
 
-/*
-static void searchNodeMap (const byte* data, byte count) {
+static byte getIndex (byte group, byte node) {
 
-            // Search RF12_EEPROM_NODEMAP for node/group match
-            for (byte i = 0; i < MAX_NODES; i++) { // MAX_NODES must be < 255;
-                byte n = eeprom_read_byte((RF12_EEPROM_NODEMAP) + (i * 4));  // Read in from node number position
-                if (n & 0x80) {    // Erased or empty entry?
-                    if (newNodeMap == 0xFF) newNodeMap = i; // Save pointer to a first free entry
-                    if (n == 0xFF) break;                   // Empty, assume end of table
-                } else if ((rf12_hdr & RF12_HDR_MASK) == (n & RF12_HDR_MASK)) { // Node match?
-                    byte g = eeprom_read_byte((RF12_EEPROM_NODEMAP) + (i * 4) + 1);
-                    if (rf12_grp == g) {
+            // Search eeprom RF12_EEPROM_NODEMAP for node/group match
+            for (byte index = 0; index < MAX_NODES; index++) {      // MAX_NODES must be < 255;
+                byte n = eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4));
+                    http://forum.arduino.cc/index.php/topic,140376.msg1054626.html
+                    if (n & 0x80) {    // Erased or empty entry?
+                    if (newNodeMap == 0xFF) newNodeMap = index;     // Save pointer to a first free entry
+                    if (n == 0xFF) return(n);                       // Empty, assume end of table
+                } else if ((n & RF12_HDR_MASK) == node) {           // Node match?
+                    byte g = eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4) + 1);
+                    if (g == group) {
                         // found a match;
-                        NodeMap = i;
-                        Serial.print("Match: i");
-                        Serial.print(n);
-                        Serial.print(" g");
-                        Serial.println(g);
-                        break;
+                        NodeMap = index;
+                        return (index);
                     }
                 }
             } 
 }
-*/
-
 
 
 void loop () {
@@ -981,34 +985,21 @@ void loop () {
 #if RF69_COMPAT
         signed int afc = (RF69::afc);                  // Grab values before next interrupt
         signed int fei = (RF69::fei);
-        byte 2rssi = RF69::rssi;
+        byte rssi2 = RF69::rssi;
 #endif  
         byte n = rf12_len;
         byte crc = false;
         if (rf12_crc == 0) {
             showString(PSTR("OK"));
             crc = true;
-#if RF69_COMPAT
-            // Check/update to min/max/count
-            if (afc < (minAFC[(rf12_hdr & RF12_HDR_MASK)]))
-              minAFC[(rf12_hdr & RF12_HDR_MASK)] = afc;   
-            if (afc > (maxAFC[(rf12_hdr & RF12_HDR_MASK)]))
-              maxAFC[(rf12_hdr & RF12_HDR_MASK)] = afc;
-          
-            if (fei < (minFEI[(rf12_hdr & RF12_HDR_MASK)]))       
-              minFEI[(rf12_hdr & RF12_HDR_MASK)] = fei;   
-            if (fei > (maxFEI[(rf12_hdr & RF12_HDR_MASK)]))
-              maxFEI[(rf12_hdr & RF12_HDR_MASK)] = fei;   
-
-            if (2rssi < (minRSSI[(rf12_hdr & RF12_HDR_MASK)]))
-              minRSSI[(rf12_hdr & RF12_HDR_MASK)] = 2rssi;   
-            if (2rssi > (maxRSSI[(rf12_hdr & RF12_HDR_MASK)]))
-              maxRSSI[(rf12_hdr & RF12_HDR_MASK)] = 2rssi;   
-#endif
-            pktCount[(rf12_hdr & RF12_HDR_MASK)]++;
-            messageCount++;
         } else {
             CRCbadCount++;
+#if RF69_COMPAT
+            if (rssi2 < (CRCbadMinRSSI))
+              CRCbadMinRSSI = rssi2;   
+            if (rssi2 > (CRCbadMaxRSSI))
+              CRCbadMaxRSSI = rssi2;   
+#endif            
             if (config.quiet_mode)
                 return;
             crc = false;
@@ -1046,11 +1037,11 @@ void loop () {
         showString(PSTR(" ("));
         
         if (config.output & 0x1)                  // Hex output?
-            showByte(2rssi);
+            showByte(rssi2);
         else {
-            byte 1rssi = 2rssi>>1;
-            byte rssiMantisa = 2rssi-(1rssi<<1);
-            Serial.print(-(1rssi));
+            byte rssi1 = rssi2>>1;
+            byte rssiMantisa = rssi2-(rssi1<<1);
+            Serial.print(-(rssi1));
             if (rssiMantisa) Serial.print(".5");
             Serial.print("dB");
         }
@@ -1097,8 +1088,6 @@ void loop () {
 
         if (rf12_crc == 0) {
             byte crlf = false;
-            byte NodeMap = 255;
-            byte newNodeMap = 255;
             activityLed(1);
 
             if (df_present())
@@ -1115,11 +1104,7 @@ void loop () {
                     if (rf12_grp == g) {
                         // found a match;
                         NodeMap = i;
-                        Serial.print("Match: i");
-                        Serial.print(n);
-                        Serial.print(" g");
-                        Serial.println(g);
-                        break; // Hope this breaks from the whole "for" loop above
+                        break;
                     }
                 }
             } 
@@ -1133,10 +1118,28 @@ void loop () {
                 eeprom_write_byte((RF12_EEPROM_NODEMAP) + (newNodeMap * 4), (rf12_hdr & RF12_HDR_MASK));  // Store Node and
                 eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 1), rf12_grp);              //  and Group number  
 #if RF69_COMPAT
-                eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 2), 2rssi);                 //  First RSSI seen
+                eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 2), rssi2);                 //  First RSSI seen
 #endif
                 NodeMap = newNodeMap;
+                newNodeMap = 0xFF;
             }
+
+#if RF69_COMPAT
+// TODO Need to use NodeMap to index data stores rather than (rf12_hdr & RF12_HDR_MASK)
+            // Check/update to min/max/count
+            if (fei < (minFEI[NodeMap]))       
+              minFEI[NodeMap] = fei;   
+            if (fei > (maxFEI[NodeMap]))
+              maxFEI[NodeMap] = fei;   
+
+            if (rssi2 < (minRSSI[NodeMap]))
+              minRSSI[NodeMap] = rssi2;   
+            if (rssi2 > (maxRSSI[NodeMap]))
+              maxRSSI[NodeMap] = rssi2;   
+#endif
+            pktCount[NodeMap]++;
+            messageCount++;
+
 
             if (RF12_WANTS_ACK && (config.collect_mode) == 0) {
                 byte ackLen = 0;
@@ -1153,24 +1156,25 @@ void loop () {
                         ackLen++;                                                    // If 0 or message length then +1 for length byte 
                         semaphores[NodeMap] = 0;
                         // Assume it will be delivered and clear.
-                        showString(PSTR("Posted i"));
+                        showString(PSTR("Posted "));
                         crlf = true;
-                        showByte(rf12_hdr & RF12_HDR_MASK);
-                        printOneChar(' ');
-                        displayString(&stack[sizeof stack - ackLen], ackLen);        // 1 more tham Message length!                      
+                        displayString(&stack[sizeof stack - ackLen], ackLen);        // 1 more than Message length!                      
                         postingsOut++;
                 }
                 crlf = true;
-                showString(PSTR(" -> ack"));
+                showString(PSTR(" -> ack "));
 #if RF69_COMPAT
                 if (config.group == 0) {
-                    showString(PSTR(" G"));
+                    showString(PSTR("g"));
                     Serial.print(rf12_grp);
                     RF69::control(REG_SYNCGROUP | 0x80, rf12_grp);
-                    Serial.println(); 
+                    printOneChar(' ');
                 }
 #endif
+                printOneChar('i');
+                showByte(rf12_hdr & RF12_HDR_MASK);
                 rf12_sendStart(RF12_ACK_REPLY, &stack[sizeof stack - ackLen], ackLen);
+                
             }
             if (crlf) Serial.println();
             activityLed(0);
@@ -1191,7 +1195,6 @@ void loop () {
             RF69::control(REG_SYNCGROUP | 0x80, rf12_grp);
         }
 #endif
-        Serial.println();                                        // DEBUG
         rf12_sendStart(header, stack, sendLen);
         cmd = 0;
 
