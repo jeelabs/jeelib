@@ -14,7 +14,10 @@
 #define configSTRING 1   // Define to include "A i1 g210 @ 868 MHz q1"
 #define MESSAGING    1   // Define to include message posting code m, p, n
 
-#define REG_SYNCGROUP  0x33  // RFM69 only - register containing group number
+#define REG_SYNCCONFIG 0x2E  // RFM69 only, register containing sync length
+#define oneByteSync    0x80  // RFM69 only, value to get only one byte sync.
+#define REG_SYNCGROUP  0x33  // RFM69 only, register containing group number
+
 #include <JeeLib.h>
 #include <util/crc16.h>
 #include <avr/eeprom.h>
@@ -522,7 +525,7 @@ static void handleInput (char c) {
             break;
 
         case 'a': // send packet to node ID N, request an ack
-// TODO Group number is stickyGroup unless we do something here.
+// TODO Group number used is "stickyGroup" unless we do something here.
         case 's': // send packet to node ID N, no ack
             cmd = c;
             sendLen = top;
@@ -549,6 +552,14 @@ static void handleInput (char c) {
         case 'q': // turn quiet mode on or off (don't report bad packets)
             config.quiet_mode = value;
             saveConfig();
+#if RF69_COMPAT
+            // The 5 byte sync used by the RFM69 reduces detected noise dramatically.
+            // The command below sets the sync length to 1 to test radio reception.
+            if (!value) RF69::control(REG_SYNCCONFIG | 0x80, oneByteSync); // Allow noise
+            // Appropriate sync length will be reset by the driver after the next transmission.
+            // The 's' command is an good choice to reset the sync length. 
+            // Packets will not be recognised until until sync length is reset.
+#endif
             break;
 
         case 'x': // set reporting mode to decimal (0), hex (1), hex+ascii (2)
@@ -803,7 +814,6 @@ static void printPos (byte c) {
 }
 
 static void printASCII (byte c) {
-// TODO Understand casting: char c = (char) data[i];
         char d = (char) c;
         printPos((byte) c);
         printOneChar(d < ' ' || d > '~' ? '.' : d);
@@ -940,7 +950,9 @@ static void nodeShow() {
     printOneChar(' ');
     Serial.print(RF69::interruptCount);
 #endif
-    Serial.println();   
+    Serial.println();  
+    Serial.println(freeRam());
+ 
 }
 
 static byte getIndex (byte group, byte node) {
@@ -1085,20 +1097,15 @@ void loop () {
             if (df_present())
                 df_append((const char*) rf12_data - 2, rf12_len + 2);
             
-Serial.print("Old Node?");    
             // Search RF12_EEPROM_NODEMAP for node/group match
             if (!(rf12_hdr & RF12_HDR_DST)) {
-Serial.print("1");
                 newNodeMap = NodeMap = 0xFF;
                 for (byte i = 0; i < MAX_NODES; i++) { // MAX_NODES must be < 255;
-Serial.print(".");
                     byte n = eeprom_read_byte((RF12_EEPROM_NODEMAP) + (i * 4));  // Read in from node number position
                     if (n & 0x80) {    // Erased or empty entry?
                         if (newNodeMap == 0xFF) newNodeMap = i; // Save pointer to a first free entry
-Serial.print("2");
                         if (n == 0xFF) break;                   // Empty, assume end of table
                     } else if ((rf12_hdr & RF12_HDR_MASK) == (n & RF12_HDR_MASK)) { // Node match?
-Serial.print("3");
                         byte g = eeprom_read_byte((RF12_EEPROM_NODEMAP) + (i * 4) + 1);
                         if (rf12_grp == g) {
                             // found a match;
@@ -1107,7 +1114,6 @@ Serial.print("3");
                         }
                     }
                 } 
-Serial.println("4");
                 if ((NodeMap == 0xFF) && (newNodeMap != 0xFF)) { // node/group not found and space to save?
                     showString(PSTR("New Node g"));
                     showByte(rf12_grp);
@@ -1143,8 +1149,32 @@ Serial.println("4");
 
             if ((RF12_WANTS_ACK && (config.collect_mode) == 0) && (!(rf12_hdr & RF12_HDR_DST))) {
                 byte ackLen = 0;
- // TODO how to do node number allocation in the new regime 
- //                else 
+// This code is used when an incoming packet requesting an ACK is also from Node 31
+// The purpose is to find a "spare" Node number within the incoming group and offer 
+//  it with the returning ACK.
+// If there are no spare Node numbers nothing is offered
+// TODO perhaps we should increment the Group number and find a spare node number there?
+                if ((rf12_hdr & (RF12_HDR_MASK | RF12_HDR_DST)) == 31) {
+                    // Special Node 31 source node
+                    for (byte i = 1; i < 31; i++) {
+                        // Find a spare node number within received group number
+                        byte n = getIndex(rf12_grp, i ); 
+                        if (n == 0xFF) {                         // Node/Group pair not found?
+                            stack[sizeof stack - 1] = i + 0xE0;  // 0xE0 is an arbitary value
+                            // Change Node number request - matched in RF12Tune
+                            ackLen = 1;
+                            showString(PSTR("Node allocation "));
+                            crlf = true;
+                            showByte(i);        
+                            printOneChar('i');
+                            break;
+                        }
+                    }
+                } else {
+// This code is used when an incoming packet is requesting an ACK, it determines if a semaphore is posted for this Node/Group.
+// If a semaphore exists it is stored in the buffer. If the semaphore has a message addition associated with it then
+//  the additional data from the message store is appended to the buffer and the whole buffer transmitted to the 
+//  originating node with the ACK.
                     if (semaphores[NodeMap]) {                                       // Something to post?
                         stack[sizeof stack - 1] = semaphores[NodeMap]; // Pick up message pointer
                         ackLen = getMessage(stack[sizeof stack - 1]);                // Check for a message to be appended
@@ -1158,6 +1188,7 @@ Serial.println("4");
                         crlf = true;
                         displayString(&stack[sizeof stack - ackLen], ackLen);        // 1 more than Message length!                      
                         postingsOut++;
+                    }
                 }
                 crlf = true;
                 showString(PSTR(" -> ack "));
