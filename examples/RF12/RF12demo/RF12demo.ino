@@ -8,11 +8,12 @@
 // Add acknowledgement to all node groups 2014-05-20
 // Increase support to 100 nodes mixed between all groups 2014-05-24
 
-#define RF69_COMPAT  1   // define this to use the RF69 driver i.s.o. RF12
+#define RF69_COMPAT  0   // define this to use the RF69 driver i.s.o. RF12
 #define OOK          0   // Define this to include OOK code f, k
 #define JNuMOSFET    0   // Define to power up RFM12B on JNu2/3
-#define configSTRING 1   // Define to include "A i1 g210 @ 868 MHz q1"
-#define MESSAGING    1   // Define to include message posting code m, p, n
+#define configSTRING 0   // Define to include "A i1 g210 @ 868 MHz q1"
+#define MESSAGING    0   // Define to include message posting code m, p
+#define STATISTICS   0   // Define to include stats gathering
 
 #define REG_SYNCCONFIG 0x2E  // RFM69 only, register containing sync length
 #define oneByteSync    0x80  // RFM69 only, value to get only one byte sync.
@@ -45,9 +46,9 @@
 
 /// Save a few bytes of flash by declaring const if used more than once.
 const char INITFAIL[] PROGMEM = "init failed\n";
-static byte NodeMap = 255;
-static byte newNodeMap = 255;
-static byte stickyGroup = 212;
+static byte NodeMap;
+static byte newNodeMap;
+static byte stickyGroup;
 
 #if TINY
 // Serial support (output only) for Tiny supported by TinyDebugSerial
@@ -68,10 +69,10 @@ static byte stickyGroup = 212;
 #define BITDELAY 54          // 9k6 @ 8MHz, 19k2 @16MHz
 #endif
 #if SERIAL_BAUD == 38400
-#define BITDELAY 11         // 38k4 @ 8MHz, 76k8 @16MHz
+#define BITDELAY 12          // 28/4/14 from value 11 // 38k4 @ 8MHz, 76k8 @16MHz
 #endif
 
-#define MAX_NODES 30
+#define MAX_NODES 10
 #define _receivePin 8
 static char _receive_buffer;
 static byte _receive_buffer_index;
@@ -162,9 +163,11 @@ static byte stack[RF12_MAXDATA+4], top, sendLen, dest;
 static byte testCounter;
 static word messageCount = 0;
 
-static byte semaphores[MAX_NODES]; // How can I initialize every entry to 0xFF ?
+#if MESSAGING
+static byte semaphores[MAX_NODES];
+#endif
 
-#if RF69_COMPAT
+#if RF69_COMPAT && STATISTICS
 static byte minRSSI[MAX_NODES];
 static byte maxRSSI[MAX_NODES];
 static signed int minFEI[MAX_NODES];
@@ -172,10 +175,11 @@ static signed int maxFEI[MAX_NODES];
 static byte CRCbadMinRSSI = 255;
 static byte CRCbadMaxRSSI = 0;
 #endif
+#if STATISTICS
 static unsigned int CRCbadCount = 0;
 static unsigned int pktCount[MAX_NODES];
 static byte postingsIn, postingsOut;
-  
+#endif  
 const char messagesF[] PROGMEM = { 
 #if !Tiny
                       0x05, 'T', 'e', 's', 't', '1', 
@@ -185,7 +189,9 @@ const char messagesF[] PROGMEM = {
 
 #define MessagesStart 129
 byte messagesR[64] = { 
+#if !Tiny
                       0x05, 'T', 'e', 's', 't', '3',      // Can be removed from RAM with "129m"
+#endif
                                0 }; // Mandatory delimiter
 byte *sourceR;
 byte topMessage;    // Used to store highest message number
@@ -197,20 +203,20 @@ static void showNibble (byte nibble) {
     Serial.print(c);
 }
 
-static void showWord (unsigned int value) {
-    if (config.output & 0x1) {
-        showByte (value >> 8);
-        showByte (value);
-    } else
-        Serial.print(value);    
-}
-
 static void showByte (byte value) {
     if (config.output & 0x1) {
         showNibble(value >> 4);
         showNibble(value);
     } else
-        Serial.print((word) value);
+        Serial.print((word) value); // Serial.print causes issues with my terminal emulator (PuTTY)
+                                    // showByte(0x0A) produced a LF etc rather than 10
+}
+static void showWord (unsigned int value) {
+    if (config.output & 0x1) {
+        showByte (value >> 8);
+        showByte (value);
+    } else
+        Serial.print((word) value);    
 }
 
 static word calcCrc (const void* ptr, byte len) {
@@ -408,6 +414,7 @@ static void handleInput (char c) {
     }
     
     if (32 > c || c > 'z') {      // Trap unknown characters
+            showString(PSTR("Key="));
             showByte(c);          // Highlight Tiny serial framing errors.  
             Serial.println();
             value = top = 0;      // Clear up
@@ -662,10 +669,6 @@ static void handleInput (char c) {
                       postingsIn++;
                       stickyGroup = stack[1];
                   }
-                  for ( i = 0; i < MAX_NODES; i++) {
-                      showByte(semaphores[i]);
-                      if (!(config.output & 0x1)) printOneChar(' ');
-                  }
                   Serial.println();
             }
             break;
@@ -673,10 +676,12 @@ static void handleInput (char c) {
 
         case 'n': 
           if ((top == 0) && (config.group == 0)) {
-              showByte(stickyGroup);
-              stickyGroup = value;
+//              showByte(stickyGroup);
+              Serial.print(stickyGroup);
+              stickyGroup = (int)value;
               printOneChar('>');
-              showByte(stickyGroup);
+//              showByte(stickyGroup);
+              Serial.print(stickyGroup);
           } else if (top == 1) {
               for (byte i = 0; i < 4; ++i) {
                     // Display eeprom byte                  
@@ -756,7 +761,7 @@ static void handleInput (char c) {
     }
     value = top = 0;
 }
-
+#if MESSAGING
 static byte getMessage (byte rec) {
     if (rec < MessagesStart) return 0;
     byte len, pos;                          // Scan flash string
@@ -795,6 +800,7 @@ static byte getMessage (byte rec) {
     sourceR++;  // *sourceR is now pointing to the length byte of the next message
     return len;
 }
+#endif
 
 static void displayString (const byte* data, byte count) {
     for (byte i = 0; i < count; ++i) {
@@ -834,7 +840,6 @@ static void displayVersion () {
 #if TINY
     showString(PSTR(" Tiny "));
     Serial.print(freeRam());
-
 #endif
 }
 
@@ -847,15 +852,16 @@ static int freeRam () {    // @jcw's work
 void setup () {
     delay(100);   // shortened for now. Handy with JeeNode Micro V1 where ISP
                   // interaction can be upset by RF12B startup process.
-#if RF69_COMPAT
+#if RF69_COMPAT && STATISTICS
 // Initialise min/max/count arrays
 memset(minRSSI,255,sizeof(minRSSI));
 memset(maxRSSI,0,sizeof(maxRSSI));
 memset(minFEI,127,sizeof(minFEI));
 memset(maxFEI,128,sizeof(maxFEI));
 #endif
+#if STATISTICS
 memset(pktCount,0,sizeof(pktCount));
-
+#endif
 #if JNuMOSFET     // Power up the wireless hardware
     bitSet(DDRB, 0);
     bitClear(PORTB, 0);
@@ -910,11 +916,15 @@ static void nodeShow() {
           showByte(g);
           showString(PSTR(" i"));      
           showByte(n & RF12_HDR_MASK);
-          showString(PSTR(" rx:"));      
-          Serial.print(pktCount[index]); 
+#if STATISTICS      
+          showString(PSTR(" rx:"));
+          Serial.print(pktCount[index]);
+#endif
+#if MESSAGING 
           showString(PSTR(" post:"));      
           showByte(semaphores[index]);
-#if RF69_COMPAT            
+#endif
+#if RF69_COMPAT  && STATISTICS            
           printOneChar(' ');
           showByte(eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4) + 2)); // Show original rssi value
           if (maxRSSI[index]) {
@@ -931,17 +941,19 @@ static void nodeShow() {
         }
         Serial.println();
     }
-    
+#if MESSAGING    
     Serial.print((word) postingsIn);
     printOneChar(',');
     Serial.println((word) postingsOut);
+#endif
+#if STATISTICS
     Serial.print(messageCount);
     printOneChar('(');
     Serial.print(CRCbadCount);
     printOneChar(')');
-#if RF69_COMPAT
+#endif
+#if RF69_COMPAT  && STATISTICS
     if (CRCbadMaxRSSI) {
-        printOneChar(' ');
         printOneChar('>');
         Serial.print(CRCbadMinRSSI);    
         printOneChar('<');
@@ -997,8 +1009,10 @@ void loop () {
             showString(PSTR("OK"));
             crc = true;
         } else {
+#if STATISTICS
             CRCbadCount++;
-#if RF69_COMPAT
+#endif
+#if RF69_COMPAT  && STATISTICS
             if (rssi2 < (CRCbadMinRSSI))
               CRCbadMinRSSI = rssi2;   
             if (rssi2 > (CRCbadMaxRSSI))
@@ -1034,9 +1048,9 @@ void loop () {
         }
 #if RF69_COMPAT
         // display RSSI value after packet data
-        Serial.print(" afc=");                    // Debug Code
+        showString(PSTR(" afc="));                // Debug Code
         Serial.print(afc);                        // TODO What units is this count?
-        Serial.print(" fei=");
+        showString(PSTR(" fei="));
         Serial.print(fei);
         showString(PSTR(" ("));
         
@@ -1045,17 +1059,17 @@ void loop () {
         else {
             byte rssi1 = rssi2>>1;
             byte rssiMantisa = rssi2-(rssi1<<1);
-            Serial.print(-(rssi1));
-            if (rssiMantisa) Serial.print(".5");
-            Serial.print("dB");
+            printOneChar(-(rssi1));
+            if (rssiMantisa) showString(PSTR(".5"));
+            showString(PSTR("dB"));
         }
         printOneChar(')');
 #endif
         Serial.println();
         if (config.output & 0x2) { // also print a line as ascii
-            showString(PSTR("ASC"));                        // 'OK'
+            showString(PSTR("ASC"));                         // 'OK'
             if (crc) {
-                printOneChar(' ');                       // ''
+                printOneChar(' ');                           // ' '
                 if (config.group == 0) {
                     printOneChar(' ');                       // 'G'
                     printASCII(rf12_grp);                    // grp
@@ -1129,7 +1143,7 @@ void loop () {
                     newNodeMap = 0xFF;
                 }
 
-#if RF69_COMPAT
+#if RF69_COMPAT && STATISTICS
                 // Check/update to min/max/count
                 if (fei < (minFEI[NodeMap]))       
                   minFEI[NodeMap] = fei;   
@@ -1141,9 +1155,10 @@ void loop () {
                 if (rssi2 > (maxRSSI[NodeMap]))
                   maxRSSI[NodeMap] = rssi2;   
 #endif
-            
+#if STATISTICS            
                 pktCount[NodeMap]++;
                 messageCount++;
+#endif
             }
 
 
@@ -1154,7 +1169,7 @@ void loop () {
 //  it with the returning ACK.
 // If there are no spare Node numbers nothing is offered
 // TODO perhaps we should increment the Group number and find a spare node number there?
-                if ((rf12_hdr & (RF12_HDR_MASK | RF12_HDR_DST)) == 31) {
+                if ((rf12_hdr & RF12_HDR_MASK) == 31) {
                     // Special Node 31 source node
                     for (byte i = 1; i < 31; i++) {
                         // Find a spare node number within received group number
@@ -1170,6 +1185,7 @@ void loop () {
                             break;
                         }
                     }
+#if MESSAGING
                 } else {
 // This code is used when an incoming packet is requesting an ACK, it determines if a semaphore is posted for this Node/Group.
 // If a semaphore exists it is stored in the buffer. If the semaphore has a message addition associated with it then
@@ -1189,13 +1205,14 @@ void loop () {
                         displayString(&stack[sizeof stack - ackLen], ackLen);        // 1 more than Message length!                      
                         postingsOut++;
                     }
+#endif
                 }
                 crlf = true;
                 showString(PSTR(" -> ack "));
 #if RF69_COMPAT
                 if (config.group == 0) {
                     showString(PSTR("g"));
-                    Serial.print(rf12_grp);
+                    printOneChar(rf12_grp);
                     RF69::control(REG_SYNCGROUP | 0x80, rf12_grp);
                     printOneChar(' ');
                 }
