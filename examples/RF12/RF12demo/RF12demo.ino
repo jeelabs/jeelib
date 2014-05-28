@@ -8,12 +8,15 @@
 // Add acknowledgement to all node groups 2014-05-20
 // Increase support to 100 nodes mixed between all groups 2014-05-24
 
-#define RF69_COMPAT  0   // define this to use the RF69 driver i.s.o. RF12
-#define OOK          0   // Define this to include OOK code f, k
-#define JNuMOSFET    0   // Define to power up RFM12B on JNu2/3
-#define configSTRING 0   // Define to include "A i1 g210 @ 868 MHz q1"
-#define MESSAGING    0   // Define to include message posting code m, p
-#define STATISTICS   0   // Define to include stats gathering
+// RF69n driver is around 636 bytes larger than RF12B when compiled for Uno
+// RF69n driver is around 650 bytes large than RF12B when compiled for Tiny
+
+#define RF69_COMPAT  0   // define this to use the RF69 driver i.s.o. RF12 - Adds 650 bytes to Tiny image
+#define OOK          1   // Define this to include OOK code f, k - Adds 520 bytes to Tiny image
+#define JNuMOSFET    1   // Define to power up RFM12B on JNu2/3 - Adds 4 bytes to Tiny image
+#define configSTRING 0   // Define to include "A i1 g210 @ 868 MHz q1" - Adds 442 bytes to Tiny image
+#define MESSAGING    0   // Define to include message posting code m, p - Will not fit into any Tiny image
+#define STATISTICS   1   // Define to include stats gathering - Adds 406 bytes to Tiny image
 
 #define REG_SYNCCONFIG 0x2E  // RFM69 only, register containing sync length
 #define oneByteSync    0x80  // RFM69 only, value to get only one byte sync.
@@ -178,8 +181,8 @@ static byte CRCbadMaxRSSI = 0;
 #if STATISTICS
 static unsigned int CRCbadCount = 0;
 static unsigned int pktCount[MAX_NODES];
-static byte postingsIn, postingsOut;
 #endif  
+static byte postingsIn, postingsOut;
 const char messagesF[] PROGMEM = { 
 #if !Tiny
                       0x05, 'T', 'e', 's', 't', '1', 
@@ -643,6 +646,7 @@ static void handleInput (char c) {
             }
             
             break;
+#endif
 
         case 'p':
             // Post a semaphore for a remote node, to be collected along with
@@ -655,6 +659,7 @@ static void handleInput (char c) {
             
             if (top == 0) {
                 nodeShow();
+#if MESSAGING
             } else if (stack[0] < MAX_NODES) {
                   printOneChar('i');
                   Serial.print(stack[0]);
@@ -670,18 +675,16 @@ static void handleInput (char c) {
                       stickyGroup = stack[1];
                   }
                   Serial.println();
+#endif
             }
             break;
-#endif
 
         case 'n': 
           if ((top == 0) && (config.group == 0)) {
-//              showByte(stickyGroup);
-              Serial.print(stickyGroup);
+              showByte(stickyGroup);
               stickyGroup = (int)value;
               printOneChar('>');
-//              showByte(stickyGroup);
-              Serial.print(stickyGroup);
+              showByte(stickyGroup);
           } else if (top == 1) {
               for (byte i = 0; i < 4; ++i) {
                     // Display eeprom byte                  
