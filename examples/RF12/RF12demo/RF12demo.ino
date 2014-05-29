@@ -11,11 +11,11 @@
 // RF69n driver is around 636 bytes larger than RF12B when compiled for Uno
 // RF69n driver is around 650 bytes large than RF12B when compiled for Tiny
 
-#define RF69_COMPAT  0   // define this to use the RF69 driver i.s.o. RF12 - Adds 650 bytes to Tiny image
-#define OOK          1   // Define this to include OOK code f, k - Adds 520 bytes to Tiny image
-#define JNuMOSFET    1   // Define to power up RFM12B on JNu2/3 - Adds 4 bytes to Tiny image
-#define configSTRING 0   // Define to include "A i1 g210 @ 868 MHz q1" - Adds 442 bytes to Tiny image
-#define MESSAGING    0   // Define to include message posting code m, p - Will not fit into any Tiny image
+#define RF69_COMPAT  1   // define this to use the RF69 driver i.s.o. RF12 - Adds 650 bytes to Tiny image
+#define OOK          0   // Define this to include OOK code f, k - Adds 520 bytes to Tiny image
+#define JNuMOSFET    0   // Define to power up RFM12B on JNu2/3 - Adds 4 bytes to Tiny image
+#define configSTRING 1   // Define to include "A i1 g210 @ 868 MHz q1" - Adds 442 bytes to Tiny image
+#define MESSAGING    1   // Define to include message posting code m, p - Will not fit into any Tiny image
 #define STATISTICS   1   // Define to include stats gathering - Adds 406 bytes to Tiny image
 
 #define REG_SYNCCONFIG 0x2E  // RFM69 only, register containing sync length
@@ -72,10 +72,10 @@ static byte stickyGroup;
 #define BITDELAY 54          // 9k6 @ 8MHz, 19k2 @16MHz
 #endif
 #if SERIAL_BAUD == 38400
-#define BITDELAY 12          // 28/4/14 from value 11 // 38k4 @ 8MHz, 76k8 @16MHz
+#define BITDELAY 12          // 28/5/14 from value 11 // 38k4 @ 8MHz, 76k8 @16MHz
 #endif
 
-#define MAX_NODES 10
+#define MAX_NODES 30
 #define _receivePin 8
 static char _receive_buffer;
 static byte _receive_buffer_index;
