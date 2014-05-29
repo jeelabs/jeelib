@@ -1062,7 +1062,7 @@ void loop () {
         else {
             byte rssi1 = rssi2>>1;
             byte rssiMantisa = rssi2-(rssi1<<1);
-            printOneChar(-(rssi1));
+            Serial.print(-(rssi1));
             if (rssiMantisa) showString(PSTR(".5"));
             showString(PSTR("dB"));
         }
@@ -1215,7 +1215,7 @@ void loop () {
 #if RF69_COMPAT
                 if (config.group == 0) {
                     showString(PSTR("g"));
-                    printOneChar(rf12_grp);
+                    Serial.print(rf12_grp);
                     RF69::control(REG_SYNCGROUP | 0x80, rf12_grp);
                     printOneChar(' ');
                 }
