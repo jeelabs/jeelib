@@ -82,7 +82,10 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   // 0x08, 0x00, // FrfMib, divider = 14221312
   // 0x09, 0x00, // FrfLsb, step = 61.03515625
   0x0B, 0x20, // AfcCtrl, afclowbetaon
-  0x19, 0x42, // RxBw ...
+/*
+// Mismatching PA1 below this with the module present risks blowing a hole in the LNA
+// 0x11, 0x5F, // PA1 enable, Pout = max // uncomment this for RFM69H  0x19, 0x42, // RxBw ...
+*/
   0x1A, 0x91, // 0x8B,   // Channel filter BW
   0x1E, 0x0C, // AfcAutoclearOn, AfcAutoOn
   0x25, 0x80, // DioMapping1 = SyncAddress (Rx)
@@ -93,7 +96,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x30, 0xAA, // SyncValue2 = 0xAA
   0x31, 0xAA, // SyncValue3 = 0xAA
   0x32, 0x2D, // SyncValue4 = 0x2D
-//0x33, 0xD4, // SyncValue5 = 212, Group
+  0x33, 0xD4, // SyncValue5 = 212, Group
   0x37, 0x00, // PacketConfig1 = fixed, no crc, filt off
   0x38, 0x00, // PayloadLength = 0, unlimited
   0x3C, 0x8F, // FifoTresh, not empty, level 15
@@ -101,7 +104,20 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x6F, 0x20, // 0x30, // TestDagc ...
   0
 };
+/*
 
+0x13 RegOcp default is Current limiter active, threshold at 45+ 5*trim bits.
+( i.e 45 +5*10 = 95mA).
+The intent here is to run PA1 only, to keep out of the turbo boost range for the
+moment. The spec sheet doesn't have a specific current draw table for PA1 alone,
+but you can infer that PA1 is probably an identical TX stage to PA0, so using 
+that data suggests a maximum TX current draw of ~45mA.  
+So the default cap of 95mA leaves plenty of head room.
+The alternative would be just to disable the feature - it is only needed in the 
+"nearly flat battery" case.
+
+
+*/
 uint8_t RF69::control(uint8_t cmd, uint8_t val) {
     PreventInterrupt irq0;
     return spiTransfer(cmd, val);
