@@ -337,39 +337,42 @@ static void kakuSend(char addr, byte device, byte on) {
 const char helpText1[] PROGMEM =
     "\n"
     "Available commands:\n"
-    "  <nn>i     - set node ID (standard node ids are 1..30)\n"
-    "  <n>b      - set MHz band (4 = 433, 8 = 868, 9 = 915)\n"
-    "  <nnnn>o   - change frequency offset within the band (default 1600)\n"
+    " <nn>i      - set node ID (standard node ids are 1..30)\n"
+    " <n>b       - set MHz band (4 = 433, 8 = 868, 9 = 915)\n"
+    " <nnnn>o    - change frequency offset within the band (default 1600)\n"
     "               96..3903 is the range supported by the RFM12B\n"
-    "  <nnn>g    - set network group (RFM12 only allows 212, 0 = any)\n"
-    "  <n>c      - set collect mode (advanced, normally 0)\n"
-    "  t         - broadcast max-size test packet, request ack\n"
-    "  ...,<nn>a - send data packet to node <nn>, request ack\n"
-    "  ...,<nn>s - send data packet to node <nn>, no ack\n"
-    "  ... <nn>  - Space character is a valid delimiter\n"
-    "  <n>,n     - remove node <n> entry from eeprom\n"
-    "  <n>l      - turn activity LED on PB1 on or off\n"
-    "  ...,m     - Add message string to memory\n"
-    "  <g>,<n>,p - post semaphore <p> for group <g>, node <n> to see with its next ack\n"
-    "  <n>q      - set quiet mode (1 = don't report bad packets)\n"
-    "  <n>x      - set reporting format (0: decimal, 2: decimal+ascii\n"
+    " <nnn>g     - set network group (RFM12 only allows 212, 0 = any)\n"
+    " <n>c       - set collect mode (advanced, normally 0)\n"
+    " t          - broadcast max-size test packet, request ack\n"
+    " ...,<nn>a  - send data packet to node <nn>, request ack\n"
+    "              if using group 0 then sticky group number is used\n"
+    " ...,<nn>s  - send data packet to node <nn>, no ack\n"
+    " ... <nn>   - Space character is a valid delimiter\n"
+    " <i>,n      - remove group/node index number <i> entry from eeprom\n"
+    " <g>n       - set group <g> as sticky. Group 0 only, see p command\n"
+    " <n>l       - turn activity LED on PB1 on or off\n"
+    "  ...,m     - add message string to ram, see p command\n"
+    " <i>,<g>,<s>p post semaphore <s> for node <i>, group <g> to be\n"
+    "              sent with its next ack. Group number becomes sticky\n"
+    " <n>q       - set quiet mode (1 = don't report bad packets)\n"
+    " <n>x       - set reporting format (0: decimal, 2: decimal+ascii\n"
     "            -  1: hex, 3: hex+ascii)\n"
 #if !TINY
-    "  123z      - total power down, needs a reset to start up again\n"
+    " 123z       - total power down, needs a reset to start up again\n"
 #endif
 #if OOK
     "Remote control commands:\n"
-    "  <hchi>,<hclo>,<addr>,<cmd> f     - FS20 command (868 MHz)\n"
-    "  <addr>,<dev>,<on> k              - KAKU command (433 MHz)\n"
+    " <hchi>,<hclo>,<addr>,<cmd> f      - FS20 command (868 MHz)\n"
+    " <addr>,<dev>,<on> k               - KAKU command (433 MHz)\n"
 #endif
 ;
 
 const char helpText2[] PROGMEM =
     "Flash storage (JeeLink only):\n"
-    "    d                                  - dump all log markers\n"
-    "    <sh>,<sl>,<t3>,<t2>,<t1>,<t0> r    - replay from specified marker\n"
-    "    123,<bhi>,<blo> e                  - erase 4K block\n"
-    "    12,34 w                            - wipe entire flash memory\n"
+    "   d                                  - dump all log markers\n"
+    "   <sh>,<sl>,<t3>,<t2>,<t1>,<t0> r    - replay from specified marker\n"
+    "   123,<bhi>,<blo> e                  - erase 4K block\n"
+    "   12,34 w                            - wipe entire flash memory\n"
 ;
 
 static void showString (PGM_P s) {
@@ -565,7 +568,7 @@ static void handleInput (char c) {
 #if RF69_COMPAT
             // The 5 byte sync used by the RFM69 reduces detected noise dramatically.
             // The command below sets the sync length to 1 to test radio reception.
-            if (!value) RF69::control(REG_SYNCCONFIG | 0x80, oneByteSync); // Allow noise
+            if ((!value) && (top == 1)) RF69::control(REG_SYNCCONFIG | 0x80, oneByteSync); // Allow noise
             // Appropriate sync length will be reset by the driver after the next transmission.
             // The 's' command is an good choice to reset the sync length. 
             // Packets will not be recognised until until sync length is reset.
@@ -654,7 +657,7 @@ static void handleInput (char c) {
             // is the group number 127 is the desired value to be posted. 
             // The byte stack[0] contains the target group and stack[1] contains the 
             // node number. If a message string exists numbered the same as the posted
-            // number then the message string will be substituted for the single byte
+            // number then the message string will be appended to the single byte
             // number as it is transmitted with the ACK.
             
             if (top == 0) {
