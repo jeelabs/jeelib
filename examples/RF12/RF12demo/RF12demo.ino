@@ -483,7 +483,10 @@ static void handleInput (char c) {
             if ((value > 95) && (value < 3904)) { // supported by RFM12B
                 config.frequency_offset = value;
                 saveConfig();
-            }                       
+            } else {
+                printOneChar('o');
+                Serial.println(config.frequency_offset);  
+            }            
 #if !TINY
             // this code adds about 400 bytes to flash memory use
             // display the exact frequency associated with this setting
