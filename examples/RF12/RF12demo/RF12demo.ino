@@ -566,8 +566,10 @@ static void handleInput (char c) {
             break;
 #endif
         case 'q': // turn quiet mode on or off (don't report bad packets)
-            config.quiet_mode = value;
-            saveConfig();
+            if (!top) {
+                config.quiet_mode = value;
+                saveConfig();
+            }
 #if RF69_COMPAT
             // The 5 byte sync used by the RFM69 reduces detected noise dramatically.
             // The command below sets the sync length to 1 to test radio reception.
