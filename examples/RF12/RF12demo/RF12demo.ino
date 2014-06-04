@@ -1173,14 +1173,14 @@ void loop () {
             }
 
 
-            if ((RF12_WANTS_ACK && (config.collect_mode) == 0) && (!(rf12_hdr & RF12_HDR_DST))) {
+            if ((RF12_WANTS_ACK && (config.collect_mode) == 0) ) {
                 byte ackLen = 0;
 // This code is used when an incoming packet requesting an ACK is also from Node 31
 // The purpose is to find a "spare" Node number within the incoming group and offer 
 //  it with the returning ACK.
 // If there are no spare Node numbers nothing is offered
 // TODO perhaps we should increment the Group number and find a spare node number there?
-                if ((rf12_hdr & RF12_HDR_MASK) == 31) {
+                if (((rf12_hdr & RF12_HDR_MASK) == 31) && (!(rf12_hdr & RF12_HDR_DST))) {
                     // Special Node 31 source node
                     for (byte i = 1; i < 31; i++) {
                         // Find a spare node number within received group number
