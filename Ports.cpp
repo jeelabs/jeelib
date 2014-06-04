@@ -1065,6 +1065,7 @@ const word* ColorPlug::getData () {
     send();
     write(0x80 | BLOCKREAD); // write to Blockread register
     receive();
+    read(0); //read SMBus size (always 8)
     data.b[2] = read(0); // green low
     data.b[3] = read(0); // green high
     data.b[0] = read(0); // red low
