@@ -972,6 +972,11 @@ static void nodeShow() {
     }
     printOneChar(' ');
     Serial.print(RF69::interruptCount);
+    printOneChar('(');
+    Serial.print(RF69::rxP);
+    printOneChar('/');
+    Serial.print(RF69::txP);
+    printOneChar(')');
 #endif
     Serial.println();  
     Serial.println(freeRam());

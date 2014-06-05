@@ -66,6 +66,8 @@ namespace RF69 {
     int16_t  afc;
     int16_t  fei;
     uint16_t interruptCount;
+    uint16_t rxP;
+    uint16_t txP;
 }
 
 static volatile uint8_t rxfill;     // number of data bytes in rf12_buf
@@ -89,7 +91,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x19, 0x42, // RxBw ...
   0x1A, 0x91, // 0x8B,   // Channel filter BW
   0x1E, 0x0E, // AfcAutoclearOn, AfcAutoOn
-  0x25, 0x80, // DioMapping1 = SyncAddress (Rx)
+//  0x25, 0x80, // DioMapping1 = SyncAddress (Rx)
   0x29, 0xB0, // RssiThresh ...
 
   0x2E, 0xA0, // SyncConfig = sync on, sync size = 5
@@ -145,6 +147,7 @@ static void setMode (uint8_t mode) {
 
 static void initRadio (ROM_UINT8* init) {
     spiInit();
+/*
     // What is all this doing?
     do
         writeReg(REG_SYNCVALUE1, 0xAA);
@@ -152,12 +155,15 @@ static void initRadio (ROM_UINT8* init) {
     do
         writeReg(REG_SYNCVALUE1, 0x55);
     while (readReg(REG_SYNCVALUE1) != 0x55);
+*/
     for (;;) {
         uint8_t cmd = ROM_READ_UINT8(init);
         if (cmd == 0) break;
         writeReg(cmd, ROM_READ_UINT8(init+1));
         init += 2;
     }
+    writeReg(REG_DIOMAPPING1, 0x80);
+
 }
 
 void RF69::setFrequency (uint32_t freq) {
@@ -288,7 +294,7 @@ void RF69::interrupt_compat () {
             fei  = (fei << 8) + readReg(REG_FEILSB);
             afc  = readReg(REG_AFCMSB);
             afc  = (afc << 8) + readReg(REG_AFCLSB);
-
+            rxP++;
             crc = ~0;
             for (;;) { // busy loop, to get each data byte as soon as it comes in 
                 if (readReg(REG_IRQFLAGS2) & (IRQ2_FIFONOTEMPTY|IRQ2_FIFOOVERRUN)) {
@@ -306,6 +312,7 @@ void RF69::interrupt_compat () {
             writeReg(REG_AFCFEI, AfcClear);
         } else if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
             // rxstate will be TXDONE at this point
+            txP++;
             rxstate = TXIDLE;
             setMode(MODE_STANDBY);
             writeReg(REG_DIOMAPPING1, 0x80); // SyncAddress
