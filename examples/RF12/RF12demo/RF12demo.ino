@@ -181,6 +181,7 @@ static byte CRCbadMaxRSSI = 0;
 #if STATISTICS
 static unsigned int CRCbadCount = 0;
 static unsigned int pktCount[MAX_NODES];
+static unsigned int nonBroadcastCount = 0;
 #endif  
 static byte postingsIn, postingsOut;
 const char messagesF[] PROGMEM = { 
@@ -962,8 +963,10 @@ static void nodeShow() {
     printOneChar('(');
     Serial.print(CRCbadCount);
     printOneChar(')');
+    Serial.print(nonBroadcastCount);
+    printOneChar(' ');
 #endif
-#if RF69_COMPAT  && STATISTICS
+#if RF69_COMPAT && STATISTICS
     if (CRCbadMaxRSSI) {
         printOneChar('>');
         Serial.print(CRCbadMinRSSI);    
@@ -1022,13 +1025,16 @@ void loop () {
         byte n = rf12_len;
         byte crc = false;
         if (rf12_crc == 0) {
+#if STATISTICS
+            messageCount++;
+#endif
             showString(PSTR("OK"));
             crc = true;
         } else {
 #if STATISTICS
             CRCbadCount++;
 #endif
-#if RF69_COMPAT  && STATISTICS
+#if RF69_COMPAT && STATISTICS
             if (rssi2 < (CRCbadMinRSSI))
               CRCbadMinRSSI = rssi2;   
             if (rssi2 > (CRCbadMaxRSSI))
@@ -1160,7 +1166,8 @@ void loop () {
 #endif
 #if STATISTICS            
                 pktCount[NodeMap]++;
-                messageCount++;
+            } else {
+                nonBroadcastCount++;
 #endif
             }
 
