@@ -474,7 +474,7 @@ static void handleInput (char c) {
         case 'g': // set network group
             config.group = value;
             saveConfig();
-            if (value) stickyGroup = value;
+            stickyGroup = value;
             break;
 
         case 'o': { // Increment frequency within band
@@ -979,17 +979,17 @@ static void nodeShow() {
 }
 
 static byte getIndex (byte group, byte node) {
-
+            newNodeMap = NodeMap = 0xFF;
             // Search eeprom RF12_EEPROM_NODEMAP for node/group match
-            for (byte index = 0; index < MAX_NODES; index++) {      // MAX_NODES must be < 255;
+            for (byte index = 0; index < MAX_NODES; index++) {    // MAX_NODES must be < 255;
                 byte n = eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4));
-                    http://forum.arduino.cc/index.php/topic,140376.msg1054626.html
-                    if (n & 0x80) {    // Erased or empty entry?
+                http://forum.arduino.cc/index.php/topic,140376.msg1054626.html
+                if (n & 0x80) {                                     // Erased or empty entry?
                     if (newNodeMap == 0xFF) newNodeMap = index;     // Save pointer to a first free entry
                     if (n == 0xFF) return(n);                       // Empty, assume end of table
-                } else if ((n & RF12_HDR_MASK) == node) {           // Node match?
+                } else if ((n & RF12_HDR_MASK) == (node & RF12_HDR_MASK)) {  // Node match?
                     byte g = eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4) + 1);
-                    if (g == group) {
+                    if (g == group) {                                        // Group match?
                         // found a match;
                         NodeMap = index;
                         return (index);
@@ -1084,7 +1084,7 @@ void loop () {
                 if (config.group == 0) {
                     printOneChar(' ');                       // 'G'
                     printASCII(rf12_grp);                    // grp
-                    if (config.output & 1) printOneChar(' ');//#####
+                    if (config.output & 1) printOneChar(' ');
                 }
                 printOneChar(rf12_hdr & RF12_HDR_DST ? '>' : '<');
                 if ((rf12_hdr > 99) && (!(config.output & 1))) printPos(' ');
@@ -1094,7 +1094,6 @@ void loop () {
                 printOneChar('?');                       // '?'
                 if (config.output & 1) {
                     printOneChar('X');                   // 'X'
- //                   printOneChar(' ');                 // ''
                 } else {
                    printOneChar(' ');                    // ''
                 }  
@@ -1124,27 +1123,15 @@ void loop () {
             
             // Search RF12_EEPROM_NODEMAP for node/group match
             if (!(rf12_hdr & RF12_HDR_DST)) {
-                newNodeMap = NodeMap = 0xFF;
-                for (byte i = 0; i < MAX_NODES; i++) { // MAX_NODES must be < 255;
-                    byte n = eeprom_read_byte((RF12_EEPROM_NODEMAP) + (i * 4));  // Read in from node number position
-                    if (n & 0x80) {    // Erased or empty entry?
-                        if (newNodeMap == 0xFF) newNodeMap = i; // Save pointer to a first free entry
-                        if (n == 0xFF) break;                   // Empty, assume end of table
-                    } else if ((rf12_hdr & RF12_HDR_MASK) == (n & RF12_HDR_MASK)) { // Node match?
-                        byte g = eeprom_read_byte((RF12_EEPROM_NODEMAP) + (i * 4) + 1);
-                        if (rf12_grp == g) {
-                            // found a match;
-                            NodeMap = i;
-                            break;
-                        }
-                    }
-                } 
+              
+                getIndex(rf12_grp, (rf12_hdr & RF12_HDR_MASK));
+
                 if ((NodeMap == 0xFF) && (newNodeMap != 0xFF)) { // node/group not found and space to save?
                     showString(PSTR("New Node g"));
                     showByte(rf12_grp);
                     showString(PSTR(" i"));
                     showByte(rf12_hdr & RF12_HDR_MASK);
-                    crlf = true;
+                    Serial.println();
                     eeprom_write_byte((RF12_EEPROM_NODEMAP) + (newNodeMap * 4), (rf12_hdr & RF12_HDR_MASK));  // Store Node and
                     eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 1), rf12_grp);              //  and Group number  
 #if RF69_COMPAT
@@ -1174,14 +1161,24 @@ void loop () {
 
 
             if ((RF12_WANTS_ACK && (config.collect_mode) == 0) ) {
+              
+// TODO If we are node 31, we need to prevent an ACK to a non broadcast packet, unless it is sent to us, node 31.
+
                 byte ackLen = 0;
 // This code is used when an incoming packet requesting an ACK is also from Node 31
 // The purpose is to find a "spare" Node number within the incoming group and offer 
-//  it with the returning ACK.
+// it with the returning ACK.
 // If there are no spare Node numbers nothing is offered
 // TODO perhaps we should increment the Group number and find a spare node number there?
                 if (((rf12_hdr & RF12_HDR_MASK) == 31) && (!(rf12_hdr & RF12_HDR_DST))) {
                     // Special Node 31 source node
+                    // Make sure this node's node/group is in the eeprom
+                    getIndex(config.group, config.nodeId);
+                    if ((NodeMap == 0xFF) && (newNodeMap != 0xFF)) {               // node/group not found and space to save?
+                        eeprom_write_byte((RF12_EEPROM_NODEMAP) + (newNodeMap * 4), (config.nodeId & RF12_HDR_MASK));
+                        eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 1), config.group);
+                        eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 2), 0);
+                    }
                     for (byte i = 1; i < 31; i++) {
                         // Find a spare node number within received group number
                         byte n = getIndex(rf12_grp, i ); 
@@ -1191,6 +1188,9 @@ void loop () {
                             ackLen = 1;
                             showString(PSTR("Node allocation "));
                             crlf = true;
+                            showByte(rf12_grp);
+                            printOneChar('g');
+                            printOneChar(' ');
                             showByte(i);        
                             printOneChar('i');
                             break;
@@ -1200,17 +1200,20 @@ void loop () {
                 } else {
 // This code is used when an incoming packet is requesting an ACK, it determines if a semaphore is posted for this Node/Group.
 // If a semaphore exists it is stored in the buffer. If the semaphore has a message addition associated with it then
-//  the additional data from the message store is appended to the buffer and the whole buffer transmitted to the 
-//  originating node with the ACK.
-                    if (semaphores[NodeMap]) {                                       // Something to post?
-                        stack[sizeof stack - 1] = semaphores[NodeMap]; // Pick up message pointer
-                        ackLen = getMessage(stack[sizeof stack - 1]);                // Check for a message to be appended
+// the additional data from the message store is appended to the buffer and the whole buffer transmitted to the 
+// originating node with the ACK.
+
+
+                    if (semaphores[NodeMap]) {                            // Something to post?
+                        stack[sizeof stack - 1] = semaphores[NodeMap];    // Pick up message pointer
+                        ackLen = getMessage(stack[sizeof stack - 1]);     // Check for a message to be appended
                         if (ackLen){
                             stack[(sizeof stack - (ackLen + 1))] = semaphores[NodeMap];
                         }
                         ackLen++;                                                    // If 0 or message length then +1 for length byte 
                         semaphores[NodeMap] = 0;
-                        // Assume it will be delivered and clear.
+                        // Assume it will be delivered and clear it.
+                        // TODO Can we respond to and ACK request and request that the response be ACK'ed?
                         showString(PSTR("Posted "));
                         crlf = true;
                         displayString(&stack[sizeof stack - ackLen], ackLen);        // 1 more than Message length!                      
