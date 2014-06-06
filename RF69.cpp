@@ -213,7 +213,7 @@ void RF69::configure_compat () {
     writeReg(REG_FRFMSB+1, frf >> 8);
     writeReg(REG_FRFMSB+2, frf);
     writeReg(REG_OSC1, RcCalStart);
-    while(readReg(REG_OSC1) & RcCalDone);
+    while(!(readReg(REG_OSC1) & RcCalDone));
     writeReg(REG_DIOMAPPING1, 0x80);
 
     rxstate = TXIDLE;
