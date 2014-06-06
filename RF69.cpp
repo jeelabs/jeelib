@@ -316,12 +316,12 @@ void RF69::interrupt_compat () {
                         crc = _crc16_update(crc, in);              
                         if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX)
                            break;
-                    } 
+                    }
                 } else {             
                     fifooverrun++;                  
                 }
-            writeReg(REG_AFCFEI, AfcClear);
             }
+            writeReg(REG_AFCFEI, AfcClear); 
         } else if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
             // rxstate will be TXDONE at this point
             txP++;
