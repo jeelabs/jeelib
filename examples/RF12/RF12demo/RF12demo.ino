@@ -979,6 +979,8 @@ static void nodeShow() {
     Serial.print(RF69::rxP);
     printOneChar('/');
     Serial.print(RF69::txP);
+    printOneChar('/');
+    Serial.print(RF69::overrun);
     printOneChar(')');
 #endif
     Serial.println();  

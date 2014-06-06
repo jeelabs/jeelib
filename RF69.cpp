@@ -68,6 +68,7 @@ namespace RF69 {
     uint16_t interruptCount;
     uint16_t rxP;
     uint16_t txP;
+    uint16_t overrun;
 }
 
 static volatile uint8_t rxfill;     // number of data bytes in rf12_buf
@@ -92,7 +93,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x1A, 0x91, // 0x8B,   // Channel filter BW
   0x1E, 0x0E, // AfcAutoclearOn, AfcAutoOn
 //  0x25, 0x80, // DioMapping1 = SyncAddress (Rx)
-  0x29, 0xB0, // RssiThresh ...
+  0x29, 0x80, // RssiThresh ...
 
   0x2E, 0xA0, // SyncConfig = sync on, sync size = 5
   0x2F, 0xAA, // SyncValue1 = 0xAA
@@ -295,6 +296,8 @@ void RF69::interrupt_compat () {
             afc  = readReg(REG_AFCMSB);
             afc  = (afc << 8) + readReg(REG_AFCLSB);
             rxP++;
+// TODO Why do counters get out of step between RF12Demo & rxP?
+//      Use the ',q' command to demonstrate.
             crc = ~0;
             for (;;) { // busy loop, to get each data byte as soon as it comes in 
                 if (readReg(REG_IRQFLAGS2) & (IRQ2_FIFONOTEMPTY|IRQ2_FIFOOVERRUN)) {
@@ -320,5 +323,7 @@ void RF69::interrupt_compat () {
             if (group == 0) {               // Allow receiving from all groups
                 writeReg(REG_SYNCCONFIG, fourByteSync);
             }
+        } else {
+            overrun++;
         }
 }
