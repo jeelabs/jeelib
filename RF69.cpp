@@ -5,7 +5,7 @@
 #define REG_FIFO            0x00
 #define REG_OPMODE          0x01
 #define REG_FRFMSB          0x07
-#define REG_OSC1            0x10
+#define REG_OSC1            0x0A
 #define REG_AFCFEI          0x1E
 #define REG_AFCMSB          0x1F
 #define REG_AFCLSB          0x20
