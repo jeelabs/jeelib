@@ -177,6 +177,10 @@ static signed int minFEI[MAX_NODES];
 static signed int maxFEI[MAX_NODES];
 static byte CRCbadMinRSSI = 255;
 static byte CRCbadMaxRSSI = 0;
+static signed int previousAFC;
+static signed int previousFEI;
+static unsigned int changedAFC;
+static unsigned int changedFEI;
 #endif
 #if STATISTICS
 static unsigned int CRCbadCount = 0;
@@ -954,10 +958,25 @@ static void nodeShow() {
         Serial.println();
     }
 #if MESSAGING    
+    showString(PSTR("Postings "));      
     Serial.print((word) postingsIn);
     printOneChar(',');
     Serial.println((word) postingsOut);
 #endif
+#if RF69_COMPAT && STATISTICS
+    showString(PSTR("Stability "));
+    if (changedAFC) {
+        Serial.print(word((messageCount + CRCbadCount) / changedAFC));    
+        printOneChar(',');
+    }
+    if (changedFEI) {
+        Serial.print(word((messageCount + CRCbadCount) / changedFEI));  
+        printOneChar(' ');
+    }
+    Serial.print(word(changedAFC));    
+    printOneChar(',');
+    Serial.println(word(changedFEI));  
+#endif  
 #if STATISTICS
     Serial.print(messageCount);
     printOneChar('(');
@@ -972,16 +991,16 @@ static void nodeShow() {
         Serial.print(CRCbadMinRSSI);    
         printOneChar('<');
         Serial.print(CRCbadMaxRSSI);
+        printOneChar(' ');
     }
-    printOneChar(' ');
     Serial.print(RF69::interruptCount);
     printOneChar('(');
     Serial.print(RF69::rxP);
-    printOneChar('/');
+    printOneChar(',');
     Serial.print(RF69::txP);
-    printOneChar('/');
+    printOneChar(',');
     Serial.print(RF69::overrun);
-    printOneChar('/');
+    printOneChar(',');
     Serial.print(RF69::fifooverrun);
     printOneChar(')');
 #endif
@@ -1025,6 +1044,15 @@ void loop () {
         signed int afc = (RF69::afc);                  // Grab values before next interrupt
         signed int fei = (RF69::fei);
         byte rssi2 = RF69::rssi;
+        
+        if ((afc) && (afc != previousAFC)) { // Track volatility of AFC
+            changedAFC++;    
+            previousAFC = afc;
+        }
+        if (fei != previousFEI) {            // Track volatility of FEI
+            changedFEI++;
+            previousFEI = fei;
+        }
 #endif  
         byte n = rf12_len;
         byte crc = false;
