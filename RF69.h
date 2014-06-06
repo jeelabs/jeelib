@@ -12,6 +12,7 @@ namespace RF69 {
     extern uint16_t rxP;
     extern uint16_t txP;
     extern uint16_t overrun;
+    extern uint16_t fifooverrun; 
 
     void setFrequency (uint32_t freq);
     bool canSend ();

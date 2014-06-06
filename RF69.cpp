@@ -69,6 +69,7 @@ namespace RF69 {
     uint16_t rxP;
     uint16_t txP;
     uint16_t overrun;
+    uint16_t fifooverrun;
 }
 
 static volatile uint8_t rxfill;     // number of data bytes in rf12_buf
@@ -297,10 +298,18 @@ void RF69::interrupt_compat () {
             afc  = (afc << 8) + readReg(REG_AFCLSB);
             rxP++;
 // TODO Why do counters get out of step between RF12Demo & rxP?
-//      Use the ',q' command to demonstrate.
+//      Use the ',q' command to demonstrate. 
             crc = ~0;
             for (;;) { // busy loop, to get each data byte as soon as it comes in 
-                if (readReg(REG_IRQFLAGS2) & (IRQ2_FIFONOTEMPTY|IRQ2_FIFOOVERRUN)) {
+//                if (readReg(REG_IRQFLAGS2) & (IRQ2_FIFONOTEMPTY|IRQ2_FIFOOVERRUN)) {
+// Since a FIFO overrun will clear the FIFO we don't need to test for it above
+                
+                uint8_t r = readReg(REG_IRQFLAGS2); 
+                if (r & IRQ2_FIFONOTEMPTY) {
+                    if (r & IRQ2_FIFOOVERRUN) {
+                        fifooverrun++;
+                        break;
+                    }
                     if (rxfill == 0 && group != 0) { 
                         recvBuf[rxfill++] = group;
                         crc = _crc16_update(crc, group);
