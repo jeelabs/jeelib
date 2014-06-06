@@ -5,6 +5,7 @@
 #define REG_FIFO            0x00
 #define REG_OPMODE          0x01
 #define REG_FRFMSB          0x07
+#define REG_OSC1            0x10
 #define REG_AFCFEI          0x1E
 #define REG_AFCMSB          0x1F
 #define REG_AFCLSB          0x20
@@ -40,6 +41,8 @@
 #define IRQ2_PACKETSENT     0x08
 #define IRQ2_PAYLOADREADY   0x04
 
+#define RcCalStart          0x81
+#define RcCalDone           0x40
 #define FeiDone             0x40
 #define RssiStart           0x01
 #define RssiDone            0x02
@@ -164,8 +167,6 @@ static void initRadio (ROM_UINT8* init) {
         writeReg(cmd, ROM_READ_UINT8(init+1));
         init += 2;
     }
-    writeReg(REG_DIOMAPPING1, 0x80);
-
 }
 
 void RF69::setFrequency (uint32_t freq) {
@@ -174,7 +175,7 @@ void RF69::setFrequency (uint32_t freq) {
     // due to this, the lower 6 bits of the calculated factor will always be 0
     // this is still 4 ppm, i.e. well below the radio's 32 MHz crystal accuracy
     // 868.0 MHz = 0xD90000, 868.3 MHz = 0xD91300, 915.0 MHz = 0xE4C000  
-    frf = ((freq << 2) / (32000000L >> 11)) << 6;
+    frf = ((freq << 2) / (32000000L >> 11)) << 6; 
 }
 
 bool RF69::canSend () {
@@ -211,6 +212,9 @@ void RF69::configure_compat () {
     writeReg(REG_FRFMSB, frf >> 16);
     writeReg(REG_FRFMSB+1, frf >> 8);
     writeReg(REG_FRFMSB+2, frf);
+    writeReg(REG_OSC1, RcCalStart);
+    while(readReg(REG_OSC1) & RcCalDone);
+    writeReg(REG_DIOMAPPING1, 0x80);
 
     rxstate = TXIDLE;
 }
