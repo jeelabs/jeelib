@@ -305,23 +305,23 @@ void RF69::interrupt_compat () {
 // Since a FIFO overrun will clear the FIFO we don't need to test for it above
                 
                 uint8_t r = readReg(REG_IRQFLAGS2); 
-                if (r & IRQ2_FIFONOTEMPTY) {
-                    if (r & IRQ2_FIFOOVERRUN) {
-                        fifooverrun++;
-                        break;
-                    }
-                    if (rxfill == 0 && group != 0) { 
-                        recvBuf[rxfill++] = group;
-                        crc = _crc16_update(crc, group);
+                if (!(r & IRQ2_FIFOOVERRUN)) {
+                    if (r & IRQ2_FIFONOTEMPTY) { 
+                        if (rxfill == 0 && group != 0) { 
+                           recvBuf[rxfill++] = group;
+                            crc = _crc16_update(crc, group);
+                        } 
+                        uint8_t in = readReg(REG_FIFO);
+                        recvBuf[rxfill++] = in;
+                        crc = _crc16_update(crc, in);              
+                        if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX)
+                           break;
                     } 
-                    uint8_t in = readReg(REG_FIFO);
-                    recvBuf[rxfill++] = in;
-                    crc = _crc16_update(crc, in);              
-                    if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX)
-                        break;
+                } else {             
+                    fifooverrun++;                  
                 }
-            }
             writeReg(REG_AFCFEI, AfcClear);
+            }
         } else if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
             // rxstate will be TXDONE at this point
             txP++;
