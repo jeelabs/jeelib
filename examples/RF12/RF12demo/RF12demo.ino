@@ -396,7 +396,7 @@ static void showHelp () {
 #if TINY
     showString(PSTR("?\n"));
 #endif
-#elseif !TINY && HELP
+#if !TINY && HELP
     showString(helpText1);
     if (df_present())
         showString(helpText2);
