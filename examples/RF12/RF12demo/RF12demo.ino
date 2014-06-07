@@ -869,8 +869,10 @@ static int freeRam () {    // @jcw's work
 }
 
 void setup () {
-    delay(5000);   // shortened for now. Handy with JeeNode Micro V1 where ISP
+#if TINY
+    delay(1000);  // shortened for now. Handy with JeeNode Micro V1 where ISP
                   // interaction can be upset by RF12B startup process.
+#endif
 #if RF69_COMPAT && STATISTICS
 // Initialise min/max/count arrays
 memset(minRSSI,255,sizeof(minRSSI));
@@ -1007,6 +1009,8 @@ static void nodeShow() {
     Serial.print(RF69::fifooverrun);
     printOneChar(',');
     Serial.print(RF69::busyCount);
+    printOneChar(',');
+    Serial.print(RF69::underrun);
     printOneChar(')');
 #endif
     Serial.println();  

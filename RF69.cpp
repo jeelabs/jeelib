@@ -66,14 +66,15 @@ namespace RF69 {
     uint8_t  node;
     uint16_t crc;
     uint8_t  rssi;
-    int16_t  afc;
-    int16_t  fei;
+    int16_t  afc;                  // I wonder how to make sure these 
+    int16_t  fei;                  // are volatile
     uint16_t interruptCount;
     uint16_t rxP;
     uint16_t txP;
     uint16_t overrun;
     uint16_t fifooverrun;
     uint16_t busyCount;
+    uint16_t underrun;
 }
 
 static volatile uint8_t rxfill;     // number of data bytes in rf12_buf
@@ -300,6 +301,8 @@ void RF69::interrupt_compat () {
         // Interrupt will remain asserted until FIFO empty or exit RX mode
 
         if (rxstate == TXRECV) {
+            if (busy) busyCount++;
+            busy = true;
             rssi = readReg(REG_RSSIVALUE);
             fei  = readReg(REG_FEIMSB);
             fei  = (fei << 8) + readReg(REG_FEILSB);
@@ -307,9 +310,7 @@ void RF69::interrupt_compat () {
             afc  = (afc << 8) + readReg(REG_AFCLSB);
             rxP++;
             if (busy) busyCount++;
-            busy = true;
 // TODO Why do counters get out of step between RF12Demo & rxP?
-//      Use the ',q' command to demonstrate. 
             crc = ~0;
             for (;;) { // busy loop, to get each data byte as soon as it comes in 
 //                if (readReg(REG_IRQFLAGS2) & (IRQ2_FIFONOTEMPTY|IRQ2_FIFOOVERRUN)) {
@@ -332,6 +333,7 @@ void RF69::interrupt_compat () {
                     fifooverrun++;                  
                 }
             }
+            if (!rxfill) underrun++;
             busy = false;
             writeReg(REG_AFCFEI, AfcClear); 
         } else if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
