@@ -868,7 +868,7 @@ static int freeRam () {    // @jcw's work
 }
 
 void setup () {
-    delay(100);   // shortened for now. Handy with JeeNode Micro V1 where ISP
+    delay(5000);   // shortened for now. Handy with JeeNode Micro V1 where ISP
                   // interaction can be upset by RF12B startup process.
 #if RF69_COMPAT && STATISTICS
 // Initialise min/max/count arrays
