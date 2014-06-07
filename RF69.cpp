@@ -217,6 +217,7 @@ void RF69::configure_compat () {
     setMode(MODE_STANDBY);
     writeReg(REG_OSC1, RcCalStart);
     while(!(readReg(REG_OSC1) & RcCalDone));
+    writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN); 
     writeReg(REG_AFCFEI, AfcClear); 
     writeReg(REG_DIOMAPPING1, 0x80);
 
@@ -273,7 +274,7 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
     // use busy polling until the last byte fits into the buffer
     // this makes sure it all happens on time, and that sendWait can sleep
     while (rxstate < TXDONE)
-        if ((readReg(REG_IRQFLAGS2) & IRQ2_FIFOFULL) == 0) { // FIFO is 64 bytes
+        if ((readReg(REG_IRQFLAGS2) & IRQ2_FIFOFULL) == 0) { // FIFO is 66 bytes
             uint8_t out = 0xAA; // To be used at end of packet
             if (rxstate < 0) {
                 out = recvBuf[3 + rf12_len + rxstate];
