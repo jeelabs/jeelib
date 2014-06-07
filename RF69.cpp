@@ -309,7 +309,6 @@ void RF69::interrupt_compat () {
             afc  = readReg(REG_AFCMSB);
             afc  = (afc << 8) + readReg(REG_AFCLSB);
             rxP++;
-            if (busy) busyCount++;
 // TODO Why do counters get out of step between RF12Demo & rxP?
             crc = ~0;
             for (;;) { // busy loop, to get each data byte as soon as it comes in 
