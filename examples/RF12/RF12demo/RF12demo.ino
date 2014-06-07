@@ -395,14 +395,15 @@ static void showString (PGM_P s) {
 static void showHelp () {
 #if TINY
     showString(PSTR("?\n"));
-#endif
-#if !TINY && HELP
+#elseif HELP
     showString(helpText1);
     if (df_present())
         showString(helpText2);
 #endif
+#if !TINY
     showString(PSTR("Current configuration:\n"));
     rf12_configDump();
+#endif
 }
 
 static void handleInput (char c) {
@@ -1004,6 +1005,8 @@ static void nodeShow() {
     Serial.print(RF69::overrun);
     printOneChar(',');
     Serial.print(RF69::fifooverrun);
+    printOneChar(',');
+    Serial.print(RF69::busyCount);
     printOneChar(')');
 #endif
     Serial.println();  

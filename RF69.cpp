@@ -73,10 +73,12 @@ namespace RF69 {
     uint16_t txP;
     uint16_t overrun;
     uint16_t fifooverrun;
+    uint16_t busyCount;
 }
 
 static volatile uint8_t rxfill;     // number of data bytes in rf12_buf
 static volatile int8_t rxstate;     // current transceiver state
+static volatile int8_t busy;
 
 static ROM_UINT8 configRegs_compat [] ROM_DATA = {
  // 0x01, 0x04, // OpMode = standby
@@ -215,6 +217,7 @@ void RF69::configure_compat () {
     writeReg(REG_OSC1, RcCalStart);
     while(!(readReg(REG_OSC1) & RcCalDone));
     writeReg(REG_DIOMAPPING1, 0x80);
+    writeReg(REG_AFCFEI, AfcClear); 
 
     rxstate = TXIDLE;
 }
@@ -301,6 +304,8 @@ void RF69::interrupt_compat () {
             afc  = readReg(REG_AFCMSB);
             afc  = (afc << 8) + readReg(REG_AFCLSB);
             rxP++;
+            if (busy) busyCount++;
+            busy = true;
 // TODO Why do counters get out of step between RF12Demo & rxP?
 //      Use the ',q' command to demonstrate. 
             crc = ~0;
@@ -325,6 +330,7 @@ void RF69::interrupt_compat () {
                     fifooverrun++;                  
                 }
             }
+            busy = false;
             writeReg(REG_AFCFEI, AfcClear); 
         } else if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
             // rxstate will be TXDONE at this point
