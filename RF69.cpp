@@ -75,11 +75,15 @@ namespace RF69 {
     uint16_t fifooverrun;
     uint16_t busyCount;
     uint16_t underrun;
-}
+    uint8_t interruptTimer[20];
+    }
 
-static volatile uint8_t rxfill;     // number of data bytes in rf12_buf
-static volatile int8_t rxstate;     // current transceiver state
-static volatile int8_t busy;
+static volatile uint8_t rxfill;      // number of data bytes in rf12_buf
+static volatile int8_t rxstate;      // current transceiver state
+static volatile uint8_t packetBytes; // Count of bytes in packet
+static volatile uint16_t iTimer;
+static volatile uint16_t interruptTimer[20];
+static volatile uint8_t indexTimer;
 
 static ROM_UINT8 configRegs_compat [] ROM_DATA = {
  // 0x01, 0x04, // OpMode = standby
@@ -112,6 +116,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x38, 0x00, // PayloadLength = 0, unlimited
   0x3C, 0x8F, // FifoTresh, not empty, level 15
   0x3D, 0x10, // PacketConfig2, interpkt = 1, autorxrestart off
+//  0x3D, 0x42, // PacketConfig2, interpkt = 2, autorxrestart on
   0x6F, 0x20, // 0x30, // TestDagc ...
   0
 };
@@ -212,15 +217,18 @@ void RF69::configure_compat () {
         writeReg(REG_SYNCCONFIG, fiveByteSync);
     }   
 
+TCCR1A = 0;
+TCCR1B = 2;                          // Start Timer. divided by 8
+
     writeReg(REG_FRFMSB, frf >> 16);
     writeReg(REG_FRFMSB+1, frf >> 8);
     writeReg(REG_FRFMSB+2, frf);
     setMode(MODE_STANDBY);
-    writeReg(REG_OSC1, RcCalStart);
-    while(!(readReg(REG_OSC1) & RcCalDone));
-    writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN); 
-    writeReg(REG_AFCFEI, AfcClear); 
-    writeReg(REG_DIOMAPPING1, 0x80);
+    writeReg(REG_OSC1, RcCalStart);             // Calibrate
+    while(!(readReg(REG_OSC1) & RcCalDone));    // Wait for completion
+    writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
+    writeReg(REG_AFCFEI, AfcClear);             // Clear AFC
+    writeReg(REG_DIOMAPPING1, 0x80);            // Interrupt on RSSI
 
     rxstate = TXIDLE;
 }
@@ -259,6 +267,7 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
     for (int i = 0; i < len; ++i)
         rf12_data[i] = ((const uint8_t*) ptr)[i];
     rf12_hdr = hdr & RF12_HDR_DST ? hdr : (hdr & ~RF12_HDR_MASK) + node; 
+// TODO instruction below worries me now I have 4/5 byte sync
     rxstate = - (2 + rf12_len); // preamble and SYN1/SYN2 are sent by hardware
     flushFifo();
     
@@ -297,12 +306,21 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
 
 void RF69::interrupt_compat () {
     interruptCount++;
+    if (indexTimer < 20) {
+        unsigned char sreg;
+        /* Save global interrupt flag*/
+        sreg = SREG;
+        /* Disable interrupts*/
+        cli();       
+        (uint16_t)iTimer = TCNT1;
+        SREG = sreg;
+        interruptTimer[indexTimer] = iTimer;
+        indexTimer++;
+    }
     IRQ_ENABLE; // allow nested interrupts from here on
-        // Interrupt will remain asserted until FIFO empty or exit RX mode
+        // Interrupt will remain asserted until FIFO empty or exit RX mode    
 
         if (rxstate == TXRECV) {
-            if (busy) busyCount++;
-            busy = true;
             rssi = readReg(REG_RSSIVALUE);
             fei  = readReg(REG_FEIMSB);
             fei  = (fei << 8) + readReg(REG_FEILSB);
@@ -311,6 +329,7 @@ void RF69::interrupt_compat () {
             rxP++;
 // TODO Why do counters get out of step between RF12Demo & rxP?
             crc = ~0;
+            packetBytes = 0;
             for (;;) { // busy loop, to get each data byte as soon as it comes in 
 //                if (readReg(REG_IRQFLAGS2) & (IRQ2_FIFONOTEMPTY|IRQ2_FIFOOVERRUN)) {
 // Since a FIFO overrun will clear the FIFO we don't need to test for it above
@@ -320,10 +339,12 @@ void RF69::interrupt_compat () {
                     if (r & IRQ2_FIFONOTEMPTY) { 
                         if (rxfill == 0 && group != 0) { 
                            recvBuf[rxfill++] = group;
-                            crc = _crc16_update(crc, group);
+                           packetBytes++;
+                           crc = _crc16_update(crc, group);
                         } 
                         uint8_t in = readReg(REG_FIFO);
                         recvBuf[rxfill++] = in;
+                        packetBytes++;
                         crc = _crc16_update(crc, in);              
                         if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX)
                            break;
@@ -332,8 +353,8 @@ void RF69::interrupt_compat () {
                     fifooverrun++;                  
                 }
             }
-            if (!rxfill) underrun++;
-            busy = false;
+            if (packetBytes < 5) underrun++;
+            busyCount = rxfill;
             writeReg(REG_AFCFEI, AfcClear); 
         } else if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
             // rxstate will be TXDONE at this point

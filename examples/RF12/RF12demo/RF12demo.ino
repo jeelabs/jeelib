@@ -1013,9 +1013,14 @@ static void nodeShow() {
     Serial.print(RF69::underrun);
     printOneChar(')');
 #endif
-    Serial.println();  
+    Serial.println();
     Serial.println(freeRam());
- 
+    Serial.println(TCCR1A);
+    Serial.println(TCCR1B);
+    Serial.println("Interrupt Timing");
+    for (byte i = 0; i < 20; i++) {
+        Serial.println((unsigned int)RF69::interruptTimer[i]);
+    } 
 }
 
 static byte getIndex (byte group, byte node) {
@@ -1054,6 +1059,11 @@ void loop () {
         signed int fei = (RF69::fei);
         byte rssi2 = RF69::rssi;
         
+    Serial.print(RF69::busyCount);
+    printOneChar(',');
+    Serial.print(rf12_len);
+    printOneChar(',');
+    
         if ((afc) && (afc != previousAFC)) { // Track volatility of AFC
             changedAFC++;    
             previousAFC = afc;

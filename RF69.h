@@ -15,6 +15,8 @@ namespace RF69 {
     extern uint16_t fifooverrun; 
     extern uint16_t busyCount;
     extern uint16_t underrun;
+    extern uint8_t interruptTimer[20];
+
 
     void setFrequency (uint32_t freq);
     bool canSend ();
