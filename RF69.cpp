@@ -218,7 +218,11 @@ void RF69::configure_compat () {
     }   
 
 TCCR1A = 0;
+TCNT1 = 1024;
 TCCR1B = 2;                          // Start Timer. divided by 8
+        interruptTimer[indexTimer] = TCNT1;
+        indexTimer++;
+
 
     writeReg(REG_FRFMSB, frf >> 16);
     writeReg(REG_FRFMSB+1, frf >> 8);
@@ -312,7 +316,7 @@ void RF69::interrupt_compat () {
         sreg = SREG;
         /* Disable interrupts*/
         cli();       
-        (uint16_t)iTimer = TCNT1;
+        iTimer = iTimer + TCNT1;
         SREG = sreg;
         interruptTimer[indexTimer] = iTimer;
         indexTimer++;
