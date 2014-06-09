@@ -217,12 +217,8 @@ void RF69::configure_compat () {
         writeReg(REG_SYNCCONFIG, fiveByteSync);
     }   
 
-TCCR1A = 0;
-TCNT1 = 1023;
-iTimer = 1023;
+TCCR1A = 0;                          // Arduino leaves this non default
 TCCR1B = 2;                          // Start Timer. divided by 8
-        interruptTimer[indexTimer] = 2047;
-        indexTimer++;
 
 
     writeReg(REG_FRFMSB, frf >> 16);
@@ -317,7 +313,7 @@ void RF69::interrupt_compat () {
         sreg = SREG;
         /* Disable interrupts*/
         cli();       
-        iTimer = iTimer + TCNT1;
+        iTimer = TCNT1;
         SREG = sreg;
         interruptTimer[indexTimer] = iTimer;
         indexTimer++;

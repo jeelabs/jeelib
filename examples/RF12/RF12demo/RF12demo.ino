@@ -1015,12 +1015,13 @@ static void nodeShow() {
 #endif
     Serial.println();
     Serial.println(freeRam());
-    Serial.println(TCCR1A);
-    Serial.println(TCCR1B);
     Serial.println("Interrupt Timing");
-    for (byte i = 0; i < 20; i++) {
-        Serial.println((unsigned int)RF69::interruptTimer[i]);
-    } 
+    for (byte i = 0; i < 19; i++) {
+        Serial.print((unsigned int)RF69::interruptTimer[i]);
+        printOneChar(' ');
+        Serial.println((unsigned int)(RF69::interruptTimer[i + 1] - RF69::interruptTimer[i]));       
+    }
+    Serial.println((unsigned int)RF69::interruptTimer[19]);
 }
 
 static byte getIndex (byte group, byte node) {
