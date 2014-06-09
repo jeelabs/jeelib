@@ -75,7 +75,7 @@ namespace RF69 {
     uint16_t fifooverrun;
     uint16_t busyCount;
     uint16_t underrun;
-    uint8_t interruptTimer[20];
+    uint16_t interruptTimer[20];
     }
 
 static volatile uint8_t rxfill;      // number of data bytes in rf12_buf
@@ -218,9 +218,10 @@ void RF69::configure_compat () {
     }   
 
 TCCR1A = 0;
-TCNT1 = 1024;
+TCNT1 = 1023;
+iTimer = 1023;
 TCCR1B = 2;                          // Start Timer. divided by 8
-        interruptTimer[indexTimer] = TCNT1;
+        interruptTimer[indexTimer] = 2047;
         indexTimer++;
 
 
