@@ -15,7 +15,7 @@
 #define OOK          0   // Define this to include OOK code f, k - Adds 520 bytes to Tiny image
 #define JNuMOSFET    0   // Define to power up RFM12B on JNu2/3 - Adds 4 bytes to Tiny image
 #define configSTRING 1   // Define to include "A i1 g210 @ 868 MHz q1" - Adds 442 bytes to Tiny image
-#define HELP         0   // Define to include the help text
+#define HELP         1   // Define to include the help text
 #define MESSAGING    1   // Define to include message posting code m, p - Will not fit into any Tiny image
 #define STATISTICS   1   // Define to include stats gathering - Adds 406 bytes to Tiny image
 
@@ -395,12 +395,12 @@ static void showString (PGM_P s) {
 static void showHelp () {
 #if TINY
     showString(PSTR("?\n"));
-#elseif HELP
+#elif HELP
     showString(helpText1);
     if (df_present())
         showString(helpText2);
 #endif
-#if !TINY
+#if !TINY && configSTRING
     showString(PSTR("Current configuration:\n"));
     rf12_configDump();
 #endif
@@ -1004,24 +1004,19 @@ static void nodeShow() {
     printOneChar(',');
     Serial.print(RF69::txP);
     printOneChar(',');
+    Serial.print(RF69::discards);
+    printOneChar(',');
+    Serial.print(RF69::byteCount);
+    printOneChar(',');
     Serial.print(RF69::overrun);
     printOneChar(',');
     Serial.print(RF69::fifooverrun);
-    printOneChar(',');
-    Serial.print(RF69::busyCount);
     printOneChar(',');
     Serial.print(RF69::underrun);
     printOneChar(')');
 #endif
     Serial.println();
     Serial.println(freeRam());
-    Serial.println("Interrupt Timing");
-    for (byte i = 0; i < 19; i++) {
-        Serial.print((unsigned int)RF69::interruptTimer[i]);
-        printOneChar(' ');
-        Serial.println((unsigned int)(RF69::interruptTimer[i + 1] - RF69::interruptTimer[i]));       
-    }
-    Serial.println((unsigned int)RF69::interruptTimer[19]);
 }
 
 static byte getIndex (byte group, byte node) {
@@ -1059,12 +1054,13 @@ void loop () {
         signed int afc = (RF69::afc);                  // Grab values before next interrupt
         signed int fei = (RF69::fei);
         byte rssi2 = RF69::rssi;
-        
-    Serial.print(RF69::busyCount);
-    printOneChar(',');
-    Serial.print(rf12_len);
-    printOneChar(',');
-    
+#if DEBUG       
+        Serial.print(RF69::busyCount);
+        printOneChar(',');
+        Serial.print(rf12_len);
+        printOneChar(',');
+#endif
+
         if ((afc) && (afc != previousAFC)) { // Track volatility of AFC
             changedAFC++;    
             previousAFC = afc;
@@ -1198,7 +1194,7 @@ void loop () {
                     eeprom_write_byte((RF12_EEPROM_NODEMAP) + (newNodeMap * 4), (rf12_hdr & RF12_HDR_MASK));  // Store Node and
                     eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 1), rf12_grp);              //  and Group number  
 #if RF69_COMPAT
-                    eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 2), rssi2);                 //  First RSSI seen
+                    eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 2), rssi2);                 //  First RSSI value
 #endif
                     NodeMap = newNodeMap;
                     newNodeMap = 0xFF;
@@ -1222,11 +1218,12 @@ void loop () {
                 nonBroadcastCount++;
 #endif
             }
-
-
-            if ((RF12_WANTS_ACK && (config.collect_mode) == 0) ) {
-              
-// TODO If we are node 31, we need to prevent an ACK to a non broadcast packet, unless it is sent to us, node 31.
+            
+// Where requested, acknowledge broadcast packets - not directed packets
+// unless directed to to my nodeId
+            if ((RF12_WANTS_ACK && (config.collect_mode) == 0) && (!(rf12_hdr & RF12_HDR_DST))             
+               || (rf12_hdr & (RF12_HDR_MASK | RF12_HDR_ACK | RF12_HDR_DST)) 
+               == ((config.nodeId & 0x1F) | RF12_HDR_ACK | RF12_HDR_DST)) {
 
                 byte ackLen = 0;
 // This code is used when an incoming packet requesting an ACK is also from Node 31
@@ -1291,7 +1288,7 @@ void loop () {
                 if (config.group == 0) {
                     showString(PSTR("g"));
                     Serial.print(rf12_grp);
-                    RF69::control(REG_SYNCGROUP | 0x80, rf12_grp);
+                    RF69::control(REG_SYNCGROUP | 0x80, rf12_grp); // Reply to incoming group number
                     printOneChar(' ');
                 }
 #endif
@@ -1316,7 +1313,7 @@ void loop () {
             header |= RF12_HDR_DST | dest;
 #if RF69_COMPAT
         if (config.group == 0) {
-            RF69::control(REG_SYNCGROUP | 0x80, stickyGroup);
+            RF69::control(REG_SYNCGROUP | 0x80, stickyGroup);  // Set a group number to use for transmission
         }
 #endif
         rf12_sendStart(header, stack, sendLen);

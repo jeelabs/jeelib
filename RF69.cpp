@@ -71,19 +71,17 @@ namespace RF69 {
     uint16_t interruptCount;
     uint16_t rxP;
     uint16_t txP;
+    uint16_t discards;
     uint16_t overrun;
     uint16_t fifooverrun;
-    uint16_t busyCount;
+    uint16_t byteCount;
     uint16_t underrun;
-    uint16_t interruptTimer[20];
     }
 
 static volatile uint8_t rxfill;      // number of data bytes in rf12_buf
 static volatile int8_t rxstate;      // current transceiver state
 static volatile uint8_t packetBytes; // Count of bytes in packet
-static volatile uint16_t iTimer;
-static volatile uint16_t interruptTimer[20];
-static volatile uint8_t indexTimer;
+static volatile uint16_t discards;   // Count of packets discarded
 
 static ROM_UINT8 configRegs_compat [] ROM_DATA = {
  // 0x01, 0x04, // OpMode = standby
@@ -103,7 +101,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x19, 0x42, // RxBw ...
   0x1A, 0x91, // 0x8B,   // Channel filter BW
   0x1E, 0x0E, // AfcAutoclearOn, AfcAutoOn
-//  0x25, 0x80, // DioMapping1 = SyncAddress (Rx)
+//  0x25, 0x80, // DioMapping1 = RSSI threshold
   0x29, 0xB0, // RssiThresh ...
 
   0x2E, 0xA0, // SyncConfig = sync on, sync size = 5
@@ -116,7 +114,6 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x38, 0x00, // PayloadLength = 0, unlimited
   0x3C, 0x8F, // FifoTresh, not empty, level 15
   0x3D, 0x10, // PacketConfig2, interpkt = 1, autorxrestart off
-//  0x3D, 0x42, // PacketConfig2, interpkt = 2, autorxrestart on
   0x6F, 0x20, // 0x30, // TestDagc ...
   0
 };
@@ -160,15 +157,7 @@ static void setMode (uint8_t mode) {
 
 static void initRadio (ROM_UINT8* init) {
     spiInit();
-/*
-    // What is all this doing?
-    do
-        writeReg(REG_SYNCVALUE1, 0xAA);
-    while (readReg(REG_SYNCVALUE1) != 0xAA);
-    do
-        writeReg(REG_SYNCVALUE1, 0x55);
-    while (readReg(REG_SYNCVALUE1) != 0x55);
-*/
+
     for (;;) {
         uint8_t cmd = ROM_READ_UINT8(init);
         if (cmd == 0) break;
@@ -217,10 +206,6 @@ void RF69::configure_compat () {
         writeReg(REG_SYNCCONFIG, fiveByteSync);
     }   
 
-TCCR1A = 0;                          // Arduino leaves this non default
-TCCR1B = 2;                          // Start Timer. divided by 8
-
-
     writeReg(REG_FRFMSB, frf >> 16);
     writeReg(REG_FRFMSB+1, frf >> 8);
     writeReg(REG_FRFMSB+2, frf);
@@ -255,8 +240,11 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
                 crc = 1; // force bad crc for invalid packet                
             }
             if (!(rf12_hdr & RF12_HDR_DST) || node == 31 ||
-                    (rf12_hdr & RF12_HDR_MASK) == node)
+                    (rf12_hdr & RF12_HDR_MASK) == node) {
                 return crc;
+            } else {
+                discards++;
+            }
         }
     }
     return ~0;
@@ -307,34 +295,23 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
 
 void RF69::interrupt_compat () {
     interruptCount++;
-    if (indexTimer < 20) {
-        unsigned char sreg;
-        /* Save global interrupt flag*/
-        sreg = SREG;
-        /* Disable interrupts*/
-        cli();       
-        iTimer = TCNT1;
-        SREG = sreg;
-        interruptTimer[indexTimer] = iTimer;
-        indexTimer++;
-    }
-    IRQ_ENABLE; // allow nested interrupts from here on
         // Interrupt will remain asserted until FIFO empty or exit RX mode    
 
         if (rxstate == TXRECV) {
-            rssi = readReg(REG_RSSIVALUE);
-            fei  = readReg(REG_FEIMSB);
-            fei  = (fei << 8) + readReg(REG_FEILSB);
             afc  = readReg(REG_AFCMSB);
-            afc  = (afc << 8) + readReg(REG_AFCLSB);
+            afc  = (afc << 8) | readReg(REG_AFCLSB);
+            fei  = readReg(REG_FEIMSB);
+            fei  = (fei << 8) | readReg(REG_FEILSB);
+            rssi = readReg(REG_RSSIVALUE);
+            // The window for grabbing the above values is quite small
+            // values available during transfer between the ether
+            // and the inbound fifo buffer.
+            IRQ_ENABLE; // allow nested interrupts from here on
             rxP++;
-// TODO Why do counters get out of step between RF12Demo & rxP?
             crc = ~0;
             packetBytes = 0;
-            for (;;) { // busy loop, to get each data byte as soon as it comes in 
-//                if (readReg(REG_IRQFLAGS2) & (IRQ2_FIFONOTEMPTY|IRQ2_FIFOOVERRUN)) {
-// Since a FIFO overrun will clear the FIFO we don't need to test for it above
-                
+            
+            for (;;) { // busy loop, to get each data byte as soon as it comes in                 
                 uint8_t r = readReg(REG_IRQFLAGS2); 
                 if (!(r & IRQ2_FIFOOVERRUN)) {
                     if (r & IRQ2_FIFONOTEMPTY) { 
@@ -355,14 +332,15 @@ void RF69::interrupt_compat () {
                 }
             }
             if (packetBytes < 5) underrun++;
-            busyCount = rxfill;
+            byteCount = rxfill;
             writeReg(REG_AFCFEI, AfcClear); 
         } else if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
             // rxstate will be TXDONE at this point
+            IRQ_ENABLE; // allow nested interrupts from here on
             txP++;
             rxstate = TXIDLE;
             setMode(MODE_STANDBY);
-            writeReg(REG_DIOMAPPING1, 0x80); // SyncAddress
+            writeReg(REG_DIOMAPPING1, 0x80); // Interrupt on RSSI threshold
             
             if (group == 0) {               // Allow receiving from all groups
                 writeReg(REG_SYNCCONFIG, fourByteSync);

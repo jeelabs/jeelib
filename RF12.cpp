@@ -13,7 +13,7 @@
 #include <WProgram.h> // Arduino 0022
 #endif
 
-// #define OPTIMIZE_SPI 1  // uncomment this to write to the RFM12B @ 8 Mhz
+#define OPTIMIZE_SPI 1  // uncomment this to write to the RFM12B @ 8 Mhz
 //namespace RF12 { extern int16_t  intCount; }
 
 // pin change interrupts are currently only supported on ATmega328's
