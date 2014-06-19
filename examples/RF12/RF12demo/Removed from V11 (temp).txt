@@ -1,0 +1,47 @@
+
+        case 'n': // Clear node entries in RAM & eeprom
+            if ((stack[0] > 0) && (stack[0] <= MAX_NODES) && (value == 123) && (nodes[stack[0]] == 0)) {
+                nodes[stack[0]] = 0xFF; // Clear RAM entry
+                for (byte i = 0; i < (RF12_EEPROM_SIZE); ++i) {
+                    // Clear complete eeprom entry
+                    eeprom_write_byte(RF12_EEPROM_ADDR + (stack[0]*32) + i, 0xFF);
+                }
+            } else {
+                showString(INVALID1);
+            }
+            break;
+
+#if !TINY
+        case 'j':
+            if (stack[0] <= MAX_NODES) {
+                const uint8_t *ee_entry = RF12_EEPROM_ADDR + (stack[0] * 32);
+           //     eeprom_read_block(&testbuf, RF12_EEPROM_ADDR, sizeof config);
+                // http://forum.arduino.cc/index.php?topic=122140.0
+                for (byte i = 0; i < RF12_EEPROM_SIZE; ++i) {
+//                    showNibble(testbuf[i] >> 4);
+//                    showNibble(testbuf[i]);
+                }
+                if ((value == 42) && (stack[0] == 0)) {
+//                    eeprom_write_block(&testbuf, (RF12_EEPROM_ADDR - RF12_EEPROM_SIZE), RF12_EEPROM_SIZE);
+                }
+                Serial.println();
+//                displayASCII(testbuf, RF12_EEPROM_SIZE);
+            }
+            if (value == 123 && stack[0] == (config.nodeId & RF12_HDR_MASK)) {
+                // Only restore this NodeId
+                const uint8_t *ee_shadow = RF12_EEPROM_ADDR + ((config.nodeId & RF12_HDR_MASK)*32);
+        //        if (calcCrcEeprom(ee_shadow, RF12_EEPROM_SIZE) == 0) {
+                    for (byte i = 0; i < RF12_EEPROM_SIZE; ++i) {
+                        byte b = eeprom_read_byte((ee_shadow) + i);
+                        eeprom_write_byte((RF12_EEPROM_ADDR) + i, b);
+                    }
+                    showString(PSTR("Restored\n"));
+         //       }
+                if (rf12_configSilent())
+                    loadConfig();
+                else
+                    showString(INITFAIL);
+            }
+            break;
+#endif
+
