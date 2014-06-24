@@ -18,6 +18,7 @@
 #define HELP         1   // Define to include the help text
 #define MESSAGING    1   // Define to include message posting code m, p - Will not fit into any Tiny image
 #define STATISTICS   1   // Define to include stats gathering - Adds 406 bytes to Tiny image
+#define NODE31ALLOC  1   // Define to include offering of spare node numbers if node 31 requests ack
 
 #define REG_SYNCCONFIG 0x2E  // RFM69 only, register containing sync length
 #define oneByteSync    0x80  // RFM69 only, value to get only one byte sync.
@@ -594,6 +595,7 @@ static void handleInput (char c) {
             break;
 
         case 'v': // display the interpreter version
+            
             displayVersion();
             rf12_configDump();
 #if configSTRING
@@ -1182,7 +1184,8 @@ void loop () {
             
             // Search RF12_EEPROM_NODEMAP for node/group match
             if (!(rf12_hdr & RF12_HDR_DST)) {
-              
+            // This code only sees broadcast packets *from* another nodes
+            // Packets addressed to nodes do not identify the source node          
                 getIndex(rf12_grp, (rf12_hdr & RF12_HDR_MASK));
 
                 if ((NodeMap == 0xFF) && (newNodeMap != 0xFF)) { // node/group not found and space to save?
@@ -1226,6 +1229,7 @@ void loop () {
                == ((config.nodeId & 0x1F) | RF12_HDR_ACK | RF12_HDR_DST)) {
 
                 byte ackLen = 0;
+
 // This code is used when an incoming packet requesting an ACK is also from Node 31
 // The purpose is to find a "spare" Node number within the incoming group and offer 
 // it with the returning ACK.
