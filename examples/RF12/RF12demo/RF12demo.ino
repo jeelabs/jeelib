@@ -13,12 +13,12 @@
 
 #define RF69_COMPAT  1   // define this to use the RF69 driver i.s.o. RF12 - Adds 650 bytes to Tiny image
 #define OOK          0   // Define this to include OOK code f, k - Adds 520 bytes to Tiny image
-#define JNuMOSFET    0   // Define to power up RFM12B on JNu2/3 - Adds 4 bytes to Tiny image
-#define configSTRING 1   // Define to include "A i1 g210 @ 868 MHz q1" - Adds 442 bytes to Tiny image
-#define HELP         1   // Define to include the help text
-#define MESSAGING    1   // Define to include message posting code m, p - Will not fit into any Tiny image
-#define STATISTICS   1   // Define to include stats gathering - Adds 406 bytes to Tiny image
-#define NODE31ALLOC  1   // Define to include offering of spare node numbers if node 31 requests ack
+#define JNuMOSFET    1   // Define to power up RFM12B on JNu2/3 - Adds 4 bytes to Tiny image
+#define configSTRING 0   // Define to include "A i1 g210 @ 868 MHz q1" - Adds 442 bytes to Tiny image
+#define HELP         0   // Define to include the help text
+#define MESSAGING    0   // Define to include message posting code m, p - Will not fit into any Tiny image
+#define STATISTICS   0   // Define to include stats gathering - Adds 406 bytes to Tiny image
+#define NODE31ALLOC  0   // Define to include offering of spare node numbers if node 31 requests ack
 
 #define REG_SYNCCONFIG 0x2E  // RFM69 only, register containing sync length
 #define oneByteSync    0x80  // RFM69 only, value to get only one byte sync.
@@ -177,8 +177,13 @@ static byte minRSSI[MAX_NODES];
 static byte maxRSSI[MAX_NODES];
 static signed int minFEI[MAX_NODES];
 static signed int maxFEI[MAX_NODES];
+#endif
+#if RF69_COMPAT
 static byte CRCbadMinRSSI = 255;
 static byte CRCbadMaxRSSI = 0;
+static signed int afc;
+static signed int fei;
+static byte rssi2;
 static signed int previousAFC;
 static signed int previousFEI;
 static unsigned int changedAFC;
@@ -595,7 +600,6 @@ static void handleInput (char c) {
             break;
 
         case 'v': // display the interpreter version
-            
             displayVersion();
             rf12_configDump();
 #if configSTRING
@@ -1052,19 +1056,13 @@ void loop () {
         handleInput(Serial.read());
 #endif
     if (rf12_recvDone()) {
-#if RF69_COMPAT
-        signed int afc = (RF69::afc);                  // Grab values before next interrupt
-        signed int fei = (RF69::fei);
-        byte rssi2 = RF69::rssi;
-#if DEBUG       
-        Serial.print(RF69::busyCount);
-        printOneChar(',');
-        Serial.print(rf12_len);
-        printOneChar(',');
-#endif
+#if RF69_COMPAT 
+        afc = (RF69::afc);                  // Grab values before next interrupt
+        fei = (RF69::fei);
+        rssi2 = RF69::rssi;
 
         if ((afc) && (afc != previousAFC)) { // Track volatility of AFC
-            changedAFC++;    
+            changedAFC++;      
             previousAFC = afc;
         }
         if (fei != previousFEI) {            // Track volatility of FEI
@@ -1186,7 +1184,7 @@ void loop () {
             if (!(rf12_hdr & RF12_HDR_DST)) {
             // This code only sees broadcast packets *from* another nodes
             // Packets addressed to nodes do not identify the source node          
-                getIndex(rf12_grp, (rf12_hdr & RF12_HDR_MASK));
+              getIndex(rf12_grp, (rf12_hdr & RF12_HDR_MASK));
 
                 if ((NodeMap == 0xFF) && (newNodeMap != 0xFF)) { // node/group not found and space to save?
                     showString(PSTR("New Node g"));
@@ -1229,7 +1227,7 @@ void loop () {
                == ((config.nodeId & 0x1F) | RF12_HDR_ACK | RF12_HDR_DST)) {
 
                 byte ackLen = 0;
-
+     
 // This code is used when an incoming packet requesting an ACK is also from Node 31
 // The purpose is to find a "spare" Node number within the incoming group and offer 
 // it with the returning ACK.
@@ -1244,6 +1242,7 @@ void loop () {
                         eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 1), config.group);
                         eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 2), 0);
                     }
+#if NODE31ALLOC                    
                     for (byte i = 1; i < 31; i++) {
                         // Find a spare node number within received group number
                         byte n = getIndex(rf12_grp, i ); 
@@ -1261,6 +1260,7 @@ void loop () {
                             break;
                         }
                     }
+#endif                    
 #if MESSAGING
                 } else {
 // This code is used when an incoming packet is requesting an ACK, it determines if a semaphore is posted for this Node/Group.
