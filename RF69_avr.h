@@ -56,21 +56,23 @@ static void spiConfigPins () {
 #define SS_PORT     PORTB
 #define SS_BIT      1
 
-#define SPI_SS      1     // PB1, pin 3
-#define SPI_MISO    4     // PA6, pin 7
-#define SPI_MOSI    5     // PA5, pin 8
-#define SPI_SCK     6     // PA4, pin 9
+#define SPI_SS      1     // PB1, pin 3 Output
+#define SPI_MISO    4     // PA6, pin 7 Input
+#define SPI_MOSI    5     // PA5, pin 8 Output
+#define SPI_SCK     6     // PA4, pin 9 Output
 
 static void spiConfigPins () {
-    SS_PORT |= _BV(SS_BIT);
-    SS_DDR |= _BV(SS_BIT);
-    PORTB |= _BV(SPI_SS);
-    DDRB |= _BV(SPI_SS);
-    PORTA |= _BV(SPI_SS);
-    DDRA |= _BV(SPI_MOSI) | _BV(SPI_SCK);
+    SS_PORT |= _BV(SS_BIT);  // PB1 TriState interim Pull up
+    SS_DDR |= _BV(SS_BIT);   // PB1 SPI_SS Output
+    PORTB |= _BV(SPI_SS);    // PB1 SPI_SS High
+    
+    DDRA = 0;
+
+    PORTA |= _BV(SPI_MOSI) | _BV(SPI_SCK); // PA4-5 TriState interim Pull up    
+    DDRA |= _BV(SPI_MOSI) | _BV(SPI_SCK);  // Output PA5 - MOSI | PA4 - SCK
 }
 
-#elif defined(__AVR_ATmega32U4__) //Arduino Leonardo 
+#elif defined(__AVR_ATmega32U4__) // Arduino Leonardo 
 
 #define RFM_IRQ     3	  // PD0, INT0, Digital3 
 #define SS_DDR      DDRB
