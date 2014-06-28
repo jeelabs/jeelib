@@ -13,7 +13,7 @@
 
 #define RF69_COMPAT  1   // define this to use the RF69 driver i.s.o. RF12 - Adds 650 bytes to Tiny image
 #define OOK          0   // Define this to include OOK code f, k - Adds 520 bytes to Tiny image
-#define JNuMOSFET    1   // Define to power up RFM12B on JNu2/3 - Adds 4 bytes to Tiny image
+#define JNuMOSFET    0   // Define to power up RFM12B on JNu2/3 - Adds 4 bytes to Tiny image
 #define configSTRING 0   // Define to include "A i1 g210 @ 868 MHz q1" - Adds 442 bytes to Tiny image
 #define HELP         0   // Define to include the help text
 #define MESSAGING    0   // Define to include message posting code m, p - Will not fit into any Tiny image
@@ -124,7 +124,7 @@ static byte inChar () {
 }
 
 #else
-#define MAX_NODES 100
+#define MAX_NODES 100    // MAX_NODES must be < 255
 #endif
 
 static unsigned long now () {
@@ -889,11 +889,7 @@ memset(maxFEI,128,sizeof(maxFEI));
 #if STATISTICS
 memset(pktCount,0,sizeof(pktCount));
 #endif
-#if JNuMOSFET     // Power up the wireless hardware
-    bitSet(DDRB, 0);
-    bitClear(PORTB, 0);
-#endif    
-    
+
 #if TINY
     PCMSK0 |= (1<<PCINT2);  // tell pin change mask to listen to PA2
     GIMSK |= (1<<PCIE0);    // enable PCINT interrupt in general interrupt mask
@@ -902,23 +898,34 @@ memset(pktCount,0,sizeof(pktCount));
     digitalWrite(_receivePin, HIGH);    // pullup!
 #endif
 
+#if JNuMOSFET     // Power up the wireless hardware
+    bitSet(DDRB, 0);
+    bitClear(PORTB, 0);
+    delay(1000);
+#endif
+
     Serial.begin(SERIAL_BAUD);
     displayVersion();
-
+    printOneChar(':');
     if (rf12_configSilent()) {
         loadConfig();
     } else {
         memset(&config, 0, sizeof config);
-        config.nodeId = 0x81;       // 868 MHz, node 1
+        config.nodeId = 0x81;       // 868 MHz, node 31
         config.group = 0xD4;        // default group 212
         config.frequency_offset = 1600;
         config.quiet_mode = true;   // Default flags, quiet on
         saveConfig();
+        showString(PSTR("SC"));
+        delay(10000);
         rf12_configSilent();
     }
 
     rf12_configDump();
     stickyGroup = config.group;
+
+    showByte(RF69::control(0x10, 0)); // Prints out Radio Hardware Version Register.
+    delay(10000);
 
     df_initialize();
 #if !TINY
@@ -929,8 +936,9 @@ memset(pktCount,0,sizeof(pktCount));
 /// Display stored nodes and show the post queued for each node
 /// the post queue is not preserved through a restart of RF12Demo
 static void nodeShow() {
+/*
   byte n, g, index;
-  for (index = 0; index < MAX_NODES; index++) {  // MAX_NODES must be < 255;
+  for (index = 0; index < MAX_NODES; index++) {  // MAX_NODES must be < 255
       n = eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4));
       http://forum.arduino.cc/index.php/topic,140376.msg1054626.html
       if (n & 0x80) {                             // Erased or empty entry?
@@ -1023,8 +1031,8 @@ static void nodeShow() {
 #endif
     Serial.println();
     Serial.println(freeRam());
-}
-
+*/
+} // nodeshow
 static byte getIndex (byte group, byte node) {
             newNodeMap = NodeMap = 0xFF;
             // Search eeprom RF12_EEPROM_NODEMAP for node/group match
