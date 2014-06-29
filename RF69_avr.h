@@ -51,7 +51,7 @@ static void spiConfigPins () {
 
 #elif defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
 
-#define RFM_IRQ     2
+#define RFM_IRQ     2     // PB2, pin 5 Input
 #define SS_DDR      DDRB
 #define SS_PORT     PORTB
 #define SS_BIT      1
@@ -62,9 +62,9 @@ static void spiConfigPins () {
 #define SPI_SCK     4     // PA4, pin 9 Output
 
 static void spiConfigPins () {
-    SS_PORT |= _BV(SS_BIT);                 // PB1 TriState interim Pull up
-    SS_DDR |= _BV(SS_BIT);                  // PB1 SS_BIT Output
-    PORTB |= _BV(SPI_SS);                   // PB1 SPI_SS High
+    SS_PORT |= _BV(SS_BIT);                // PB1 TriState interim Pull up
+    SS_DDR |= _BV(SS_BIT);                 // PB1 SS_BIT Output
+    PORTB |= _BV(SPI_SS);                  // PB1 SPI_SS High
     
     DDRA &= ~ _BV(SPI_MISO);               // PA6 Input
     PORTA |= _BV(SPI_MISO);                // PA6 Input Pull up
@@ -72,6 +72,9 @@ static void spiConfigPins () {
 // TODO Why does the following line of code screw things up?
 //    PORTA |= _BV(SPI_MOSI) | _BV(SPI_SCK); // PA4-5 TriState interim Pull up    
     DDRA |= _BV(SPI_MOSI) | _BV(SPI_SCK);  // Output PA5 - MOSI | PA4 - SCK
+
+    DDRB &= ~ _BV(RFM_IRQ);               // PB2 Input
+        
 }
 
 #elif defined(__AVR_ATmega32U4__) // Arduino Leonardo 
@@ -116,11 +119,12 @@ static void spiConfigPins () {
 
 #ifndef EIMSK
 #define EIMSK GIMSK // ATtiny
+#define INT0 6
 #endif
 
 struct PreventInterrupt {
-    PreventInterrupt () { EIMSK &= ~ _BV(INT0); }
-    ~PreventInterrupt () { EIMSK |= _BV(INT0); }
+    PreventInterrupt () { GIMSK &= ~ _BV(6); }
+    ~PreventInterrupt () { GIMSK |= _BV(6); }
 };
 
 static void spiInit (void) {
@@ -131,6 +135,7 @@ static void spiInit (void) {
     SPSR |= _BV(SPI2X);
 #else
     USICR = _BV(USIWM0); // ATtiny
+    MCUCR |= 0x03;       // Rising interrupt    
 #endif    
     
     // pinMode(RFM_IRQ, INPUT);

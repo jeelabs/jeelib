@@ -1,10 +1,11 @@
 // extracted from RF12demo
 // 2009-05-06 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
-#define DF_ENABLE_PIN 8         // PB0
-
 #if DATAFLASH == 4
 // settings for 0.5 Mbyte flash in JLv2
+#define DF_ENABLE_PIN 8         // PB0  // Jeelink
+#define DF_PORT PORTB
+#define DF_PORT_PIN 0
 #define DF_BLOCK_SIZE 16        // number of pages erased at same time
 #define DF_LOG_BEGIN  32        // first 2 blocks reserved for future use
 #define DF_LOG_LIMIT  0x0700    // last 64k is not used for logging
@@ -15,6 +16,9 @@
 
 #if DATAFLASH == 8
 // settings for 1 Mbyte flash in JLv2
+#define DF_ENABLE_PIN 8         // PB0  // Jeelink
+#define DF_PORT PORTB
+#define DF_PORT_PIN 0
 #define DF_BLOCK_SIZE 16        // number of pages erased at same time
 #define DF_LOG_BEGIN  32        // first 2 blocks reserved for future use
 #define DF_LOG_LIMIT  0x0F00    // last 64k is not used for logging
@@ -25,11 +29,27 @@
 
 #if DATAFLASH == 16
 // settings for 2 Mbyte flash in JLv3
+#define DF_ENABLE_PIN 8         // PB0  // Jeelink
+#define DF_PORT PORTB
+#define DF_PORT_PIN 0
 #define DF_BLOCK_SIZE 256       // number of pages erased at same time
 #define DF_LOG_BEGIN  512       // first 2 blocks reserved for future use
 #define DF_LOG_LIMIT  0x1F00    // last 64k is not used for logging
 #define DF_MEM_TOTAL  0x2000    // 8192 pages, i.e. 2 Mbyte
 #define DF_DEVICE_ID  0x2020    // see M25P16 datasheet
+#define DF_PAGE_ERASE 0xD8      // erase one block of flash memory
+#endif
+
+#if DATAFLASH == 160
+// settings for 2 Mbyte flash in Anarduino MiniWireless
+#define DF_ENABLE_PIN 5         // PD5  // Anarduino
+#define DF_PORT PORTD
+#define DF_PORT_PIN 5
+#define DF_BLOCK_SIZE 256       // number of pages erased at same time
+#define DF_LOG_BEGIN  512       // first 2 blocks reserved for future use
+#define DF_LOG_LIMIT  0x1F00    // last 64k is not used for logging
+#define DF_MEM_TOTAL  0x2000    // 8192 pages, i.e. 2 Mbyte
+#define DF_DEVICE_ID  0x0120    // see S2FL127S_00_247997 datasheet
 #define DF_PAGE_ERASE 0xD8      // erase one block of flash memory
 #endif
 
@@ -59,12 +79,12 @@ static byte df_present () {
 
 static void df_enable () {
     // digitalWrite(ENABLE_PIN, 0);
-    bitClear(PORTB, 0);
+    bitClear(DF_PORT, DF_PORT_PIN);
 }
 
 static void df_disable () {
     // digitalWrite(ENABLE_PIN, 1);
-    bitSet(PORTB, 0);
+    bitSet(DF_PORT, DF_PORT_PIN);
 }
 
 static byte df_xfer (byte cmd) {
@@ -246,6 +266,8 @@ static void df_initialize () {
     
         // df_wipe();
         df_saveBuf(); //XXX
+    } else {
+        Serial.println((long)info, HEX);
     }
 }
 
