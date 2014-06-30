@@ -63,10 +63,10 @@ static void spiConfigPins () {
 
 static void spiConfigPins () {
     SS_PORT |= _BV(SS_BIT);  // PB1 TriState interim Pull up
-    SS_DDR |= _BV(SS_BIT);   // PB1 SS_BIT Output
+    SS_DDR |= _BV(SS_BIT);   // PB1 SPI_SS Output
     PORTB |= _BV(SPI_SS);    // PB1 SPI_SS High
     
-    DDRA &= 0xFF - _BV(SPI_MISO);          // PA6 Input
+    DDRA = 0;
 
     PORTA |= _BV(SPI_MOSI) | _BV(SPI_SCK); // PA4-5 TriState interim Pull up    
     DDRA |= _BV(SPI_MOSI) | _BV(SPI_SCK);  // Output PA5 - MOSI | PA4 - SCK
