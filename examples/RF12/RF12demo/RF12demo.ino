@@ -61,12 +61,12 @@ static byte stickyGroup;
 // 9600, 38400, or 115200
 // hardware\jeelabs\avr\cores\tiny\TinyDebugSerial.h Modified to
 // move TinyDebugSerial from PB0 to PA3 to match the Jeenode Micro V3 PCB layout
-// Connect Tiny84 PA3 (D7) to USB-BUB RXD for serial output from sketch.
+// Connect Tiny84 PA3 to USB-BUB RXD for serial output from sketch.
 // Jeenode AIO2
 //
 // With thanks for the inspiration by 2006 David A. Mellis and his AFSoftSerial
 // code. All right reserved.
-// Connect Tiny84 PA2 (D8) to USB-BUB TXD for serial input to sketch.
+// Connect Tiny84 PA2 to USB-BUB TXD for serial input to sketch.
 // Jeenode DIO2
 // 9600 or 38400 at present.
 
@@ -77,7 +77,7 @@ static byte stickyGroup;
 #define BITDELAY 12          // 28/5/14 from value 11 // 38k4 @ 8MHz, 76k8 @16MHz
 #endif
 
-#define MAX_NODES 14
+#define MAX_NODES 30
 #define _receivePin 8
 static char _receive_buffer;
 static byte _receive_buffer_index;
@@ -549,7 +549,6 @@ static void handleInput (char c) {
                   stack[i] = stack[1];       // fixed byte pattern
                 else stack[i] = i + testCounter;
             } 
-            Serial.print(RF69::interruptCount);
             showString(PSTR("test "));
             if (sendLen) showByte(stack[0]); // first byte in test buffer
             ++testCounter;
@@ -924,11 +923,10 @@ memset(pktCount,0,sizeof(pktCount));
 
     rf12_configDump();
     stickyGroup = config.group;
-    for (byte r = 1; r++; r < 0x40) {
-        showByte(RF69::control(r, 0)); // Prints out Radio Hardware Version Register.
-        printOneChar(',');
-    }
-    Serial.println(INT0);
+
+    showByte(RF69::control(0x10, 0)); // Prints out Radio Hardware Version Register.
+    delay(10000);
+
     df_initialize();
 #if !TINY
     showHelp();
