@@ -116,7 +116,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x3D, 0x10, // PacketConfig2, interpkt = 1, autorxrestart off
   0x6F, 0x20, // 0x30, // TestDagc ...
   0
-};
+};  
 /*
 
 0x13 RegOcp default is Current limiter active, threshold at 45+ 5*trim bits.
