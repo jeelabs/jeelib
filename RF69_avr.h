@@ -56,10 +56,10 @@ static void spiConfigPins () {
 #define SS_PORT     PORTB
 #define SS_BIT      1
 
-#define SPI_SS      1     // PB1, pin 3
-#define SPI_MISO    4     // PA6, pin 7
-#define SPI_MOSI    5     // PA5, pin 8
-#define SPI_SCK     6     // PA4, pin 9
+#define SPI_SS      1     // PB1, pin 3 Output
+#define SPI_MISO    6     // PA6, pin 7 Input
+#define SPI_MOSI    5     // PA5, pin 8 Output
+#define SPI_SCK     4     // PA4, pin 9 Output
 
 static void spiConfigPins () {
     SS_PORT |= _BV(SS_BIT);
