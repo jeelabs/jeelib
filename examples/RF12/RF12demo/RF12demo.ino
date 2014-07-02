@@ -923,7 +923,7 @@ memset(pktCount,0,sizeof(pktCount));
 
     rf12_configDump();
     stickyGroup = config.group;
-
+/*
     Serial.println();
     for (byte r = 1; r <= 254; ++r) {
         showByte(r); // Check for terminal sensitivity
@@ -945,7 +945,7 @@ memset(pktCount,0,sizeof(pktCount));
         delay(10);
     }
     Serial.println();
-
+*/
     df_initialize();
 
 #if !TINY
