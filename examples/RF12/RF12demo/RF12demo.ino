@@ -61,12 +61,12 @@ static byte stickyGroup;
 // 9600, 38400, or 115200
 // hardware\jeelabs\avr\cores\tiny\TinyDebugSerial.h Modified to
 // move TinyDebugSerial from PB0 to PA3 to match the Jeenode Micro V3 PCB layout
-// Connect Tiny84 PA3 to USB-BUB RXD for serial output from sketch.
+// Connect Tiny84 PA3 (D7) to USB-BUB RXD for serial output from sketch.
 // Jeenode AIO2
 //
 // With thanks for the inspiration by 2006 David A. Mellis and his AFSoftSerial
 // code. All right reserved.
-// Connect Tiny84 PA2 to USB-BUB TXD for serial input to sketch.
+// Connect Tiny84 PA2 (D8) to USB-BUB TXD for serial input to sketch.
 // Jeenode DIO2
 // 9600 or 38400 at present.
 
@@ -601,7 +601,6 @@ static void handleInput (char c) {
             break;
 
         case 'v': // display the interpreter version
-            
             displayVersion();
             rf12_configDump();
 #if configSTRING
@@ -891,15 +890,24 @@ memset(maxFEI,128,sizeof(maxFEI));
 #if STATISTICS
 memset(pktCount,0,sizeof(pktCount));
 #endif
+
+#if TINY
+    PCMSK0 |= (1<<PCINT2);  // tell pin change mask to listen to PA2
+    GIMSK |= (1<<PCIE0);    // enable PCINT interrupt in general interrupt mask
+    whackDelay(BITDELAY*2); // if we were low this establishes the end
+    pinMode(_receivePin, INPUT);        // PA2
+    digitalWrite(_receivePin, HIGH);    // pullup!
+#endif
+
 #if JNuMOSFET     // Power up the wireless hardware
     bitSet(DDRB, 0);
     bitClear(PORTB, 0);
+    delay(1000);
 #endif    
-    
 
     Serial.begin(SERIAL_BAUD);
     displayVersion();
-
+    printOneChar(':');
     if (rf12_configSilent()) {
         loadConfig();
     } else {
@@ -909,6 +917,7 @@ memset(pktCount,0,sizeof(pktCount));
         config.frequency_offset = 1600;
         config.quiet_mode = true;   // Default flags, quiet on
         saveConfig();
+        showString(PSTR("SC"));
         rf12_configSilent();
     }
 
