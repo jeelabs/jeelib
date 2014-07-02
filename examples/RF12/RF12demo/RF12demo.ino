@@ -14,11 +14,11 @@
 #define RF69_COMPAT  1   // define this to use the RF69 driver i.s.o. RF12 - Adds 650 bytes to Tiny image
 #define OOK          0   // Define this to include OOK code f, k - Adds 520 bytes to Tiny image
 #define JNuMOSFET    0   // Define to power up RFM12B on JNu2/3 - Adds 4 bytes to Tiny image
-#define configSTRING 1   // Define to include "A i1 g210 @ 868 MHz q1" - Adds 442 bytes to Tiny image
-#define HELP         1   // Define to include the help text
-#define MESSAGING    1   // Define to include message posting code m, p - Will not fit into any Tiny image
-#define STATISTICS   1   // Define to include stats gathering - Adds 406 bytes to Tiny image
-#define NODE31ALLOC  1   // Define to include offering of spare node numbers if node 31 requests ack
+#define configSTRING 0   // Define to include "A i1 g210 @ 868 MHz q1" - Adds 442 bytes to Tiny image
+#define HELP         0   // Define to include the help text
+#define MESSAGING    0   // Define to include message posting code m, p - Will not fit into any Tiny image
+#define STATISTICS   0   // Define to include stats gathering - Adds 406 bytes to Tiny image
+#define NODE31ALLOC  0   // Define to include offering of spare node numbers if node 31 requests ack
 
 #define REG_SYNCCONFIG 0x2E  // RFM69 only, register containing sync length
 #define oneByteSync    0x80  // RFM69 only, value to get only one byte sync.
@@ -124,7 +124,7 @@ static byte inChar () {
 }
 
 #else
-#define MAX_NODES 100
+#define MAX_NODES 100    // MAX_NODES must be < 255
 #endif
 
 static unsigned long now () {
@@ -177,8 +177,13 @@ static byte minRSSI[MAX_NODES];
 static byte maxRSSI[MAX_NODES];
 static signed int minFEI[MAX_NODES];
 static signed int maxFEI[MAX_NODES];
+#endif
+#if RF69_COMPAT
 static byte CRCbadMinRSSI = 255;
 static byte CRCbadMaxRSSI = 0;
+static signed int afc;
+static signed int fei;
+static byte rssi2;
 static signed int previousAFC;
 static signed int previousFEI;
 static unsigned int changedAFC;
@@ -544,6 +549,7 @@ static void handleInput (char c) {
                   stack[i] = stack[1];       // fixed byte pattern
                 else stack[i] = i + testCounter;
             } 
+            Serial.print(RF69::interruptCount);
             showString(PSTR("test "));
             if (sendLen) showByte(stack[0]); // first byte in test buffer
             ++testCounter;
@@ -890,13 +896,6 @@ memset(pktCount,0,sizeof(pktCount));
     bitClear(PORTB, 0);
 #endif    
     
-#if TINY
-    PCMSK0 |= (1<<PCINT2);  // tell pin change mask to listen to PA2
-    GIMSK |= (1<<PCIE0);    // enable PCINT interrupt in general interrupt mask
-    whackDelay(BITDELAY*2); // if we were low this establishes the end
-    pinMode(_receivePin, INPUT);        // PA2
-    digitalWrite(_receivePin, HIGH);    // pullup!
-#endif
 
     Serial.begin(SERIAL_BAUD);
     displayVersion();
@@ -916,7 +915,30 @@ memset(pktCount,0,sizeof(pktCount));
     rf12_configDump();
     stickyGroup = config.group;
 
+    Serial.println();
+    for (byte r = 1; r <= 254; ++r) {
+        showByte(r); // Check for terminal sensitivity
+        printOneChar(',');
+        delay(10);
+    }
+    Serial.println();
+    Serial.println();
+    for (byte r = 1; r < 0x40; ++r) {
+        showByte(RF69::control(r, 0)); // Prints out Radio Hardware Version Register.
+        printOneChar(',');
+        delay(10);
+    }
+    Serial.println();
+    Serial.println();
+    for (byte r = 1; r < 0x40; ++r) {
+        showByte(RF69::control(r, 0)); // Prints out Radio Hardware Version Register.
+        printOneChar(',');
+        delay(10);
+    }
+    Serial.println();
+
     df_initialize();
+
 #if !TINY
     showHelp();
 #endif
@@ -925,6 +947,7 @@ memset(pktCount,0,sizeof(pktCount));
 /// Display stored nodes and show the post queued for each node
 /// the post queue is not preserved through a restart of RF12Demo
 static void nodeShow() {
+/*
   byte n, g, index;
   for (index = 0; index < MAX_NODES; index++) {  // MAX_NODES must be < 255;
       n = eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4));
@@ -1019,8 +1042,8 @@ static void nodeShow() {
 #endif
     Serial.println();
     Serial.println(freeRam());
+*/
 }
-
 static byte getIndex (byte group, byte node) {
             newNodeMap = NodeMap = 0xFF;
             // Search eeprom RF12_EEPROM_NODEMAP for node/group match
@@ -1053,15 +1076,9 @@ void loop () {
 #endif
     if (rf12_recvDone()) {
 #if RF69_COMPAT
-        signed int afc = (RF69::afc);                  // Grab values before next interrupt
-        signed int fei = (RF69::fei);
-        byte rssi2 = RF69::rssi;
-#if DEBUG       
-        Serial.print(RF69::busyCount);
-        printOneChar(',');
-        Serial.print(rf12_len);
-        printOneChar(',');
-#endif
+        afc = (RF69::afc);                  // Grab values before next interrupt
+        fei = (RF69::fei);
+        rssi2 = RF69::rssi;
 
         if ((afc) && (afc != previousAFC)) { // Track volatility of AFC
             changedAFC++;    
@@ -1244,6 +1261,7 @@ void loop () {
                         eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 1), config.group);
                         eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 2), 0);
                     }
+#if NODE31ALLOC                    
                     for (byte i = 1; i < 31; i++) {
                         // Find a spare node number within received group number
                         byte n = getIndex(rf12_grp, i ); 
@@ -1261,6 +1279,7 @@ void loop () {
                             break;
                         }
                     }
+#endif                    
 #if MESSAGING
                 } else {
 // This code is used when an incoming packet is requesting an ACK, it determines if a semaphore is posted for this Node/Group.
