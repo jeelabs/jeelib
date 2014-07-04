@@ -77,7 +77,7 @@ static byte stickyGroup;
 #define BITDELAY 12          // 28/5/14 from value 11 // 38k4 @ 8MHz, 76k8 @16MHz
 #endif
 
-#define MAX_NODES 30
+#define MAX_NODES 7
 #define _receivePin 8
 static char _receive_buffer;
 static byte _receive_buffer_index;
@@ -548,7 +548,9 @@ static void handleInput (char c) {
                 if (top == 2) 
                   stack[i] = stack[1];       // fixed byte pattern
                 else stack[i] = i + testCounter;
-            } 
+            }
+     dumpRegs();
+            
             Serial.print(RF69::interruptCount);
             showString(PSTR("test "));
             if (sendLen) showByte(stack[0]); // first byte in test buffer
@@ -722,7 +724,6 @@ static void handleInput (char c) {
                 }
             }
 
-
             
             // Show and set RFMxx registers
             if ((top == 2) & (stack[0] == 1)) {
@@ -895,7 +896,7 @@ memset(pktCount,0,sizeof(pktCount));
     PCMSK0 |= (1<<PCINT2);  // tell pin change mask to listen to PA2
     GIMSK |= (1<<PCIE0);    // enable PCINT interrupt in general interrupt mask
     whackDelay(BITDELAY*2); // if we were low this establishes the end
-    pinMode(_receivePin, INPUT);        // PA2
+    pinMode(_receivePin, INPUT);        // PA2 - doesn't work if before the PCMSK0 line
     digitalWrite(_receivePin, HIGH);    // pullup!
 #endif
 
@@ -907,7 +908,6 @@ memset(pktCount,0,sizeof(pktCount));
 
     Serial.begin(SERIAL_BAUD);
     displayVersion();
-    printOneChar(':');
     if (rf12_configSilent()) {
         loadConfig();
     } else {
@@ -917,35 +917,15 @@ memset(pktCount,0,sizeof(pktCount));
         config.frequency_offset = 1600;
         config.quiet_mode = true;   // Default flags, quiet on
         saveConfig();
-        showString(PSTR("SC"));
         rf12_configSilent();
     }
 
     rf12_configDump();
     stickyGroup = config.group;
-/*
-    Serial.println();
-    for (byte r = 1; r <= 254; ++r) {
-        showByte(r); // Check for terminal sensitivity
-        printOneChar(',');
-        delay(10);
-    }
-    Serial.println();
-    Serial.println();
-    for (byte r = 1; r < 0x40; ++r) {
-        showByte(RF69::control(r, 0)); // Prints out Radio Hardware Version Register.
-        printOneChar(',');
-        delay(10);
-    }
-    Serial.println();
-    Serial.println();
-    for (byte r = 1; r < 0x40; ++r) {
-        showByte(RF69::control(r, 0)); // Prints out Radio Hardware Version Register.
-        printOneChar(',');
-        delay(10);
-    }
-    Serial.println();
-*/
+
+    dumpRegs();
+    dumpRegs();
+
     df_initialize();
 
 #if !TINY
@@ -953,6 +933,22 @@ memset(pktCount,0,sizeof(pktCount));
 #endif
 }
 
+static void dumpRegs() {
+    for (byte r = 1; r < 0x40; ++r) {
+        showByte(RF69::control(r, 0)); // Prints out Radio Registers.
+        printOneChar(',');
+        delay(2);
+    }
+    Serial.println();
+    showString(PSTR("SREG="));
+    showByte(SREG);
+    showString(PSTR(" GIMSK="));
+    showByte(GIMSK);
+    showString(PSTR(" GIFR="));
+    showByte(GIFR);
+    Serial.println();
+    Serial.println();
+}  
 /// Display stored nodes and show the post queued for each node
 /// the post queue is not preserved through a restart of RF12Demo
 static void nodeShow() {
@@ -1334,24 +1330,28 @@ void loop () {
         }
     }
 
-    if (cmd && rf12_canSend()) {
-        activityLed(1);
+    if (cmd) {
+        if (rf12_canSend()) {
+            activityLed(1);
 
-        showString(PSTR(" -> "));
-        Serial.print((word) sendLen);
-        showString(PSTR(" b\n"));
-        byte header = cmd == 'a' ? RF12_HDR_ACK : 0;
-        if (dest)
-            header |= RF12_HDR_DST | dest;
+            showString(PSTR(" -> "));
+            Serial.print((word) sendLen);
+            showString(PSTR(" b\n"));
+            byte header = cmd == 'a' ? RF12_HDR_ACK : 0;
+            if (dest)
+                header |= RF12_HDR_DST | dest;
 #if RF69_COMPAT
-        if (config.group == 0) {
-            RF69::control(REG_SYNCGROUP | 0x80, stickyGroup);  // Set a group number to use for transmission
-        }
+            if (config.group == 0) {
+                RF69::control(REG_SYNCGROUP | 0x80, stickyGroup);  // Set a group number to use for transmission
+            }
 #endif
-        rf12_sendStart(header, stack, sendLen);
-        cmd = 0;
+            rf12_sendStart(header, stack, sendLen);
+            cmd = 0;
 
-        activityLed(0);
-    }
-    
+            activityLed(0);
+        } else {
+        showString(PSTR(" Busy\n"));  // Not ready to send
+        cmd = 0;                     // Request dropped
+        }
+    }    
 }
