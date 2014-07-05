@@ -878,7 +878,7 @@ static int freeRam () {    // @jcw's work
 
 void setup () {
 #if TINY
-    delay(1000);  // shortened for now. Handy with JeeNode Micro V1 where ISP
+//    delay(1000);  // shortened for now. Handy with JeeNode Micro V1 where ISP
                   // interaction can be upset by RF12B startup process.
 #endif
 #if RF69_COMPAT && STATISTICS
@@ -924,7 +924,7 @@ memset(pktCount,0,sizeof(pktCount));
     stickyGroup = config.group;
 
     dumpRegs();
-    dumpRegs();
+//    dumpRegs();
 
     df_initialize();
 
@@ -934,6 +934,7 @@ memset(pktCount,0,sizeof(pktCount));
 }
 
 static void dumpRegs() {
+    Serial.println();
     for (byte r = 1; r < 0x40; ++r) {
         showByte(RF69::control(r, 0)); // Prints out Radio Registers.
         printOneChar(',');
@@ -947,7 +948,7 @@ static void dumpRegs() {
     showString(PSTR(" GIFR="));
     showByte(GIFR);
     Serial.println();
-    Serial.println();
+//    Serial.println();
 }  
 /// Display stored nodes and show the post queued for each node
 /// the post queue is not preserved through a restart of RF12Demo
