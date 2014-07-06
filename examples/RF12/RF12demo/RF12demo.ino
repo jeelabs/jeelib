@@ -878,9 +878,12 @@ static int freeRam () {    // @jcw's work
 
 void setup () {
 #if TINY
-//    delay(1000);  // shortened for now. Handy with JeeNode Micro V1 where ISP
+    delay(1000);  // shortened for now. Handy with JeeNode Micro V1 where ISP
                   // interaction can be upset by RF12B startup process.
 #endif
+    Serial.begin(SERIAL_BAUD);
+    displayVersion();
+
 #if RF69_COMPAT && STATISTICS
 // Initialise min/max/count arrays
 memset(minRSSI,255,sizeof(minRSSI));
@@ -906,8 +909,6 @@ memset(pktCount,0,sizeof(pktCount));
     delay(1000);
 #endif    
 
-    Serial.begin(SERIAL_BAUD);
-    displayVersion();
     if (rf12_configSilent()) {
         loadConfig();
     } else {
@@ -919,6 +920,7 @@ memset(pktCount,0,sizeof(pktCount));
         saveConfig();
         rf12_configSilent();
     }
+
 
     rf12_configDump();
     stickyGroup = config.group;
