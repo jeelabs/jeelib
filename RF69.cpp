@@ -6,6 +6,7 @@
 #define REG_OPMODE          0x01
 #define REG_FRFMSB          0x07
 #define REG_OSC1            0x0A
+#define REG_LNA             0x18
 #define REG_AFCFEI          0x1E
 #define REG_AFCMSB          0x1F
 #define REG_AFCLSB          0x20
@@ -68,6 +69,7 @@ namespace RF69 {
     uint8_t  rssi;
     int16_t  afc;                  // I wonder how to make sure these 
     int16_t  fei;                  // are volatile
+    uint8_t  lna;
     uint16_t interruptCount;
     uint16_t rxP;
     uint16_t txP;
@@ -84,7 +86,13 @@ static volatile uint8_t packetBytes; // Count of bytes in packet
 static volatile uint16_t discards;   // Count of packets discarded
 
 static ROM_UINT8 configRegs_compat [] ROM_DATA = {
- // 0x01, 0x04, // OpMode = standby
+  0x2E, 0xA0, // SyncConfig = sync on, sync size = 5
+  0x2F, 0xAA, // SyncValue1 = 0xAA
+  0x30, 0xAA, // SyncValue2 = 0xAA
+  0x31, 0xAA, // SyncValue3 = 0xAA
+  0x32, 0x2D, // SyncValue4 = 0x2D
+  0x33, 0xD4, // SyncValue5 = 212, Group
+// 0x01, 0x04, // OpMode = standby
  // 0x02, 0x00, // DataModul = packet mode, fsk
   0x03, 0x02, // BitRateMsb, data rate = 49,261 khz
   0x04, 0x8A, // BitRateLsb, divider = 32 MHz / 650 == 49,230 khz
@@ -303,6 +311,7 @@ void RF69::interrupt_compat () {
             fei  = readReg(REG_FEIMSB);
             fei  = (fei << 8) | readReg(REG_FEILSB);
             rssi = readReg(REG_RSSIVALUE);
+            lna = readReg(REG_LNA);
             // The window for grabbing the above values is quite small
             // values available during transfer between the ether
             // and the inbound fifo buffer.

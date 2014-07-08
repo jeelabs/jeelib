@@ -32,7 +32,7 @@
 #define RF12_HDR_MASK   0x1F
 
 /// RFM12B Maximum message size in bytes.
-#define RF12_MAXDATA    66
+#define RF12_MAXDATA    66                   
 
 #define RF12_433MHZ     1   ///< RFM12B 433 MHz frequency band.
 #define RF12_868MHZ     2   ///< RFM12B 868 MHz frequency band.

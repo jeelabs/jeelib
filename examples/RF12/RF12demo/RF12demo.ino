@@ -14,11 +14,11 @@
 #define RF69_COMPAT  1   // define this to use the RF69 driver i.s.o. RF12 - Adds 650 bytes to Tiny image
 #define OOK          0   // Define this to include OOK code f, k - Adds 520 bytes to Tiny image
 #define JNuMOSFET    0   // Define to power up RFM12B on JNu2/3 - Adds 4 bytes to Tiny image
-#define configSTRING 0   // Define to include "A i1 g210 @ 868 MHz q1" - Adds 442 bytes to Tiny image
-#define HELP         0   // Define to include the help text
-#define MESSAGING    0   // Define to include message posting code m, p - Will not fit into any Tiny image
-#define STATISTICS   0   // Define to include stats gathering - Adds 406 bytes to Tiny image
-#define NODE31ALLOC  0   // Define to include offering of spare node numbers if node 31 requests ack
+#define configSTRING 1   // Define to include "A i1 g210 @ 868 MHz q1" - Adds 442 bytes to Tiny image
+#define HELP         1   // Define to include the help text
+#define MESSAGING    1   // Define to include message posting code m, p - Will not fit into any Tiny image
+#define STATISTICS   1   // Define to include stats gathering - Adds 406 bytes to Tiny image
+#define NODE31ALLOC  1   // Define to include offering of spare node numbers if node 31 requests ack
 
 #define REG_SYNCCONFIG 0x2E  // RFM69 only, register containing sync length
 #define oneByteSync    0x80  // RFM69 only, value to get only one byte sync.
@@ -184,6 +184,7 @@ static byte CRCbadMaxRSSI = 0;
 static signed int afc;
 static signed int fei;
 static byte rssi2;
+static byte lna;
 static signed int previousAFC;
 static signed int previousFEI;
 static unsigned int changedAFC;
@@ -551,7 +552,7 @@ static void handleInput (char c) {
             }
      dumpRegs();
             
-            Serial.print(RF69::interruptCount);
+            Serial.print(RF69::interruptCount); //DEBUG
             showString(PSTR("test "));
             if (sendLen) showByte(stack[0]); // first byte in test buffer
             ++testCounter;
@@ -937,20 +938,12 @@ memset(pktCount,0,sizeof(pktCount));
 
 static void dumpRegs() {
     Serial.println();
-    for (byte r = 1; r < 0x40; ++r) {
+    for (byte r = 1; r < 0x80; ++r) {
         showByte(RF69::control(r, 0)); // Prints out Radio Registers.
         printOneChar(',');
         delay(2);
     }
     Serial.println();
-    showString(PSTR("SREG="));
-    showByte(SREG);
-    showString(PSTR(" GIMSK="));
-    showByte(GIMSK);
-    showString(PSTR(" GIFR="));
-    showByte(GIFR);
-    Serial.println();
-//    Serial.println();
 }  
 /// Display stored nodes and show the post queued for each node
 /// the post queue is not preserved through a restart of RF12Demo
@@ -1087,6 +1080,7 @@ void loop () {
         afc = (RF69::afc);                  // Grab values before next interrupt
         fei = (RF69::fei);
         rssi2 = RF69::rssi;
+        lna = (RF69::lna >> 3);
 
         if ((afc) && (afc != previousAFC)) { // Track volatility of AFC
             changedAFC++;    
@@ -1149,6 +1143,8 @@ void loop () {
         Serial.print(afc);                        // TODO What units is this count?
         showString(PSTR(" fei="));
         Serial.print(fei);
+        showString(PSTR(" lna="));
+        Serial.print(lna);
         showString(PSTR(" ("));
         
         if (config.output & 0x1)                  // Hex output?
@@ -1318,7 +1314,7 @@ void loop () {
 #if RF69_COMPAT
                 if (config.group == 0) {
                     showString(PSTR("g"));
-                    Serial.print(rf12_grp);
+                    showByte(rf12_grp);
                     RF69::control(REG_SYNCGROUP | 0x80, rf12_grp); // Reply to incoming group number
                     printOneChar(' ');
                 }
@@ -1338,7 +1334,7 @@ void loop () {
             activityLed(1);
 
             showString(PSTR(" -> "));
-            Serial.print((word) sendLen);
+            showByte(sendLen);
             showString(PSTR(" b\n"));
             byte header = cmd == 'a' ? RF12_HDR_ACK : 0;
             if (dest)

@@ -70,14 +70,14 @@ static void spiConfigPins () {
     DDRB &= ~ _BV(RFM_IRQ);                 // PB2 Input
         
 }
-/*
+
 static void setPrescaler (uint8_t mode) {
     cli();
     CLKPR = 128;      // Set CLKPCE to 1 and rest to 0;
     CLKPR = mode;
     sei();
 }
-*/
+
 #elif defined(__AVR_ATmega32U4__) //Arduino Leonardo 
 
 #define RFM_IRQ     3	  // PD0, INT0, Digital3 
@@ -134,7 +134,7 @@ static void spiInit (void) {
     SPCR = _BV(SPE) | _BV(MSTR);
     SPSR |= _BV(SPI2X);
 #else
-//    USICR = _BV(USIWM0); // ATtiny
+    USICR = _BV(USIWM0); // ATtiny
 #endif    
     
     // pinMode(RFM_IRQ, INPUT);
@@ -148,7 +148,7 @@ static uint8_t spiTransferByte (uint8_t out) {
         ;
     return SPDR;
 #else
-//setPrescaler(2);  // div 4, i.e. 2 MHz
+setPrescaler(2);  // div 4, i.e. 2 MHz
     USIDR = out; // ATtiny
     uint8_t v1 = _BV(USIWM0) | _BV(USITC);
     uint8_t v2 = _BV(USIWM0) | _BV(USITC) | _BV(USICLK);
@@ -156,8 +156,8 @@ static uint8_t spiTransferByte (uint8_t out) {
         USICR = v1;
         USICR = v2;
     }
-    USICR &= ~_BV(USIWM0); // ATtiny disable USI
-//setPrescaler(0);  // div 1, i.e. 8 MHz
+    
+setPrescaler(0);  // div 1, i.e. 8 MHz
     return USIDR;
 #endif
 }
