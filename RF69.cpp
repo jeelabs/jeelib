@@ -2,6 +2,8 @@
 #include <RF69.h>
 #include <RF69_avr.h>
 
+#define LIBRARY_VERSION     13      // Stored in REG_SYNCVALUE6 by initRadio 
+
 #define REG_FIFO            0x00
 #define REG_OPMODE          0x01
 #define REG_FRFMSB          0x07
@@ -23,6 +25,9 @@
 #define REG_SYNCVALUE3      0x31
 #define REG_SYNCVALUE4      0x32
 #define REG_SYNCVALUE5      0x33
+#define REG_SYNCVALUE6      0x34
+#define REG_SYNCVALUE7      0x35
+#define REG_SYNCVALUE8      0x36
 #define REG_SYNCGROUP       0x33
 #define REG_NODEADRS        0x39
 #define REG_PACKETCONFIG2   0x3D
@@ -166,18 +171,17 @@ static void setMode (uint8_t mode) {
 static void initRadio (ROM_UINT8* init) {
     spiInit();
 // Validate SPI bus operation
-    do
-        writeReg(REG_SYNCVALUE1, 0xAA);
-    while (readReg(REG_SYNCVALUE1) != 0xAA);
-    do
-        writeReg(REG_SYNCVALUE1, 0x55);
-    while (readReg(REG_SYNCVALUE1) != 0x55);
+    writeReg(REG_SYNCVALUE6, LIBRARY_VERSION);
+    writeReg(REG_SYNCVALUE7, 0xAA);
+    writeReg(REG_SYNCVALUE8, 0x55);
+    if ((readReg(REG_SYNCVALUE7) == 0xAA) && (readReg(REG_SYNCVALUE8) == 0x55)) {
 // Configure radio
-    for (;;) {
-        uint8_t cmd = ROM_READ_UINT8(init);
-        if (cmd == 0) break;
-        writeReg(cmd, ROM_READ_UINT8(init+1));
-        init += 2;
+        for (;;) {
+            uint8_t cmd = ROM_READ_UINT8(init);
+            if (cmd == 0) break;
+            writeReg(cmd, ROM_READ_UINT8(init+1));
+            init += 2;
+        }
     }
 }
 
