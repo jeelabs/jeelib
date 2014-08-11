@@ -165,7 +165,14 @@ static void setMode (uint8_t mode) {
 
 static void initRadio (ROM_UINT8* init) {
     spiInit();
-
+// Validate SPI bus operation
+    do
+        writeReg(REG_SYNCVALUE1, 0xAA);
+    while (readReg(REG_SYNCVALUE1) != 0xAA);
+    do
+        writeReg(REG_SYNCVALUE1, 0x55);
+    while (readReg(REG_SYNCVALUE1) != 0x55);
+// Configure radio
     for (;;) {
         uint8_t cmd = ROM_READ_UINT8(init);
         if (cmd == 0) break;
