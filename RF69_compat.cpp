@@ -24,7 +24,11 @@ static long ezNextSend[2];          // when was last retry [0] or data [1] sent
 
 // void rf69_spiInit () {
 // }
-
+#if defined(__AVR_ATmega1284P__) // Moteino MEGA
+#define irq_number 2
+#else
+#define irq_number 0
+#endif
 uint8_t rf69_initialize (uint8_t id, uint8_t band, uint8_t group, uint16_t off) {
     uint8_t freq = 0;
     switch (band) {
@@ -37,9 +41,9 @@ uint8_t rf69_initialize (uint8_t id, uint8_t band, uint8_t group, uint16_t off) 
     RF69::node = id & RF12_HDR_MASK;
     delay(20); // needed to make RFM69 work properly on power-up
     if (RF69::node != 0)
-        attachInterrupt(0, RF69::interrupt_compat, RISING);
+        attachInterrupt(irq_number, RF69::interrupt_compat, RISING);
     else
-        detachInterrupt(0);
+        detachInterrupt(irq_number);
     RF69::configure_compat();
     return nodeid = id;
 }

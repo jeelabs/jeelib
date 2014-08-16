@@ -145,6 +145,15 @@ The alternative would be just to disable the feature - it is only needed in the
 
 */
 uint8_t RF69::control(uint8_t cmd, uint8_t val) {
+///////////////////////////////////////////////////////////
+///////////  What is the value irq0 in ////////////////////
+///////////  PreventInterrupt irq0;    ////////////////////
+///////////  Where is it defined       ////////////////////
+///////////  When moving to a 1284P    ////////////////////
+///////////  Should it be irq2 ?       ////////////////////
+///////////  or is that coded by       ////////////////////
+///////////  RF69_avr.h line 148       ////////////////////
+/////////////////////////////////////////////////////////// 
     PreventInterrupt irq0;
     return spiTransfer(cmd, val);
 }
@@ -315,6 +324,7 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
 void RF69::interrupt_compat () {
     interruptCount++;
         // Interrupt will remain asserted until FIFO empty or exit RX mode    
+        IRQ_ENABLE; // allow nested interrupts from here on
 
         if (rxstate == TXRECV) {
             afc  = readReg(REG_AFCMSB);
@@ -326,7 +336,6 @@ void RF69::interrupt_compat () {
             // The window for grabbing the above values is quite small
             // values available during transfer between the ether
             // and the inbound fifo buffer.
-            IRQ_ENABLE; // allow nested interrupts from here on
             rxP++;
             crc = ~0;
             packetBytes = 0;
@@ -356,7 +365,6 @@ void RF69::interrupt_compat () {
             writeReg(REG_AFCFEI, AfcClear); 
         } else if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
             // rxstate will be TXDONE at this point
-            IRQ_ENABLE; // allow nested interrupts from here on
             txP++;
             rxstate = TXIDLE;
             setMode(MODE_STANDBY);

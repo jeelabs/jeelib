@@ -10,7 +10,7 @@
 #define ROM_DATA        PROGMEM
 
 #define IRQ_ENABLE      sei()
-
+#define IRQ_NUMBER      0
 #if defined(__AVR_ATmega2560__) || defined(__AVR_ATmega1280__)
 
 #define RFM_IRQ     2
@@ -33,6 +33,28 @@ static void spiConfigPins () {
 #elif defined(__AVR_ATmega644P__)
 
 #define RFM_IRQ     10
+#define SS_DDR      DDRB
+#define SS_PORT     PORTB
+#define SS_BIT      4
+
+#define SPI_SS      4
+#define SPI_MOSI    5
+#define SPI_MISO    6
+#define SPI_SCK     7
+
+static void spiConfigPins () {
+    SS_PORT |= _BV(SS_BIT);
+    SS_DDR |= _BV(SS_BIT);
+    PORTB |= _BV(SPI_SS);
+    DDRB |= _BV(SPI_SS) | _BV(SPI_MOSI) | _BV(SPI_SCK);
+}
+
+
+#elif defined(__AVR_ATmega1284P__) // Moteino MEGA
+// http://lowpowerlab.com/moteino/#whatisitMEGA
+
+#define RFM_IRQ     2 
+#define IRQ_NUMBER  2
 #define SS_DDR      DDRB
 #define SS_PORT     PORTB
 #define SS_BIT      4
@@ -123,8 +145,8 @@ static void spiConfigPins () {
 #endif
 
 struct PreventInterrupt {
-    PreventInterrupt () { EIMSK &= ~ _BV(INT0); }
-    ~PreventInterrupt () { EIMSK |= _BV(INT0); }
+    PreventInterrupt () { EIMSK &= ~ _BV(IRQ_NUMBER); }
+    ~PreventInterrupt () { EIMSK |= _BV(IRQ_NUMBER); }
 };
 
 static void spiInit (void) {
