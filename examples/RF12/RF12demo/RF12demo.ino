@@ -46,7 +46,7 @@
 #define TINY        0
 #define SERIAL_BAUD 57600   // adjust as needed
 #define DATAFLASH   0       // set to 0 for non-JeeLinks, else 4/8/16 (Mbit)
-#define LED_PIN     9       // activity LED, comment out to disable
+#define LED_PIN     15      // activity LED, comment out to disable
 #endif
 
 /// Save a few bytes of flash by declaring const if used more than once.
@@ -928,7 +928,10 @@ memset(pktCount,0,sizeof(pktCount));
 
     dumpRegs();
 //    dumpRegs();
-
+    Serial.print("SPSR=");
+    Serial.println(SPSR, HEX);
+    Serial.print("SPCR=");
+    Serial.println(SPCR, HEX);
     df_initialize();
 
 #if !TINY
@@ -948,7 +951,6 @@ static void dumpRegs() {
 /// Display stored nodes and show the post queued for each node
 /// the post queue is not preserved through a restart of RF12Demo
 static void nodeShow() {
-/*
   byte n, g, index;
   for (index = 0; index < MAX_NODES; index++) {  // MAX_NODES must be < 255;
       n = eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4));
@@ -1043,7 +1045,6 @@ static void nodeShow() {
 #endif
     Serial.println();
     Serial.println(freeRam());
-*/
 }
 static byte getIndex (byte group, byte node) {
             newNodeMap = NodeMap = 0xFF;

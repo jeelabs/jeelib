@@ -366,9 +366,9 @@ void RF69::interrupt_compat () {
             rxstate = TXIDLE;
 //            setMode(MODE_STANDBY + MODE_LISTENABORT);
             setMode(MODE_STANDBY);
-            while (readReg(REG_OPMODE) != 0xE0)   // Naughty DEBUG only
-                ;  // appears to move FF...E0...C0
-      writeReg(REG_SYNCVALUE6, readReg(REG_OPMODE));      //DEBUG
+//            while (readReg(REG_OPMODE) != 0xE0)   // Naughty DEBUG only
+//                ;  // appears to move FF...E0...C0
+//      writeReg(REG_SYNCVALUE6, readReg(REG_OPMODE));      //DEBUG
 // REG_OPMODE sticks here on 0xC0            
             writeReg(REG_DIOMAPPING1, 0x80); // Interrupt on RSSI threshold
 // 0x80 is set OK            
