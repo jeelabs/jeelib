@@ -10,7 +10,7 @@
 #define ROM_DATA        PROGMEM
 
 #define IRQ_ENABLE      sei()
-#define IRQ_NUMBER      0
+#define IRQ_NUMBER      INT0
 #if defined(__AVR_ATmega2560__) || defined(__AVR_ATmega1280__)
 
 #define RFM_IRQ     2
@@ -53,8 +53,9 @@ static void spiConfigPins () {
 #elif defined(__AVR_ATmega1284P__) // Moteino MEGA
 // http://lowpowerlab.com/moteino/#whatisitMEGA
 
-#define RFM_IRQ     2 
-#define IRQ_NUMBER  2
+#define RFM_IRQ     2
+#undef  IRQ_NUMBER 
+#define IRQ_NUMBER  INT2
 #define SS_DDR      DDRB
 #define SS_PORT     PORTB
 #define SS_BIT      4
