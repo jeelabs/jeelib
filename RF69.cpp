@@ -144,6 +144,11 @@ The alternative would be just to disable the feature - it is only needed in the
 
 
 */
+#if defined(__AVR_ATmega1284P__) // Moteino MEGA
+#define IRQ_NUMBER irq2
+#else
+#define IRQ_NUMBER irq0
+#endif
 uint8_t RF69::control(uint8_t cmd, uint8_t val) {
     PreventInterrupt IRQ_NUMBER;
     return spiTransfer(cmd, val);
