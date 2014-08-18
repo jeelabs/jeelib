@@ -155,7 +155,7 @@ static void spiInit (void) {
     
 #ifdef SPCR    
     SPCR = _BV(SPE) | _BV(MSTR);
-    SPSR |= _BV(SPI2X);
+//    SPSR |= _BV(SPI2X);
 #else
     USICR = _BV(USIWM0); // ATtiny
 #endif    

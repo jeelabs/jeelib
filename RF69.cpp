@@ -36,6 +36,8 @@
 #define MODE_SLEEP          0x00
 #define MODE_STANDBY        0x04
 #define MODE_RECEIVER       0x10
+#define MODE_LISTENABORT    0x20
+#define MODE_LISTENON       0x40
 #define MODE_TRANSMITTER    0x0C
 
 #define IRQ1_MODEREADY      0x80
@@ -310,6 +312,7 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
 /*  At this point packet is typically in the FIFO but not fully transmitted.
     transmission complete will be indicated by an interrupt                   */
 
+
 }
 
 void RF69::interrupt_compat () {
@@ -357,11 +360,18 @@ void RF69::interrupt_compat () {
             
         } else if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
             // rxstate will be TXDONE at this point
+
+
             txP++;
             rxstate = TXIDLE;
+//            setMode(MODE_STANDBY + MODE_LISTENABORT);
             setMode(MODE_STANDBY);
+            while (readReg(REG_OPMODE) != 0xE0)   // Naughty DEBUG only
+                ;  // appears to move FF...E0...C0
+      writeReg(REG_SYNCVALUE6, readReg(REG_OPMODE));      //DEBUG
+// REG_OPMODE sticks here on 0xC0            
             writeReg(REG_DIOMAPPING1, 0x80); // Interrupt on RSSI threshold
-            
+// 0x80 is set OK            
             if (group == 0) {               // Allow receiving from all groups
                 writeReg(REG_SYNCCONFIG, fourByteSync);
             }
