@@ -145,16 +145,7 @@ The alternative would be just to disable the feature - it is only needed in the
 
 */
 uint8_t RF69::control(uint8_t cmd, uint8_t val) {
-///////////////////////////////////////////////////////////
-///////////  What is the value irq0 in ////////////////////
-///////////  PreventInterrupt irq0;    ////////////////////
-///////////  Where is it defined       ////////////////////
-///////////  When moving to a 1284P    ////////////////////
-///////////  Should it be irq2 ?       ////////////////////
-///////////  or is that coded by       ////////////////////
-///////////  RF69_avr.h line 148       ////////////////////
-/////////////////////////////////////////////////////////// 
-    PreventInterrupt irq0;
+    PreventInterrupt IRQ_NUMBER;
     return spiTransfer(cmd, val);
 }
 
@@ -322,9 +313,8 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
 }
 
 void RF69::interrupt_compat () {
-    interruptCount++;
+        interruptCount++;
         // Interrupt will remain asserted until FIFO empty or exit RX mode    
-        IRQ_ENABLE; // allow nested interrupts from here on
 
         if (rxstate == TXRECV) {
             afc  = readReg(REG_AFCMSB);
@@ -333,6 +323,7 @@ void RF69::interrupt_compat () {
             fei  = (fei << 8) | readReg(REG_FEILSB);
             rssi = readReg(REG_RSSIVALUE);
             lna = readReg(REG_LNA);
+            IRQ_ENABLE; // allow nested interrupts from here on
             // The window for grabbing the above values is quite small
             // values available during transfer between the ether
             // and the inbound fifo buffer.
@@ -363,6 +354,7 @@ void RF69::interrupt_compat () {
             if (packetBytes < 5) underrun++;
             byteCount = rxfill;
             writeReg(REG_AFCFEI, AfcClear); 
+            
         } else if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
             // rxstate will be TXDONE at this point
             txP++;
