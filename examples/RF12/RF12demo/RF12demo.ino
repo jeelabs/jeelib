@@ -51,8 +51,8 @@
 
 /// Save a few bytes of flash by declaring const if used more than once.
 const char INITFAIL[] PROGMEM = "init failed\n";
-static byte NodeMap;
-static byte newNodeMap;
+static unsigned int NodeMap;
+static unsigned int newNodeMap;
 static byte stickyGroup;
 
 #if TINY
@@ -122,9 +122,11 @@ static byte inChar () {
     _receive_buffer_index = 0;
     return d;
 }
-
+#elif defined(__AVR_ATmega1284P__) // Moteino MEGA
+// http://lowpowerlab.com/moteino/#whatisitMEGA
+#define MAX_NODES 1004
 #else
-#define MAX_NODES 100    // MAX_NODES must be < 255
+#define MAX_NODES 150
 #endif
 
 static unsigned long now () {
@@ -550,7 +552,7 @@ static void handleInput (char c) {
                   stack[i] = stack[1];       // fixed byte pattern
                 else stack[i] = i + testCounter;
             }
-     dumpRegs();
+//     dumpRegs();
             
             Serial.print(RF69::interruptCount); //DEBUG
             showString(PSTR("test "));
@@ -624,8 +626,8 @@ static void handleInput (char c) {
                 fromR = sourceR;                // Points to next message length byte, if RAM
                 if ((sourceR) && (len)) {       // Is message in RAM?
                     byte valid = true;
-                    for (byte i = 0; i <= MAX_NODES; i++) {                                   // Scan for message in use
-                        if (semaphores[i] >= (byte) value && semaphores[i] <= topMessage) {   // If so, or higher then can't
+                    for (unsigned int i = 0; i <= MAX_NODES; i++) {                    // Scan for message in use
+                        if (semaphores[i] >= value && semaphores[i] <= topMessage) {   // If so, or higher then can't
                             showString(PSTR("In use i"));
                             Serial.println((word) i);
                             valid = false;
@@ -686,7 +688,7 @@ static void handleInput (char c) {
             if (top == 0) {
                 nodeShow();
 #if MESSAGING
-            } else if (stack[0] < MAX_NODES) {
+            } else if (stack[0] < 32) {
                   printOneChar('i');
                   Serial.print(stack[0]);
                   if (top == 1) stack[1] = stickyGroup;
@@ -694,7 +696,7 @@ static void handleInput (char c) {
                   Serial.print(stack[1]);
                   showString(PSTR(" p"));                  
                   Serial.println(value);
-                  byte i = getIndex(stack[1], stack[0]);
+                  unsigned int i = getIndex(stack[1], stack[0]);
                   if (i < 0xFF) { 
                       semaphores[i] = value;
                       postingsIn++;
@@ -951,16 +953,17 @@ static void dumpRegs() {
 /// Display stored nodes and show the post queued for each node
 /// the post queue is not preserved through a restart of RF12Demo
 static void nodeShow() {
-  byte n, g, index;
-  for (index = 0; index < MAX_NODES; index++) {  // MAX_NODES must be < 255;
+  byte n, g;
+  unsigned int index;
+  for (index = 0; index < MAX_NODES; index++) {
       n = eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4));
       http://forum.arduino.cc/index.php/topic,140376.msg1054626.html
       if (n & 0x80) {                             // Erased or empty entry?
           if (n == 0xFF) break;                   // Empty, assume end of table
-          showByte(index);          
+          Serial.print(index);          
       } else {
           g = eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4) + 1);
-          showByte(index);
+          Serial.print(index);
           showString(PSTR(" g"));      
           showByte(g);
           showString(PSTR(" i"));      
@@ -1046,14 +1049,15 @@ static void nodeShow() {
     Serial.println();
     Serial.println(freeRam());
 }
-static byte getIndex (byte group, byte node) {
-            newNodeMap = NodeMap = 0xFF;
+static unsigned int getIndex (byte group, byte node) {
+            newNodeMap = NodeMap = ~0;
             // Search eeprom RF12_EEPROM_NODEMAP for node/group match
-            for (byte index = 0; index < MAX_NODES; index++) {    // MAX_NODES must be < 255;
+            for (unsigned int index = 0; index < MAX_NODES; index++) {
                 byte n = eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4));
                 http://forum.arduino.cc/index.php/topic,140376.msg1054626.html
                 if (n & 0x80) {                                     // Erased or empty entry?
-                    if (newNodeMap == 0xFF) newNodeMap = index;     // Save pointer to a first free entry
+                    if (newNodeMap == ~0) newNodeMap = index;       // Save pointer to a first free entry
+// TODO fix byte/integer for return
                     if (n == 0xFF) return(n);                       // Empty, assume end of table
                 } else if ((n & RF12_HDR_MASK) == (node & RF12_HDR_MASK)) {  // Node match?
                     byte g = eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4) + 1);
@@ -1210,7 +1214,7 @@ void loop () {
             // Packets addressed to nodes do not identify the source node          
                 getIndex(rf12_grp, (rf12_hdr & RF12_HDR_MASK));
 
-                if ((NodeMap == 0xFF) && (newNodeMap != 0xFF)) { // node/group not found and space to save?
+                if ((NodeMap == ~0) && (newNodeMap != ~0)) { // node/group not found and space to save?
                     showString(PSTR("New Node g"));
                     showByte(rf12_grp);
                     showString(PSTR(" i"));
@@ -1222,7 +1226,15 @@ void loop () {
                     eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 2), rssi2);                 //  First RSSI value
 #endif
                     NodeMap = newNodeMap;
-                    newNodeMap = 0xFF;
+                    newNodeMap = ~0;
+       
+// Debug code to fill up the eeprom node table
+/*
+                    for (unsigned int n = 1; n < MAX_NODES; n++) {
+                        eeprom_write_byte((RF12_EEPROM_NODEMAP) + (n * 4), 127);
+                        eeprom_write_byte((RF12_EEPROM_NODEMAP) + (n * 4) + 1, 31);
+                    }
+*/                    
                 }
 
 #if RF69_COMPAT && STATISTICS
