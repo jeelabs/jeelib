@@ -156,9 +156,9 @@ static void spiInit (void) {
 #ifdef SPCR    
     SPCR = _BV(SPE) | _BV(MSTR);    
     
-    SPCR |= _BV(SPR0);
+//    SPCR |= _BV(SPR0);  // Divide SPI by 4
     
-//    SPSR |= _BV(SPI2X);
+    SPSR |= _BV(SPI2X);
 #else
     USICR = _BV(USIWM0); // ATtiny
 #endif    

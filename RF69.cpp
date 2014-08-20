@@ -326,7 +326,7 @@ void RF69::interrupt_compat () {
             fei  = (fei << 8) | readReg(REG_FEILSB);
             rssi = readReg(REG_RSSIVALUE);
             lna = readReg(REG_LNA);
-            IRQ_ENABLE; // allow nested interrupts from here on
+            IRQ_ENABLE;       // allow nested interrupts from here on
             // The window for grabbing the above values is quite small
             // values available during transfer between the ether
             // and the inbound fifo buffer.
@@ -360,18 +360,11 @@ void RF69::interrupt_compat () {
             
         } else if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
             // rxstate will be TXDONE at this point
-
-
+            IRQ_ENABLE;       // allow nested interrupts from here on
             txP++;
             rxstate = TXIDLE;
-//            setMode(MODE_STANDBY + MODE_LISTENABORT);
             setMode(MODE_STANDBY);
-//            while (readReg(REG_OPMODE) != 0xE0)   // Naughty DEBUG only
-//                ;  // appears to move FF...E0...C0
-//      writeReg(REG_SYNCVALUE6, readReg(REG_OPMODE));      //DEBUG
-// REG_OPMODE sticks here on 0xC0            
             writeReg(REG_DIOMAPPING1, 0x80); // Interrupt on RSSI threshold
-// 0x80 is set OK            
             if (group == 0) {               // Allow receiving from all groups
                 writeReg(REG_SYNCCONFIG, fourByteSync);
             }
