@@ -19,6 +19,7 @@
 #define MESSAGING    1   // Define to include message posting code m, p - Will not fit into any Tiny image
 #define STATISTICS   1   // Define to include stats gathering - Adds 406 bytes to Tiny image
 #define NODE31ALLOC  1   // Define to include offering of spare node numbers if node 31 requests ack
+#define DEBUG        1   //
 
 #define REG_SYNCCONFIG 0x2E  // RFM69 only, register containing sync length
 #define oneByteSync    0x80  // RFM69 only, value to get only one byte sync.
@@ -124,9 +125,9 @@ static byte inChar () {
 }
 #elif defined(__AVR_ATmega1284P__) // Moteino MEGA
 // http://lowpowerlab.com/moteino/#whatisitMEGA
-#define MAX_NODES 1004
+#define MAX_NODES 1004       // Constrained by eeprom
 #else
-#define MAX_NODES 150
+#define MAX_NODES 100        // Contrained by RAM
 #endif
 
 static unsigned long now () {
@@ -554,7 +555,6 @@ static void handleInput (char c) {
             }
 //     dumpRegs();
             
-            Serial.print(RF69::interruptCount); //DEBUG
             showString(PSTR("test "));
             if (sendLen) showByte(stack[0]); // first byte in test buffer
             ++testCounter;
@@ -688,7 +688,7 @@ static void handleInput (char c) {
             if (top == 0) {
                 nodeShow();
 #if MESSAGING
-            } else if (stack[0] < 32) {
+            } else if (stack[0] < 31) {
                   printOneChar('i');
                   Serial.print(stack[0]);
                   if (top == 1) stack[1] = stickyGroup;
@@ -696,9 +696,8 @@ static void handleInput (char c) {
                   Serial.print(stack[1]);
                   showString(PSTR(" p"));                  
                   Serial.println(value);
-                  unsigned int i = getIndex(stack[1], stack[0]);
-                  if (i < 0xFF) { 
-                      semaphores[i] = value;
+                  if (getIndex(stack[1], stack[0])) { 
+                      semaphores[NodeMap] = value;
                       postingsIn++;
                       stickyGroup = stack[1];
                   }
@@ -898,6 +897,15 @@ memset(maxFEI,128,sizeof(maxFEI));
 memset(pktCount,0,sizeof(pktCount));
 #endif
 
+#if DEBUG
+// Debug code to fill up the eeprom node table
+/*
+                    for (unsigned int n = 0; n < MAX_NODES; n++) {
+                        eeprom_write_byte((RF12_EEPROM_NODEMAP) + (n * 4), 32);
+                    }
+*/                    
+#endif
+
 #if TINY
     PCMSK0 |= (1<<PCINT2);  // tell pin change mask to listen to PA2
     GIMSK |= (1<<PCIE0);    // enable PCINT interrupt in general interrupt mask
@@ -924,16 +932,14 @@ memset(pktCount,0,sizeof(pktCount));
         rf12_configSilent();
     }
 
-
     rf12_configDump();
     stickyGroup = config.group;
 
-    dumpRegs();
+#if DEBUG
 //    dumpRegs();
-    Serial.print("SPSR=");
-    Serial.println(SPSR, HEX);
-    Serial.print("SPCR=");
-    Serial.println(SPCR, HEX);
+    dumpEEprom();
+#endif
+
     df_initialize();
 
 #if !TINY
@@ -941,15 +947,34 @@ memset(pktCount,0,sizeof(pktCount));
 #endif
 }
 
+#if DEBUG
+/// Display eeprom configuration space
+static void dumpEEprom() {
+    Serial.println("\nConfig eeProm:");
+    uint16_t crc = ~0;
+    for (byte i = 0; i < (RF12_EEPROM_SIZE); ++i) {
+        byte d = eeprom_read_byte(RF12_EEPROM_ADDR+ i);
+        showNibble(d >> 4); showNibble(d);
+        crc = _crc16_update(crc, d);
+    }
+    if (crc) Serial.print(" BAD CRC ");
+    else Serial.print(" GOOD CRC ");
+    Serial.println(crc, HEX);
+}
+#endif
+
+#if DEBUG && RF69_COMPAT
+/// Display the RFM69x registers
 static void dumpRegs() {
-    Serial.println();
+    Serial.println("\nRFM69x Registers:");
     for (byte r = 1; r < 0x80; ++r) {
         showByte(RF69::control(r, 0)); // Prints out Radio Registers.
         printOneChar(',');
         delay(2);
     }
     Serial.println();
-}  
+}
+#endif
 /// Display stored nodes and show the post queued for each node
 /// the post queue is not preserved through a restart of RF12Demo
 static void nodeShow() {
@@ -1050,26 +1075,27 @@ static void nodeShow() {
     Serial.println(freeRam());
 }
 static unsigned int getIndex (byte group, byte node) {
-            newNodeMap = NodeMap = ~0;
+            newNodeMap = NodeMap = 0xFFFF;
             // Search eeprom RF12_EEPROM_NODEMAP for node/group match
             for (unsigned int index = 0; index < MAX_NODES; index++) {
                 byte n = eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4));
                 http://forum.arduino.cc/index.php/topic,140376.msg1054626.html
                 if (n & 0x80) {                                     // Erased or empty entry?
-                    if (newNodeMap == ~0) newNodeMap = index;       // Save pointer to a first free entry
-// TODO fix byte/integer for return
-                    if (n == 0xFF) return(n);                       // Empty, assume end of table
-                } else if ((n & RF12_HDR_MASK) == (node & RF12_HDR_MASK)) {  // Node match?
-                    byte g = eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4) + 1);
-                    if (g == group) {                                        // Group match?
-                        // found a match;
-                        NodeMap = index;
-                        return (index);
+                    if (newNodeMap == 0xFFFF) newNodeMap = index;   // Save pointer to a first free entry
+                    if (n == 0xFF) return(false);                   // Erased, assume end of table!
+                } else {
+                    if ((n & RF12_HDR_MASK) == (node & RF12_HDR_MASK)) {  // Node match?
+                        byte g = eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4) + 1);
+                        if (g == group) {                                 // Group match?
+                            // found a match;
+                            NodeMap = index;
+                            return (true);
+                        }
                     }
                 }
             } 
+            return(false);
 }
-
 
 void loop () {
 
@@ -1208,35 +1234,39 @@ void loop () {
             if (df_present())
                 df_append((const char*) rf12_data - 2, rf12_len + 2);
             
-            // Search RF12_EEPROM_NODEMAP for node/group match
             if (!(rf12_hdr & RF12_HDR_DST)) {
-            // This code only sees broadcast packets *from* another nodes
-            // Packets addressed to nodes do not identify the source node          
-                getIndex(rf12_grp, (rf12_hdr & RF12_HDR_MASK));
-
-                if ((NodeMap == ~0) && (newNodeMap != ~0)) { // node/group not found and space to save?
-                    showString(PSTR("New Node g"));
-                    showByte(rf12_grp);
-                    showString(PSTR(" i"));
-                    showByte(rf12_hdr & RF12_HDR_MASK);
-                    Serial.println();
-                    eeprom_write_byte((RF12_EEPROM_NODEMAP) + (newNodeMap * 4), (rf12_hdr & RF12_HDR_MASK));  // Store Node and
-                    eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 1), rf12_grp);              //  and Group number  
+            // This code only sees broadcast packets *from* another nodes.
+            // Packets addressed to nodes do not identify the source node!          
+            // Search RF12_EEPROM_NODEMAP for node/group match
+            // Node 31 will also be added even though a Node Allocation will
+            // be offered, to track everyone who was out there.
+                if (!getIndex(rf12_grp, (rf12_hdr & RF12_HDR_MASK))) {
+                    if (newNodeMap != 0xFFFF) { // Storage space available?
+                        // Node 31 will also be added even though a Node Allocation will
+                        // also be offered, to track everyone who is/was out there.
+                        showString(PSTR("New Node g"));
+                        showByte(rf12_grp);
+                        showString(PSTR(" i"));
+                        showByte(rf12_hdr & RF12_HDR_MASK);
+                        showString(PSTR(" Index "));
+                        Serial.println(newNodeMap);
+                        eeprom_write_byte((RF12_EEPROM_NODEMAP) + (newNodeMap * 4), (rf12_hdr & RF12_HDR_MASK));  // Store Node and
+                        eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 1), rf12_grp);              //  and Group number
 #if RF69_COMPAT
-                    eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 2), rssi2);                 //  First RSSI value
+                        eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 2), rssi2);                 //  First RSSI value
 #endif
-                    NodeMap = newNodeMap;
-                    newNodeMap = ~0;
-       
-// Debug code to fill up the eeprom node table
-/*
-                    for (unsigned int n = 1; n < MAX_NODES; n++) {
-                        eeprom_write_byte((RF12_EEPROM_NODEMAP) + (n * 4), 127);
-                        eeprom_write_byte((RF12_EEPROM_NODEMAP) + (n * 4) + 1, 31);
+                        NodeMap = newNodeMap;
+                        newNodeMap = 0xFFFF;
+                    } else {
+                        showString(PSTR("Node table full g"));
+                        showByte(rf12_grp);
+                        showString(PSTR(" i"));
+                        showByte(rf12_hdr & RF12_HDR_MASK);
+                        showString(PSTR(" not saved"));
+                        Serial.println(); 
                     }
-*/                    
                 }
-
+                 
 #if RF69_COMPAT && STATISTICS
                 // Check/update to min/max/count
                 if (fei < (minFEI[NodeMap]))       
@@ -1271,9 +1301,9 @@ void loop () {
 // TODO perhaps we should increment the Group number and find a spare node number there?
                 if (((rf12_hdr & RF12_HDR_MASK) == 31) && (!(rf12_hdr & RF12_HDR_DST))) {
                     // Special Node 31 source node
-                    // Make sure this node's node/group is in the eeprom
-                    getIndex(config.group, config.nodeId);
-                    if ((NodeMap == 0xFF) && (newNodeMap != 0xFF)) {               // node/group not found and space to save?
+                    // Make sure this nodes node/group is already in the eeprom
+                    if ((getIndex(config.group, config.nodeId)) && (newNodeMap != 0xFFFF)) {   
+                        // node/group not found but there is space to save
                         eeprom_write_byte((RF12_EEPROM_NODEMAP) + (newNodeMap * 4), (config.nodeId & RF12_HDR_MASK));
                         eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 1), config.group);
                         eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 2), 0);
@@ -1281,8 +1311,7 @@ void loop () {
 #if NODE31ALLOC                    
                     for (byte i = 1; i < 31; i++) {
                         // Find a spare node number within received group number
-                        byte n = getIndex(rf12_grp, i ); 
-                        if (n == 0xFF) {                         // Node/Group pair not found?
+                        if (!(getIndex(rf12_grp, i ))) {         // Node/Group pair not found?
                             stack[sizeof stack - 1] = i + 0xE0;  // 0xE0 is an arbitary value
                             // Change Node number request - matched in RF12Tune
                             ackLen = 1;
@@ -1294,6 +1323,11 @@ void loop () {
                             showByte(i);        
                             printOneChar('i');
                             break;
+                        } else {
+                            showString(PSTR("No free node numbers in "));
+                            crlf = true;
+                            showByte(rf12_grp);
+                            printOneChar('g');
                         }
                     }
 #endif                    
