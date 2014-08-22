@@ -324,12 +324,12 @@ void RF69::interrupt_compat () {
             IRQ_ENABLE;       // allow nested interrupts from here on
             while ((readReg(REG_IRQFLAGS1) & IRQ1_RXREADY == 1))
                 ;
+            rssi = readReg(REG_RSSIVALUE);
+            lna = readReg(REG_LNA);
             afc  = readReg(REG_AFCMSB);
             afc  = (afc << 8) | readReg(REG_AFCLSB);
             fei  = readReg(REG_FEIMSB);
             fei  = (fei << 8) | readReg(REG_FEILSB);
-            rssi = readReg(REG_RSSIVALUE);
-            lna = readReg(REG_LNA);
             // The window for grabbing the above values is quite small
             // values available during transfer between the ether
             // and the inbound fifo buffer.

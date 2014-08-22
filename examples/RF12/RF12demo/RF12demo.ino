@@ -47,7 +47,6 @@
 #define TINY        0
 #define SERIAL_BAUD 57600   // adjust as needed
 #define DATAFLASH   0       // set to 0 for non-JeeLinks, else 4/8/16 (Mbit)
-#define LED_PIN     15      // activity LED, comment out to disable
 #endif
 
 /// Save a few bytes of flash by declaring const if used more than once.
@@ -125,8 +124,10 @@ static byte inChar () {
 }
 #elif defined(__AVR_ATmega1284P__) // Moteino MEGA
 // http://lowpowerlab.com/moteino/#whatisitMEGA
+#define LED_PIN     15       // activity LED, comment out to disable
 #define MAX_NODES 1004       // Constrained by eeprom
 #else
+#define LED_PIN     9        // activity LED, comment out to disable
 #define MAX_NODES 100        // Contrained by RAM
 #endif
 
@@ -178,9 +179,11 @@ static byte semaphores[MAX_NODES];
 
 #if RF69_COMPAT && STATISTICS
 static byte minRSSI[MAX_NODES];
+static byte lastRSSI[MAX_NODES];
 static byte maxRSSI[MAX_NODES];
-static signed int minFEI[MAX_NODES];
-static signed int maxFEI[MAX_NODES];
+static byte minLNA[MAX_NODES];
+static byte lastLNA[MAX_NODES];
+static byte maxLNA[MAX_NODES];
 #endif
 #if RF69_COMPAT
 static byte CRCbadMinRSSI = 255;
@@ -560,7 +563,6 @@ static void handleInput (char c) {
                   stack[i] = stack[1];       // fixed byte pattern
                 else stack[i] = i + testCounter;
             }
-//     dumpRegs();
             
             showString(PSTR("test "));
             if (sendLen) showByte(stack[0]); // first byte in test buffer
@@ -689,30 +691,23 @@ static void handleInput (char c) {
 
         case 'p':
             // Post a semaphore for a remote node, to be collected along with
-            // the next ACK. Format is 20,212,127p where 20 is the node and 212 
+            // the next ACK. Format is 212,20,127p where 20 is the node and 212 
             // is the group number 127 is the desired value to be posted. 
             // The byte stack[0] contains the target group and stack[1] contains the 
-            // node number. If a message string exists numbered the same as the posted
-            // number then the message string will be appended to the single byte
-            // number as it is transmitted with the ACK.
-            if (top == 1) stack[1] = stickyGroup;
+            // node number. The message string to be posted is in value
 #if MESSAGING
-            if (top == 3) {
-                  printOneChar('i');
-                  Serial.print(stack[0]);
-                  showString(PSTR(" g"));
-                  Serial.print(stack[1]);
-                  showString(PSTR(" p"));                  
-                  Serial.println(value);
-                  if (getIndex(stack[1], stack[0])) { 
+            if (top == 2) {
+                  if (getIndex(stack[0], stack[1])) { 
                       semaphores[NodeMap] = value;
                       postingsIn++;
-                      stickyGroup = stack[1];
+                      stickyGroup = stack[0];
                   }
                   Serial.println();
 #endif
             } else {
-                  nodeShow(stack[0], stack[1]);
+                  // Accepts a group number and prints matching entries from the eeprom
+                  stickyGroup = value;
+                  nodeShow(value);
             }
             break;
 
@@ -901,8 +896,8 @@ void setup () {
 // Initialise min/max/count arrays
 memset(minRSSI,255,sizeof(minRSSI));
 memset(maxRSSI,0,sizeof(maxRSSI));
-memset(minFEI,127,sizeof(minFEI));
-memset(maxFEI,128,sizeof(maxFEI));
+memset(minLNA,255,sizeof(minLNA));
+memset(maxLNA,0,sizeof(maxLNA));
 #endif
 #if STATISTICS
 memset(pktCount,0,sizeof(pktCount));
@@ -914,7 +909,7 @@ memset(pktCount,0,sizeof(pktCount));
                     for (unsigned int n = 0; n < MAX_NODES; n++) {
                         eeprom_write_byte((RF12_EEPROM_NODEMAP) + (n * 4), 32);
                     }
-*/                    
+*/                   
 //    dumpRegs();
     dumpEEprom();
 #endif
@@ -946,7 +941,7 @@ memset(pktCount,0,sizeof(pktCount));
         rf12_configSilent();
     }
 
-    rf12_configDump();
+//    rf12_configDump();
     stickyGroup = config.group;
 
     df_initialize();
@@ -959,7 +954,7 @@ memset(pktCount,0,sizeof(pktCount));
 #if DEBUG
 /// Display eeprom configuration space
 static void dumpEEprom() {
-    Serial.println("\nConfig eeProm:");
+    Serial.println("\n\rConfig eeProm:");
     uint16_t crc = ~0;
     for (byte i = 0; i < (RF12_EEPROM_SIZE); ++i) {
         byte d = eeprom_read_byte(RF12_EEPROM_ADDR+ i);
@@ -988,23 +983,19 @@ static void dumpRegs() {
 #endif
 /// Display stored nodes and show the post queued for each node
 /// the post queue is not preserved through a restart of RF12Demo
-static void nodeShow(char node, char group) {
-  byte n, g, selected;
+static void nodeShow(byte group) {
   unsigned int index;
   for (index = 0; index < MAX_NODES; index++) {
-      n = eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4));
+      byte n = eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4));     // Node number
       http://forum.arduino.cc/index.php/topic,140376.msg1054626.html
-      if (n & 0x80) {                             // Erased or empty entry?
-          if (n == 0xFF) break;                   // Empty, assume end of table
-          if (!(node | group)) {
+      if (n & 0x80) {                                                     // Erased or empty entry?
+          if (n == 0xFF) break;                                           // Empty, assume end of table
+          if (!group) {
               Serial.println(index); 
           }         
       } else {
-          g = eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4) + 1);
-          if ((node == n) || !group) selected = true;
-          else selected = false;
-          if ((group == g) || !node) selected = true;          
-          if (selected) {
+          byte g = eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4) + 1);  // Group number
+          if (!group || group == g) {          
               Serial.print(index);
               showString(PSTR(" g"));      
               showByte(g);
@@ -1019,17 +1010,24 @@ static void nodeShow(char node, char group) {
               showByte(semaphores[index]);
 #endif
 #if RF69_COMPAT  && STATISTICS            
-              printOneChar(' ');
-              showByte(eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4) + 2)); // Show original rssi value
               if (maxRSSI[index]) {
-                  showString(PSTR(" fei "));
-                  Serial.print(minFEI[index]);
-                  printOneChar('/');
-                  Serial.print(maxFEI[index]);
-                  showString(PSTR(" rssi "));
+                  showString(PSTR(" rssi("));
                   showByte(minRSSI[index]);
                   printOneChar('/');
+                  showByte(eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4) + 2)); // Show original RSSI value
+                  printOneChar('/');
+                  showByte(lastRSSI[index]);
+                  printOneChar('/');
                   showByte(maxRSSI[index]);
+                  showString(PSTR(") lna("));
+                  Serial.print(minLNA[index]);
+                  printOneChar('/');
+                  showByte(eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4) + 3)); // Show original LNA value
+                  printOneChar('/');
+                  Serial.print(lastLNA[index]);
+                  printOneChar('/');
+                  Serial.print(maxLNA[index]);
+                  printOneChar(')');
               }
 #endif
             Serial.println();
@@ -1272,6 +1270,7 @@ void loop () {
                         eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 1), rf12_grp);              //  and Group number
 #if RF69_COMPAT
                         eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 2), rssi2);                 //  First RSSI value
+                        eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 3), lna);                   //  First LNA value
 #endif
                         NodeMap = newNodeMap;
                         newNodeMap = 0xFFFF;
@@ -1287,13 +1286,15 @@ void loop () {
                  
 #if RF69_COMPAT && STATISTICS
                 // Check/update to min/max/count
-                if (fei < (minFEI[NodeMap]))       
-                  minFEI[NodeMap] = fei;   
-                if (fei > (maxFEI[NodeMap]))
-                  maxFEI[NodeMap] = fei;   
+                if (lna < (minLNA[NodeMap]))       
+                  minLNA[NodeMap] = lna;
+                lastLNA[NodeMap] = lna;   
+                if (lna > (maxLNA[NodeMap]))
+                  maxLNA[NodeMap] = lna;   
 
                 if (rssi2 < (minRSSI[NodeMap]))
-                  minRSSI[NodeMap] = rssi2;   
+                  minRSSI[NodeMap] = rssi2;
+                lastRSSI[NodeMap] = rssi2;   
                 if (rssi2 > (maxRSSI[NodeMap]))
                   maxRSSI[NodeMap] = rssi2;   
 #endif
