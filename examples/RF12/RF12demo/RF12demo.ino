@@ -160,7 +160,8 @@ typedef struct {
     byte quiet_mode   :1;   // 0 = show all, 1 = show only valid packets
     byte spare_flags  :4;
     word frequency_offset;  // used by rf12_config, offset 4
-    byte pad[RF12_EEPROM_SIZE-8];
+    byte RegPaLvl;          // See datasheet RFM69x Register 0x11
+    byte pad[RF12_EEPROM_SIZE-9];
     word crc;
 } RF12Config;
 
@@ -245,11 +246,17 @@ static word calcCrc (const void* ptr, byte len) {
     return crc;
 }
 
-static void loadConfig () {
+static byte loadConfig () {
+    uint16_t crc = ~0;
     // eeprom_read_block(&config, RF12_EEPROM_ADDR, sizeof config);
     // this uses 166 bytes less flash than eeprom_read_block(), no idea why
-    for (byte i = 0; i < sizeof config; ++i)
-        ((byte*) &config)[i] = eeprom_read_byte(RF12_EEPROM_ADDR + i);
+    for (byte i = 0; i < sizeof config; ++i) {
+        byte e = eeprom_read_byte(RF12_EEPROM_ADDR + i);
+        ((byte*) &config)[i] = e;
+        crc = _crc16_update(crc, e);
+    }
+    if (crc) return false;
+    return true;
 }
 
 static void saveConfig () {
@@ -588,6 +595,7 @@ static void handleInput (char c) {
         case 'q': // turn quiet mode on or off (don't report bad packets)
             if (!top) {
                 config.quiet_mode = value;
+                RF69::sleep(value);
                 saveConfig();
             }
 #if RF69_COMPAT
@@ -602,6 +610,9 @@ static void handleInput (char c) {
 
         case 'x': // set reporting mode to decimal (0), hex (1), hex+ascii (2)
             config.output = value;
+#if RF69_COMPAT
+            config.RegPaLvl = RF69::control(0x11, 0x9F);   // Pull the current RegPaLvl from the radio
+#endif                                                     // An obscure method because one can blow the hardware
             saveConfig();
             break;
 
@@ -684,14 +695,11 @@ static void handleInput (char c) {
             // node number. If a message string exists numbered the same as the posted
             // number then the message string will be appended to the single byte
             // number as it is transmitted with the ACK.
-            
-            if (top == 0) {
-                nodeShow();
+            if (top == 1) stack[1] = stickyGroup;
 #if MESSAGING
-            } else if (stack[0] < 31) {
+            if (top == 3) {
                   printOneChar('i');
                   Serial.print(stack[0]);
-                  if (top == 1) stack[1] = stickyGroup;
                   showString(PSTR(" g"));
                   Serial.print(stack[1]);
                   showString(PSTR(" p"));                  
@@ -703,6 +711,8 @@ static void handleInput (char c) {
                   }
                   Serial.println();
 #endif
+            } else {
+                  nodeShow(stack[0], stack[1]);
             }
             break;
 
@@ -739,7 +749,7 @@ static void handleInput (char c) {
           
             break;
 
-// the following commands all get optimised away when TINY is set
+// the following commands all get optimised away when TINY is set 
 
         case 'l': // turn activity LED on or off
             activityLed(value);
@@ -879,13 +889,14 @@ static int freeRam () {    // @jcw's work
 }
 
 void setup () {
+
 #if TINY
     delay(1000);  // shortened for now. Handy with JeeNode Micro V1 where ISP
                   // interaction can be upset by RF12B startup process.
 #endif
     Serial.begin(SERIAL_BAUD);
     displayVersion();
-
+    
 #if RF69_COMPAT && STATISTICS
 // Initialise min/max/count arrays
 memset(minRSSI,255,sizeof(minRSSI));
@@ -904,6 +915,8 @@ memset(pktCount,0,sizeof(pktCount));
                         eeprom_write_byte((RF12_EEPROM_NODEMAP) + (n * 4), 32);
                     }
 */                    
+//    dumpRegs();
+    dumpEEprom();
 #endif
 
 #if TINY
@@ -920,9 +933,10 @@ memset(pktCount,0,sizeof(pktCount));
     delay(1000);
 #endif    
 
-    if (rf12_configSilent()) {
-        loadConfig();
+    if (loadConfig()) {        
+        rf12_configSilent();     
     } else {
+        showString(INITFAIL);
         memset(&config, 0, sizeof config);
         config.nodeId = 0x81;       // 868 MHz, node 1
         config.group = 0xD4;        // default group 212
@@ -934,11 +948,6 @@ memset(pktCount,0,sizeof(pktCount));
 
     rf12_configDump();
     stickyGroup = config.group;
-
-#if DEBUG
-//    dumpRegs();
-    dumpEEprom();
-#endif
 
     df_initialize();
 
@@ -960,6 +969,7 @@ static void dumpEEprom() {
     if (crc) Serial.print(" BAD CRC ");
     else Serial.print(" GOOD CRC ");
     Serial.println(crc, HEX);
+    delay(10);
 }
 #endif
 
@@ -973,50 +983,58 @@ static void dumpRegs() {
         delay(2);
     }
     Serial.println();
+    delay(10);
 }
 #endif
 /// Display stored nodes and show the post queued for each node
 /// the post queue is not preserved through a restart of RF12Demo
-static void nodeShow() {
-  byte n, g;
+static void nodeShow(char node, char group) {
+  byte n, g, selected;
   unsigned int index;
   for (index = 0; index < MAX_NODES; index++) {
       n = eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4));
       http://forum.arduino.cc/index.php/topic,140376.msg1054626.html
       if (n & 0x80) {                             // Erased or empty entry?
           if (n == 0xFF) break;                   // Empty, assume end of table
-          Serial.print(index);          
+          if (!(node | group)) {
+              Serial.println(index); 
+          }         
       } else {
           g = eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4) + 1);
-          Serial.print(index);
-          showString(PSTR(" g"));      
-          showByte(g);
-          showString(PSTR(" i"));      
-          showByte(n & RF12_HDR_MASK);
+          if ((node == n) || !group) selected = true;
+          else selected = false;
+          if ((group == g) || !node) selected = true;          
+          if (selected) {
+              Serial.print(index);
+              showString(PSTR(" g"));      
+              showByte(g);
+              showString(PSTR(" i"));      
+              showByte(n & RF12_HDR_MASK);
 #if STATISTICS      
-          showString(PSTR(" rx:"));
-          Serial.print(pktCount[index]);
+              showString(PSTR(" rx:"));
+              Serial.print(pktCount[index]);
 #endif
 #if MESSAGING 
-          showString(PSTR(" post:"));      
-          showByte(semaphores[index]);
+              showString(PSTR(" post:"));      
+              showByte(semaphores[index]);
 #endif
 #if RF69_COMPAT  && STATISTICS            
-          printOneChar(' ');
-          showByte(eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4) + 2)); // Show original rssi value
-          if (maxRSSI[index]) {
-              showString(PSTR(" fei "));
-              Serial.print(minFEI[index]);
-              printOneChar('/');
-              Serial.print(maxFEI[index]);
-              showString(PSTR(" rssi "));
-              showByte(minRSSI[index]);
-              printOneChar('/');
-              showByte(maxRSSI[index]);
-          }
+              printOneChar(' ');
+              showByte(eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4) + 2)); // Show original rssi value
+              if (maxRSSI[index]) {
+                  showString(PSTR(" fei "));
+                  Serial.print(minFEI[index]);
+                  printOneChar('/');
+                  Serial.print(maxFEI[index]);
+                  showString(PSTR(" rssi "));
+                  showByte(minRSSI[index]);
+                  printOneChar('/');
+                  showByte(maxRSSI[index]);
+              }
 #endif
+            Serial.println();
+            }
         }
-        Serial.println();
     }
 #if MESSAGING    
     showString(PSTR("Postings "));      

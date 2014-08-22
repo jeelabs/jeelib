@@ -210,7 +210,8 @@ bool RF69::sending () {
 }
 
 void RF69::sleep (bool off) {
-    setMode(off ? MODE_SLEEP : MODE_STANDBY);
+//    setMode(off ? MODE_SLEEP : MODE_STANDBY);
+    setMode(MODE_SLEEP);
     rxstate = TXIDLE;
 }
 
@@ -320,13 +321,15 @@ void RF69::interrupt_compat () {
         // Interrupt will remain asserted until FIFO empty or exit RX mode    
 
         if (rxstate == TXRECV) {
+            IRQ_ENABLE;       // allow nested interrupts from here on
+            while ((readReg(REG_IRQFLAGS1) & IRQ1_RXREADY == 1))
+                ;
             afc  = readReg(REG_AFCMSB);
             afc  = (afc << 8) | readReg(REG_AFCLSB);
             fei  = readReg(REG_FEIMSB);
             fei  = (fei << 8) | readReg(REG_FEILSB);
             rssi = readReg(REG_RSSIVALUE);
             lna = readReg(REG_LNA);
-            IRQ_ENABLE;       // allow nested interrupts from here on
             // The window for grabbing the above values is quite small
             // values available during transfer between the ether
             // and the inbound fifo buffer.

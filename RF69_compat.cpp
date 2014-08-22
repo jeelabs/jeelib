@@ -59,14 +59,16 @@ uint8_t rf69_configSilent () {
     if (crc || eeprom_read_byte(RF12_EEPROM_ADDR + 2) != RF12_EEPROM_VERSION)
         return 0;
         
-    uint8_t nodeId = 0, group = 0;   
+    uint8_t nodeId = 0, group = 0, RegPaLvl = 0;   
     uint16_t frequency = 0;  
      
     nodeId = eeprom_read_byte(RF12_EEPROM_ADDR + 0);
     group  = eeprom_read_byte(RF12_EEPROM_ADDR + 1);
     frequency = eeprom_read_word((uint16_t*) (RF12_EEPROM_ADDR + 4));
-    
+                                                            
     rf69_initialize(nodeId, nodeId >> 6, group, frequency);
+    RegPaLvl = eeprom_read_byte(RF12_EEPROM_ADDR + 6);
+    if (RegPaLvl) RF69::control(0x91, RegPaLvl);
     return nodeId & RF12_HDR_MASK;
 }
 

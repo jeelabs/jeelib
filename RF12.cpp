@@ -655,7 +655,7 @@ uint8_t rf12_configSilent () {
         byte e = eeprom_read_byte(RF12_EEPROM_ADDR + i);
         crc = _crc16_update(crc, e);
     }
-    if (crc || eeprom_read_byte(RF12_EEPROM_ADDR + 2) != RF12_EEPROM_VERSION)
+    if (crc || !(eeprom_read_byte(RF12_EEPROM_ADDR + 2) == RF12_EEPROM_VERSION))
         return 0;
         
     uint8_t nodeId = 0, group = 0;   
@@ -707,6 +707,14 @@ void rf12_configDump () {
     if (flags & 0x03) {
         Serial.print(" x");
         Serial.print(flags & 0x03);
+    }
+    // Bad reuse of flags variable
+    flags = eeprom_read_byte(RF12_EEPROM_ADDR + 6);
+    if (flags) {
+        if (flags != 0x9F) {
+            Serial.print(" r");
+            Serial.print(flags, HEX);
+       }
     }
     Serial.println();
 }
