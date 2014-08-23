@@ -322,7 +322,7 @@ void RF69::interrupt_compat () {
 
         if (rxstate == TXRECV) {
             IRQ_ENABLE;       // allow nested interrupts from here on
-            while ((readReg(REG_IRQFLAGS1) & IRQ1_RXREADY == 1))
+            while (!readReg(REG_IRQFLAGS1) & IRQ1_RXREADY)
                 ;
             rssi = readReg(REG_RSSIVALUE);
             lna = readReg(REG_LNA);
