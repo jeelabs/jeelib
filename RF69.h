@@ -17,6 +17,6 @@ namespace RF69 {
     uint16_t recvDone_compat (uint8_t* buf);
     void sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len);
     void interrupt_compat();
-};
+}
 
 #endif
