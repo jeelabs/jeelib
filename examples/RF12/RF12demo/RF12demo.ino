@@ -7,6 +7,7 @@
 // Added message storage feature 2014-03-04
 // Add acknowledgement to all node groups 2014-05-20
 // Increase support to 100 nodes mixed between all groups 2014-05-24
+// Add 1284p supporting over 1000 nodes 2014-08-20
 
 // RF69n driver is around 636 bytes larger than RF12B when compiled for Uno
 // RF69n driver is around 650 bytes large than RF12B when compiled for Tiny
@@ -373,12 +374,12 @@ const char helpText1[] PROGMEM =
     " ...,<nn>a  - send data packet to node <nn>, request ack\n"
     "              if using group 0 then sticky group number is used\n"
     " ...,<nn>s  - send data packet to node <nn>, no ack\n"
-    " ... <nn>   - Space character is a valid delimiter\n"
-    " <i>,n      - remove group/node index number <i> entry from eeprom\n"
+    " ... <nn>   - space character is a valid delimiter\n"
+    " 128,<i>,n  - release group/node index number <i> entry in eeprom\n"
     " <g>n       - set group <g> as sticky. Group 0 only, see p command\n"
     " <n>l       - turn activity LED on PB1 on or off\n"
     "  ...,m     - add message string to ram, see p command\n"
-    " <i>,<g>,<s>p post semaphore <s> for node <i>, group <g> to be\n"
+    " <g>,<i>,<s>p post semaphore <s> for group <g> node <i>, to be\n"
     "              sent with its next ack. Group number becomes sticky\n"
     " <n>q       - set quiet mode (1 = don't report bad packets)\n"
     " <n>x       - set reporting format (0: decimal, 2: decimal+ascii\n"
@@ -884,6 +885,8 @@ static int freeRam () {    // @jcw's work
 }
 
 void setup () {
+   byte ResetSource = MCUSR;  // Capture Reset reason
+   MCUSR = 0;                 // and clear
 
 #if TINY
     delay(1000);  // shortened for now. Handy with JeeNode Micro V1 where ISP
@@ -891,6 +894,7 @@ void setup () {
 #endif
     Serial.begin(SERIAL_BAUD);
     displayVersion();
+    showByte(ResetSource);
     
 #if RF69_COMPAT && STATISTICS
 // Initialise min/max/count arrays
@@ -938,6 +942,11 @@ memset(pktCount,0,sizeof(pktCount));
         config.frequency_offset = 1600;
         config.quiet_mode = true;   // Default flags, quiet on
         saveConfig();
+        // Clear Node Store
+        for (unsigned int n = 0; n < MAX_NODES; n++) {
+            eeprom_write_byte((RF12_EEPROM_NODEMAP) + (n * 4), 255);
+        }
+
         rf12_configSilent();
     }
 
@@ -964,7 +973,7 @@ static void dumpEEprom() {
     if (crc) Serial.print(" BAD CRC ");
     else Serial.print(" GOOD CRC ");
     Serial.println(crc, HEX);
-    delay(10);
+    delay(20);
 }
 #endif
 
@@ -1185,15 +1194,28 @@ void loop () {
             showByte(rf12_data[i]);
         }
 #if RF69_COMPAT
-        // display RSSI value after packet data
-        showString(PSTR(" afc="));                // Debug Code
-        Serial.print(afc);                        // TODO What units is this count?
-        showString(PSTR(" fei="));
-        Serial.print(fei);
-        showString(PSTR(" lna="));
-        Serial.print(lna);
-        showString(PSTR(" ("));
+        if (!config.quiet_mode) {
+// display RSSI value after packet data
+            showString(PSTR(" afc="));
+            Serial.print(afc);                        // TODO What units is this count?
+            showString(PSTR(" fei="));
+            Serial.print(fei);                        // TODO What units is this count?
+/*
+            LNA gain setting:
+            000 gain set by the internal AGC loop
+            001 G1 = highest gain
+            010 G2 = highest gain – 6 dB
+            011 G3 = highest gain – 12 dB
+            100 G4 = highest gain – 24 dB
+            101 G5 = highest gain – 36 dB
+            110 G6 = highest gain – 48 dB
+*/            
+            showString(PSTR(" lna="));
+            Serial.print(lna);
+
+        }
         
+        showString(PSTR(" ("));
         if (config.output & 0x1)                  // Hex output?
             showByte(rssi2);
         else {
