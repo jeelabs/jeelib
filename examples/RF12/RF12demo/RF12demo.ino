@@ -384,6 +384,7 @@ const char helpText1[] PROGMEM =
     " <n>q       - set quiet mode (1 = don't report bad packets)\n"
     " <n>x       - set reporting format (0: decimal, 2: decimal+ascii\n"
     "            -  1: hex, 3: hex+ascii)\n"
+    " v          - return firmware version and current settings\n"
 #if !TINY
     " 123z       - total power down, needs a reset to start up again\n"
 #endif
