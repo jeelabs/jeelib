@@ -884,9 +884,17 @@ static int freeRam () {    // @jcw's work
   return (int) &v - (__brkval == 0 ? (int) &__heap_start : (int) __brkval); 
 }
 
+uint8_t resetFlags __attribute__ ((section(".noinit")));
+void resetFlagsInit(void) __attribute__ ((naked)) __attribute__ ((section (".init0")));
+void resetFlagsInit(void)
+{
+  // save the reset flags passed from the bootloader
+  __asm__ __volatile__ ("mov %0, r2\n" : "=r" (resetFlags) :);
+}
+
 void setup () {
-   byte ResetSource = MCUSR;  // Capture Reset reason
-   MCUSR = 0;                 // and clear
+//   byte ResetSource = MCUSR;  // Capture Reset reason
+//   MCUSR = 0;                 // and clear
 
 #if TINY
     delay(1000);  // shortened for now. Handy with JeeNode Micro V1 where ISP
@@ -894,7 +902,8 @@ void setup () {
 #endif
     Serial.begin(SERIAL_BAUD);
     displayVersion();
-    showNibble(ResetSource);
+    showNibble(resetFlags >> 4);
+    showNibble(resetFlags);
     
 #if RF69_COMPAT && STATISTICS
 // Initialise min/max/count arrays
