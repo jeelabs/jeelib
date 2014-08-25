@@ -894,7 +894,7 @@ void setup () {
 #endif
     Serial.begin(SERIAL_BAUD);
     displayVersion();
-    showByte(ResetSource);
+    showNibble(ResetSource);
     
 #if RF69_COMPAT && STATISTICS
 // Initialise min/max/count arrays
