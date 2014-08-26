@@ -228,10 +228,10 @@ void RF69::configure_compat () {
     if (initRadio(configRegs_compat)) {
         writeReg(REG_SYNCGROUP, group);
         if (group == 0) {
-           writeReg(REG_SYNCCONFIG, fourByteSync);
+            writeReg(REG_SYNCCONFIG, fourByteSync);
         } else {
             writeReg(REG_SYNCCONFIG, fiveByteSync);
-       }   
+        }   
 
         writeReg(REG_FRFMSB, frf >> 16);
         writeReg(REG_FRFMSB+1, frf >> 8);
