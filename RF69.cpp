@@ -85,6 +85,7 @@ namespace RF69 {
     uint16_t fifooverrun;
     uint16_t byteCount;
     uint16_t underrun;
+    uint8_t  present;
     }
 
 static volatile uint8_t rxfill;      // number of data bytes in rf12_buf
@@ -170,7 +171,7 @@ static void setMode (uint8_t mode) {
          ;
 }
 
-static void initRadio (ROM_UINT8* init) {
+static uint8_t initRadio (ROM_UINT8* init) {
     spiInit();
 // Validate SPI bus operation
     writeReg(REG_SYNCVALUE6, LIBRARY_VERSION);
@@ -184,7 +185,9 @@ static void initRadio (ROM_UINT8* init) {
             writeReg(cmd, ROM_READ_UINT8(init+1));
             init += 2;
         }
+        return 1;
     }
+    return 0;
 }
 
 void RF69::setFrequency (uint32_t freq) {
@@ -210,8 +213,9 @@ bool RF69::sending () {
 }
 
 void RF69::sleep (bool off) {
+    if (off) setMode(MODE_SLEEP); // Inverted, allowing RF69::sleep(true);
+    else setMode(MODE_STANDBY);
 //    setMode(off ? MODE_SLEEP : MODE_STANDBY);
-    setMode(MODE_SLEEP);
     rxstate = TXIDLE;
 }
 
@@ -220,25 +224,28 @@ void RF69::sleep (bool off) {
 #include <RF12.h>
 
 void RF69::configure_compat () {
-    initRadio(configRegs_compat);
-    writeReg(REG_SYNCGROUP, group);
-    if (group == 0) {
-        writeReg(REG_SYNCCONFIG, fourByteSync);
-    } else {
-        writeReg(REG_SYNCCONFIG, fiveByteSync);
-    }   
+    present = 0;                                    // Assume radio is absent
+    if (initRadio(configRegs_compat)) {
+        writeReg(REG_SYNCGROUP, group);
+        if (group == 0) {
+           writeReg(REG_SYNCCONFIG, fourByteSync);
+        } else {
+            writeReg(REG_SYNCCONFIG, fiveByteSync);
+       }   
 
-    writeReg(REG_FRFMSB, frf >> 16);
-    writeReg(REG_FRFMSB+1, frf >> 8);
-    writeReg(REG_FRFMSB+2, frf);
-    setMode(MODE_STANDBY);
-    writeReg(REG_OSC1, RcCalStart);             // Calibrate
-    while(!(readReg(REG_OSC1) & RcCalDone));    // Wait for completion
-    writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
-    writeReg(REG_AFCFEI, AfcClear);             // Clear AFC
-    writeReg(REG_DIOMAPPING1, 0x80);            // Interrupt on RSSI
+        writeReg(REG_FRFMSB, frf >> 16);
+        writeReg(REG_FRFMSB+1, frf >> 8);
+        writeReg(REG_FRFMSB+2, frf);
+        setMode(MODE_STANDBY);
+        writeReg(REG_OSC1, RcCalStart);             // Calibrate
+        while(!(readReg(REG_OSC1) & RcCalDone));    // Wait for completion
+        writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
+        writeReg(REG_AFCFEI, AfcClear);             // Clear AFC
+        writeReg(REG_DIOMAPPING1, 0x80);            // Interrupt on RSSI
 
-    rxstate = TXIDLE;
+        rxstate = TXIDLE;
+        present = 1;                                // Radio is present
+    }
 }
 
 uint8_t* recvBuf;

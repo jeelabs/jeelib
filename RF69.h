@@ -17,6 +17,7 @@ namespace RF69 {
     extern uint16_t fifooverrun; 
     extern uint16_t byteCount;
     extern uint16_t underrun;
+    extern uint8_t  present;
 
 
     void setFrequency (uint32_t freq);
