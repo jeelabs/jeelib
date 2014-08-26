@@ -41,9 +41,10 @@
 #endif
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
 #define TINY        1
-#define SERIAL_BAUD 38400   // can only be 9600 or 38400
-#define DATAFLASH   0       // do not change
+#define SERIAL_BAUD    38400   // can only be 9600 or 38400
+#define DATAFLASH      0       // do not change
 #undef  LED_PIN             // do not change
+#define messageStore  16
 #else
 #define TINY        0
 #define SERIAL_BAUD 57600   // adjust as needed
@@ -126,9 +127,11 @@ static byte inChar () {
 #elif defined(__AVR_ATmega1284P__) // Moteino MEGA
 // http://lowpowerlab.com/moteino/#whatisitMEGA
 #define LED_PIN     15       // activity LED, comment out to disable
+#define messageStore  1024
 #define MAX_NODES 1004       // Constrained by eeprom
 #else
 #define LED_PIN     9        // activity LED, comment out to disable
+#define messageStore  128
 #define MAX_NODES 100        // Contrained by RAM
 #endif
 
@@ -205,18 +208,16 @@ static unsigned int nonBroadcastCount = 0;
 #endif  
 static byte postingsIn, postingsOut;
 const char messagesF[] PROGMEM = { 
-#if !Tiny
+#if !TINY
                       0x05, 'T', 'e', 's', 't', '1', 
                       0x05, 'T', 'e', 's', 't', '2', 
 #endif
                                0 }; // Mandatory delimiter
 
 #define MessagesStart 129
-byte messagesR[64] = { 
-#if !Tiny
-                      0x05, 'T', 'e', 's', 't', '3',      // Can be removed from RAM with "129m"
-#endif
-                               0 }; // Mandatory delimiter
+
+byte messagesR[messageStore];
+
 byte *sourceR;
 byte topMessage;    // Used to store highest message number
 
@@ -425,6 +426,9 @@ static void showHelp () {
 #if !TINY && configSTRING
     showString(PSTR("Current configuration:\n"));
     rf12_configDump();
+  #if RF69_COMPAT
+    if (!RF69::present) showString(PSTR("Radio is absent\n"));
+  #endif    
 #endif
 }
 
@@ -507,7 +511,7 @@ static void handleInput (char c) {
             stickyGroup = value;
             break;
 
-        case 'o': { // Increment frequency within band
+        case 'o': { // Offset frequency within band
 // Stay within your country's ISM spectrum management guidelines, i.e.
 // allowable frequencies and their use when selecting operating frequencies.
             if ((value > 95) && (value < 3904)) { // supported by RFM12B
@@ -781,12 +785,22 @@ static void handleInput (char c) {
             break;
 
         case 'z': // put the ATmega in ultra-low power mode (reset needed)
+            if (value == 100) RF69::sleep(false); // Wake up
+            if (value == 104) RF69::sleep(true);  // Sleep
             if (value == 123) {
                 showString(PSTR(" Zzz...\n"));
                 Serial.flush();
                 rf12_sleep(RF12_SLEEP);
                 cli();
                 Sleepy::powerDown();
+            }
+            if (value == 255) {
+                 eeprom_write_byte(RF12_EEPROM_ADDR, 0);  // Should be enough to fail CRC check on next restart.
+                 showString(PSTR("Config will default\n"));
+            }
+            if (value == 65535) {
+                 showString(PSTR("Watchdog enabled, restarting\n"));
+                 WDTCSR |= _BV(WDE);
             }
             break;
 
@@ -894,8 +908,7 @@ void resetFlagsInit(void)
 }
 
 void setup () {
-//   byte ResetSource = MCUSR;  // Capture Reset reason
-//   MCUSR = 0;                 // and clear
+// Not required is my guess: resetFlagsInit();
 
 #if TINY
     delay(1000);  // shortened for now. Handy with JeeNode Micro V1 where ISP
@@ -905,6 +918,12 @@ void setup () {
     displayVersion();
     showNibble(resetFlags >> 4);
     showNibble(resetFlags);
+// TODO the above doesn't do what we need, results vary with Bootloader etc
+
+#if MESSAGING && !TINY
+// messagesR = 0x05, 'T', 'e', 's', 't', '3'; // TODO    // Can be removed from RAM with "129m"
+messagesR[messageStore] = 0;                                    // Mandatory delimiter
+#endif
     
 #if RF69_COMPAT && STATISTICS
 // Initialise min/max/count arrays
@@ -959,8 +978,7 @@ memset(pktCount,0,sizeof(pktCount));
 
         rf12_configSilent();
     }
-
-//    rf12_configDump();
+    
     stickyGroup = config.group;
 
     df_initialize();
