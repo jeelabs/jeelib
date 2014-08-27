@@ -127,7 +127,7 @@ static byte inChar () {
 #elif defined(__AVR_ATmega1284P__) // Moteino MEGA
 // http://lowpowerlab.com/moteino/#whatisitMEGA
 #define LED_PIN     15       // activity LED, comment out to disable
-#define messageStore  1024
+#define messageStore  255
 #define MAX_NODES 1004       // Constrained by eeprom
 #else
 #define LED_PIN     9        // activity LED, comment out to disable
@@ -603,7 +603,6 @@ static void handleInput (char c) {
         case 'q': // turn quiet mode on or off (don't report bad packets)
             if (!top) {
                 config.quiet_mode = value;
-                RF69::sleep(value);
                 saveConfig();
             }
 #if RF69_COMPAT
