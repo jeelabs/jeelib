@@ -15,12 +15,12 @@
 #define RF69_COMPAT  1   // define this to use the RF69 driver i.s.o. RF12 - Adds 650 bytes to Tiny image
 #define OOK          0   // Define this to include OOK code f, k - Adds 520 bytes to Tiny image
 #define JNuMOSFET    0   // Define to power up RFM12B on JNu2/3 - Adds 4 bytes to Tiny image
-#define configSTRING 1   // Define to include "A i1 g210 @ 868 MHz q1" - Adds 442 bytes to Tiny image
-#define HELP         1   // Define to include the help text
-#define MESSAGING    1   // Define to include message posting code m, p - Will not fit into any Tiny image
-#define STATISTICS   1   // Define to include stats gathering - Adds 406 bytes to Tiny image
-#define NODE31ALLOC  1   // Define to include offering of spare node numbers if node 31 requests ack
-#define DEBUG        1   //
+#define configSTRING 0   // Define to include "A i1 g210 @ 868 MHz q1" - Adds 442 bytes to Tiny image
+#define HELP         0   // Define to include the help text
+#define MESSAGING    0   // Define to include message posting code m, p - Will not fit into any Tiny image
+#define STATISTICS   0   // Define to include stats gathering - Adds 406 bytes to Tiny image
+#define NODE31ALLOC  0   // Define to include offering of spare node numbers if node 31 requests ack
+#define DEBUG        0   //
 
 #define REG_SYNCCONFIG 0x2E  // RFM69 only, register containing sync length
 #define oneByteSync    0x80  // RFM69 only, value to get only one byte sync.
@@ -126,9 +126,10 @@ static byte inChar () {
 }
 #elif defined(__AVR_ATmega1284P__) // Moteino MEGA
 // http://lowpowerlab.com/moteino/#whatisitMEGA
-#define LED_PIN     15       // activity LED, comment out to disable
-#define messageStore  255
+#define LED_PIN     15       // activity LED, comment out to disable on/off is reversed on Moteino
+#define messageStore  255    // Contrained by byte variables
 #define MAX_NODES 1004       // Constrained by eeprom
+
 #else
 #define LED_PIN     9        // activity LED, comment out to disable
 #define messageStore  128
@@ -189,7 +190,7 @@ static byte minLNA[MAX_NODES];
 static byte lastLNA[MAX_NODES];
 static byte maxLNA[MAX_NODES];
 #endif
-#if RF69_COMPAT
+#if RF69_COMPAT && !TINY
 static byte CRCbadMinRSSI = 255;
 static byte CRCbadMaxRSSI = 0;
 static signed int afc;
@@ -201,7 +202,7 @@ static signed int previousFEI;
 static unsigned int changedAFC;
 static unsigned int changedFEI;
 #endif
-#if STATISTICS
+#if STATISTICS && !TINY
 static unsigned int CRCbadCount = 0;
 static unsigned int pktCount[MAX_NODES];
 static unsigned int nonBroadcastCount = 0;
@@ -601,10 +602,9 @@ static void handleInput (char c) {
             break;
 #endif
         case 'q': // turn quiet mode on or off (don't report bad packets)
-            if (!top) {
-                config.quiet_mode = value;
-                saveConfig();
-            }
+            config.quiet_mode = value;
+            saveConfig();
+
 #if RF69_COMPAT
             // The 5 byte sync used by the RFM69 reduces detected noise dramatically.
             // The command below sets the sync length to 1 to test radio reception.
@@ -708,12 +708,12 @@ static void handleInput (char c) {
                       stickyGroup = stack[0];
                   }
                   Serial.println();
-#endif
             } else {
                   // Accepts a group number and prints matching entries from the eeprom
                   stickyGroup = value;
                   nodeShow(value);
             }
+#endif
             break;
 
         case 'n': 
@@ -897,7 +897,7 @@ static int freeRam () {    // @jcw's work
   int v; 
   return (int) &v - (__brkval == 0 ? (int) &__heap_start : (int) __brkval); 
 }
-
+#if !TINY
 uint8_t resetFlags __attribute__ ((section(".noinit")));
 void resetFlagsInit(void) __attribute__ ((naked)) __attribute__ ((section (".init0")));
 void resetFlagsInit(void)
@@ -905,6 +905,7 @@ void resetFlagsInit(void)
   // save the reset flags passed from the bootloader
   __asm__ __volatile__ ("mov %0, r2\n" : "=r" (resetFlags) :);
 }
+#endif
 
 void setup () {
 // Not required is my guess: resetFlagsInit();
@@ -915,13 +916,15 @@ void setup () {
 #endif
     Serial.begin(SERIAL_BAUD);
     displayVersion();
+#if !TINY
     showNibble(resetFlags >> 4);
     showNibble(resetFlags);
 // TODO the above doesn't do what we need, results vary with Bootloader etc
+#endif
 
 #if MESSAGING && !TINY
 // messagesR = 0x05, 'T', 'e', 's', 't', '3'; // TODO    // Can be removed from RAM with "129m"
-messagesR[messageStore] = 0;                                    // Mandatory delimiter
+messagesR[messageStore] = 0;                             // Save flash, init here: Mandatory delimiter
 #endif
     
 #if RF69_COMPAT && STATISTICS
@@ -965,16 +968,17 @@ memset(pktCount,0,sizeof(pktCount));
     } else {
         showString(INITFAIL);
         memset(&config, 0, sizeof config);
-        config.nodeId = 0x81;       // 868 MHz, node 1
+        config.nodeId = 0x9F;       // 868 MHz, node 1
         config.group = 0xD4;        // default group 212
         config.frequency_offset = 1600;
         config.quiet_mode = true;   // Default flags, quiet on
         saveConfig();
+#if DEBUG
         // Clear Node Store
         for (unsigned int n = 0; n < MAX_NODES; n++) {
             eeprom_write_byte((RF12_EEPROM_NODEMAP) + (n * 4), 255);
         }
-
+#endif
         rf12_configSilent();
     }
     
@@ -1159,7 +1163,7 @@ void loop () {
         handleInput(Serial.read());
 #endif
     if (rf12_recvDone()) {
-#if RF69_COMPAT
+#if RF69_COMPAT && !TINY
         afc = (RF69::afc);                  // Grab values before next interrupt
         fei = (RF69::fei);
         rssi2 = RF69::rssi;
@@ -1177,16 +1181,16 @@ void loop () {
         byte n = rf12_len;
         byte crc = false;
         if (rf12_crc == 0) {
-#if STATISTICS
+#if STATISTICS && !TINY
             messageCount++;
 #endif
             showString(PSTR("OK"));
             crc = true;
         } else {
-#if STATISTICS
+#if STATISTICS && !TINY
             CRCbadCount++;
 #endif
-#if RF69_COMPAT && STATISTICS
+#if RF69_COMPAT && STATISTICS && !TINY
             if (rssi2 < (CRCbadMinRSSI))
               CRCbadMinRSSI = rssi2;   
             if (rssi2 > (CRCbadMaxRSSI))
@@ -1220,7 +1224,7 @@ void loop () {
                 printOneChar(' ');
             showByte(rf12_data[i]);
         }
-#if RF69_COMPAT
+#if RF69_COMPAT && !TINY
         if (!config.quiet_mode) {
 // display RSSI value after packet data
             showString(PSTR(" afc="));
@@ -1317,7 +1321,7 @@ void loop () {
                         Serial.println(newNodeMap);
                         eeprom_write_byte((RF12_EEPROM_NODEMAP) + (newNodeMap * 4), (rf12_hdr & RF12_HDR_MASK));  // Store Node and
                         eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 1), rf12_grp);              //  and Group number
-#if RF69_COMPAT
+#if RF69_COMPAT && !TINY
                         eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 2), rssi2);                 //  First RSSI value
                         eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 3), lna);                   //  First LNA value
 #endif
@@ -1426,7 +1430,7 @@ void loop () {
                 }
                 crlf = true;
                 showString(PSTR(" -> ack "));
-#if RF69_COMPAT
+#if RF69_COMPAT && !TINY
                 if (config.group == 0) {
                     showString(PSTR("g"));
                     showByte(rf12_grp);
@@ -1454,7 +1458,7 @@ void loop () {
             byte header = cmd == 'a' ? RF12_HDR_ACK : 0;
             if (dest)
                 header |= RF12_HDR_DST | dest;
-#if RF69_COMPAT
+#if RF69_COMPAT && !TINY
             if (config.group == 0) {
                 RF69::control(REG_SYNCGROUP | 0x80, stickyGroup);  // Set a group number to use for transmission
             }
