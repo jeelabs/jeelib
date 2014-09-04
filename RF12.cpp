@@ -690,9 +690,9 @@ void rf12_configDump () {
     Serial.print((word)eeprom_read_byte(RF12_EEPROM_ADDR + 1));
     Serial.print(" @ ");
     uint8_t band = nodeId >> 6;
-    Serial.print((word)band == RF12_433MHZ ? 433 :
+    Serial.print((word)band == RF12_433MHZ ? 434 :
                  band == RF12_868MHZ ? 868 :
-                 band == RF12_915MHZ ? 915 : 0);
+                 band == RF12_915MHZ ? 912 : 0);
     Serial.print(" MHz");
     if (frequency != 1600) {
         Serial.print(" o");

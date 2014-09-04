@@ -15,12 +15,12 @@
 #define RF69_COMPAT  1   // define this to use the RF69 driver i.s.o. RF12 - Adds 650 bytes to Tiny image
 #define OOK          0   // Define this to include OOK code f, k - Adds 520 bytes to Tiny image
 #define JNuMOSFET    0   // Define to power up RFM12B on JNu2/3 - Adds 4 bytes to Tiny image
-#define configSTRING 0   // Define to include "A i1 g210 @ 868 MHz q1" - Adds 442 bytes to Tiny image
-#define HELP         0   // Define to include the help text
-#define MESSAGING    0   // Define to include message posting code m, p - Will not fit into any Tiny image
-#define STATISTICS   0   // Define to include stats gathering - Adds 406 bytes to Tiny image
-#define NODE31ALLOC  0   // Define to include offering of spare node numbers if node 31 requests ack
-#define DEBUG        0   //
+#define configSTRING 1   // Define to include "A i1 g210 @ 868 MHz q1" - Adds 442 bytes to Tiny image
+#define HELP         1   // Define to include the help text
+#define MESSAGING    1   // Define to include message posting code m, p - Will not fit into any Tiny image
+#define STATISTICS   1   // Define to include stats gathering - Adds 406 bytes to Tiny image
+#define NODE31ALLOC  1   // Define to include offering of spare node numbers if node 31 requests ack
+#define DEBUG        1   //
 
 #define REG_SYNCCONFIG 0x2E  // RFM69 only, register containing sync length
 #define oneByteSync    0x80  // RFM69 only, value to get only one byte sync.
@@ -1135,8 +1135,8 @@ static unsigned int getIndex (byte group, byte node) {
             // Search eeprom RF12_EEPROM_NODEMAP for node/group match
             for (unsigned int index = 0; index < MAX_NODES; index++) {
                 byte n = eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4));
-                http://forum.arduino.cc/index.php/topic,140376.msg1054626.html
-                if (n & 0x80) {                                     // Erased or empty entry?
+//              http://forum.arduino.cc/index.php/topic,140376.msg1054626.html
+                if (n & 0x80) {                                     // Erased (0xFF) or empty (0x80) entry?
                     if (newNodeMap == 0xFFFF) newNodeMap = index;   // Save pointer to a first free entry
                     if (n == 0xFF) return(false);                   // Erased, assume end of table!
                 } else {
@@ -1374,11 +1374,11 @@ void loop () {
                 if (((rf12_hdr & RF12_HDR_MASK) == 31) && (!(rf12_hdr & RF12_HDR_DST))) {
                     // Special Node 31 source node
                     // Make sure this nodes node/group is already in the eeprom
-                    if ((getIndex(config.group, config.nodeId)) && (newNodeMap != 0xFFFF)) {   
+                    if (((getIndex(config.group, config.nodeId))) && (newNodeMap != 0xFFFF)) {   
                         // node/group not found but there is space to save
                         eeprom_write_byte((RF12_EEPROM_NODEMAP) + (newNodeMap * 4), (config.nodeId & RF12_HDR_MASK));
                         eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 1), config.group);
-                        eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 2), 0);
+                        eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 2), 255);
                     }
 #if NODE31ALLOC                    
                     for (byte i = 1; i < 31; i++) {
@@ -1395,16 +1395,18 @@ void loop () {
                             showByte(i);        
                             printOneChar('i');
                             break;
-                        } else {
-                            showString(PSTR("No free node numbers in "));
-                            crlf = true;
-                            showByte(rf12_grp);
-                            printOneChar('g');
-                        }
+                        }                            
                     }
+                    if (!ackLen) {
+                        showString(PSTR("No free node numbers in "));
+                        crlf = true;
+                        showByte(rf12_grp);
+                        printOneChar('g');
+                    }
+                }
 #endif                    
 #if MESSAGING
-                } else {
+                 else {
 // This code is used when an incoming packet is requesting an ACK, it determines if a semaphore is posted for this Node/Group.
 // If a semaphore exists it is stored in the buffer. If the semaphore has a message addition associated with it then
 // the additional data from the message store is appended to the buffer and the whole buffer transmitted to the 
@@ -1469,7 +1471,7 @@ void loop () {
             activityLed(0);
         } else {
         showString(PSTR(" Busy\n"));  // Not ready to send
-        cmd = 0;                     // Request dropped
+        cmd = 0;                      // Request dropped
         }
     }    
 }
