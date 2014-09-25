@@ -118,7 +118,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x1A, 0x91, // 0x8B,   // Channel filter BW
   0x1E, 0x0E, // AfcAutoclearOn, AfcAutoOn
 //  0x25, 0x80, // DioMapping1 = RSSI threshold
-  0x29, 0xE4, // RssiThresh ...
+  0x29, 0xA0, // RssiThresh ... -80dB
 
   0x2E, 0xA0, // SyncConfig = sync on, sync size = 5
   0x2F, 0xAA, // SyncValue1 = 0xAA

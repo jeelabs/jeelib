@@ -455,7 +455,12 @@ static void handleInput (char c) {
     }
     
     if (32 > c || c > 'z') {      // Trap unknown characters
-            showString(PSTR("Key="));
+        for (byte i = 0; i < top; ++i) {
+            showByte(stack[i]);
+            printOneChar(',');
+        }
+            showWord(value);
+            showString(PSTR(",Key="));
             showByte(c);          // Highlight Tiny serial framing errors.  
             Serial.println();
             value = top = 0;      // Clear up
