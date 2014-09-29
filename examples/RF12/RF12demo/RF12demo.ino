@@ -20,7 +20,7 @@
 #define MESSAGING    1   // Define to include message posting code m, p - Will not fit into any Tiny image
 #define STATISTICS   1   // Define to include stats gathering - Adds 406 bytes to Tiny image
 #define NODE31ALLOC  1   // Define to include offering of spare node numbers if node 31 requests ack
-#define DEBUG        1   //
+#define DEBUG        0   //
 
 #define REG_SYNCCONFIG 0x2E  // RFM69 only, register containing sync length
 #define oneByteSync    0x80  // RFM69 only, value to get only one byte sync.
@@ -126,7 +126,7 @@ static byte inChar () {
 }
 #elif defined(__AVR_ATmega1284P__) // Moteino MEGA
 // http://lowpowerlab.com/moteino/#whatisitMEGA
-#define LED_PIN     15       // activity LED, comment out to disable on/off is reversed on Moteino
+#define LED_PIN     15       // activity LED, comment out to disable on/off operation is reversed to a normal Jeenode
 #define messageStore  255    // Contrained by byte variables
 #define MAX_NODES 1004       // Constrained by eeprom
 
@@ -789,8 +789,10 @@ static void handleInput (char c) {
             break;
 
         case 'z': // put the ATmega in ultra-low power mode (reset needed)
+#if RF69_COMPAT   // I don't think sleep for the RFM69 library works
             if (value == 100) RF69::sleep(false); // Wake up
             if (value == 104) RF69::sleep(true);  // Sleep
+#endif
             if (value == 123) {
                 showString(PSTR(" Zzz...\n"));
                 Serial.flush();

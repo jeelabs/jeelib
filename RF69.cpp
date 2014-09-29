@@ -8,6 +8,7 @@
 #define REG_OPMODE          0x01
 #define REG_FRFMSB          0x07
 #define REG_OSC1            0x0A
+#define REG_OCP             0x13
 #define REG_LNA             0x18
 #define REG_AFCFEI          0x1E
 #define REG_AFCMSB          0x1F
@@ -32,6 +33,9 @@
 #define REG_NODEADRS        0x39
 #define REG_PACKETCONFIG2   0x3D
 #define REG_AESKEY1         0x3E
+#define REG_TESTLNA         0x58
+#define REG_TESTPA1         0x5A
+#define REG_TESTPA2         0x5C
 
 #define MODE_SLEEP          0x00
 #define MODE_STANDBY        0x04
@@ -39,6 +43,12 @@
 #define MODE_LISTENABORT    0x20
 #define MODE_LISTENON       0x40
 #define MODE_TRANSMITTER    0x0C
+#define TESTLNA_NORMAL      0x1B
+#define TESTLNA_BOOST       0x2D
+#define TESTPA1_NORMAL      0x55
+#define TESTPA1_20dBm       0x5D
+#define TESTPA2_NORMAL      0x70
+#define TESTPA2_20dBm       0x7C
 
 #define IRQ1_MODEREADY      0x80
 #define IRQ1_RXREADY        0x40
@@ -369,6 +379,8 @@ void RF69::interrupt_compat () {
             writeReg(REG_AFCFEI, AfcClear); 
             
         } else if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
+            writeReg(REG_TESTPA1, TESTPA1_NORMAL);    // Turn off high power 
+            writeReg(REG_TESTPA2, TESTPA2_NORMAL);    // transmit
             // rxstate will be TXDONE at this point
             IRQ_ENABLE;       // allow nested interrupts from here on
             txP++;
