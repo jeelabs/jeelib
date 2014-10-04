@@ -20,7 +20,7 @@
 #define MESSAGING    1   // Define to include message posting code m, p - Will not fit into any Tiny image
 #define STATISTICS   1   // Define to include stats gathering - Adds 406 bytes to Tiny image
 #define NODE31ALLOC  1   // Define to include offering of spare node numbers if node 31 requests ack
-#define DEBUG        0   //
+#define DEBUG        1   //
 
 #define REG_SYNCCONFIG 0x2E  // RFM69 only, register containing sync length
 #define oneByteSync    0x80  // RFM69 only, value to get only one byte sync.
@@ -234,8 +234,7 @@ static void showByte (byte value) {
         showNibble(value >> 4);
         showNibble(value);
     } else
-        Serial.print((word) value); // Serial.print causes issues with my terminal emulator (PuTTY)
-                                    // showByte(0x0A) produced a LF etc rather than 10
+        Serial.print((word) value, DEC);
 }
 static void showWord (unsigned int value) {
     if (config.output & 0x1) {
@@ -789,10 +788,9 @@ static void handleInput (char c) {
             break;
 
         case 'z': // put the ATmega in ultra-low power mode (reset needed)
-#if RF69_COMPAT   // I don't think sleep for the RFM69 library works
-            if (value == 100) RF69::sleep(false); // Wake up
-            if (value == 104) RF69::sleep(true);  // Sleep
-#endif
+            if (value == 100) rf12_sleep(RF12_WAKEUP); // Wake up
+            if (value == 104) rf12_sleep(RF12_SLEEP);  // Sleep
+            if (value == 104) showString(PSTR(" rf12 Zzz...\n"));  // DEBUG
             if (value == 123) {
                 showString(PSTR(" Zzz...\n"));
                 Serial.flush();

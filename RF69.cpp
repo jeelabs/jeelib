@@ -223,7 +223,7 @@ bool RF69::sending () {
 }
 
 void RF69::sleep (bool off) {
-    if (off) setMode(MODE_SLEEP); // Inverted, allowing RF69::sleep(true);
+    if (off) setMode(MODE_SLEEP);
     else setMode(MODE_STANDBY);
 //    setMode(off ? MODE_SLEEP : MODE_STANDBY);
     rxstate = TXIDLE;
