@@ -178,6 +178,19 @@ static byte stack[RF12_MAXDATA+4], top, sendLen, dest;
 static byte testCounter;
 static word messageCount = 0;
 
+typedef struct {
+signed int afc;
+signed int fei;
+byte lna;
+byte rssi2;
+unsigned int offset_TX;
+byte RegPaLvl_TX;
+byte RegTestLna_TX;
+byte RegTestPa1_TX;
+byte RegTestPa2_TX;
+} observed;
+static observed observedRX;
+
 #if MESSAGING
 static byte semaphores[MAX_NODES];
 #endif
@@ -193,10 +206,7 @@ static byte maxLNA[MAX_NODES];
 #if RF69_COMPAT && !TINY
 static byte CRCbadMinRSSI = 255;
 static byte CRCbadMaxRSSI = 0;
-static signed int afc;
-static signed int fei;
-static byte rssi2;
-static byte lna;
+
 static signed int previousAFC;
 static signed int previousFEI;
 static unsigned int changedAFC;
@@ -1169,18 +1179,18 @@ void loop () {
 #endif
     if (rf12_recvDone()) {
 #if RF69_COMPAT && !TINY
-        afc = (RF69::afc);                  // Grab values before next interrupt
-        fei = (RF69::fei);
-        rssi2 = RF69::rssi;
-        lna = (RF69::lna >> 3);
+        observedRX.afc = (RF69::afc);                  // Grab values before next interrupt
+        observedRX.fei = (RF69::fei);
+        observedRX.rssi2 = (RF69::rssi);
+        observedRX.lna = (RF69::lna >> 3);
 
-        if ((afc) && (afc != previousAFC)) { // Track volatility of AFC
+        if ((observedRX.afc) && (observedRX.afc != previousAFC)) { // Track volatility of AFC
             changedAFC++;    
-            previousAFC = afc;
+            previousAFC = observedRX.afc;
         }
-        if (fei != previousFEI) {            // Track volatility of FEI
+        if (observedRX.fei != previousFEI) {            // Track volatility of FEI
             changedFEI++;
-            previousFEI = fei;
+            previousFEI = observedRX.fei;
         }
 #endif  
         byte n = rf12_len;
@@ -1196,10 +1206,10 @@ void loop () {
             CRCbadCount++;
 #endif
 #if RF69_COMPAT && STATISTICS && !TINY
-            if (rssi2 < (CRCbadMinRSSI))
-              CRCbadMinRSSI = rssi2;   
-            if (rssi2 > (CRCbadMaxRSSI))
-              CRCbadMaxRSSI = rssi2;   
+            if (observedRX.rssi2 < (CRCbadMinRSSI))
+              CRCbadMinRSSI = observedRX.rssi2;   
+            if (observedRX.rssi2 > (CRCbadMaxRSSI))
+              CRCbadMaxRSSI = observedRX.rssi2;   
 #endif            
             if (config.quiet_mode)
                 return;
@@ -1231,11 +1241,10 @@ void loop () {
         }
 #if RF69_COMPAT && !TINY
         if (!config.quiet_mode) {
-// display RSSI value after packet data
             showString(PSTR(" afc="));
-            Serial.print(afc);                        // TODO What units is this count?
+            Serial.print(observedRX.afc);                        // TODO What units is this count?
             showString(PSTR(" fei="));
-            Serial.print(fei);                        // TODO What units is this count?
+            Serial.print(observedRX.fei);                        // TODO What units is this count?
 /*
             LNA gain setting:
             000 gain set by the internal AGC loop
@@ -1247,22 +1256,26 @@ void loop () {
             110 G6 = highest gain – 48 dB
 */            
             showString(PSTR(" lna="));
-            Serial.print(lna);
+            Serial.print(observedRX.lna);
 
         }
         
         showString(PSTR(" ("));
+// display RSSI value after packet data
         if (config.output & 0x1)                  // Hex output?
-            showByte(rssi2);
+            showByte(observedRX.rssi2);
         else {
-            byte rssi1 = rssi2>>1;
-            byte rssiMantisa = rssi2-(rssi1<<1);
+            byte rssi1 = observedRX.rssi2>>1;
+            byte rssiMantisa = observedRX.rssi2-(rssi1<<1);
             Serial.print(-(rssi1));
             if (rssiMantisa) showString(PSTR(".5"));
             showString(PSTR("dB"));
         }
         printOneChar(')');
 #endif
+//TODO        showString(PSTR(" Samples="));
+//TODO        Serial.print((RF69::rssiSamples));
+        
         Serial.println();
         if (config.output & 0x2) { // also print a line as ascii
             showString(PSTR("ASC"));                         // 'OK'
@@ -1325,10 +1338,10 @@ void loop () {
                         showString(PSTR(" Index "));
                         Serial.println(newNodeMap);
                         eeprom_write_byte((RF12_EEPROM_NODEMAP) + (newNodeMap * 4), (rf12_hdr & RF12_HDR_MASK));  // Store Node and
-                        eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 1), rf12_grp);              //  and Group number
+                        eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 1), rf12_grp);              // and Group number
 #if RF69_COMPAT && !TINY
-                        eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 2), rssi2);                 //  First RSSI value
-                        eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 3), lna);                   //  First LNA value
+                        eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 2), observedRX.rssi2);      //  First RSSI value
+                        eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 3), observedRX.lna);        //  First LNA value
 #endif
                         NodeMap = newNodeMap;
                         newNodeMap = 0xFFFF;
@@ -1344,17 +1357,17 @@ void loop () {
                  
 #if RF69_COMPAT && STATISTICS
                 // Check/update to min/max/count
-                if (lna < (minLNA[NodeMap]))       
-                  minLNA[NodeMap] = lna;
-                lastLNA[NodeMap] = lna;   
-                if (lna > (maxLNA[NodeMap]))
-                  maxLNA[NodeMap] = lna;   
+                if (observedRX.lna < (minLNA[NodeMap]))       
+                  minLNA[NodeMap] = observedRX.lna;
+                lastLNA[NodeMap] = observedRX.lna;   
+                if (observedRX.lna > (maxLNA[NodeMap]))
+                  maxLNA[NodeMap] = observedRX.lna;   
 
-                if (rssi2 < (minRSSI[NodeMap]))
-                  minRSSI[NodeMap] = rssi2;
-                lastRSSI[NodeMap] = rssi2;   
-                if (rssi2 > (maxRSSI[NodeMap]))
-                  maxRSSI[NodeMap] = rssi2;   
+                if (observedRX.rssi2 < (minRSSI[NodeMap]))
+                  minRSSI[NodeMap] = observedRX.rssi2;
+                lastRSSI[NodeMap] = observedRX.rssi2;   
+                if (observedRX.rssi2 > (maxRSSI[NodeMap]))
+                  maxRSSI[NodeMap] = observedRX.rssi2;   
 #endif
 #if STATISTICS            
                 pktCount[NodeMap]++;
@@ -1389,9 +1402,20 @@ void loop () {
                     for (byte i = 1; i < 31; i++) {
                         // Find a spare node number within received group number
                         if (!(getIndex(rf12_grp, i ))) {         // Node/Group pair not found?
-                            stack[sizeof stack - 1] = i + 0xE0;  // 0xE0 is an arbitary value
+                            observedRX.offset_TX = config.frequency_offset;
+#if RF69_COMPAT                       
+//##
+                            observedRX.RegPaLvl_TX = RF69::control(0x11, 0x9F);    // Pull the current RegPaLvl from the radio
+                            observedRX.RegTestLna_TX = RF69::control(0x58, 0x1B);  // Pull the current RegTestLna from the radio
+                            observedRX.RegTestPa1_TX = RF69::control(0x5A, 0x55);  // Pull the current RegTestPa1 from the radio
+                            observedRX.RegTestPa2_TX = RF69::control(0x5C, 0x70);  // Pull the current RegTestPa2 from the radio
+#endif
+                        
+                            ackLen = (sizeof observedRX) + 1;
+                            stack[sizeof stack - ackLen] = i + 0xE0;  // 0xE0 is an arbitary value
                             // Change Node number request - matched in RF12Tune
-                            ackLen = 1;
+                            byte* d = &stack[sizeof stack];
+                            memcpy(d - (ackLen - 1), &observedRX, (ackLen - 1));
                             showString(PSTR("Node allocation "));
                             crlf = true;
                             showByte(rf12_grp);
