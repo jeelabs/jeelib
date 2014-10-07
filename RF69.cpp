@@ -33,6 +33,8 @@
 #define REG_NODEADRS        0x39
 #define REG_PACKETCONFIG2   0x3D
 #define REG_AESKEY1         0x3E
+#define REG_TEMP1           0x4E
+#define REG_TEMP2           0x4F
 #define REG_TESTLNA         0x58
 #define REG_TESTPA1         0x5A
 #define REG_TESTPA2         0x5C
@@ -49,6 +51,10 @@
 #define TESTPA1_20dBm       0x5D
 #define TESTPA2_NORMAL      0x70
 #define TESTPA2_20dBm       0x7C
+
+#define COURSE_TEMP_COEF      -89 // starter callibration figure
+#define RF_TEMP1_MEAS_START   0x08
+#define RF_TEMP1_MEAS_RUNNING 0x04
 
 #define IRQ1_MODEREADY      0x80
 #define IRQ1_RXREADY        0x40
@@ -227,6 +233,14 @@ void RF69::sleep (bool off) {
     else setMode(MODE_STANDBY);
 //    setMode(off ? MODE_SLEEP : MODE_STANDBY);
     rxstate = TXIDLE;
+}
+
+// returns raw temperature from chip
+uint8_t RF69::readTemperature(uint8_t userCal) {
+  sleep(false);        // this ensures the mode is in standby, using setMode directly had undesirable side effects.
+  writeReg(REG_TEMP1, RF_TEMP1_MEAS_START);
+  while ((readReg(REG_TEMP1) & RF_TEMP1_MEAS_RUNNING));
+  return ~readReg(REG_TEMP2) + COURSE_TEMP_COEF + userCal; //'complement' corrects the slope, rising temp = rising val
 }
 
 // References to the RF12 driver above this line will generate compiler errors!

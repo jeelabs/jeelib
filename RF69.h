@@ -19,12 +19,12 @@ namespace RF69 {
     extern uint16_t underrun;
     extern uint8_t  present;
 
-
     void setFrequency (uint32_t freq);
     bool canSend ();
     bool sending ();
     void sleep (bool off);
     uint8_t control(uint8_t cmd, uint8_t val);
+    uint8_t readTemperature(uint8_t);
     
     void configure_compat ();
     uint16_t recvDone_compat (uint8_t* buf);
