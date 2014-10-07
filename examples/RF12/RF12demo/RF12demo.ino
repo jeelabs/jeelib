@@ -1258,6 +1258,8 @@ void loop () {
             showString(PSTR(" lna="));
             Serial.print(observedRX.lna);
 
+            showString(PSTR(" temp="));
+            Serial.print((RF69::readTemperature(-10)));        
         }
         
         showString(PSTR(" ("));

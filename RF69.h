@@ -24,7 +24,7 @@ namespace RF69 {
     bool sending ();
     void sleep (bool off);
     uint8_t control(uint8_t cmd, uint8_t val);
-    uint8_t readTemperature(uint8_t);
+    int8_t readTemperature(int8_t);
     
     void configure_compat ();
     uint16_t recvDone_compat (uint8_t* buf);

@@ -236,7 +236,7 @@ void RF69::sleep (bool off) {
 }
 
 // returns raw temperature from chip
-uint8_t RF69::readTemperature(uint8_t userCal) {
+int8_t RF69::readTemperature(int8_t userCal) {
   sleep(false);        // this ensures the mode is in standby, using setMode directly had undesirable side effects.
   writeReg(REG_TEMP1, RF_TEMP1_MEAS_START);
   while ((readReg(REG_TEMP1) & RF_TEMP1_MEAS_RUNNING));
