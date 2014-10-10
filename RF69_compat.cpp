@@ -30,7 +30,7 @@ static long ezNextSend[2];          // when was last retry [0] or data [1] sent
 #else
 #define IRQ_NUMBER 0
 #endif
-uint8_t rf69_initialize (uint8_t id, uint8_t band, uint8_t group, uint16_t off) {
+uint8_t rf69_initialize (uint8_t id, uint8_t band, uint8_t group=0xD4, uint16_t off=1600) {
     uint8_t freq = 0;
     switch (band) {
         case RF12_433MHZ: freq = 43; break;
