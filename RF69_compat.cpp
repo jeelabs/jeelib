@@ -31,6 +31,8 @@ static long ezNextSend[2];          // when was last retry [0] or data [1] sent
 #define IRQ_NUMBER 0
 #endif
 uint8_t rf69_initialize (uint8_t id, uint8_t band, uint8_t group=0xD4, uint16_t off=1600) {
+// If we get here by calling rf12_initialize then the default values above are not used 
+// defaults are collected from rf12_initialize in the rf12.h file.
     uint8_t freq = 0;
     switch (band) {
         case RF12_433MHZ: freq = 43; break;
