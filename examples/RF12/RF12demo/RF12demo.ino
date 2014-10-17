@@ -1220,7 +1220,7 @@ void loop () {
         }
         if (config.output & 0x1)
             printOneChar('X');
-        else printOneChar(' ');
+   // Compatibility with HouseMon v0.7.0     else printOneChar(' ');
         if (config.group == 0) {
             showString(PSTR(" G"));
             showByte(rf12_grp);
