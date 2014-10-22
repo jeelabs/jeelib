@@ -62,6 +62,8 @@ static int _bitDelay;
 static char _receive_buffer;
 static byte _receive_buffer_index;
 
+static void showString (PGM_P s); // forward declaration
+
 ISR (PCINT0_vect) {
     char i, d = 0;
     if (digitalRead(_receivePin))       // PA2 = Jeenode DIO2
@@ -119,6 +121,24 @@ static void activityLed (byte on) {
 
 static void printOneChar (char c) {
     Serial.print(c);
+}
+
+static void showString (PGM_P s) {
+    for (;;) {
+        char c = pgm_read_byte(s++);
+        if (c == 0)
+            break;
+        if (c == '\n')
+            printOneChar('\r');
+        printOneChar(c);
+    }
+}
+
+static void displayVersion () {
+    showString(PSTR(VERSION));
+#if TINY
+    showString(PSTR(" Tiny"));
+#endif
 }
 
 /// @details
@@ -299,17 +319,6 @@ const char helpText2[] PROGMEM =
     "    123,<bhi>,<blo> e                  - erase 4K block\n"
     "    12,34 w                            - wipe entire flash memory\n"
 ;
-
-static void showString (PGM_P s) {
-    for (;;) {
-        char c = pgm_read_byte(s++);
-        if (c == 0)
-            break;
-        if (c == '\n')
-            printOneChar('\r');
-        printOneChar(c);
-    }
-}
 
 static void showHelp () {
 #if TINY
@@ -525,13 +534,6 @@ static void displayASCII (const byte* data, byte count) {
         printOneChar(c < ' ' || c > '~' ? '.' : c);
     }
     Serial.println();
-}
-
-static void displayVersion () {
-    showString(PSTR(VERSION));
-#if TINY
-    showString(PSTR(" Tiny"));
-#endif
 }
 
 void setup () {
