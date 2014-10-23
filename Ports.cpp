@@ -1174,6 +1174,24 @@ void Sleepy::watchdogEvent() {
     ++watchdogCounter;
 }
 
+void Sleepy::idle () {
+    byte adcsraSave = ADCSRA;
+    ADCSRA &= ~ bit(ADEN); // disable the ADC
+    set_sleep_mode(SLEEP_MODE_IDLE);
+    ATOMIC_BLOCK(ATOMIC_FORCEON) {
+        sleep_enable();
+        // sleep_bod_disable(); // can't use this - not in my avr-libc version!
+#ifdef BODSE
+        MCUCR = MCUCR | bit(BODSE) | bit(BODS); // timed sequence
+        MCUCR = (MCUCR & ~ bit(BODSE)) | bit(BODS);
+#endif
+    }
+    sleep_cpu();
+    sleep_disable();
+    // re-enable what we disabled
+    ADCSRA = adcsraSave;
+}
+
 Scheduler::Scheduler (byte size) : remaining (~0), maxTasks (size) {
     byte bytes = size * sizeof *tasks;
     tasks = (word*) malloc(bytes);

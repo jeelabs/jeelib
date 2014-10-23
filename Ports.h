@@ -359,6 +359,10 @@ public:
 
     /// This must be called from your watchdog interrupt code.
     static void watchdogEvent();
+
+    /// enter idle state
+        static void idle ();
+
 };
 
 /// simple task scheduler for times up to 6000 seconds
