@@ -361,7 +361,10 @@ public:
     static void watchdogEvent();
 
     /// enter idle state
-        static void idle ();
+    static void idle();
+        
+    /// Idle while waiting for a relevant interrupt
+    static word idleSomeTime(word secs);
 
 };
 

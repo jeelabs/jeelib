@@ -1160,6 +1160,8 @@ byte Sleepy::loseSomeTime (word msecs) {
         msleft -= halfms;
     }
     // adjust the milli ticks, since we will have missed several
+// TODO Should we update millis as we go such that any interrupting processes
+// TODO are aware of the passage of time(ms).
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny85__) || defined (__AVR_ATtiny44__) || defined (__AVR_ATtiny45__)
     extern volatile unsigned long millis_timer_millis;
     millis_timer_millis += msecs - msleft;
@@ -1191,6 +1193,39 @@ void Sleepy::idle () {
     // re-enable what we disabled
     ADCSRA = adcsraSave;
 }
+
+word Sleepy::idleSomeTime (word secs) {
+    word timeLeft = secs;
+    byte savePRR = PRR;
+    while (timeLeft) {
+        watchdogCounter = 0;
+        watchdogInterrupts(6);  // 1000ms
+        // Reduce background interrupts, millis() etc
+        PRR |= (1 << PRTIM0) | (1 << PRTIM1) | (1 << PRTIM2) | (1 << PRADC);
+        idle(); 
+        watchdogInterrupts(-1);   // off
+        // when interrupted, our best guess is that half the time has passed
+        word millisAdjust = 500;    // If we are interrupted assume 500ms
+        if (watchdogCounter != 0) {
+            millisAdjust = 1000;    // Wasn't interrupted for a 1000ms
+        }
+// Update millis as we go, if we are interrupted time(ms) will have moved on
+// for the interrupting process        
+#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny85__) || defined (__AVR_ATtiny44__) || defined (__AVR_ATtiny45__)
+        extern volatile unsigned long millis_timer_millis;
+        millis_timer_millis += millisAdjust;
+#else
+        extern volatile unsigned long timer0_millis;
+        timer0_millis += millisAdjust;
+#endif
+    if (millisAdjust == 500) break;
+    --timeLeft;       
+    }
+    PRR = savePRR;
+//  return, abandoning the remaining time
+    return timeLeft; // Unused seconds
+}
+
 
 Scheduler::Scheduler (byte size) : remaining (~0), maxTasks (size) {
     byte bytes = size * sizeof *tasks;
