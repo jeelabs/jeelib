@@ -1186,9 +1186,10 @@ void Sleepy::idle () {
 #ifdef BODSE
         MCUCR = MCUCR | bit(BODSE) | bit(BODS); // timed sequence
         MCUCR = (MCUCR & ~ bit(BODSE)) | bit(BODS);
-#endif
+#endif 
     }
     sleep_cpu();
+    // wake up here
     sleep_disable();
     // re-enable what we disabled
     ADCSRA = adcsraSave;
@@ -1203,13 +1204,13 @@ word Sleepy::idleSomeTime (word secs) {
         // Reduce background interrupts, millis() etc
         PRR |= (1 << PRTIM0) | (1 << PRTIM1) | (1 << PRTIM2) | (1 << PRADC);
         idle(); 
-        watchdogInterrupts(-1);   // off
+        watchdogInterrupts(-1);     // off
         // when interrupted, our best guess is that half the time has passed
         word millisAdjust = 500;    // If we are interrupted assume 500ms
         if (watchdogCounter != 0) {
-            millisAdjust = 1000;    // Wasn't interrupted for a 1000ms
+            millisAdjust = 1000;    // Wasn't interrupted for 1000ms
         }
-// Update millis as we go, if we are interrupted time(ms) will have moved on
+// Update millis as we go, if we are interrupted time(ms) might have moved on
 // for the interrupting process        
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny85__) || defined (__AVR_ATtiny44__) || defined (__AVR_ATtiny45__)
         extern volatile unsigned long millis_timer_millis;
@@ -1221,7 +1222,7 @@ word Sleepy::idleSomeTime (word secs) {
     if (millisAdjust == 500) break;
     --timeLeft;       
     }
-    PRR = savePRR;
+    PRR = savePRR;    // re-enable what we disabled
 //  return, abandoning the remaining time
     return timeLeft; // Unused seconds
 }
