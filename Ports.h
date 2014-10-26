@@ -364,7 +364,7 @@ public:
     static void idle();
         
     /// Idle while waiting for a relevant interrupt
-    static word idleSomeTime(word secs);
+    static unsigned int idleSomeTime(unsigned int secs);
 
 };
 

@@ -1195,8 +1195,9 @@ void Sleepy::idle () {
     ADCSRA = adcsraSave;
 }
 
-word Sleepy::idleSomeTime (word secs) {
-    word timeLeft = secs;
+word Sleepy::idleSomeTime (unsigned int secs) {
+    unsigned int timeLeft = secs;
+    word millisAdjust;
     byte savePRR = PRR;
     while (timeLeft) {
         watchdogCounter = 0;
@@ -1206,7 +1207,8 @@ word Sleepy::idleSomeTime (word secs) {
         idle(); 
         watchdogInterrupts(-1);     // off
         // when interrupted, our best guess is that half the time has passed
-        word millisAdjust = 500;    // If we are interrupted assume 500ms
+        millisAdjust = 2;    // If we are interrupted assume 2ms
+        // because there are lots of Serial.print interrupts around
         if (watchdogCounter != 0) {
             millisAdjust = 1000;    // Wasn't interrupted for 1000ms
         }
@@ -1219,12 +1221,14 @@ word Sleepy::idleSomeTime (word secs) {
         extern volatile unsigned long timer0_millis;
         timer0_millis += millisAdjust;
 #endif
-    if (millisAdjust == 500) break;
+    if (millisAdjust == 2) break;
     --timeLeft;       
     }
     PRR = savePRR;    // re-enable what we disabled
 //  return, abandoning the remaining time
-    return timeLeft; // Unused seconds
+    timeLeft = timeLeft << 1;
+//    if (millisAdjust == 2) --timeLeft;
+    return timeLeft; // Unused seconds, doubled for precision
 }
 
 

@@ -1267,10 +1267,8 @@ void loop () {
         if (config.output & 0x1)                  // Hex output?
             showByte(observedRX.rssi2);
         else {
-            byte rssi1 = observedRX.rssi2>>1;
-            byte rssiMantisa = observedRX.rssi2-(rssi1<<1);
-            Serial.print(-(rssi1));
-            if (rssiMantisa) showString(PSTR(".5"));
+            Serial.print(observedRX.rssi2 / 2);
+            if ((observedRX.rssi2 << 7) << 7) showString(PSTR(".5"));
             showString(PSTR("dB"));
         }
         printOneChar(')');

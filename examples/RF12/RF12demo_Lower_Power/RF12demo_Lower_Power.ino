@@ -136,6 +136,8 @@ static byte inChar () {
 #define MAX_NODES 100        // Contrained by RAM
 #endif
 
+ISR(WDT_vect) { Sleepy::watchdogEvent(); }
+
 static unsigned long now () {
     // FIXME 49-day overflow
     return millis() / 1000;
@@ -229,7 +231,7 @@ const char messagesF[] PROGMEM = {
 
 byte messagesR[messageStore];
 
-int loopCount;
+unsigned int loopCount, idleTime = 0;
 
 byte *sourceR;
 byte topMessage;    // Used to store highest message number
@@ -929,8 +931,6 @@ void setup () {
     ACSR |= (1<<ACD);       // Disable Analog Comparator
     ADCSRA &= ~ bit(ADEN);  // disable the ADC
 
-// Not required is my guess: resetFlagsInit();
-
 #if TINY
     delay(1000);  // shortened for now. Handy with JeeNode Micro V1 where ISP
                   // interaction can be upset by RF12B startup process.
@@ -1012,7 +1012,10 @@ memset(pktCount,0,sizeof(pktCount));
     showHelp();
 #endif
 
-} //setup
+//    Serial.flush();
+//    Serial.print("\r\r");
+
+} // setup
 
 #if DEBUG
 /// Display eeprom configuration space
@@ -1175,20 +1178,39 @@ static unsigned int getIndex (byte group, byte node) {
             } 
             return(false);
 }
-
+/*
+void snooze () {
+    byte savePRR = PRR;
+//    cli();
+    PRR |= (1 << PRTIM0) | (1 << PRTIM1) | (1 << PRTIM2) | (1 << PRADC); // Stop millis() counte
+//    sei();
+    Sleepy::idle();  // Appears to save some power   
+//    cli();
+    PRR = savePRR;
+    sei();
+} 
+*/
 void loop () {
     activityLed(0);
     loopCount++;
-    byte savePRR = PRR;
-    cli();
-    PRR |= (1 << PRTIM0) | (1 << PRTIM1) | (1 << PRTIM2) | (1 << PRADC); // Stop millis() counte
-    sei();
-    Sleepy::idle();  // Appears to save some power   
-    cli();
-    PRR = savePRR;
-    sei();
-    activityLed(1);
-//    delay(5);
+//    Serial.flush();
+//    Serial.print(0x00);
+//    Serial.print("\r");
+//    delay(2);
+#define MAXIDLE 100
+/* TODO This is a problem when full size packets arrive in a continuous stream
+        the packet serial output stops as if waiting for an interrupt to be serviced.
+        Serial input of a '0' clears the freeze and everything resumes.
+        During the freeze the idleSomeTime routine is happily counting the idle period.
+        
+        This looks similar to the freeze experienced when using Serial.flush.
+*/
+
+    idleTime += ((MAXIDLE * 2) - Sleepy::idleSomeTime(MAXIDLE)); // Seconds*2
+/*    unsigned int a = Sleepy::idleSomeTime(MAXIDLE); // Seconds*2
+    unsigned int b = MAXIDLE << 2;
+    idleTime += (b - a); */
+    activityLed(1); // DEBUG
 #if TINY
     if (_receive_buffer_index)
         handleInput(inChar());
@@ -1197,10 +1219,6 @@ void loop () {
     if (Serial.available())
         handleInput(Serial.read());
 #endif
-    Sleepy::idle();  // Appears to save some power   
-    Sleepy::idle();  // Appears to save some power   
-    Sleepy::idle();  // Appears to save some power
-    // 4 Sleeps is too much, it causes freezes freed by keying '0'. 
     if (rf12_recvDone()) { // rf12_recvDone
 #if RF69_COMPAT && !TINY
         observedRX.afc = (RF69::afc);                  // Grab values before next interrupt
@@ -1223,8 +1241,13 @@ void loop () {
 #if STATISTICS && !TINY
             messageCount++;
 #endif
+            Serial.print(idleTime >> 1);  // Divide by 2
+            if ((idleTime << 15) >> 15) Serial.print(".5");
+            Serial.print("s l=");
             Serial.print(loopCount);
-            showString(PSTR(" OK"));
+            Serial.print(" ");
+            Serial.print(millis());
+            showString(PSTR("ms OK"));
             crc = true;
         } else {
 #if STATISTICS && !TINY
@@ -1292,10 +1315,8 @@ void loop () {
         if (config.output & 0x1)                  // Hex output?
             showByte(observedRX.rssi2);
         else {
-            byte rssi1 = observedRX.rssi2>>1;
-            byte rssiMantisa = observedRX.rssi2-(rssi1<<1);
-            Serial.print(-(rssi1));
-            if (rssiMantisa) showString(PSTR(".5"));
+            Serial.print(observedRX.rssi2 / 2);
+            if ((observedRX.rssi2 << 7) << 7) showString(PSTR(".5"));
             showString(PSTR("dB"));
         }
         printOneChar(')');
