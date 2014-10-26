@@ -1011,10 +1011,10 @@ memset(pktCount,0,sizeof(pktCount));
 #if !TINY
     showHelp();
 #endif
-
-//    Serial.flush();
-//    Serial.print("\r\r");
-
+#define MAXIDLE 1
+    for (byte i = 1;i < 64; i++) {
+        idleTime += ((MAXIDLE * 2) - Sleepy::idleSomeTime(MAXIDLE)); // Seconds*2
+    }
 } // setup
 
 #if DEBUG
@@ -1191,13 +1191,8 @@ void snooze () {
 } 
 */
 void loop () {
-    activityLed(0);
+    activityLed(0); // DEBUG
     loopCount++;
-//    Serial.flush();
-//    Serial.print(0x00);
-//    Serial.print("\r");
-//    delay(2);
-#define MAXIDLE 100
 /* TODO This is a problem when full size packets arrive in a continuous stream
         the packet serial output stops as if waiting for an interrupt to be serviced.
         Serial input of a '0' clears the freeze and everything resumes.
@@ -1206,11 +1201,10 @@ void loop () {
         This looks similar to the freeze experienced when using Serial.flush.
 */
 
+#define MAXIDLE 100
     idleTime += ((MAXIDLE * 2) - Sleepy::idleSomeTime(MAXIDLE)); // Seconds*2
-/*    unsigned int a = Sleepy::idleSomeTime(MAXIDLE); // Seconds*2
-    unsigned int b = MAXIDLE << 2;
-    idleTime += (b - a); */
     activityLed(1); // DEBUG
+    
 #if TINY
     if (_receive_buffer_index)
         handleInput(inChar());
@@ -1523,6 +1517,7 @@ void loop () {
                 
             }
             if (crlf) Serial.println();
+
             activityLed(0);
         }
     } // rf12_recvDone

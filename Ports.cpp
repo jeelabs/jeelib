@@ -1180,15 +1180,8 @@ void Sleepy::idle () {
     byte adcsraSave = ADCSRA;
     ADCSRA &= ~ bit(ADEN); // disable the ADC
     set_sleep_mode(SLEEP_MODE_IDLE);
-    ATOMIC_BLOCK(ATOMIC_FORCEON) {
-        sleep_enable();
-        // sleep_bod_disable(); // can't use this - not in my avr-libc version!
-#ifdef BODSE
-        MCUCR = MCUCR | bit(BODSE) | bit(BODS); // timed sequence
-        MCUCR = (MCUCR & ~ bit(BODSE)) | bit(BODS);
-#endif 
-    }
-    sleep_cpu();
+    sleep_enable();    
+    sleep_cpu();    
     // wake up here
     sleep_disable();
     // re-enable what we disabled
@@ -1198,19 +1191,20 @@ void Sleepy::idle () {
 word Sleepy::idleSomeTime (unsigned int secs) {
     unsigned int timeLeft = secs;
     word millisAdjust;
+    byte saveTIMSK0 = TIMSK0;
     byte savePRR = PRR;
+    TIMSK0 &= ~(1 << TOIE0);      // Reduce background interrupts, millis()
+    PRR |= (1 << PRTIM0);         // Power down Timer0
     while (timeLeft) {
         watchdogCounter = 0;
-        watchdogInterrupts(6);  // 1000ms
-        // Reduce background interrupts, millis() etc
-        PRR |= (1 << PRTIM0) | (1 << PRTIM1) | (1 << PRTIM2) | (1 << PRADC);
+        watchdogInterrupts(6);    // 1000ms
         idle(); 
-        watchdogInterrupts(-1);     // off
+        watchdogInterrupts(-1);   // off
         // when interrupted, our best guess is that half the time has passed
-        millisAdjust = 2;    // If we are interrupted assume 2ms
+        millisAdjust = 2;         // If we are interrupted assume 2ms
         // because there are lots of Serial.print interrupts around
         if (watchdogCounter != 0) {
-            millisAdjust = 1000;    // Wasn't interrupted for 1000ms
+            millisAdjust = 1000;  // Wasn't interrupted for 1000ms
         }
 // Update millis as we go, if we are interrupted time(ms) might have moved on
 // for the interrupting process        
@@ -1224,7 +1218,8 @@ word Sleepy::idleSomeTime (unsigned int secs) {
     if (millisAdjust == 2) break;
     --timeLeft;       
     }
-    PRR = savePRR;    // re-enable what we disabled
+    TIMSK0 = saveTIMSK0;          // re-enable what we disabled
+    PRR = savePRR;                //
 //  return, abandoning the remaining time
     timeLeft = timeLeft << 1;
 //    if (millisAdjust == 2) --timeLeft;
