@@ -1178,18 +1178,6 @@ static unsigned int getIndex (byte group, byte node) {
             } 
             return(false);
 }
-/*
-void snooze () {
-    byte savePRR = PRR;
-//    cli();
-    PRR |= (1 << PRTIM0) | (1 << PRTIM1) | (1 << PRTIM2) | (1 << PRADC); // Stop millis() counte
-//    sei();
-    Sleepy::idle();  // Appears to save some power   
-//    cli();
-    PRR = savePRR;
-    sei();
-} 
-*/
 void loop () {
     activityLed(0); // DEBUG
     loopCount++;
@@ -1199,12 +1187,12 @@ void loop () {
         During the freeze the idleSomeTime routine is happily counting the idle period.
         
         This looks similar to the freeze experienced when using Serial.flush.
+        
+        Q: Is the radio receive buffer released by rf12_recvDone. If so then the next packet
+        will be lost, waiting fr the radio buffer to be available.
+
 */
 
-#define MAXIDLE 100
-    idleTime += ((MAXIDLE * 2) - Sleepy::idleSomeTime(MAXIDLE)); // Seconds*2
-    activityLed(1); // DEBUG
-    
 #if TINY
     if (_receive_buffer_index)
         handleInput(inChar());
@@ -1213,7 +1201,7 @@ void loop () {
     if (Serial.available())
         handleInput(Serial.read());
 #endif
-    if (rf12_recvDone()) { // rf12_recvDone
+    if (rf12_recvDone()) { // rf12_recvDone else idle
 #if RF69_COMPAT && !TINY
         observedRX.afc = (RF69::afc);                  // Grab values before next interrupt
         observedRX.fei = (RF69::fei);
@@ -1235,13 +1223,15 @@ void loop () {
 #if STATISTICS && !TINY
             messageCount++;
 #endif
-            Serial.print(idleTime >> 1);  // Divide by 2
-            if ((idleTime << 15) >> 15) Serial.print(".5");
-            Serial.print("s l=");
-            Serial.print(loopCount);
-            Serial.print(" ");
-            Serial.print(millis());
-            showString(PSTR("ms OK"));
+            if (!config.quiet_mode) {
+                Serial.print(idleTime >> 1);  // Divide by 2
+//                if ((idleTime << 15) >> 15) Serial.print(".5");
+                Serial.print("s l=");
+                Serial.print(loopCount);
+                Serial.print(" ");
+                Serial.print(millis());
+                showString(PSTR("ms OK"));
+            } else showString(PSTR("OK"));
             crc = true;
         } else {
 #if STATISTICS && !TINY
@@ -1276,6 +1266,9 @@ void loop () {
                 printOneChar(' ');
             showByte(rf12_len);
         }
+ //TODO DEBUG excessive print interrupts
+       if (n == 66) n = 4;
+ // TODO
         for (byte i = 0; i < n; ++i) {
             if (!(config.output & 1)) // Decimal output?
                 printOneChar(' ');
@@ -1520,7 +1513,12 @@ void loop () {
 
             activityLed(0);
         }
-    } // rf12_recvDone
+    } else { // rf12_recvDone
+#define MAXIDLE 100
+          idleTime += ((MAXIDLE * 2) - Sleepy::idleSomeTime(MAXIDLE)); // Seconds*2
+          activityLed(1); // DEBUG
+    } //rf12_recvDone
+
 
     if (cmd) {
         if (rf12_canSend()) {
