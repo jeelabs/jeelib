@@ -1266,13 +1266,16 @@ void loop () {
                 printOneChar(' ');
             showByte(rf12_len);
         }
- //TODO DEBUG excessive print interrupts
-       if (n == 66) n = 4;
- // TODO
-        for (byte i = 0; i < n; ++i) {
-            if (!(config.output & 1)) // Decimal output?
-                printOneChar(' ');
-            showByte(rf12_data[i]);
+        
+        if (n == 66) {
+            showString(PSTR(" t")); // Abbreviate Test string
+            showByte(rf12_data[1]);
+        } else {       
+            for (byte i = 0; i < n; ++i) {
+                if (!(config.output & 1)) // Decimal output?
+                    printOneChar(' ');
+                showByte(rf12_data[i]);
+            }
         }
 #if RF69_COMPAT && !TINY
         if (!config.quiet_mode) {
@@ -1308,14 +1311,14 @@ void loop () {
         }
         printOneChar(')');
 #endif
-//TODO        showString(PSTR(" Samples="));
+//TODO MartynJ       showString(PSTR(" Samples="));
 //TODO        Serial.print((RF69::rssiSamples));
         
         Serial.println();
         if (config.output & 0x2) { // also print a line as ascii
             showString(PSTR("ASC"));                         // 'OK'
             if (crc) {
-                printOneChar(' ');                           // ' '
+//                printOneChar(' ');                           // ' '
                 if (config.group == 0) {
                     printOneChar(' ');                       // 'G'
                     printASCII(rf12_grp);                    // grp
@@ -1345,7 +1348,13 @@ void loop () {
                 printASCII(rf12_hdr);      // hdr
                 printASCII(rf12_len);      // len
             }
-            displayASCII((const byte*) rf12_data, n);
+            if (n == 66) {
+                showString(PSTR("t")); // Abbreviate Test string
+                showByte(rf12_data[1]);
+                displayASCII((const byte*) rf12_data, 1);
+            } else {
+                displayASCII((const byte*) rf12_data, n);
+            }
             Serial.println();
         }
 
