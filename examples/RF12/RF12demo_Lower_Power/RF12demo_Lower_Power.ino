@@ -1178,17 +1178,7 @@ static unsigned int getIndex (byte group, byte node) {
 void loop () {
     activityLed(0); // DEBUG
     loopCount++;
-/* TODO This is a problem when full size packets arrive in a continuous stream
-        the packet serial output stops as if waiting for an interrupt to be serviced.
-        Serial input of a '0' clears the freeze and everything resumes.
-        During the freeze the idleSomeTime routine is happily counting the idle period.
-        
-        This looks similar to the freeze experienced when using Serial.flush.
-        
-        Q: Is the radio receive buffer released by rf12_recvDone. If so then the next packet
-        will be lost, waiting fr the radio buffer to be available.
-
-*/
+    byte skipIdle = false;
 
 #if TINY
     if (_receive_buffer_index)
@@ -1198,7 +1188,9 @@ void loop () {
     if (Serial.available())
         handleInput(Serial.read());
 #endif
-    if (rf12_recvDone()) { // rf12_recvDone else idle
+    if (rf12_recvDone()) { // rf12_recvDone
+        skipIdle = true;
+
 #if RF69_COMPAT && !TINY
         observedRX.afc = (RF69::afc);                  // Grab values before next interrupt
         observedRX.fei = (RF69::fei);
@@ -1276,9 +1268,9 @@ void loop () {
         }
 #if RF69_COMPAT && !TINY
         if (!config.quiet_mode) {
-            showString(PSTR(" afc="));
+            showString(PSTR(" a="));
             Serial.print(observedRX.afc);                        // TODO What units is this count?
-            showString(PSTR(" fei="));
+            showString(PSTR(" f="));
             Serial.print(observedRX.fei);                        // TODO What units is this count?
 /*
             LNA gain setting:
@@ -1290,10 +1282,10 @@ void loop () {
             101 G5 = highest gain – 36 dB
             110 G6 = highest gain – 48 dB
 */            
-            showString(PSTR(" lna="));
+            showString(PSTR(" l="));
             Serial.print(observedRX.lna);
 
-            showString(PSTR(" temp="));
+            showString(PSTR(" t="));
             Serial.print((RF69::readTemperature(-10)));        
         }
         
@@ -1519,15 +1511,10 @@ void loop () {
 
             activityLed(0);
         }
-    } else { // rf12_recvDone
-#define MAXIDLE 100
-          Serial.flush();
-          idleTime += ((MAXIDLE * 2) - Sleepy::idleSomeTime(MAXIDLE)); // Seconds*2
-          activityLed(1); // DEBUG
     } //rf12_recvDone
 
-
     if (cmd) {
+        skipIdle = true;
         if (rf12_canSend()) {
             activityLed(1);
 
@@ -1550,5 +1537,12 @@ void loop () {
         showString(PSTR(" Busy\n"));  // Not ready to send
         cmd = 0;                      // Request dropped
         }
+    }
+    
+    if (!skipIdle) {
+#define MAXIDLE 100
+        Serial.flush();
+        idleTime += ((MAXIDLE * 2) - Sleepy::idleSomeTime(MAXIDLE)); // Seconds*2
+        activityLed(1); // DEBUG
     }    
 } // loop
