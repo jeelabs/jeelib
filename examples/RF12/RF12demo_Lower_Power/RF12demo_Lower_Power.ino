@@ -1011,10 +1011,7 @@ memset(pktCount,0,sizeof(pktCount));
 #if !TINY
     showHelp();
 #endif
-#define MAXIDLE 1
-    for (byte i = 1;i < 64; i++) {
-        idleTime += ((MAXIDLE * 2) - Sleepy::idleSomeTime(MAXIDLE)); // Seconds*2
-    }
+
 } // setup
 
 #if DEBUG
@@ -1524,6 +1521,7 @@ void loop () {
         }
     } else { // rf12_recvDone
 #define MAXIDLE 100
+          Serial.flush();
           idleTime += ((MAXIDLE * 2) - Sleepy::idleSomeTime(MAXIDLE)); // Seconds*2
           activityLed(1); // DEBUG
     } //rf12_recvDone
