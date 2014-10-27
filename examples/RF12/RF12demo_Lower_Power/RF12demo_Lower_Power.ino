@@ -1505,7 +1505,8 @@ void loop () {
                 printOneChar('i');
                 showByte(rf12_hdr & RF12_HDR_MASK);
                 rf12_sendStart(RF12_ACK_REPLY, &stack[sizeof stack - ackLen], ackLen);
-                
+// I have a problem here, buffer appears to not be released for next packet.
+// the first ACK is sent fine but then everythng stops, keying "0" and you guessed it
             }
             if (crlf) Serial.println();
 
