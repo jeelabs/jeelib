@@ -194,6 +194,10 @@ byte RegTestPa2_TX;
 static observed observedRX;
 
 byte lastTest;
+byte busyCount;
+byte missedTests;
+unsigned int testTX;
+unsigned int testRX;
 
 #if MESSAGING
 static byte semaphores[MAX_NODES];
@@ -594,6 +598,7 @@ static void handleInput (char c) {
             showString(PSTR("test "));
             if (sendLen) showByte(stack[0]); // first byte in test buffer
             ++testCounter;
+            testTX++;
             break;
 
         case 'a': // send packet to node ID N, request an ack
@@ -1162,7 +1167,14 @@ static void nodeShow(byte group) {
 #endif
     Serial.println();
     Serial.println(freeRam());
-}
+    Serial.print(testTX);
+    printOneChar(',');
+    Serial.println(busyCount);
+    Serial.print(testRX);
+    printOneChar(',');
+    Serial.println(missedTests);
+    busyCount = missedTests = testTX = testRX = 0;
+} // nodeShow
 static unsigned int getIndex (byte group, byte node) {
             newNodeMap = NodeMap = 0xFFFF;
             // Search eeprom RF12_EEPROM_NODEMAP for node/group match
@@ -1269,11 +1281,14 @@ void loop () {
         }
         
         if (n == 66) {
+            testRX++;
             showString(PSTR(" t")); // Abbreviate Test string
             showByte(rf12_data[1]);
             if ((rf12_data[1] - 1) != lastTest) {
-                printOneChar('+');
-                showByte(rf12_data[1] - lastTest);
+                printOneChar('-');
+                byte n =(rf12_data[1] - lastTest - 1);
+                showByte(n);
+                missedTests =+ n;
             }
             lastTest = rf12_data[1];
         } else {       
@@ -1536,7 +1551,7 @@ void loop () {
     }
     // If we didn't sleep interrupts then are still disabled from prior to rf12_recvDone()
     sei();
-    if (cmd) {
+    if (cmd) {  // Checking again in case it interrupted whilst we slept
         if (rf12_canSend()) {
             activityLed(1);
 
@@ -1556,6 +1571,7 @@ void loop () {
             activityLed(0);
         } else { // rf12_canSend
         showString(PSTR(" Busy\n"));  // Not ready to send
+        busyCount++;
         cmd = 0;                      // Request dropped
         }
     } // cmd
