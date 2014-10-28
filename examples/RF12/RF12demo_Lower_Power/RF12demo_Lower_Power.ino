@@ -1286,7 +1286,7 @@ void loop () {
                 printOneChar(' ');
             showByte(rf12_len);
         }
-        byte testPacket;
+        byte testPacket = false;
         if (n == 66) { // Is it a test packet
             testPacket = true;
             for (byte b = 1; b < 65; b++) {
