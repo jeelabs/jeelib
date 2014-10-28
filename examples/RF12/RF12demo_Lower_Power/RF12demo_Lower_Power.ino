@@ -12,7 +12,7 @@
 // RF69n driver is around 636 bytes larger than RF12B when compiled for Uno
 // RF69n driver is around 650 bytes large than RF12B when compiled for Tiny
 
-#define RF69_COMPAT  1   // define this to use the RF69 driver i.s.o. RF12 - Adds 650 bytes to Tiny image
+#define RF69_COMPAT  0   // define this to use the RF69 driver i.s.o. RF12 - Adds 650 bytes to Tiny image
 #define OOK          0   // Define this to include OOK code f, k - Adds 520 bytes to Tiny image
 #define JNuMOSFET    0   // Define to power up RFM12B on JNu2/3 - Adds 4 bytes to Tiny image
 #define configSTRING 1   // Define to include "A i1 g210 @ 868 MHz q1" - Adds 442 bytes to Tiny image
@@ -1173,7 +1173,7 @@ static void nodeShow(byte group) {
     Serial.print(testRX);
     printOneChar(',');
     Serial.println(missedTests);
-    busyCount = missedTests = testTX = testRX = 0;
+    busyCount = missedTests = testTX = testRX = testCounter = lastTest = 0;
 } // nodeShow
 static unsigned int getIndex (byte group, byte node) {
             newNodeMap = NodeMap = 0xFFFF;
@@ -1284,9 +1284,9 @@ void loop () {
             testRX++;
             showString(PSTR(" t")); // Abbreviate Test string
             showByte(rf12_data[1]);
-            if ((rf12_data[1] - 1) != lastTest) {
+            byte n = rf12_data[1] - (lastTest + 1);
+            if (n) {
                 printOneChar('-');
-                byte n =(rf12_data[1] - lastTest - 1);
                 showByte(n);
                 missedTests =+ n;
             }
