@@ -1242,7 +1242,7 @@ void loop () {
                 Serial.print(" ");
                 Serial.print(millis());
                 showString(PSTR("ms "));
-            } else 
+            }
 #endif            
             showString(PSTR("OK"));
             crc = true;
