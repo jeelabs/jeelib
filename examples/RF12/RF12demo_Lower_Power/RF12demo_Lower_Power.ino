@@ -193,6 +193,8 @@ byte RegTestPa2_TX;
 } observed;
 static observed observedRX;
 
+byte lastTest;
+
 #if MESSAGING
 static byte semaphores[MAX_NODES];
 #endif
@@ -927,9 +929,17 @@ void resetFlagsInit(void)
 #endif
 
 void setup () {
+#ifndef PRR
+#define PRR PRR0
+#endif   
     ACSR &= (1<<ACIE);      // Disable Analog Comparator Interrupt
     ACSR |= (1<<ACD);       // Disable Analog Comparator
     ADCSRA &= ~ bit(ADEN);  // disable the ADC
+// Switch off some unused hardware
+    PRR |= (1 << PRTIM2) | (1 << PRTIM1) | (1 << PRADC);
+#if defined PRR2
+    PRR1 |= (1 << PRTIM3);  // 1284P
+#endif
 
 #if TINY
     delay(1000);  // shortened for now. Handy with JeeNode Micro V1 where ISP
@@ -1176,9 +1186,7 @@ static unsigned int getIndex (byte group, byte node) {
             return(false);
 }
 void loop () {
-    activityLed(0); // DEBUG
     loopCount++;
-    byte skipIdle = false;
 
 #if TINY
     if (_receive_buffer_index)
@@ -1188,9 +1196,10 @@ void loop () {
     if (Serial.available())
         handleInput(Serial.read());
 #endif
+    Serial.flush();
+    cli();  
     if (rf12_recvDone()) { // rf12_recvDone
-        skipIdle = true;
-
+        sei();
 #if RF69_COMPAT && !TINY
         observedRX.afc = (RF69::afc);                  // Grab values before next interrupt
         observedRX.fei = (RF69::fei);
@@ -1212,6 +1221,7 @@ void loop () {
 #if STATISTICS && !TINY
             messageCount++;
 #endif
+#if DEBUG
             if (!config.quiet_mode) {
                 Serial.print(idleTime >> 1);  // Divide by 2
 //                if ((idleTime << 15) >> 15) Serial.print(".5");
@@ -1219,8 +1229,10 @@ void loop () {
                 Serial.print(loopCount);
                 Serial.print(" ");
                 Serial.print(millis());
-                showString(PSTR("ms OK"));
-            } else showString(PSTR("OK"));
+                showString(PSTR("ms "));
+            } else 
+#endif            
+            showString(PSTR("OK"));
             crc = true;
         } else {
 #if STATISTICS && !TINY
@@ -1259,6 +1271,11 @@ void loop () {
         if (n == 66) {
             showString(PSTR(" t")); // Abbreviate Test string
             showByte(rf12_data[1]);
+            if ((rf12_data[1] - 1) != lastTest) {
+                printOneChar('+');
+                showByte(rf12_data[1] - lastTest);
+            }
+            lastTest = rf12_data[1];
         } else {       
             for (byte i = 0; i < n; ++i) {
                 if (!(config.output & 1)) // Decimal output?
@@ -1437,7 +1454,6 @@ void loop () {
                         if (!(getIndex(rf12_grp, i ))) {         // Node/Group pair not found?
                             observedRX.offset_TX = config.frequency_offset;
 #if RF69_COMPAT                       
-//##
                             observedRX.RegPaLvl_TX = RF69::control(0x11, 0x9F);    // Pull the current RegPaLvl from the radio
                             observedRX.RegTestLna_TX = RF69::control(0x58, 0x1B);  // Pull the current RegTestLna from the radio
                             observedRX.RegTestPa1_TX = RF69::control(0x5A, 0x55);  // Pull the current RegTestPa1 from the radio
@@ -1505,17 +1521,22 @@ void loop () {
                 printOneChar('i');
                 showByte(rf12_hdr & RF12_HDR_MASK);
                 rf12_sendStart(RF12_ACK_REPLY, &stack[sizeof stack - ackLen], ackLen);
-// I have a problem here, buffer appears to not be released for next packet.
-// the first ACK is sent fine but then everythng stops, keying "0" and you guessed it
             }
             if (crlf) Serial.println();
 
             activityLed(0);
         }
-    } //rf12_recvDone
-
+    } else { // rf12_recvDone
+        if (!cmd) {
+            // Interrupts are already disabled            
+#define MAXIDLE 100
+            idleTime += ((MAXIDLE * 2) - Sleepy::idleSomeTime(MAXIDLE)); // Seconds*2
+            // Interrupts are already enabled by Sleepy::idleSomeTime
+        }
+    }
+    // If we didn't sleep interrupts then are still disabled from prior to rf12_recvDone()
+    sei();
     if (cmd) {
-        skipIdle = true;
         if (rf12_canSend()) {
             activityLed(1);
 
@@ -1532,18 +1553,10 @@ void loop () {
 #endif
             rf12_sendStart(header, stack, sendLen);
             cmd = 0;
-
             activityLed(0);
-        } else {
+        } else { // rf12_canSend
         showString(PSTR(" Busy\n"));  // Not ready to send
         cmd = 0;                      // Request dropped
         }
-    }
-    
-    if (!skipIdle) {
-#define MAXIDLE 100
-        Serial.flush();
-        idleTime += ((MAXIDLE * 2) - Sleepy::idleSomeTime(MAXIDLE)); // Seconds*2
-        activityLed(1); // DEBUG
-    }    
+    } // cmd
 } // loop

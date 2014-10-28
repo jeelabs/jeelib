@@ -1177,15 +1177,12 @@ void Sleepy::watchdogEvent() {
 }
 
 void Sleepy::idle () {
-    byte adcsraSave = ADCSRA;
-    ADCSRA &= ~ bit(ADEN); // disable the ADC
     set_sleep_mode(SLEEP_MODE_IDLE);
-    sleep_enable();    
-    sleep_cpu();    
+    sleep_enable();
+    sei();        // Enable interrupts    
+    sleep_cpu();  // Sleep will happen irrespective of interrupts    
     // wake up here
     sleep_disable();
-    // re-enable what we disabled
-    ADCSRA = adcsraSave;
 }
 
 word Sleepy::idleSomeTime (unsigned int secs) {
@@ -1194,6 +1191,9 @@ word Sleepy::idleSomeTime (unsigned int secs) {
     byte saveTIMSK0 = TIMSK0;
     byte savePRR = PRR;
     TIMSK0 &= ~(1 << TOIE0);      // Reduce background interrupts, millis()
+#ifndef PRR
+#define PRR PRR0
+#endif   
     PRR |= (1 << PRTIM0);         // Power down Timer0
     while (timeLeft) {
         watchdogCounter = 0;
@@ -1206,7 +1206,7 @@ word Sleepy::idleSomeTime (unsigned int secs) {
         if (watchdogCounter != 0) {
             millisAdjust = 1000;  // Wasn't interrupted for 1000ms
         }
-// Update millis as we go, if we are interrupted time(ms) might have moved on
+// Update millis as we go, if we are interrupted time(ms) should have moved on
 // for the interrupting process        
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny85__) || defined (__AVR_ATtiny44__) || defined (__AVR_ATtiny45__)
         extern volatile unsigned long millis_timer_millis;
