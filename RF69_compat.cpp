@@ -3,6 +3,10 @@
 #include <avr/sleep.h>
 #include <util/crc16.h>
 
+// pin change interrupts are currently only supported on ATmega328's
+// #define PINCHG_IRQ 1    // uncomment this to use pin-change interrupts
+
+
 volatile uint16_t rf69_crc;
 volatile uint8_t rf69_buf[72];
 
@@ -43,11 +47,44 @@ uint8_t rf69_initialize (uint8_t id, uint8_t band, uint8_t group=0xD4, uint16_t 
     RF69::group = group;
     RF69::node = id & RF12_HDR_MASK;
     delay(20); // needed to make RFM69 work properly on power-up
+
+#if PINCHG_IRQ && defined(__AVR_ATmega328__)
+    #if RFM_IRQ < 8
+        if ((nodeid & NODE_ID) != 0) {
+            bitClear(DDRD, RFM_IRQ);      // input
+            bitSet(PORTD, RFM_IRQ);       // pull-up
+            bitSet(PCMSK2, RFM_IRQ);      // pin-change
+            bitSet(PCICR, PCIE2);         // enable
+        } else
+            bitClear(PCMSK2, RFM_IRQ);
+    #elif RFM_IRQ < 14
+        if ((nodeid & NODE_ID) != 0) {
+            bitClear(DDRB, RFM_IRQ - 8);  // input
+            bitSet(PORTB, RFM_IRQ - 8);   // pull-up
+            bitSet(PCMSK0, RFM_IRQ - 8);  // pin-change
+            bitSet(PCICR, PCIE0);         // enable
+        } else
+            bitClear(PCMSK0, RFM_IRQ - 8);
+    #else
+        if ((nodeid & NODE_ID) != 0) {
+            bitClear(DDRC, RFM_IRQ - 14); // input
+            bitSet(PORTC, RFM_IRQ - 14);  // pull-up
+            bitSet(PCMSK1, RFM_IRQ - 14); // pin-change
+            bitSet(PCICR, PCIE1);         // enable
+        } else
+            bitClear(PCMSK1, RFM_IRQ - 14);
+    #endif
+#else
+
+
+    
     if (RF69::node != 0)
         attachInterrupt(IRQ_NUMBER, RF69::interrupt_compat, RISING);
     else
         detachInterrupt(IRQ_NUMBER);
     RF69::configure_compat();
+    
+#endif
     return nodeid = id;
 }
 

@@ -84,7 +84,7 @@
 #else
 
 // ATmega168, ATmega328, etc.
-#define RFM_IRQ     2
+#define RFM_IRQ     2     // or 18 for pin change on JeeNode 
 #define SS_DDR      DDRB
 #define SS_PORT     PORTB
 #define SS_BIT      2     // for PORTB: 2 = d.10, 1 = d.9, 0 = d.8
@@ -253,7 +253,7 @@ static void rf12_xfer (uint16_t cmd) {
 /// @param cmd RF12 command, topmost bits determines which register is affected.
 uint16_t rf12_control(uint16_t cmd) {
 #ifdef EIMSK
-#if PINCHG_IRQ
+#if PINCHG_IRQ && defined(__AVR_ATmega328__)
     #if RFM_IRQ < 8
         bitClear(PCICR, PCIE2);
     #elif RFM_IRQ < 14
