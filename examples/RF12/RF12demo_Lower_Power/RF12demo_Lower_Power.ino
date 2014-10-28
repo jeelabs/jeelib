@@ -1286,8 +1286,16 @@ void loop () {
                 printOneChar(' ');
             showByte(rf12_len);
         }
-        
-        if (n == 66) {
+        byte testPacket;
+        if (n == 66) { // Is it a test packet
+            testPacket = true;
+            for (byte b = 1; b < 65; b++) {
+                if ((((rf12_data[b]) + 1) & 255) != rf12_data[b + 1]) {
+                    testPacket = false;
+                }
+            }
+        }
+        if (testPacket) {        
             testRX++;
             showString(PSTR(" t")); // Abbreviate Test string
             showByte(rf12_data[1]);
@@ -1376,7 +1384,7 @@ void loop () {
                 printASCII(rf12_hdr);      // hdr
                 printASCII(rf12_len);      // len
             }
-            if (n == 66) {
+            if (testPacket) {
                 showString(PSTR("t")); // Abbreviate Test string
                 showByte(rf12_data[1]);
                 displayASCII((const byte*) rf12_data, 1);
