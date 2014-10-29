@@ -21,8 +21,17 @@
 #define STATISTICS   1   // Define to include stats gathering - Adds 406 bytes to Tiny image
 #define NODE31ALLOC  1   // Define to include offering of spare node numbers if node 31 requests ack
 #define DEBUG        1   //
-// #define PINCHG_IRQ 1    // uncomment this to use pin-change interrupts
+// 
+#define PINCHG_IRQ 1    // uncomment this to use pin-change interrupts
 
+/* 
+
+  If using pin change inerrupts with the RFM69x hardware then three other files also need to be changed:
+    RF69_avr.h
+    RF69_compat.cpp
+    RF12.cpp
+
+*/
 #define REG_SYNCCONFIG 0x2E  // RFM69 only, register containing sync length
 #define oneByteSync    0x80  // RFM69 only, value to get only one byte sync.
 #define REG_SYNCGROUP  0x33  // RFM69 only, register containing group number
@@ -946,6 +955,7 @@ void setup () {
 #if defined PRR2
     PRR1 |= (1 << PRTIM3);  // 1284P
 #endif
+// TODO Any Tiny power reduction registers
 
 #if TINY
     delay(1000);  // shortened for now. Handy with JeeNode Micro V1 where ISP
@@ -1175,11 +1185,15 @@ static void nodeShow(byte group) {
     printOneChar(',');
     Serial.println(freeRam());
     Serial.print(testTX);
-    printOneChar(',');
-    Serial.println(busyCount);
+    printOneChar('-');
+    Serial.print(busyCount);
+    printOneChar('=');
+    Serial.println(testTX - busyCount);
     Serial.print(testRX);
-    printOneChar(',');
-    Serial.println(missedTests);
+    printOneChar('+');
+    Serial.print(missedTests);
+    printOneChar('=');
+    Serial.println(testRX + missedTests);
     busyCount = missedTests = testTX = testRX = testCounter = lastTest = 0;
     idleTime = loopCount = 0;
 } // nodeShow
@@ -1291,7 +1305,8 @@ void loop () {
         if (n == 66) { // Is it a test packet
             testPacket = true;
             for (byte b = 1; b < 65; b++) {
-                if ((((rf12_data[b]) + 1) & 255) != rf12_data[b + 1]) {
+// TODO if ((((rf12_data[b]) + 1) & 255) != rf12_data[b + 1]) {
+                if ((byte) (rf12_data[b] + 1) != rf12_data[b + 1]) {
                     testPacket = false;
                 }
             }
@@ -1342,8 +1357,8 @@ void loop () {
         if (config.output & 0x1)                  // Hex output?
             showByte(observedRX.rssi2);
         else {
-            Serial.print(observedRX.rssi2 / 2);
-            if ((observedRX.rssi2 << 7) << 7) showString(PSTR(".5"));
+            Serial.print(observedRX.rssi2 >> 1);
+            if (observedRX.rssi2 & 0x01) showString(PSTR(".5"));
             showString(PSTR("dB"));
         }
         printOneChar(')');
@@ -1561,7 +1576,7 @@ void loop () {
         if (!cmd) {
             // Interrupts are already disabled            
 #define MAXIDLE 100
-#if PINCHG_IRQ
+#ifdef PINCHG_IRQ
             idleTime += Sleepy::loseSomeTime(60000); // ms
 #else
             idleTime += ((MAXIDLE * 2) - Sleepy::idleSomeTime(MAXIDLE)); // Seconds*2

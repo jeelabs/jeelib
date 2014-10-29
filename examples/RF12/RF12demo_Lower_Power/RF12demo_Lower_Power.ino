@@ -945,6 +945,7 @@ void setup () {
 #if defined PRR2
     PRR1 |= (1 << PRTIM3);  // 1284P
 #endif
+// TODO Any Tiny power reduction registers
 
 #if TINY
     delay(1000);  // shortened for now. Handy with JeeNode Micro V1 where ISP
@@ -1290,7 +1291,8 @@ void loop () {
         if (n == 66) { // Is it a test packet
             testPacket = true;
             for (byte b = 1; b < 65; b++) {
-                if ((((rf12_data[b]) + 1) & 255) != rf12_data[b + 1]) {
+// TODO if ((((rf12_data[b]) + 1) & 255) != rf12_data[b + 1]) {
+                if ((byte) (rf12_data[b] + 1) != rf12_data[b + 1]) {
                     testPacket = false;
                 }
             }
@@ -1341,8 +1343,8 @@ void loop () {
         if (config.output & 0x1)                  // Hex output?
             showByte(observedRX.rssi2);
         else {
-            Serial.print(observedRX.rssi2 / 2);
-            if ((observedRX.rssi2 << 7) << 7) showString(PSTR(".5"));
+            Serial.print(observedRX.rssi2 >> 1);
+            if (observedRX.rssi2 & 0x01) showString(PSTR(".5"));
             showString(PSTR("dB"));
         }
         printOneChar(')');

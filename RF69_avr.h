@@ -2,7 +2,8 @@
 #include <util/crc16.h>
 
 // pin change interrupts are currently only supported on ATmega328's
-// #define PINCHG_IRQ 1    // uncomment this to use pin-change interrupts
+// 
+#define PINCHG_IRQ 1    // uncomment this to use pin-change interrupts
 // For pin change interrupts make sure you adjust the RFM_IRQ at line 130
 
 
@@ -127,7 +128,7 @@ static void spiConfigPins () {
 
 #else // ATmega168, ATmega328, etc.
 
-define RFM_IRQ      2       // or 18 for pin change on JeeNode 
+#define RFM_IRQ     2     // or 18 for pin change on JeeNode 
 #define SS_DDR      DDRB
 #define SS_PORT     PORTB
 #define SS_BIT      2     // for PORTB: 2 = d.10, 1 = d.9, 0 = d.8
@@ -146,16 +147,17 @@ static void spiConfigPins () {
 
 #endif
 
-#ifndef EIMSK
-#if PINCHG_IRQ && defined(__AVR_ATmega328__)
-    #if RFM_IRQ < 8
-        bitClear(PCICR, PCIE2);
-    #elif RFM_IRQ < 14
-        bitClear(PCICR, PCIE0);
-    #else
-        bitClear(PCICR, PCIE1);
+#ifdef EIMSK
+    #if PINCHG_IRQ && defined(__AVR_ATmega328__)
+        #if RFM_IRQ < 8
+            bitClear(PCICR, PCIE2);
+        #elif RFM_IRQ < 14
+            bitClear(PCICR, PCIE0);
+        #else
+           bitClear(PCICR, PCIE1);
+       #endif
     #endif
-#endif
+#else
 #define EIMSK GIMSK // ATtiny
 #endif
 
