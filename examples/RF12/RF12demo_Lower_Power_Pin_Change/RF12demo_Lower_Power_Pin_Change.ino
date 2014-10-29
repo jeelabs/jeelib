@@ -147,7 +147,8 @@ static byte inChar () {
 #endif
 
 ISR(WDT_vect) { Sleepy::watchdogEvent(); }
-
+// ISR(USART_RX_vect){
+//}
 static unsigned long now () {
     // FIXME 49-day overflow
     return millis() / 1000;
@@ -248,6 +249,7 @@ const char messagesF[] PROGMEM = {
 byte messagesR[messageStore];
 
 unsigned int loopCount, idleTime = 0;
+unsigned long sleepMillis;
 
 byte *sourceR;
 byte topMessage;    // Used to store highest message number
@@ -1037,7 +1039,11 @@ memset(pktCount,0,sizeof(pktCount));
 #if !TINY
     showHelp();
 #endif
-
+/*
+    UCSR0A |= RXC0;
+    UCSR0B |= RXCIE0;
+*/
+    sleepMillis = millis() + 5000;
 } // setup
 
 #if DEBUG
@@ -1573,11 +1579,16 @@ void loop () {
             activityLed(0);
         }
     } else { // rf12_recvDone
-        if (!cmd) {
+        if ((!cmd) && (millis() > sleepMillis)) {
             // Interrupts are already disabled            
 #define MAXIDLE 100
 #ifdef PINCHG_IRQ
-            idleTime += Sleepy::loseSomeTime(60000); // ms
+            sei();
+            Serial.print("\r            ");
+            Serial.flush();           
+            idleTime += Sleepy::loseSomeTime(10000); // ms
+            sleepMillis = millis() + 5000;
+            Serial.print("\r5 seconds...\r");
 #else
             idleTime += ((MAXIDLE * 2) - Sleepy::idleSomeTime(MAXIDLE)); // Seconds*2
 #endif            
@@ -1587,6 +1598,7 @@ void loop () {
     // If we didn't sleep interrupts then are still disabled from prior to rf12_recvDone()
     sei();
     if (cmd) {  // Checking again in case it interrupted whilst we slept
+        sleepMillis = millis() + 5000; // Stay awake for 5 seconds
         if (rf12_canSend()) {
             activityLed(1);
 
