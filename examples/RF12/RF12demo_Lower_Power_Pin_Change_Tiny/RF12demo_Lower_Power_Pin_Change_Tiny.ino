@@ -15,12 +15,12 @@
 #define RF69_COMPAT  1   // define this to use the RF69 driver i.s.o. RF12 - Adds 650 bytes to Tiny image
 #define OOK          0   // Define this to include OOK code f, k - Adds 520 bytes to Tiny image
 #define JNuMOSFET    0   // Define to power up RFM12B on JNu2/3 - Adds 4 bytes to Tiny image
-#define configSTRING 1   // Define to include "A i1 g210 @ 868 MHz q1" - Adds 442 bytes to Tiny image
-#define HELP         1   // Define to include the help text
-#define MESSAGING    1   // Define to include message posting code m, p - Will not fit into any Tiny image
-#define STATISTICS   1   // Define to include stats gathering - Adds 406 bytes to Tiny image
-#define NODE31ALLOC  1   // Define to include offering of spare node numbers if node 31 requests ack
-#define DEBUG        1   //
+#define configSTRING 0   // Define to include "A i1 g210 @ 868 MHz q1" - Adds 442 bytes to Tiny image
+#define HELP         0   // Define to include the help text
+#define MESSAGING    0   // Define to include message posting code m, p - Will not fit into any Tiny image
+#define STATISTICS   0   // Define to include stats gathering - Adds 406 bytes to Tiny image
+#define NODE31ALLOC  0   // Define to include offering of spare node numbers if node 31 requests ack
+#define DEBUG        0   //
 // 
 #define PINCHG_IRQ 1    // uncomment this to use pin-change interrupts
 

@@ -323,7 +323,7 @@ static void rf12_interrupt () {
     }
 }
 
-#if PINCHG_IRQ
+#if PINCHG_IRQ && defined(__AVR_ATmega328__)
     #if RFM_IRQ < 8
         ISR(PCINT2_vect) {
             while (!bitRead(PIND, RFM_IRQ))
@@ -587,7 +587,7 @@ uint8_t rf12_initialize (uint8_t id, uint8_t band, uint8_t g, uint16_t f) {
     rf12_xfer(0xC049); // 1.66MHz,3.1V 
 
     rxstate = TXIDLE;
-#if PINCHG_IRQ
+#if PINCHG_IRQ && defined(__AVR_ATmega328__)
     #if RFM_IRQ < 8
         if ((nodeid & NODE_ID) != 0) {
             bitClear(DDRD, RFM_IRQ);      // input
