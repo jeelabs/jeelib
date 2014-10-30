@@ -1186,7 +1186,7 @@ static void nodeShow(byte group) {
     printOneChar(')');
 #endif
     Serial.println();
-    Serial.print(idleTime >> 2);
+    Serial.print(idleTime >> 1);
     printOneChar(',');
     Serial.print(loopCount);
     printOneChar(',');
