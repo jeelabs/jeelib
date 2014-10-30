@@ -253,35 +253,41 @@ static void rf12_xfer (uint16_t cmd) {
 /// "0x0000" status poll command.
 /// @param cmd RF12 command, topmost bits determines which register is affected.
 uint16_t rf12_control(uint16_t cmd) {
-#ifdef EIMSK
-#if PINCHG_IRQ && defined(__AVR_ATmega328__)
-    #if RFM_IRQ < 8
-        bitClear(PCICR, PCIE2);
-    #elif RFM_IRQ < 14
-        bitClear(PCICR, PCIE0);
+#ifdef EIMSK    // ATMega
+    #if PINCHG_IRQ
+        #if RFM_IRQ < 8
+           bitClear(PCICR, PCIE2);
+        #elif RFM_IRQ < 14
+           bitClear(PCICR, PCIE0);
+        #else
+           bitClear(PCICR, PCIE1);
+        #endif
     #else
-        bitClear(PCICR, PCIE1);
+        bitClear(EIMSK, INT0);
     #endif
-#else
-    bitClear(EIMSK, INT0);
-#endif
-   uint16_t r = rf12_xferSlow(cmd);
-#if PINCHG_IRQ
-    #if RFM_IRQ < 8
-        bitSet(PCICR, PCIE2);
-    #elif RFM_IRQ < 14
-        bitSet(PCICR, PCIE0);
+    uint16_t r = rf12_xferSlow(cmd);  // Is this still required? 
+    #if PINCHG_IRQ
+        #if RFM_IRQ < 8
+            bitSet(PCICR, PCIE2);
+        #elif RFM_IRQ < 14
+            bitSet(PCICR, PCIE0);
+        #else
+            bitSet(PCICR, PCIE1);
+        #endif
     #else
-        bitSet(PCICR, PCIE1);
+       bitSet(EIMSK, INT0);
     #endif
-#else
-    bitSet(EIMSK, INT0);
-#endif
-#else
-    // ATtiny
-    bitClear(GIMSK, INT0);
-    uint16_t r = rf12_xferSlow(cmd);
-    bitSet(GIMSK, INT0);
+#endif        // ATMega
+
+#ifdef GIMSK  // ATtiny84
+    #if PINCHG_IRQ
+        bitClear(GIMSK, INT0);
+        uint16_t r = rf12_xferSlow(cmd);  // Is this still required
+        bitSet(GIMSK, PCIE1)
+    #else
+        bitClear(GIMSK, PCIE1);
+        bitSet(GIMSK, INT0);
+    #endif
 #endif
     return r;
 }
@@ -323,22 +329,32 @@ static void rf12_interrupt () {
     }
 }
 
-#if PINCHG_IRQ && defined(__AVR_ATmega328__)
-    #if RFM_IRQ < 8
-        ISR(PCINT2_vect) {
-            while (!bitRead(PIND, RFM_IRQ))
-                rf12_interrupt();
-        }
-    #elif RFM_IRQ < 14
-        ISR(PCINT0_vect) { 
-            while (!bitRead(PINB, RFM_IRQ - 8))
-                rf12_interrupt();
-        }
-    #else
+#ifdef EIMSK    // ATMega
+    #if PINCHG_IRQ
+        #if RFM_IRQ < 8
+            ISR(PCINT2_vect) {
+                while (!bitRead(PIND, RFM_IRQ))
+                    rf12_interrupt();
+            }
+        #elif RFM_IRQ < 14
+            ISR(PCINT0_vect) { 
+                while (!bitRead(PINB, RFM_IRQ - 8))
+                    rf12_interrupt();
+            }
+        #else
+            ISR(PCINT1_vect) {
+                while (!bitRead(PINC, RFM_IRQ - 14))
+                    rf12_interrupt();
+            }
+        #endif
+    #endif
+#endif
+#ifdef GIMSK    // ATTiny
+    #if PINCHG_IRQ
         ISR(PCINT1_vect) {
-            while (!bitRead(PINC, RFM_IRQ - 14))
+            while (!bitRead(PINB, RFM_IRQ)) // PCINT10        //TODO CHECK IRQ
                 rf12_interrupt();
-        }
+            }
     #endif
 #endif
 
@@ -587,7 +603,7 @@ uint8_t rf12_initialize (uint8_t id, uint8_t band, uint8_t g, uint16_t f) {
     rf12_xfer(0xC049); // 1.66MHz,3.1V 
 
     rxstate = TXIDLE;
-#if PINCHG_IRQ && defined(__AVR_ATmega328__)
+#if PINCHG_IRQ
     #if RFM_IRQ < 8
         if ((nodeid & NODE_ID) != 0) {
             bitClear(DDRD, RFM_IRQ);      // input

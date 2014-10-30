@@ -941,7 +941,10 @@ void setup () {
     ACSR |= (1<<ACD);       // Disable Analog Comparator
     ADCSRA &= ~ bit(ADEN);  // disable the ADC
 // Switch off some unused hardware
-    PRR |= (1 << PRTIM2) | (1 << PRTIM1) | (1 << PRADC);
+    PRR |= (1 << PRTIM1) | (1 << PRADC);
+#if defined PRTIM2
+    PRR |= (1 << PRTIM2);
+#endif
 #if defined PRR2
     PRR1 |= (1 << PRTIM3);  // 1284P
 #endif
