@@ -11,16 +11,22 @@
 
 // RF69n driver is around 636 bytes larger than RF12B when compiled for Uno
 // RF69n driver is around 650 bytes large than RF12B when compiled for Tiny
+#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
+#define TINY 1
+#endif
 
-#define RF69_COMPAT  1   // define this to use the RF69 driver i.s.o. RF12 - Adds 650 bytes to Tiny image
-#define OOK          0   // Define this to include OOK code f, k - Adds 520 bytes to Tiny image
-#define JNuMOSFET    0   // Define to power up RFM12B on JNu2/3 - Adds 4 bytes to Tiny image
-#define configSTRING 1   // Define to include "A i1 g210 @ 868 MHz q1" - Adds 442 bytes to Tiny image
-#define HELP         1   // Define to include the help text
-#define MESSAGING    1   // Define to include message posting code m, p - Will not fit into any Tiny image
-#define STATISTICS   1   // Define to include stats gathering - Adds 406 bytes to Tiny image
-#define NODE31ALLOC  1   // Define to include offering of spare node numbers if node 31 requests ack
-#define DEBUG        1   //
+#define RF69_COMPAT      1   // define this to use the RF69 driver i.s.o. RF12 - Adds 650 bytes to Tiny image
+#if TINY
+    #define OOK          0   // Define this to include OOK code f, k - Adds 520 bytes to Tiny image
+    #define JNuMOSFET    0   // Define to power up RFM12B on JNu2/3 - Adds 4 bytes to Tiny image
+#else
+    #define configSTRING 1   // Define to include "A i1 g210 @ 868 MHz q1" - Adds 442 bytes to Tiny image
+    #define HELP         1   // Define to include the help text
+    #define MESSAGING    1   // Define to include message posting code m, p - Will not fit into any Tiny image
+    #define STATISTICS   1   // Define to include stats gathering - Adds 406 bytes to Tiny image
+    #define NODE31ALLOC  1   // Define to include offering of spare node numbers if node 31 requests ack
+    #define DEBUG        1   //
+#endif
 
 #define REG_SYNCCONFIG 0x2E  // RFM69 only, register containing sync length
 #define oneByteSync    0x80  // RFM69 only, value to get only one byte sync.
@@ -39,8 +45,7 @@
 #if !configSTRING
 #define rf12_configDump()                 // Omit A i1 g210 @ 868 MHz q1
 #endif
-#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
-#define TINY        1
+#if TINY
 #define SERIAL_BAUD    38400   // can only be 9600 or 38400
 #define DATAFLASH      0       // do not change
 #undef  LED_PIN             // do not change
@@ -1170,7 +1175,7 @@ static void nodeShow(byte group) {
     printOneChar(')');
 #endif
     Serial.println();
-    Serial.print(idleTime >> 2);
+    Serial.print(idleTime >> 1);
     printOneChar(',');
     Serial.print(loopCount);
     printOneChar(',');
@@ -1178,11 +1183,15 @@ static void nodeShow(byte group) {
     printOneChar(',');
     Serial.println(freeRam());
     Serial.print(testTX);
-    printOneChar(',');
-    Serial.println(busyCount);
+    printOneChar('-');
+    Serial.print(busyCount);
+    printOneChar('=');
+    Serial.println(testTX - busyCount);
     Serial.print(testRX);
-    printOneChar(',');
-    Serial.println(missedTests);
+    printOneChar('+');
+    Serial.print(missedTests);
+    printOneChar('=');
+    Serial.println(testRX + missedTests);
     busyCount = missedTests = testTX = testRX = testCounter = lastTest = 0;
     idleTime = loopCount = 0;
 } // nodeShow

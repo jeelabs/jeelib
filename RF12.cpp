@@ -14,9 +14,8 @@
 #endif
 
 #define OPTIMIZE_SPI 1  // uncomment this to write to the RFM12B @ 8 Mhz
-//namespace RF12 { extern int16_t  intCount; }
 
-// pin change interrupts are currently only supported on ATmega328's
+// TODO pin change interrupts are currently only supported on ATmega328's
 // 
 #define PINCHG_IRQ 1    // uncomment this to use pin-change interrupts
 
@@ -60,7 +59,7 @@
 
 #elif defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
 
-#define RFM_IRQ     4     // 2 or 4 for pin change on JeeNode
+#define RFM_IRQ     2     // 2 for pin change on JeeNode
 #define SS_DDR      DDRB
 #define SS_PORT     PORTB
 #define SS_BIT      1
@@ -85,7 +84,7 @@
 #else
 
 // ATmega168, ATmega328, etc.
-#define RFM_IRQ     2     // 2 or 18 for pin change on JeeNode 
+#define RFM_IRQ     2     // 2 for pin change on JeeNode 
 #define SS_DDR      DDRB
 #define SS_PORT     PORTB
 #define SS_BIT      2     // for PORTB: 2 = d.10, 1 = d.9, 0 = d.8
@@ -641,7 +640,7 @@ uint8_t rf12_initialize (uint8_t id, uint8_t band, uint8_t g, uint16_t f) {
     #endif
 #endif
 
-#ifdef GIMSK
+#ifdef GIMSK    // ATTiny
     #if PINCHG_IRQ
         if ((nodeid & NODE_ID) != 0) {
             bitClear(DDRB, RFM_IRQ);      // input

@@ -11,24 +11,31 @@
 
 // RF69n driver is around 636 bytes larger than RF12B when compiled for Uno
 // RF69n driver is around 650 bytes large than RF12B when compiled for Tiny
+#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
+    #define TINY 1
+#endif
 
-#define RF69_COMPAT  1   // define this to use the RF69 driver i.s.o. RF12 - Adds 650 bytes to Tiny image
-#define OOK          0   // Define this to include OOK code f, k - Adds 520 bytes to Tiny image
-#define JNuMOSFET    0   // Define to power up RFM12B on JNu2/3 - Adds 4 bytes to Tiny image
-#define configSTRING 1   // Define to include "A i1 g210 @ 868 MHz q1" - Adds 442 bytes to Tiny image
-#define HELP         1   // Define to include the help text
-#define MESSAGING    1   // Define to include message posting code m, p - Will not fit into any Tiny image
-#define STATISTICS   1   // Define to include stats gathering - Adds 406 bytes to Tiny image
-#define NODE31ALLOC  1   // Define to include offering of spare node numbers if node 31 requests ack
-#define DEBUG        1   //
-// 
+#define RF69_COMPAT      1   // define this to use the RF69 driver i.s.o. RF12 - Adds 650 bytes to Tiny image
+#if TINY
+    #define OOK          0   // Define this to include OOK code f, k - Adds 520 bytes to Tiny image
+    #define JNuMOSFET    0   // Define to power up RFM12B on JNu2/3 - Adds 4 bytes to Tiny image
+#else
+    #define configSTRING 1   // Define to include "A i1 g210 @ 868 MHz q1" - Adds 442 bytes to Tiny image
+    #define HELP         1   // Define to include the help text
+    #define MESSAGING    1   // Define to include message posting code m, p - Will not fit into any Tiny image
+    #define STATISTICS   1   // Define to include stats gathering - Adds 406 bytes to Tiny image
+    #define NODE31ALLOC  1   // Define to include offering of spare node numbers if node 31 requests ack
+    #define DEBUG        1   //
+#endif
+
+// pin change interrupts are currently only supported on ATmega328's
+// TODO DEBUG
 #define PINCHG_IRQ 1    // uncomment this to use pin-change interrupts
 
 /* 
 
   If using pin change inerrupts with the RFM69x hardware then three other files also need to be changed:
     RF69_avr.h
-    RF69_compat.cpp
     RF12.cpp
 
 */
@@ -49,8 +56,7 @@
 #if !configSTRING
 #define rf12_configDump()                 // Omit A i1 g210 @ 868 MHz q1
 #endif
-#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
-#define TINY        1
+#if TINY
 #define SERIAL_BAUD    38400   // can only be 9600 or 38400
 #define DATAFLASH      0       // do not change
 #undef  LED_PIN             // do not change
