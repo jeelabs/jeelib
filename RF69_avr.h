@@ -4,8 +4,8 @@
 // pin change interrupts are currently only supported on ATmega328's
 // 
 #define PINCHG_IRQ 1    // uncomment this to use pin-change interrupts
-// For pin change interrupts make sure you adjust the RFM_IRQ at line 130
 
+// For pin change interrupts make sure you adjust the RFM_IRQ around line 130
 
 // prog_uint8_t appears to be deprecated in avr libc, this resolves it for now
 #define __PROG_TYPES_COMPAT__
@@ -80,7 +80,7 @@ static void spiConfigPins () {
 
 #elif defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
 
-#define RFM_IRQ     2
+#define RFM_IRQ     2     // 2 for pin change on JeeNode
 #define SS_DDR      DDRB
 #define SS_PORT     PORTB
 #define SS_BIT      1
@@ -128,7 +128,7 @@ static void spiConfigPins () {
 
 #else // ATmega168, ATmega328, etc.
 
-#define RFM_IRQ     2     // or 18 for pin change on JeeNode 
+#define RFM_IRQ     2     // 2 for pin change on JeeNode 
 #define SS_DDR      DDRB
 #define SS_PORT     PORTB
 #define SS_BIT      2     // for PORTB: 2 = d.10, 1 = d.9, 0 = d.8
@@ -148,22 +148,36 @@ static void spiConfigPins () {
 #endif
 
 #ifdef EIMSK
-    #if PINCHG_IRQ && defined(__AVR_ATmega328__)
+    #define XXMSK EIMSK
+
+    #if PINCHG_IRQ
         #if RFM_IRQ < 8
-            bitClear(PCICR, PCIE2);
+            #define INT_BIT PCIE2
+//            bitSet(PCICR, PCIE2);
         #elif RFM_IRQ < 14
-            bitClear(PCICR, PCIE0);
+            #define INT_BIT PCIE0
+//            bitSet(PCICR, PCIE0);
         #else
-           bitClear(PCICR, PCIE1);
-       #endif
+            #define INT_BIT PCIE1
+//            bitSet(PCICR, PCIE1);
+        #endif
     #endif
-#else
-#define EIMSK GIMSK // ATtiny
+
+#endif
+
+#ifdef GIMSK    // ATTiny
+    #define XXMSK GIMSK    
+    #if PINCHG_IRQ
+        #define INT_BIT PCIE1
+//        bitSet(GIMSK, PCIE1);
+//        }        
+    #endif
+
 #endif
 
 struct PreventInterrupt {
-    PreventInterrupt () { EIMSK &= ~ _BV(IRQ_NUMBER); }
-    ~PreventInterrupt () { EIMSK |= _BV(IRQ_NUMBER); }
+    PreventInterrupt () { XXMSK &= ~ _BV(INT_BIT); }
+    ~PreventInterrupt () { XXMSK |= _BV(INT_BIT); }
 };
 
 static void spiInit (void) {
