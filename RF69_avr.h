@@ -1,5 +1,10 @@
 #include <avr/interrupt.h>
 #include <util/crc16.h>
+#if ARDUINO >= 100
+#include <Arduino.h>  // Arduino 1.0
+#else
+#include <WProgram.h> // Arduino 0022
+#endif
 
 // pin change interrupts are currently only supported on ATmega328's
 // 
@@ -147,32 +152,39 @@ static void spiConfigPins () {
 
 #endif
 
-#ifdef EIMSK
+#ifdef EIMSK    // ATMega
     #define XXMSK EIMSK
-
     #if PINCHG_IRQ
         #if RFM_IRQ < 8
             #define INT_BIT PCIE2
-//            bitSet(PCICR, PCIE2);
+            ISR(PCINT2_vect) {// Create appropriate pin change interrupt handler
+                while (!bitRead(PIND, RFM_IRQ))
+                    RF69::interrupt_compat();
+            }
         #elif RFM_IRQ < 14
             #define INT_BIT PCIE0
-//            bitSet(PCICR, PCIE0);
+            ISR(PCINT0_vect) {// Create appropriate pin change interrupt handler 
+                while (!bitRead(PINB, RFM_IRQ - 8))
+                    RF69::interrupt_compat();
+            }
         #else
             #define INT_BIT PCIE1
-//            bitSet(PCICR, PCIE1);
+            ISR(PCINT1_vect) {// Create appropriate pin change interrupt handler
+                while (!bitRead(PINC, RFM_IRQ - 14))
+                    RF69::interrupt_compat();
+            }
         #endif
     #endif
-
 #endif
-
 #ifdef GIMSK    // ATTiny
     #define XXMSK GIMSK    
-    #if PINCHG_IRQ
+    #if PINCHG_IRQ            
         #define INT_BIT PCIE1
-//        bitSet(GIMSK, PCIE1);
-//        }        
+        ISR(PCINT1_vect) {// Create appropriate pin change interrupt handler
+            while (!bitRead(PINB, RFM_IRQ)) // PCINT10        //TODO CHECK IRQ
+                RF69::interrupt_compat();
+            }
     #endif
-
 #endif
 
 struct PreventInterrupt {
