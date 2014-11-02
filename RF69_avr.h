@@ -216,7 +216,7 @@ static uint8_t spiTransferByte (uint8_t out) {
         ;
     return SPDR;
 #else
-setPrescaler(2);  // div 4, i.e. 2 MHz
+setPrescaler(1);  // TODO div 4, i.e. 2 MHz
     USIDR = out; // ATtiny
     uint8_t v1 = _BV(USIWM0) | _BV(USITC);
     uint8_t v2 = _BV(USIWM0) | _BV(USITC) | _BV(USICLK);
