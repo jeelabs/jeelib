@@ -7,8 +7,7 @@
 #endif
 
 // pin change interrupts are currently only supported on ATmega328's
-// 
-#define PINCHG_IRQ 1    // uncomment this to use pin-change interrupts
+// #define PINCHG_IRQ 1    // uncomment this to use pin-change interrupts
 
 // For pin change interrupts make sure you adjust the RFM_IRQ around line 130
 
