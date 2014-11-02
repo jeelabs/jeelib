@@ -181,7 +181,7 @@ static void spiConfigPins () {
     #if PINCHG_IRQ            
         #define INT_BIT PCIE1
         ISR(PCINT1_vect) {// Create appropriate pin change interrupt handler
-            while (!bitRead(PINB, RFM_IRQ)) // PCINT10        //TODO CHECK IRQ
+//            while (!bitRead(PINB, RFM_IRQ)) // PCINT10        //TODO CHECK IRQ
                 RF69::interrupt_compat();
             }
     #endif
@@ -216,7 +216,7 @@ static uint8_t spiTransferByte (uint8_t out) {
         ;
     return SPDR;
 #else
-setPrescaler(1);  // TODO div 4, i.e. 2 MHz
+setPrescaler(2);  // div 4, i.e. 2 MHz
     USIDR = out; // ATtiny
     uint8_t v1 = _BV(USIWM0) | _BV(USITC);
     uint8_t v2 = _BV(USIWM0) | _BV(USITC) | _BV(USICLK);
