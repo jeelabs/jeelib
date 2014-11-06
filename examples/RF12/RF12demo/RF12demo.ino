@@ -1174,7 +1174,7 @@ static void nodeShow(byte group) {
     printOneChar(')');
 #endif
     Serial.println();
-    Serial.print(idleTime >> 2);
+    Serial.print(idleTime >> 1);
     printOneChar(',');
     Serial.print(loopCount);
     printOneChar(',');
@@ -1182,11 +1182,15 @@ static void nodeShow(byte group) {
     printOneChar(',');
     Serial.println(freeRam());
     Serial.print(testTX);
-    printOneChar(',');
-    Serial.println(busyCount);
+    printOneChar('-');
+    Serial.print(busyCount);
+    printOneChar('=');
+    Serial.println(testTX - busyCount);
     Serial.print(testRX);
-    printOneChar(',');
-    Serial.println(missedTests);
+    printOneChar('+');
+    Serial.print(missedTests);
+    printOneChar('=');
+    Serial.println(testRX + missedTests);
     busyCount = missedTests = testTX = testRX = testCounter = lastTest = 0;
     idleTime = loopCount = 0;
 } // nodeShow

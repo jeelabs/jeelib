@@ -1160,8 +1160,8 @@ byte Sleepy::loseSomeTime (word msecs) {
         msleft -= halfms;
     }
     // adjust the milli ticks, since we will have missed several
-// TODO Should we update millis as we go such that any interrupting processes
-// TODO are aware of the passage of time(ms).
+// TODO Should we update milli ticks as we go such that any interrupting 
+// TODO processes are aware of the passage of time(ms).
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny85__) || defined (__AVR_ATtiny44__) || defined (__AVR_ATtiny45__)
     extern volatile unsigned long millis_timer_millis;
     millis_timer_millis += msecs - msleft;
