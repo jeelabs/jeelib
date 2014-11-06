@@ -1592,11 +1592,15 @@ void loop () {
             // Interrupts are already disabled            
 #define MAXIDLE 100
 #ifdef PINCHG_IRQ
-            sei();
-            Serial.print("\r \r");
-            Serial.flush();           
+//
+// TODO Still an interrupt lockout very occassionally
+// TODO my guess is around here, sei below?.
+//            sei();
+//            Serial.print("\r \r");
+//            Serial.flush();           
             idleTime += Sleepy::loseSomeTime(10000); // ms
-            sleepMillis = millis() + 2000;
+            sei();
+            sleepMillis = millis() + 3000;
             Serial.print("\r?");
 #else
             idleTime += ((MAXIDLE * 2) - Sleepy::idleSomeTime(MAXIDLE)); // Seconds*2
@@ -1604,13 +1608,12 @@ void loop () {
             // Interrupts are already enabled by Sleepy::idleSomeTime
         }
     }
-    // If we didn't sleep interrupts then are still disabled from prior to rf12_recvDone()
+    // If we didn't sleep then interrupts are still disabled from prior to rf12_recvDone()
     sei();
     if (cmd) {  // Checking again in case it interrupted whilst we slept
         sleepMillis = millis() + 5000; // Stay awake for 5 seconds
         if (rf12_canSend()) {
             activityLed(1);
-
             showString(PSTR(" -> "));
             showByte(sendLen);
             showString(PSTR(" b\n"));
