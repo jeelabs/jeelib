@@ -7,7 +7,8 @@
 #endif
 
 // pin change interrupts are currently only supported on ATmega328's
-// #define PINCHG_IRQ 1    // uncomment this to use pin-change interrupts
+// 
+#define PINCHG_IRQ 1    // uncomment this to use pin-change interrupts
 
 // For pin change interrupts make sure you adjust the RFM_IRQ around line 130
 
@@ -173,6 +174,8 @@ static void spiConfigPins () {
                     RF69::interrupt_compat();
             }
         #endif
+    #else
+        #define INT_BIT RFM_IRQ 
     #endif
 #endif
 #ifdef GIMSK    // ATTiny
@@ -183,6 +186,8 @@ static void spiConfigPins () {
 //            while (!bitRead(PINB, RFM_IRQ)) // PCINT10        //TODO CHECK IRQ
                 RF69::interrupt_compat();
             }
+    #else
+        #define INT_BIT RFM_IRQ
     #endif
 #endif
 

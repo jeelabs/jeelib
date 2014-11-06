@@ -11,16 +11,22 @@
 
 // RF69n driver is around 636 bytes larger than RF12B when compiled for Uno
 // RF69n driver is around 650 bytes large than RF12B when compiled for Tiny
+#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
+#define TINY 1
+#endif
 
-#define RF69_COMPAT  1   // define this to use the RF69 driver i.s.o. RF12 - Adds 650 bytes to Tiny image
-#define OOK          0   // Define this to include OOK code f, k - Adds 520 bytes to Tiny image
-#define JNuMOSFET    0   // Define to power up RFM12B on JNu2/3 - Adds 4 bytes to Tiny image
-#define configSTRING 1   // Define to include "A i1 g210 @ 868 MHz q1" - Adds 442 bytes to Tiny image
-#define HELP         1   // Define to include the help text
-#define MESSAGING    1   // Define to include message posting code m, p - Will not fit into any Tiny image
-#define STATISTICS   1   // Define to include stats gathering - Adds 406 bytes to Tiny image
-#define NODE31ALLOC  1   // Define to include offering of spare node numbers if node 31 requests ack
-#define DEBUG        1   //
+#define RF69_COMPAT      1   // define this to use the RF69 driver i.s.o. RF12 - Adds 650 bytes to Tiny image
+#if TINY
+    #define OOK          0   // Define this to include OOK code f, k - Adds 520 bytes to Tiny image
+    #define JNuMOSFET    0   // Define to power up RFM12B on JNu2/3 - Adds 4 bytes to Tiny image
+#else
+    #define configSTRING 1   // Define to include "A i1 g210 @ 868 MHz q1" - Adds 442 bytes to Tiny image
+    #define HELP         1   // Define to include the help text
+    #define MESSAGING    1   // Define to include message posting code m, p - Will not fit into any Tiny image
+    #define STATISTICS   1   // Define to include stats gathering - Adds 406 bytes to Tiny image
+    #define NODE31ALLOC  1   // Define to include offering of spare node numbers if node 31 requests ack
+    #define DEBUG        1   //
+#endif
 
 #define REG_SYNCCONFIG 0x2E  // RFM69 only, register containing sync length
 #define oneByteSync    0x80  // RFM69 only, value to get only one byte sync.
@@ -39,8 +45,7 @@
 #if !configSTRING
 #define rf12_configDump()                 // Omit A i1 g210 @ 868 MHz q1
 #endif
-#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
-#define TINY        1
+#if TINY
 #define SERIAL_BAUD    38400   // can only be 9600 or 38400
 #define DATAFLASH      0       // do not change
 #undef  LED_PIN             // do not change
@@ -136,6 +141,8 @@ static byte inChar () {
 #define MAX_NODES 100        // Contrained by RAM
 #endif
 
+ISR(WDT_vect) { Sleepy::watchdogEvent(); }
+
 static unsigned long now () {
     // FIXME 49-day overflow
     return millis() / 1000;
@@ -191,6 +198,12 @@ byte RegTestPa2_TX;
 } observed;
 static observed observedRX;
 
+byte lastTest;
+byte busyCount;
+byte missedTests;
+unsigned int testTX;
+unsigned int testRX;
+
 #if MESSAGING
 static byte semaphores[MAX_NODES];
 #endif
@@ -228,6 +241,8 @@ const char messagesF[] PROGMEM = {
 #define MessagesStart 129
 
 byte messagesR[messageStore];
+
+unsigned int loopCount, idleTime = 0;
 
 byte *sourceR;
 byte topMessage;    // Used to store highest message number
@@ -588,6 +603,7 @@ static void handleInput (char c) {
             showString(PSTR("test "));
             if (sendLen) showByte(stack[0]); // first byte in test buffer
             ++testCounter;
+            testTX++;
             break;
 
         case 'a': // send packet to node ID N, request an ack
@@ -923,7 +939,20 @@ void resetFlagsInit(void)
 #endif
 
 void setup () {
-// Not required is my guess: resetFlagsInit();
+#ifndef PRR
+#define PRR PRR0
+#endif   
+    ACSR &= (1<<ACIE);      // Disable Analog Comparator Interrupt
+    ACSR |= (1<<ACD);       // Disable Analog Comparator
+    ADCSRA &= ~ bit(ADEN);  // disable the ADC
+// Switch off some unused hardware
+    PRR |= (1 << PRTIM1) | (1 << PRADC);
+#if defined PRTIM2
+    PRR |= (1 << PRTIM2);
+#endif
+#if defined PRR2
+    PRR1 |= (1 << PRTIM3);  // 1284P
+#endif
 
 #if TINY
     delay(1000);  // shortened for now. Handy with JeeNode Micro V1 where ISP
@@ -931,6 +960,7 @@ void setup () {
 #endif
     Serial.begin(SERIAL_BAUD);
     displayVersion();
+    
 #if !TINY
     showNibble(resetFlags >> 4);
     showNibble(resetFlags);
@@ -1004,7 +1034,8 @@ memset(pktCount,0,sizeof(pktCount));
 #if !TINY
     showHelp();
 #endif
-}
+
+} // setup
 
 #if DEBUG
 /// Display eeprom configuration space
@@ -1143,8 +1174,22 @@ static void nodeShow(byte group) {
     printOneChar(')');
 #endif
     Serial.println();
+    Serial.print(idleTime >> 2);
+    printOneChar(',');
+    Serial.print(loopCount);
+    printOneChar(',');
+    Serial.print(millis());
+    printOneChar(',');
     Serial.println(freeRam());
-}
+    Serial.print(testTX);
+    printOneChar(',');
+    Serial.println(busyCount);
+    Serial.print(testRX);
+    printOneChar(',');
+    Serial.println(missedTests);
+    busyCount = missedTests = testTX = testRX = testCounter = lastTest = 0;
+    idleTime = loopCount = 0;
+} // nodeShow
 static unsigned int getIndex (byte group, byte node) {
             newNodeMap = NodeMap = 0xFFFF;
             // Search eeprom RF12_EEPROM_NODEMAP for node/group match
@@ -1167,17 +1212,21 @@ static unsigned int getIndex (byte group, byte node) {
             } 
             return(false);
 }
-
 void loop () {
+    loopCount++;
 
 #if TINY
     if (_receive_buffer_index)
         handleInput(inChar());
 #else
+    
     if (Serial.available())
         handleInput(Serial.read());
 #endif
-    if (rf12_recvDone()) {
+    Serial.flush();
+    cli();  
+    if (rf12_recvDone()) { // rf12_recvDone
+        sei();
 #if RF69_COMPAT && !TINY
         observedRX.afc = (RF69::afc);                  // Grab values before next interrupt
         observedRX.fei = (RF69::fei);
@@ -1199,6 +1248,17 @@ void loop () {
 #if STATISTICS && !TINY
             messageCount++;
 #endif
+#if DEBUG
+            if (!config.quiet_mode) {
+                Serial.print(idleTime >> 1);  // Divide by 2
+//                if ((idleTime << 15) >> 15) Serial.print(".5");
+                Serial.print("s l=");
+                Serial.print(loopCount);
+                Serial.print(" ");
+                Serial.print(millis());
+                showString(PSTR("ms "));
+            }
+#endif            
             showString(PSTR("OK"));
             crc = true;
         } else {
@@ -1234,16 +1294,38 @@ void loop () {
                 printOneChar(' ');
             showByte(rf12_len);
         }
-        for (byte i = 0; i < n; ++i) {
-            if (!(config.output & 1)) // Decimal output?
-                printOneChar(' ');
-            showByte(rf12_data[i]);
+        byte testPacket = false;
+        if (n == 66) { // Is it a test packet
+            testPacket = true;
+            for (byte b = 1; b < 65; b++) {
+                if ((((rf12_data[b]) + 1) & 255) != rf12_data[b + 1]) {
+                    testPacket = false;
+                }
+            }
+        }
+        if (testPacket) {        
+            testRX++;
+            showString(PSTR(" t")); // Abbreviate Test string
+            showByte(rf12_data[1]);
+            byte n = rf12_data[1] - (lastTest + 1);
+            if (n) {
+                printOneChar('-');
+                showByte(n);
+                missedTests =+ n;
+            }
+            lastTest = rf12_data[1];
+        } else {       
+            for (byte i = 0; i < n; ++i) {
+                if (!(config.output & 1)) // Decimal output?
+                    printOneChar(' ');
+                showByte(rf12_data[i]);
+            }
         }
 #if RF69_COMPAT && !TINY
         if (!config.quiet_mode) {
-            showString(PSTR(" afc="));
+            showString(PSTR(" a="));
             Serial.print(observedRX.afc);                        // TODO What units is this count?
-            showString(PSTR(" fei="));
+            showString(PSTR(" f="));
             Serial.print(observedRX.fei);                        // TODO What units is this count?
 /*
             LNA gain setting:
@@ -1255,10 +1337,10 @@ void loop () {
             101 G5 = highest gain – 36 dB
             110 G6 = highest gain – 48 dB
 */            
-            showString(PSTR(" lna="));
+            showString(PSTR(" l="));
             Serial.print(observedRX.lna);
 
-            showString(PSTR(" temp="));
+            showString(PSTR(" t="));
             Serial.print((RF69::readTemperature(-10)));        
         }
         
@@ -1273,14 +1355,14 @@ void loop () {
         }
         printOneChar(')');
 #endif
-//TODO        showString(PSTR(" Samples="));
+//TODO MartynJ       showString(PSTR(" Samples="));
 //TODO        Serial.print((RF69::rssiSamples));
         
         Serial.println();
         if (config.output & 0x2) { // also print a line as ascii
             showString(PSTR("ASC"));                         // 'OK'
             if (crc) {
-                printOneChar(' ');                           // ' '
+//                printOneChar(' ');                           // ' '
                 if (config.group == 0) {
                     printOneChar(' ');                       // 'G'
                     printASCII(rf12_grp);                    // grp
@@ -1310,7 +1392,13 @@ void loop () {
                 printASCII(rf12_hdr);      // hdr
                 printASCII(rf12_len);      // len
             }
-            displayASCII((const byte*) rf12_data, n);
+            if (testPacket) {
+                showString(PSTR("t")); // Abbreviate Test string
+                showByte(rf12_data[1]);
+                displayASCII((const byte*) rf12_data, 1);
+            } else {
+                displayASCII((const byte*) rf12_data, n);
+            }
             Serial.println();
         }
 
@@ -1404,7 +1492,6 @@ void loop () {
                         if (!(getIndex(rf12_grp, i ))) {         // Node/Group pair not found?
                             observedRX.offset_TX = config.frequency_offset;
 #if RF69_COMPAT                       
-//##
                             observedRX.RegPaLvl_TX = RF69::control(0x11, 0x9F);    // Pull the current RegPaLvl from the radio
                             observedRX.RegTestLna_TX = RF69::control(0x58, 0x1B);  // Pull the current RegTestLna from the radio
                             observedRX.RegTestPa1_TX = RF69::control(0x5A, 0x55);  // Pull the current RegTestPa1 from the radio
@@ -1475,11 +1562,20 @@ void loop () {
                 
             }
             if (crlf) Serial.println();
+
             activityLed(0);
         }
+    } else { // rf12_recvDone
+        if (!cmd) {
+            // Interrupts are already disabled            
+#define MAXIDLE 100
+            idleTime += ((MAXIDLE * 2) - Sleepy::idleSomeTime(MAXIDLE)); // Seconds*2
+            // Interrupts are already enabled by Sleepy::idleSomeTime
+        }
     }
-
-    if (cmd) {
+    // If we didn't sleep interrupts then are still disabled from prior to rf12_recvDone()
+    sei();
+    if (cmd) {  // Checking again in case it interrupted whilst we slept
         if (rf12_canSend()) {
             activityLed(1);
 
@@ -1496,10 +1592,10 @@ void loop () {
 #endif
             rf12_sendStart(header, stack, sendLen);
             cmd = 0;
-
             activityLed(0);
-        } else {
+        } else { // rf12_canSend
         showString(PSTR(" Busy\n"));  // Not ready to send
+        busyCount++;
         cmd = 0;                      // Request dropped
         }
     }    
