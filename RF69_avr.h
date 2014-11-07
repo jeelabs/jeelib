@@ -180,7 +180,7 @@ static void spiConfigPins () {
 #endif
 #ifdef GIMSK    // ATTiny
     #define XXMSK GIMSK    
-    #if PINCHG_IRQ            
+    #if PINCHG_IRQ
         #define INT_BIT PCIE1
         ISR(PCINT1_vect) {// Create appropriate pin change interrupt handler
 //            while (!bitRead(PINB, RFM_IRQ)) // PCINT10        //TODO CHECK IRQ

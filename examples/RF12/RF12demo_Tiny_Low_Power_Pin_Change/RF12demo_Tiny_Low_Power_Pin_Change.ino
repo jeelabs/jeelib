@@ -1020,6 +1020,13 @@ memset(pktCount,0,sizeof(pktCount));
     whackDelay(BITDELAY*2); // if we were low this establishes the end
     pinMode(_receivePin, INPUT);        // PA2 - doesn't work if before the PCMSK0 line
     digitalWrite(_receivePin, HIGH);    // pullup!
+    
+//            bitClear(DDRB, 2);      // input
+//            bitSet(PORTB, 2);       // pull-up
+            bitSet(PCMSK1, 2);      // pin-change
+            bitSet(GIMSK, PCIE1);   // enable
+   
+    
 #endif
 
 #if JNuMOSFET     // Power up the wireless hardware
@@ -1058,7 +1065,7 @@ memset(pktCount,0,sizeof(pktCount));
     UCSR0A |= RXC0;
     UCSR0B |= RXCIE0;
 */
-    sleepMillis = millis() + 5000;
+//    sleepMillis = millis() + 5000;
 } // setup
 
 #if DEBUG
@@ -1257,6 +1264,7 @@ void loop () {
     cli();  
     if (rf12_recvDone()) { // rf12_recvDone
         sei();
+        sleepMillis = millis() + 1000;                 // Stay awake for 1 second
 #if RF69_COMPAT && !TINY
         observedRX.afc = (RF69::afc);                  // Grab values before next interrupt
         observedRX.fei = (RF69::fei);
@@ -1619,7 +1627,7 @@ void loop () {
     // If we didn't sleep then interrupts are still disabled from prior to rf12_recvDone()
     sei();
     if (cmd) {  // Checking again in case it interrupted whilst we slept
-        sleepMillis = millis() + 5000; // Stay awake for 5 seconds
+        sleepMillis = millis() + 1000; // Stay awake for 1 second
         if (rf12_canSend()) {
             activityLed(1);
             showString(PSTR(" -> "));
