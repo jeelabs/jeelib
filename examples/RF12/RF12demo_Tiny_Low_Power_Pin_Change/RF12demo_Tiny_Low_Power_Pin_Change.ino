@@ -18,7 +18,7 @@
 #define RF69_COMPAT      1   // define this to use the RF69 driver i.s.o. RF12 - Adds 650 bytes to Tiny image
 #if TINY
     #define OOK          0   // Define this to include OOK code f, k - Adds 520 bytes to Tiny image
-    #define JNuMOSFET    0   // Define to power up RFM12B on JNu2/3 - Adds 4 bytes to Tiny image
+    #define JNuMOSFET    1   // Define to power up RFM12B on JNu2/3 - Adds 4 bytes to Tiny image
 #else
     #define configSTRING 1   // Define to include "A i1 g210 @ 868 MHz q1" - Adds 442 bytes to Tiny image
     #define HELP         1   // Define to include the help text
@@ -92,10 +92,10 @@ static byte stickyGroup;
 #define BITDELAY 54          // 9k6 @ 8MHz, 19k2 @16MHz
 #endif
 #if SERIAL_BAUD == 38400
-#define BITDELAY 12          // 28/5/14 from value 11 // 38k4 @ 8MHz, 76k8 @16MHz
+#define BITDELAY 11          // 28/5/14 from value 11 // 38k4 @ 8MHz, 76k8 @16MHz
 #endif
 
-#define MAX_NODES 7
+#define MAX_NODES 0
 #define _receivePin 8
 static char _receive_buffer;
 static byte _receive_buffer_index;
@@ -198,7 +198,7 @@ static byte stack[RF12_MAXDATA+4], top, sendLen, dest;
 static byte testCounter;
 static word messageCount = 0;
 
-#if !TINY
+//#if !TINY
 typedef struct {
 signed int afc;
 signed int fei;
@@ -211,13 +211,13 @@ byte RegTestPa1_TX;
 byte RegTestPa2_TX;
 } observed;
 static observed observedRX;
+//#endif
 
 byte lastTest;
 byte busyCount;
 byte missedTests;
 unsigned int testTX;
 unsigned int testRX;
-#endif
 
 #if MESSAGING
 static byte semaphores[MAX_NODES];
@@ -240,14 +240,18 @@ static signed int previousFEI;
 static unsigned int changedAFC;
 static unsigned int changedFEI;
 #endif
-#if STATISTICS && !TINY
+#if STATISTICS
 static unsigned int CRCbadCount = 0;
 static unsigned int pktCount[MAX_NODES];
 static unsigned int nonBroadcastCount = 0;
-#endif  
 static byte postingsIn, postingsOut;
-const char messagesF[] PROGMEM = { 
+#endif
+
+unsigned int loopCount, idleTime = 0;
+unsigned long sleepMillis;
+
 #if !TINY
+const char messagesF[] PROGMEM = { 
                       0x05, 'T', 'e', 's', 't', '1', 
                       0x05, 'T', 'e', 's', 't', '2', 
                                0 }; // Mandatory delimiter
@@ -255,9 +259,6 @@ const char messagesF[] PROGMEM = {
 #define MessagesStart 129
 
 byte messagesR[messageStore];
-
-unsigned int loopCount, idleTime = 0;
-unsigned long sleepMillis;
 
 byte *sourceR;
 byte topMessage;    // Used to store highest message number
@@ -501,8 +502,10 @@ static void handleInput (char c) {
         }
             showWord(value);
             showString(PSTR(",Key="));
-            showByte(c);          // Highlight Tiny serial framing errors.  
-            Serial.println();
+            showByte(c);          // Highlight Tiny serial framing errors. 
+            printOneChar(' ');
+            Serial.println(freeRam());            
+//            Serial.println();
             value = top = 0;      // Clear up
         }
 
@@ -1116,7 +1119,7 @@ static void nodeShow(byte group) {
               showString(PSTR(" post:"));      
               showByte(semaphores[index]);
 #endif
-#if RF69_COMPAT  && STATISTICS            
+#if RF69_COMPAT && STATISTICS            
               if (maxRSSI[index]) {
                   showString(PSTR(" rssi("));
                   showByte(minRSSI[index]);
@@ -1241,8 +1244,10 @@ void loop () {
     loopCount++;
 
 #if TINY
-    if (_receive_buffer_index)
+    if (_receive_buffer_index) {
         handleInput(inChar());
+        sleepMillis = millis() + 5000; // Stay awake for 5 seconds
+    }
 #else
     
     if (Serial.available())
@@ -1319,11 +1324,12 @@ void loop () {
                 printOneChar(' ');
             showByte(rf12_len);
         }
+
         byte testPacket = false;
         if (n == 66) { // Is it a test packet
             testPacket = true;
             for (byte b = 1; b < 65; b++) {
-// TODO if ((((rf12_data[b]) + 1) & 255) != rf12_data[b + 1]) {
+// TODO if ((((rf12_data[b]) + 1) & 255) != rf12_data[b + 1]) 
                 if ((byte) (rf12_data[b] + 1) != rf12_data[b + 1]) {
                     testPacket = false;
                 }
@@ -1340,7 +1346,8 @@ void loop () {
                 missedTests =+ n;
             }
             lastTest = rf12_data[1];
-        } else {       
+        } else {
+       
             for (byte i = 0; i < n; ++i) {
                 if (!(config.output & 1)) // Decimal output?
                     printOneChar(' ');
@@ -1385,6 +1392,8 @@ void loop () {
 //TODO        Serial.print((RF69::rssiSamples));
         
         Serial.println();
+        
+#if !TINY
         if (config.output & 0x2) { // also print a line as ascii
             showString(PSTR("ASC"));                         // 'OK'
             if (crc) {
@@ -1427,20 +1436,21 @@ void loop () {
             }
             Serial.println();
         }
-
+#endif
         if (rf12_crc == 0) {
             byte crlf = false;
             activityLed(1);
 
             if (df_present())
                 df_append((const char*) rf12_data - 2, rf12_len + 2);
-            
+ 
             if (!(rf12_hdr & RF12_HDR_DST)) {
             // This code only sees broadcast packets *from* another nodes.
             // Packets addressed to nodes do not identify the source node!          
             // Search RF12_EEPROM_NODEMAP for node/group match
             // Node 31 will also be added even though a Node Allocation will
             // be offered, to track everyone who was out there.
+#if !TINY           
                 if (!getIndex(rf12_grp, (rf12_hdr & RF12_HDR_MASK))) {
                     if (newNodeMap != 0xFFFF) { // Storage space available?
                         // Node 31 will also be added even though a Node Allocation will
@@ -1453,10 +1463,10 @@ void loop () {
                         Serial.println(newNodeMap);
                         eeprom_write_byte((RF12_EEPROM_NODEMAP) + (newNodeMap * 4), (rf12_hdr & RF12_HDR_MASK));  // Store Node and
                         eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 1), rf12_grp);              // and Group number
-#if RF69_COMPAT && !TINY
+    #if RF69_COMPAT
                         eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 2), observedRX.rssi2);      //  First RSSI value
                         eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 3), observedRX.lna);        //  First LNA value
-#endif
+    #endif
                         NodeMap = newNodeMap;
                         newNodeMap = 0xFFFF;
                     } else {
@@ -1468,7 +1478,8 @@ void loop () {
                         Serial.println(); 
                     }
                 }
-                 
+#endif // !TINY
+
 #if RF69_COMPAT && STATISTICS
                 // Check/update to min/max/count
                 if (observedRX.lna < (minLNA[NodeMap]))       
@@ -1512,17 +1523,17 @@ void loop () {
                         eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 1), config.group);
                         eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 2), 255);
                     }
-#if NODE31ALLOC                    
+#if NODE31ALLOC                   
                     for (byte i = 1; i < 31; i++) {
                         // Find a spare node number within received group number
                         if (!(getIndex(rf12_grp, i ))) {         // Node/Group pair not found?
                             observedRX.offset_TX = config.frequency_offset;
-#if RF69_COMPAT                       
+    #if RF69_COMPAT                       
                             observedRX.RegPaLvl_TX = RF69::control(0x11, 0x9F);    // Pull the current RegPaLvl from the radio
                             observedRX.RegTestLna_TX = RF69::control(0x58, 0x1B);  // Pull the current RegTestLna from the radio
                             observedRX.RegTestPa1_TX = RF69::control(0x5A, 0x55);  // Pull the current RegTestPa1 from the radio
                             observedRX.RegTestPa2_TX = RF69::control(0x5C, 0x70);  // Pull the current RegTestPa2 from the radio
-#endif
+    #endif
                         
                             ackLen = (sizeof observedRX) + 1;
                             stack[sizeof stack - ackLen] = i + 0xE0;  // 0xE0 is an arbitary value
@@ -1595,16 +1606,10 @@ void loop () {
             // Interrupts are already disabled            
 #define MAXIDLE 100
 #ifdef PINCHG_IRQ
-//
-// TODO Still an interrupt lockout very occassionally
-// TODO my guess is around here, sei below?.
-//            sei();
-//            Serial.print("\r \r");
-//            Serial.flush();           
             idleTime += Sleepy::loseSomeTime(10000); // ms
             sei();
-            sleepMillis = millis() + 3000;
-            Serial.print("\r?");
+//            sleepMillis = millis() + 3000;
+//            Serial.print("\r?");
 #else
             idleTime += ((MAXIDLE * 2) - Sleepy::idleSomeTime(MAXIDLE)); // Seconds*2
 #endif            
