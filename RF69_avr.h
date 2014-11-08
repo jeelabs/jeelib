@@ -12,6 +12,10 @@
 
 // For pin change interrupts make sure you adjust the RFM_IRQ around line 130
 
+// The interrupt routine (ISR) defined by rf12.cpp routine is also set up
+// because
+
+
 // prog_uint8_t appears to be deprecated in avr libc, this resolves it for now
 #define __PROG_TYPES_COMPAT__
 #include <avr/pgmspace.h>
@@ -220,7 +224,7 @@ static uint8_t spiTransferByte (uint8_t out) {
         ;
     return SPDR;
 #else
-setPrescaler(2);  // div 4, i.e. 2 MHz
+//setPrescaler(2);  // div 4, i.e. 2 MHz
     USIDR = out; // ATtiny
     uint8_t v1 = _BV(USIWM0) | _BV(USITC);
     uint8_t v2 = _BV(USIWM0) | _BV(USITC) | _BV(USICLK);
@@ -229,7 +233,7 @@ setPrescaler(2);  // div 4, i.e. 2 MHz
         USICR = v2;
     }
     
-setPrescaler(0);  // div 1, i.e. 8 MHz
+//setPrescaler(0);  // div 1, i.e. 8 MHz
     return USIDR;
 #endif
 }

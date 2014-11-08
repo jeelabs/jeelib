@@ -46,11 +46,15 @@ uint8_t rf69_initialize (uint8_t id, uint8_t band, uint8_t group=0xD4, uint16_t 
     RF69::group = group;
     RF69::node = id & RF12_HDR_MASK;
     delay(20); // needed to make RFM69 work properly on power-up
+    
+// I want to move the interrupt code below into RF69_avr.h routine
+// where better decisions can be made about pin_change interrupts or elsewise
 
     if (RF69::node != 0)
         attachInterrupt(IRQ_NUMBER, RF69::interrupt_compat, RISING);
     else
         detachInterrupt(IRQ_NUMBER);
+////////////////////////////////////////////////////////////////////////////////        
     RF69::configure_compat(); 
 
     return nodeid = id;
@@ -71,7 +75,8 @@ uint8_t rf69_configSilent () {
      
     nodeId = eeprom_read_byte(RF12_EEPROM_ADDR + 0);
     group  = eeprom_read_byte(RF12_EEPROM_ADDR + 1);
-    frequency = eeprom_read_word((uint16_t*) (RF12_EEPROM_ADDR + 4));
+    frequency = eeprom_read_byte(RF12_EEPROM_ADDR + 5);// Avoid eeprom_read_word
+    frequency = (frequency << 8) + (eeprom_read_byte(RF12_EEPROM_ADDR + 4));
                                                             
     rf69_initialize(nodeId, nodeId >> 6, group, frequency);
     RegPaLvl = eeprom_read_byte(RF12_EEPROM_ADDR + 6);
