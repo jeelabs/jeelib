@@ -6,14 +6,13 @@
 #include <WProgram.h> // Arduino 0022
 #endif
 
-// pin change interrupts are currently only supported on ATmega328's
-// 
-#define PINCHG_IRQ 1    // uncomment this to use pin-change interrupts
+// pin change interrupts are currently only supported on ATmega328's & Tiny84's
+// #define PINCHG_IRQ 1    // uncomment this to use pin-change interrupts
 
 // For pin change interrupts make sure you adjust the RFM_IRQ around line 130
 
 // The interrupt routine (ISR) defined by rf12.cpp routine is also set up
-// because
+// 
 
 
 // prog_uint8_t appears to be deprecated in avr libc, this resolves it for now
@@ -25,9 +24,11 @@
 #define ROM_DATA        PROGMEM
 
 #define IRQ_ENABLE      sei()
-#define IRQ_NUMBER      INT0
+
 #if defined(__AVR_ATmega2560__) || defined(__AVR_ATmega1280__)
 
+#define INT         INT0
+#define INT_NUMBER  0
 #define RFM_IRQ     2
 #define SS_DDR      DDRB
 #define SS_PORT     PORTB
@@ -47,6 +48,8 @@ static void spiConfigPins () {
 
 #elif defined(__AVR_ATmega644P__)
 
+#define INT         INT0
+#define INT_NUMBER  0
 #define RFM_IRQ     10
 #define SS_DDR      DDRB
 #define SS_PORT     PORTB
@@ -68,9 +71,9 @@ static void spiConfigPins () {
 #elif defined(__AVR_ATmega1284P__) // Moteino MEGA
 // http://lowpowerlab.com/moteino/#whatisitMEGA
 
+#define INT         INT2
+#define INT_NUMBER  2
 #define RFM_IRQ     2
-#undef  IRQ_NUMBER 
-#define IRQ_NUMBER  INT2
 #define SS_DDR      DDRB
 #define SS_PORT     PORTB
 #define SS_BIT      4
@@ -89,7 +92,9 @@ static void spiConfigPins () {
 
 #elif defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
 
-#define RFM_IRQ     2     // 2 for pin change on JeeNode
+#define INT         INT0
+#define INT_NUMBER  0
+#define RFM_IRQ     2
 #define SS_DDR      DDRB
 #define SS_PORT     PORTB
 #define SS_BIT      1
@@ -118,6 +123,8 @@ static void setPrescaler (uint8_t mode) {
 
 #elif defined(__AVR_ATmega32U4__) //Arduino Leonardo 
 
+#define INT         INT0
+#define INT_NUMBER  0
 #define RFM_IRQ     3	  // PD0, INT0, Digital3 
 #define SS_DDR      DDRB
 #define SS_PORT     PORTB
@@ -137,6 +144,8 @@ static void spiConfigPins () {
 
 #else // ATmega168, ATmega328, etc.
 
+#define INT         INT0
+#define INT_NUMBER  0
 #define RFM_IRQ     2     // 2 for pin change on JeeNode 
 #define SS_DDR      DDRB
 #define SS_PORT     PORTB
@@ -162,24 +171,30 @@ static void spiConfigPins () {
         #if RFM_IRQ < 8
             #define INT_BIT PCIE2
             ISR(PCINT2_vect) {// Create appropriate pin change interrupt handler
-                while (!bitRead(PIND, RFM_IRQ))
+            // RFM69x interrupts by raising RFM_IRQ
+            // Ignore the pin change interrupt as RFM_IRQ falls
+                if (bitRead(PIND, RFM_IRQ))
                     RF69::interrupt_compat();
             }
         #elif RFM_IRQ < 14
             #define INT_BIT PCIE0
             ISR(PCINT0_vect) {// Create appropriate pin change interrupt handler 
-                while (!bitRead(PINB, RFM_IRQ - 8))
+            // RFM69x interrupts by raising RFM_IRQ
+            // Ignore the pin change interrupt as RFM_IRQ falls
+                if (bitRead(PINB, RFM_IRQ - 8))
                     RF69::interrupt_compat();
             }
         #else
             #define INT_BIT PCIE1
             ISR(PCINT1_vect) {// Create appropriate pin change interrupt handler
-                while (!bitRead(PINC, RFM_IRQ - 14))
+            // RFM69x interrupts by raising RFM_IRQ
+            // Ignore the pin change interrupt as RFM_IRQ falls
+                if (bitRead(PINC, RFM_IRQ - 14))
                     RF69::interrupt_compat();
             }
         #endif
     #else
-        #define INT_BIT RFM_IRQ 
+        #define INT_BIT INT 
     #endif
 #endif
 #ifdef GIMSK    // ATTiny
@@ -187,11 +202,13 @@ static void spiConfigPins () {
     #if PINCHG_IRQ
         #define INT_BIT PCIE1
         ISR(PCINT1_vect) {// Create appropriate pin change interrupt handler
-//            while (!bitRead(PINB, RFM_IRQ)) // PCINT10        //TODO CHECK IRQ
+        // RFM69x interrupts by raising RFM_IRQ
+        // Ignore the pin change interrupt as RFM_IRQ falls
+            if (bitRead(PINB, RFM_IRQ))
                 RF69::interrupt_compat();
             }
     #else
-        #define INT_BIT RFM_IRQ
+        #define INT_BIT INT
     #endif
 #endif
 
@@ -244,4 +261,60 @@ static uint8_t spiTransfer (uint8_t cmd, uint8_t val) {
     uint8_t in = spiTransferByte(val);
     SS_PORT |= _BV(SS_BIT);
     return in;
+}
+
+static void InitIntPin () {
+#ifdef EIMSK    // ATMega
+    #if PINCHG_IRQ
+        EIMSK &= ~ (1 << INT);                // Disable INTx
+        #if RFM_IRQ < 8
+            if (RF69::node != 0) {
+                bitClear(DDRD, RFM_IRQ);      // input
+//                bitSet(PORTD, RFM_IRQ);       // pull-up
+                bitSet(PCMSK2, RFM_IRQ);      // pin-change
+                bitSet(PCICR, PCIE2);         // enable
+            } else
+                bitClear(PCMSK2, RFM_IRQ);
+        #elif RFM_IRQ < 14
+            if (RF69::node != 0) {
+                bitClear(DDRB, RFM_IRQ - 8);  // input
+//                bitSet(PORTB, RFM_IRQ - 8);   // pull-up
+                bitSet(PCMSK0, RFM_IRQ - 8);  // pin-change
+                bitSet(PCICR, PCIE0);         // enable
+            } else
+                bitClear(PCMSK0, RFM_IRQ - 8);
+        #else
+            if (RF69::node != 0) {
+                bitClear(DDRC, RFM_IRQ - 14); // input
+//                bitSet(PORTC, RFM_IRQ - 14);  // pull-up
+                bitSet(PCMSK1, RFM_IRQ - 14); // pin-change
+                bitSet(PCICR, PCIE1);         // enable
+            } else
+                bitClear(PCMSK1, RFM_IRQ - 14);
+        #endif
+    #else
+        if (RF69::node != 0)
+            attachInterrupt(INT_NUMBER, RF69::interrupt_compat, RISING);
+        else
+            detachInterrupt(INT_NUMBER);
+    #endif
+#endif
+
+#ifdef GIMSK    // ATTiny
+    #if PINCHG_IRQ
+        GIMSK &= ~ (1 << INT);            // Disable INTx
+        if (RF69::node != 0) {
+            bitClear(DDRB, RFM_IRQ);      // input
+//            bitSet(PORTB, RFM_IRQ);       // pull-up
+            bitSet(PCMSK1, RFM_IRQ);      // pin-change
+            bitSet(GIMSK, PCIE1);         // enable
+        } else
+            bitClear(PCMSK1, RFM_IRQ);                   
+    #else
+        if (RF69::node != 0)
+            attachInterrupt(INT_NUMBER, RF69::interrupt_compat, RISING);
+        else
+            detachInterrupt(INT_NUMBER);
+    #endif
+#endif
 }

@@ -1196,15 +1196,13 @@ word Sleepy::idleSomeTime (unsigned int secs) {
 #endif   
     PRR |= (1 << PRTIM0);         // Power down Timer0
     while (timeLeft) {
+        millisAdjust = 2;         // If we are interrupted assume 2ms
         watchdogCounter = 0;
-        watchdogInterrupts(6);    // 1000ms
+        watchdogInterrupts(6);    // 1024ms
         idle(); 
         watchdogInterrupts(-1);   // off
-        // when interrupted, our best guess is that half the time has passed
-        millisAdjust = 2;         // If we are interrupted assume 2ms
-        // because there are lots of Serial.print interrupts around
         if (watchdogCounter != 0) {
-            millisAdjust = 1000;  // Wasn't interrupted for 1000ms
+            millisAdjust = 1024;  // Wasn't interrupted for 1024ms
         }
 // Update millis as we go, if we are interrupted time(ms) should have moved on
 // for the interrupting process        
@@ -1220,11 +1218,78 @@ word Sleepy::idleSomeTime (unsigned int secs) {
     }
     TIMSK0 = saveTIMSK0;          // re-enable what we disabled
     PRR = savePRR;                //
-//  return, abandoning the remaining time
-    timeLeft = timeLeft << 1;
-//    if (millisAdjust == 2) --timeLeft;
-    return timeLeft; // Unused seconds, doubled for precision
+    return timeLeft;
 }
+
+
+word Sleepy::idleTimer () {
+    unsigned int timeIdle = 0;
+    word millisAdjust;
+    byte saveTIMSK0 = TIMSK0;
+    byte savePRR = PRR;
+    TIMSK0 &= ~(1 << TOIE0);      // Reduce background interrupts, millis()
+#ifndef PRR
+#define PRR PRR0
+#endif   
+    PRR |= (1 << PRTIM0);         // Power down Timer0
+    while (1) {
+        millisAdjust = 2;         // If we are interrupted assume 2ms passed
+        watchdogCounter = 0;
+        watchdogInterrupts(6);    // 1024ms
+        idle(); 
+        watchdogInterrupts(-1);   // off
+        
+        // because there are lots of Serial.print interrupts around
+        if (watchdogCounter != 0) {
+            millisAdjust = 1024;  // Wasn't interrupted for 1024ms
+        }
+// Update millis as we go, if we are interrupted time(ms) should have moved on
+// for the interrupting process        
+#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny85__) || defined (__AVR_ATtiny44__) || defined (__AVR_ATtiny45__)
+        extern volatile unsigned long millis_timer_millis;
+        millis_timer_millis += millisAdjust;
+#else
+        extern volatile unsigned long timer0_millis;
+        timer0_millis += millisAdjust;
+#endif
+    if (millisAdjust == 2) break;
+    ++timeIdle;       
+    }
+    TIMSK0 = saveTIMSK0;          // re-enable what we disabled
+    PRR = savePRR;                //
+    return timeIdle;              // Complete seconds
+}
+
+word Sleepy::pwrDownTimer () {
+    unsigned int timeOff = 0;
+    word millisAdjust;
+    while (1) {
+        millisAdjust = 2;         // If we are interrupted assume 2ms passed
+        watchdogCounter = 0;
+        watchdogInterrupts(6);    // 1024ms
+        powerDown();
+        watchdogInterrupts(-1);   // off
+        
+        // because there are lots of Serial.print interrupts around
+        if (watchdogCounter != 0) {
+            millisAdjust = 1024;  // Wasn't interrupted for 1024ms
+        }
+// Update millis as we go, if we are interrupted time(ms) should have moved on
+// for the interrupting process        
+#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny85__) || defined (__AVR_ATtiny44__) || defined (__AVR_ATtiny45__)
+        extern volatile unsigned long millis_timer_millis;
+        millis_timer_millis += millisAdjust;
+#else
+        extern volatile unsigned long timer0_millis;
+        timer0_millis += millisAdjust;
+#endif
+    if (millisAdjust == 2) break;
+    ++timeOff;       
+    }
+    return timeOff;               // Complete seconds
+}
+
+
 
 
 Scheduler::Scheduler (byte size) : remaining (~0), maxTasks (size) {

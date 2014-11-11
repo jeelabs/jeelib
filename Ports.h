@@ -363,8 +363,14 @@ public:
     /// enter idle state
     static void idle();
         
-    /// Idle while waiting for a relevant interrupt
+    /// Idle a while waiting for a relevant interrupt
     static unsigned int idleSomeTime(unsigned int secs);
+    
+    /// Idle forever waiting for a relevant interrupt
+    static unsigned int idleTimer(); 
+    
+    /// Power down forever waiting for a relevant interrupt
+    static unsigned int pwrDownTimer();
 
 };
 

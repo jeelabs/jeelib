@@ -188,6 +188,8 @@ static void setMode (uint8_t mode) {
 }
 
 static uint8_t initRadio (ROM_UINT8* init) {
+    InitIntPin();
+
     spiInit();
 // Validate SPI bus operation
     writeReg(REG_SYNCVALUE6, LIBRARY_VERSION);

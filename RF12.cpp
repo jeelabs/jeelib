@@ -1,7 +1,6 @@
 /// @file
 /// RFM12B driver implementation
 // 2009-02-09 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
-
 #include "RF12.h"
 #include <avr/io.h>
 #include <util/crc16.h>
@@ -17,6 +16,8 @@
 
 // TODO pin change interrupts are currently only supported on ATmega328's
 // #define PINCHG_IRQ 1    // uncomment this to use pin-change interrupts
+// 
+#define RF69_COMPAT      1   // define this to use the RF69 driver
 
 // maximum transmit / receive buffer: 3 header + data + 2 crc bytes
 #define RF_MAX   (RF12_MAXDATA + 5)
@@ -120,7 +121,6 @@ enum {
     TXRECV,
     TXPRE1, TXPRE2, TXPRE3, TXSYN1, TXSYN2,
 };
-
 static uint8_t cs_pin = SS_BIT;     // chip select pin
 
 static uint8_t nodeid;              // address of this node
@@ -277,7 +277,7 @@ uint16_t rf12_control(uint16_t cmd) {
     #endif
 #endif        // ATMega
 
-#ifdef GIMSK  // ATtiny84
+#ifdef GIMSK                // ATtiny84
     #if PINCHG_IRQ          // Disable the relevant interrupt
         bitClear(GIMSK, PCIE1);
     #else
@@ -329,8 +329,8 @@ static void rf12_interrupt () {
         rf12_xfer(RF_TXREG_WRITE + out);
     }
 }
-
-#ifdef EIMSK    // ATMega
+#ifndef RF69_COMPAT
+#ifdef EIMSK  // ATMega
     #if PINCHG_IRQ
         #if RFM_IRQ < 8       // Create appropriate pin change interrupt handler
             ISR(PCINT2_vect) {
@@ -350,7 +350,10 @@ static void rf12_interrupt () {
         #endif
     #endif
 #endif
-#ifdef GIMSK    // ATTiny
+#endif
+
+#ifndef RF69_COMPAT
+#ifdef GIMSK      // ATTiny
     #if PINCHG_IRQ            
         ISR(PCINT1_vect) {    // Create appropriate pin change interrupt handler
 
@@ -358,7 +361,7 @@ static void rf12_interrupt () {
             }
     #endif
 #endif
-
+#endif
 static void rf12_recvStart () {
     if (rf12_fixed_pkt_len) {
         rf12_len = rf12_fixed_pkt_len;
@@ -604,6 +607,7 @@ uint8_t rf12_initialize (uint8_t id, uint8_t band, uint8_t g, uint16_t f) {
     rf12_xfer(0xC049); // 1.66MHz,3.1V 
 
     rxstate = TXIDLE;
+#ifndef RF69_COMPAT
 #ifdef EIMSK    // ATMega
     #if PINCHG_IRQ
         #if RFM_IRQ < 8
@@ -638,7 +642,9 @@ uint8_t rf12_initialize (uint8_t id, uint8_t band, uint8_t g, uint16_t f) {
             detachInterrupt(0);
     #endif
 #endif
+#endif
 
+#ifndef RF69_COMPAT
 #ifdef GIMSK    // ATTiny
     #if PINCHG_IRQ
         if ((nodeid & NODE_ID) != 0) {
@@ -653,6 +659,7 @@ uint8_t rf12_initialize (uint8_t id, uint8_t band, uint8_t g, uint16_t f) {
         else
             detachInterrupt(0);
     #endif
+#endif
 #endif
     return nodeid;
 }

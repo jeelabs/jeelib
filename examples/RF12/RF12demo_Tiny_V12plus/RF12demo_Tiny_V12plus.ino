@@ -8,6 +8,7 @@
 
 #define RF69_COMPAT 1 // define this to use the RF69 driver i.s.o. RF12
 
+// pin change interrupts use an extra 20 bytes of flash
 #include <JeeLib.h>
 #include <util/crc16.h>
 #include <avr/eeprom.h>
@@ -16,7 +17,7 @@
 
 #define MAJOR_VERSION RF12_EEPROM_VERSION // bump when EEPROM layout changes
 #define MINOR_VERSION 2                   // bump on other non-trivial changes
-#define VERSION "[RF12demo.12]"           // keep in sync with the above
+#define VERSION "[RF12demo.12+]"           // keep in sync with the above
 
 
     #define DEBUG        1   //
@@ -627,6 +628,8 @@ void setup () {
 #if !TINY
     showHelp();
 #endif
+Serial.println(); // TODO DEBUG
+Serial.println(GIMSK, HEX);
 } // setup
 
 #if DEBUG
