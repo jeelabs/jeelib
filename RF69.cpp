@@ -280,6 +280,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
     switch (rxstate) {
     case TXIDLE:
         rxfill = rf12_len = 0;
+        // What does the next line do for group zero?
         crc = _crc16_update(~0, group);
         recvBuf = buf;
         rxstate = TXRECV;
@@ -294,13 +295,15 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
             if (rf12_len > RF12_MAXDATA) {
                 crc = 1; // force bad crc for invalid packet                
             }
+            // TODO The following test is arbitrary if the CRC is bad
             if (!(rf12_hdr & RF12_HDR_DST) || node == 31 ||
                     (rf12_hdr & RF12_HDR_MASK) == node) {
                 return crc;
             } else {
-                discards++;
-            }
-        }
+                discards++; // TODO How to return and clear the buffer
+                return ~0;  // What should we return, what does "if" detect?
+            }               // Suspect were are returning saying no packet
+        }                   // When in fact buffer was full and waiting to clear
     }
     return ~0;
 }

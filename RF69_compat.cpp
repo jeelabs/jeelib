@@ -149,7 +149,7 @@ void rf69_easyInit (uint8_t secs) {
 
 // same as in RF12, but with rf69_* calls i.s.o. rf12_*
 char rf69_easyPoll () {
-    if (rf69_recvDone() && rf12_crc == 0) {
+    if (rf69_recvDone() && rf12_crc == 0) { // TODO is rf12_crc correct here?
         byte myAddr = nodeid & RF12_HDR_MASK;
         if (rf12_hdr == (RF12_HDR_CTL | RF12_HDR_DST | myAddr)) {
             ezPending = 0;
