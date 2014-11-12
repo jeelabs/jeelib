@@ -1,5 +1,5 @@
 #include <avr/interrupt.h>
-#include <util/crc16.h>
+#include <util/crc16.h>            
 #if ARDUINO >= 100
 #include <Arduino.h>  // Arduino 1.0
 #else
@@ -147,7 +147,7 @@ static void spiConfigPins () {
 
 #define INT         INT0
 #define INT_NUMBER  0
-#define RFM_IRQ     2     // 2 for pin change on JeeNode 
+#define RFM_IRQ     18     // 2 for pin change on JeeNode 
 #define SS_DDR      DDRB
 #define SS_PORT     PORTB
 #define SS_BIT      2     // for PORTB: 2 = d.10, 1 = d.9, 0 = d.8
@@ -170,34 +170,32 @@ static void spiConfigPins () {
     #define XXMSK EIMSK
     #if PINCHG_IRQ
         #if RFM_IRQ < 8
+            #define INT_BIT PCIE0
+            ISR(PCINT0_vect) {// Create appropriate pin change interrupt handler
+            RF69::pcintCount++;
+            // RFM69x interrupts by raising RFM_IRQ
+            // Ignore the pin change interrupt as RFM_IRQ falls
+                if (bitRead(PINB, RFM_IRQ)) 
+                    RF69::interrupt_compat();
+                }
+            }
+        #elif RFM_IRQ < 15
+            #define INT_BIT PCIE1
+            ISR(PCINT1_vect) {// Create appropriate pin change interrupt handler 
+            RF69::pcintCount++;
+            // RFM69x interrupts by raising RFM_IRQ
+            // Ignore the pin change interrupt as RFM_IRQ falls
+                if (bitRead(PINC, RFM_IRQ - 8))
+                    RF69::interrupt_compat();
+            }
+            // PCINT15 is not available in ATMega328
+        #elif RFM_IRQ > 15
             #define INT_BIT PCIE2
             ISR(PCINT2_vect) {// Create appropriate pin change interrupt handler
             RF69::pcintCount++;
             // RFM69x interrupts by raising RFM_IRQ
             // Ignore the pin change interrupt as RFM_IRQ falls
-                if (bitRead(PIND, RFM_IRQ)) {
-                    bitClear(PCMSK2, RFM_IRQ);      // disable next pin-change
-                    RF69::interrupt_compat();
-                    bitClear(PCIFR, PCIF2);         // Clear pending pcint
-                    bitSet(PCMSK2, RFM_IRQ);        // enable next pin-change
-                }                                   // Doesn't loose the drop
-            }
-        #elif RFM_IRQ < 14
-            #define INT_BIT PCIE0
-            ISR(PCINT0_vect) {// Create appropriate pin change interrupt handler 
-            RF69::pcintCount++;
-            // RFM69x interrupts by raising RFM_IRQ
-            // Ignore the pin change interrupt as RFM_IRQ falls
-                if (bitRead(PINB, RFM_IRQ - 8))
-                    RF69::interrupt_compat();
-            }
-        #else
-            #define INT_BIT PCIE1
-            ISR(PCINT1_vect) {// Create appropriate pin change interrupt handler
-            RF69::pcintCount++;
-            // RFM69x interrupts by raising RFM_IRQ
-            // Ignore the pin change interrupt as RFM_IRQ falls
-                if (bitRead(PINC, RFM_IRQ - 14))
+                if (bitRead(PIND, RFM_IRQ - 16))
                     RF69::interrupt_compat();
             }
         #endif
@@ -278,28 +276,31 @@ static void InitIntPin () {
         EIMSK &= ~ (1 << INT);                // Disable INTx
         #if RFM_IRQ < 8
             if (RF69::node != 0) {
-                bitClear(DDRD, RFM_IRQ);      // input
-//                bitSet(PORTD, RFM_IRQ);       // pull-up
-                bitSet(PCMSK2, RFM_IRQ);      // pin-change
-                bitSet(PCICR, PCIE2);         // enable
-            } else
-                bitClear(PCMSK2, RFM_IRQ);
-        #elif RFM_IRQ < 14
-            if (RF69::node != 0) {
-                bitClear(DDRB, RFM_IRQ - 8);  // input
-//                bitSet(PORTB, RFM_IRQ - 8);   // pull-up
-                bitSet(PCMSK0, RFM_IRQ - 8);  // pin-change
+                bitClear(DDRB, RFM_IRQ);      // input
+//                bitSet(PORTB, RFM_IRQ);       // pull-up
+                bitSet(PCMSK0, RFM_IRQ);      // pin-change
                 bitSet(PCICR, PCIE0);         // enable
             } else
-                bitClear(PCMSK0, RFM_IRQ - 8);
-        #else
+                bitClear(PCMSK0, RFM_IRQ);
+                
+        #elif RFM_IRQ < 15
             if (RF69::node != 0) {
-                bitClear(DDRC, RFM_IRQ - 14); // input
-//                bitSet(PORTC, RFM_IRQ - 14);  // pull-up
-                bitSet(PCMSK1, RFM_IRQ - 14); // pin-change
+                bitClear(DDRC, RFM_IRQ - 8);  // input
+//                bitSet(PORTC, RFM_IRQ - 8);   // pull-up
+                bitSet(PCMSK1, RFM_IRQ - 8);  // pin-change
                 bitSet(PCICR, PCIE1);         // enable
             } else
-                bitClear(PCMSK1, RFM_IRQ - 14);
+                bitClear(PCMSK1, RFM_IRQ - 8);
+        // PCINT15 is not available in ATMega328
+
+        #elif RFM_IRQ > 15
+            if (RF69::node != 0) {
+                bitClear(DDRD, RFM_IRQ - 16); // input
+//                bitSet(PORTD, RFM_IRQ - 16);  // pull-up
+                bitSet(PCMSK2, RFM_IRQ - 16); // pin-change
+                bitSet(PCICR, PCIE2);         // enable
+            } else
+                bitClear(PCMSK2, RFM_IRQ - 16);
         #endif
     #else
         if (RF69::node != 0)
