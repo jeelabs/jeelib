@@ -95,7 +95,11 @@ static void spiConfigPins () {
 
 #define INT         INT0
 #define INT_NUMBER  0
-#define RFM_IRQ     2
+#if PINCHG_IRQ
+    #define RFM_IRQ     10     // 10 for pin change on PB2
+#else
+    #define RFM_IRQ     2      // 2 for INT0 on PB2
+#endif 
 #define SS_DDR      DDRB
 #define SS_PORT     PORTB
 #define SS_BIT      1
@@ -147,7 +151,11 @@ static void spiConfigPins () {
 
 #define INT         INT0
 #define INT_NUMBER  0
-#define RFM_IRQ     18     // 2 for pin change on JeeNode 
+#if PINCHG_IRQ
+    #define RFM_IRQ     18     // 18 for pin change on PB2
+#else
+    #define RFM_IRQ     2      // 2 for INT0 on PB2
+#endif 
 #define SS_DDR      DDRB
 #define SS_PORT     PORTB
 #define SS_BIT      2     // for PORTB: 2 = d.10, 1 = d.9, 0 = d.8
@@ -206,14 +214,25 @@ static void spiConfigPins () {
 #ifdef GIMSK    // ATTiny
     #define XXMSK GIMSK    
     #if PINCHG_IRQ
-        #define INT_BIT PCIE1
-        ISR(PCINT1_vect) {// Create appropriate pin change interrupt handler
-        RF69::pcintCount++;
-        // RFM69x interrupts by raising RFM_IRQ
-        // Ignore the pin change interrupt as RFM_IRQ falls
-            if (bitRead(PINB, RFM_IRQ))
-                RF69::interrupt_compat();
-            }
+        #if RFM_IRQ < 8
+            #define INT_BIT PCIE0
+            ISR(PCINT0_vect) {// Create appropriate pin change interrupt handler
+                RF69::pcintCount++;
+                // RFM69x interrupts by raising RFM_IRQ
+                // Ignore the pin change interrupt as RFM_IRQ falls
+                if (bitRead(PINA, RFM_IRQ))
+                    RF69::interrupt_compat();
+                }
+        #elif RFM_IRQ > 7 && RFM_IRQ < 12
+            #define INT_BIT PCIE1
+            ISR(PCINT1_vect) {// Create appropriate pin change interrupt handler
+                RF69::pcintCount++;
+                // RFM69x interrupts by raising RFM_IRQ
+                // Ignore the pin change interrupt as RFM_IRQ falls
+                if (bitRead(PINB, RFM_IRQ - 8))
+                   RF69::interrupt_compat();
+                }
+        #endif
     #else
         #define INT_BIT INT
     #endif
@@ -313,13 +332,24 @@ static void InitIntPin () {
 #ifdef GIMSK    // ATTiny
     #if PINCHG_IRQ
         GIMSK &= ~ (1 << INT);            // Disable INTx
-        if (RF69::node != 0) {
-            bitClear(DDRB, RFM_IRQ);      // input
-//            bitSet(PORTB, RFM_IRQ);       // pull-up
-            bitSet(PCMSK1, RFM_IRQ);      // pin-change
-            bitSet(GIMSK, PCIE1);         // enable
-        } else
-            bitClear(PCMSK1, RFM_IRQ);                   
+        #if RFM_IRQ < 8   // Be aware of conflict with JNu serial input
+            if (RF69::node != 0) {
+                bitClear(DDRA, RFM_IRQ);      // input
+//               bitSet(PORTA, RFM_IRQ);       // pull-up
+                bitSet(PCMSK0, RFM_IRQ);      // pin-change
+                bitSet(GIMSK, PCIE0);         // enable
+            } else
+                bitClear(PCMSK0, RFM_IRQ);                   
+
+        #elif RFM_IRQ > 7
+            if (RF69::node != 0) {
+                bitClear(DDRB, RFM_IRQ - 8);  // input
+//                bitSet(PORTB, RFM_IRQ - 8);   // pull-up
+                bitSet(PCMSK1, RFM_IRQ - 8);  // pin-change
+                bitSet(GIMSK, PCIE1);         // enable
+            } else
+                bitClear(PCMSK1, RFM_IRQ - 8);
+        #endif                   
     #else
         if (RF69::node != 0)
             attachInterrupt(INT_NUMBER, RF69::interrupt_compat, RISING);
