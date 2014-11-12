@@ -661,8 +661,6 @@ static void handleInput (char c) {
 #if RF69_COMPAT
             // The 5 byte sync used by the RFM69 reduces detected noise dramatically.
             // The command below sets the sync length to 1 to test radio reception.
-// TODO This doesn't work if the group is 0! I haven't found out why yet
-// Current consumption drops to 0, could be stuck in the interrupt routine RF69::interrupt_compat
             if ((!value) && (top == 1)) RF69::control(REG_SYNCCONFIG | 0x80, oneByteSync); // Allow noise
             // Appropriate sync length will be reset by the driver after the next transmission.
             // The 's' command is an good choice to reset the sync length. 

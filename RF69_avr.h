@@ -7,7 +7,8 @@
 #endif
 
 // pin change interrupts are currently only supported on ATmega328's & Tiny84's
-// #define PINCHG_IRQ 1    // uncomment this to use pin-change interrupts
+// 
+#define PINCHG_IRQ 1    // uncomment this to use pin-change interrupts
 
 // For pin change interrupts make sure you adjust the RFM_IRQ around line 130
 
@@ -171,14 +172,20 @@ static void spiConfigPins () {
         #if RFM_IRQ < 8
             #define INT_BIT PCIE2
             ISR(PCINT2_vect) {// Create appropriate pin change interrupt handler
+            RF69::pcintCount++;
             // RFM69x interrupts by raising RFM_IRQ
             // Ignore the pin change interrupt as RFM_IRQ falls
-                if (bitRead(PIND, RFM_IRQ))
+                if (bitRead(PIND, RFM_IRQ)) {
+                    bitClear(PCMSK2, RFM_IRQ);      // disable next pin-change
                     RF69::interrupt_compat();
+                    bitClear(PCIFR, PCIF2);         // Clear pending pcint
+                    bitSet(PCMSK2, RFM_IRQ);        // enable next pin-change
+                }                                   // Doesn't loose the drop
             }
         #elif RFM_IRQ < 14
             #define INT_BIT PCIE0
             ISR(PCINT0_vect) {// Create appropriate pin change interrupt handler 
+            RF69::pcintCount++;
             // RFM69x interrupts by raising RFM_IRQ
             // Ignore the pin change interrupt as RFM_IRQ falls
                 if (bitRead(PINB, RFM_IRQ - 8))
@@ -187,6 +194,7 @@ static void spiConfigPins () {
         #else
             #define INT_BIT PCIE1
             ISR(PCINT1_vect) {// Create appropriate pin change interrupt handler
+            RF69::pcintCount++;
             // RFM69x interrupts by raising RFM_IRQ
             // Ignore the pin change interrupt as RFM_IRQ falls
                 if (bitRead(PINC, RFM_IRQ - 14))
@@ -202,6 +210,7 @@ static void spiConfigPins () {
     #if PINCHG_IRQ
         #define INT_BIT PCIE1
         ISR(PCINT1_vect) {// Create appropriate pin change interrupt handler
+        RF69::pcintCount++;
         // RFM69x interrupts by raising RFM_IRQ
         // Ignore the pin change interrupt as RFM_IRQ falls
             if (bitRead(PINB, RFM_IRQ))

@@ -15,7 +15,8 @@
 #define OPTIMIZE_SPI 1  // uncomment this to write to the RFM12B @ 8 Mhz
 
 // TODO pin change interrupts are currently only supported on ATmega328's
-// #define PINCHG_IRQ 1    // uncomment this to use pin-change interrupts
+// 
+#define PINCHG_IRQ 1    // uncomment this to use pin-change interrupts
 // 
 #define RF69_COMPAT      1   // define this to use the RF69 driver
 
