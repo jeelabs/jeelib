@@ -1,5 +1,6 @@
 #include <avr/interrupt.h>
 #include <util/crc16.h>            
+#include <avr/sleep.h>
 #if ARDUINO >= 100
 #include <Arduino.h>  // Arduino 1.0
 #else
@@ -182,7 +183,7 @@ static void spiConfigPins () {
         #if RFM_IRQ < 8
             #define INT_BIT PCIE0
             ISR(PCINT0_vect) {// Create appropriate pin change interrupt handler
-                RF69::pcintCount++;
+                RF69::pcIntCount++;
                 // RFM69x interrupts by raising RFM_IRQ
                 // Ignore the pin change interrupt as RFM_IRQ falls
                 if (bitRead(PINB, RFM_IRQ)) 
@@ -192,7 +193,7 @@ static void spiConfigPins () {
         #elif RFM_IRQ < 15
             #define INT_BIT PCIE1
             ISR(PCINT1_vect) {// Create appropriate pin change interrupt handler 
-                RF69::pcintCount++;
+                RF69::pcIntCount++;
                 // RFM69x interrupts by raising RFM_IRQ
                 // Ignore the pin change interrupt as RFM_IRQ falls
                 if (bitRead(PINC, RFM_IRQ - 8))
@@ -205,8 +206,9 @@ static void spiConfigPins () {
             
             
 //
-                volatile byte pinD = PIND;     // Read port data
-                PCMSK2 &= (1 << RFM_IRQ - 16); // Disable 7 pin-change bits
+                volatile byte pinD = PIND;      // Read port data
+                PCMSK2 &= (1 << RFM_IRQ - 16);  // Disable 7 pin-change bits
+                sleep_disable();                // Just in case
                                 
                 if ((pinD ^ lastPCInt) & (1 << RFM_IRQ - 16)) {  // IRQ changed?
                     // RFM69x interrupts by raising RFM_IRQ, fall is ignored 
@@ -237,7 +239,7 @@ static void spiConfigPins () {
         #if RFM_IRQ < 8
             #define INT_BIT PCIE0
             ISR(PCINT0_vect) {// Create appropriate pin change interrupt handler
-                RF69::pcintCount++;
+                RF69::pcIntCount++;
                 // RFM69x interrupts by raising RFM_IRQ
                 // Ignore the pin change interrupt as RFM_IRQ falls
                 if (bitRead(PINA, RFM_IRQ))
@@ -246,7 +248,7 @@ static void spiConfigPins () {
         #elif RFM_IRQ > 7 && RFM_IRQ < 12
             #define INT_BIT PCIE1
             ISR(PCINT1_vect) {// Create appropriate pin change interrupt handler
-                RF69::pcintCount++;
+                RF69::pcIntCount++;
                 // RFM69x interrupts by raising RFM_IRQ
                 // Ignore the pin change interrupt as RFM_IRQ falls
                 if (bitRead(PINB, RFM_IRQ - 8))
