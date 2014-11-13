@@ -204,7 +204,7 @@ static void spiConfigPins () {
             ISR(PCINT2_vect) {// Create appropriate pin change interrupt handler
             
             
-/*
+//
                 volatile byte pinD = PIND;     // Read port data
                 PCMSK2 &= (1 << RFM_IRQ - 16); // Disable 7 pin-change bits
                                 
@@ -220,11 +220,11 @@ static void spiConfigPins () {
                      RF69::pcIntCount++;
                 }
                 lastPCInt = pinD;  
-*/ 
+/* 
                 PCMSK2 &= (1 << RFM_IRQ - 16); // Disable 7 pin-change bits
                 if (bitRead(PIND, RFM_IRQ - 16))
                     RF69::interrupt_compat();
-                 
+*/                 
             }
         #endif
     #else
