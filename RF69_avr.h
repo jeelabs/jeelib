@@ -12,8 +12,8 @@
 
 // For pin change interrupts make sure you adjust the RFM_IRQ around line 130
 
-// The interrupt routine (ISR) defined by rf12.cpp routine is also set up
-// 
+// The interrupt routine (ISR) defined by rf12.cpp routine may also set up
+// determined by the RF69_COMPAT flag setting
 
 
 // prog_uint8_t appears to be deprecated in avr libc, this resolves it for now
@@ -25,6 +25,8 @@
 #define ROM_DATA        PROGMEM
 
 #define IRQ_ENABLE      sei()
+
+volatile byte lastPCInt;
 
 #if defined(__AVR_ATmega2560__) || defined(__AVR_ATmega1280__)
 
@@ -180,19 +182,19 @@ static void spiConfigPins () {
         #if RFM_IRQ < 8
             #define INT_BIT PCIE0
             ISR(PCINT0_vect) {// Create appropriate pin change interrupt handler
-            RF69::pcintCount++;
-            // RFM69x interrupts by raising RFM_IRQ
-            // Ignore the pin change interrupt as RFM_IRQ falls
+                RF69::pcintCount++;
+                // RFM69x interrupts by raising RFM_IRQ
+                // Ignore the pin change interrupt as RFM_IRQ falls
                 if (bitRead(PINB, RFM_IRQ)) 
                     RF69::interrupt_compat();
-                }
+                } 
             }
         #elif RFM_IRQ < 15
             #define INT_BIT PCIE1
             ISR(PCINT1_vect) {// Create appropriate pin change interrupt handler 
-            RF69::pcintCount++;
-            // RFM69x interrupts by raising RFM_IRQ
-            // Ignore the pin change interrupt as RFM_IRQ falls
+                RF69::pcintCount++;
+                // RFM69x interrupts by raising RFM_IRQ
+                // Ignore the pin change interrupt as RFM_IRQ falls
                 if (bitRead(PINC, RFM_IRQ - 8))
                     RF69::interrupt_compat();
             }
@@ -200,11 +202,29 @@ static void spiConfigPins () {
         #elif RFM_IRQ > 15
             #define INT_BIT PCIE2
             ISR(PCINT2_vect) {// Create appropriate pin change interrupt handler
-            RF69::pcintCount++;
-            // RFM69x interrupts by raising RFM_IRQ
-            // Ignore the pin change interrupt as RFM_IRQ falls
+            
+            
+/*
+                volatile byte pinD = PIND;     // Read port data
+                PCMSK2 &= (1 << RFM_IRQ - 16); // Disable 7 pin-change bits
+                                
+                if ((pinD ^ lastPCInt) & (1 << RFM_IRQ - 16)) {  // IRQ changed?
+                    // RFM69x interrupts by raising RFM_IRQ, fall is ignored 
+               
+                    if (pinD & (1 << RFM_IRQ - 16)) {
+                        RF69::pcIntBits |= (1 << RFM_IRQ - 16);                   
+                        RF69::interrupt_compat();// Process the RFM69x interrupt
+                    }                        
+                } else {
+                     RF69::pcIntBits = pinD ^ lastPCInt;// Store changed bits
+                     RF69::pcIntCount++;
+                }
+                lastPCInt = pinD;  
+*/ 
+                PCMSK2 &= (1 << RFM_IRQ - 16); // Disable 7 pin-change bits
                 if (bitRead(PIND, RFM_IRQ - 16))
                     RF69::interrupt_compat();
+                 
             }
         #endif
     #else
@@ -241,7 +261,7 @@ static void spiConfigPins () {
 struct PreventInterrupt {
     PreventInterrupt () { XXMSK &= ~ _BV(INT_BIT); }
     ~PreventInterrupt () { XXMSK |= _BV(INT_BIT); }
-};
+};  // Semicolon is requird
 
 static void spiInit (void) {
     spiConfigPins();
@@ -318,6 +338,7 @@ static void InitIntPin () {
 //                bitSet(PORTD, RFM_IRQ - 16);  // pull-up
                 bitSet(PCMSK2, RFM_IRQ - 16); // pin-change
                 bitSet(PCICR, PCIE2);         // enable
+                lastPCInt = PIND;             // Init pin change from                       
             } else
                 bitClear(PCMSK2, RFM_IRQ - 16);
         #endif

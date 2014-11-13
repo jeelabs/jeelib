@@ -17,7 +17,7 @@
 
 #define RF69_COMPAT      1   // define this to use the RF69 driver i.s.o. RF12 - Adds ?? bytes to Tiny image
 
-#define PINCHG_IRQ       0   // Best power savings: set to 1 if using pin-change interrupts in RF69_avr.h
+#define PINCHG_IRQ       1   // Best power savings: set to 1 if using pin-change interrupts in RF69_avr.h
                              // Terminal interface will sleep after 5 seconds inactivity use '.' to wake it up
 #define TERMINAL_TIMEOUT 5   // If PINCHG_IRQ then 5 seconds                             
 #if TINY
@@ -259,6 +259,7 @@ static byte postingsIn, postingsOut;
 #endif
 
 unsigned int loopCount, idleTime = 0, offTime = 0;
+byte pcIntBits;
 
 #if !TINY
 const char messagesF[] PROGMEM = { 
@@ -1050,16 +1051,6 @@ memset(pktCount,0,sizeof(pktCount));
     showHelp();
 #endif
 
-    Serial.println();
-#if !TINY
-    Serial.println(EIMSK, HEX);
-#else
-    Serial.println(GIMSK, HEX);
-#endif
-    Serial.println(PCMSK0, HEX);
-    Serial.println(PCMSK1, HEX);
-    delay(100);
-
 } // setup
 
 #if DEBUG
@@ -1280,6 +1271,12 @@ void loop () {
 #endif
 #if DEBUG
             if (!config.quiet_mode) {
+                Serial.print(RF69::pcIntCount);
+                Serial.print(" b=");
+                Serial.print(RF69::pcIntBits);
+                Serial.print(",");
+                Serial.print(pcIntBits);                
+                Serial.print(" i=");
                 Serial.print(idleTime);
                 Serial.print("s o=");
                 Serial.print(offTime);
@@ -1611,10 +1608,21 @@ void loop () {
             if (!busy) {
     #if !TINY
                 PCMSK2 |= (1 << PCINT16);   // Allow RXD to wake us, first character will be lost
+                RF69::pcIntBits = 0;
     #endif            
                 offTime += Sleepy::pwrDownTimer();
+    #if RF69_COMPAT
+    
+                pcIntBits = RF69::pcIntBits;
+                Serial.print(RF69::pcIntCount);
+                Serial.print(" Changed=");
+                Serial.print(pcIntBits);
+                Serial.println(", I'm awake");
+                
+    #endif
     #if !TINY
-                PCMSK2 &= ~ (1 << PCINT16); // Disable RXD interrupt
+//                PCMSK2 &= ~ (1 << PCINT16); // Disable RXD interrupt
+//                Disabled by RF69_avr.h
     #endif
             }
 #else

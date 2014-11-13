@@ -102,7 +102,8 @@ namespace RF69 {
     uint16_t byteCount;
     uint16_t underrun;
     uint8_t  present;
-    uint16_t pcintCount;
+    uint16_t pcIntCount;
+    uint8_t  pcIntBits;
     }
 
 static volatile uint8_t rxfill;      // number of data bytes in rf12_buf
