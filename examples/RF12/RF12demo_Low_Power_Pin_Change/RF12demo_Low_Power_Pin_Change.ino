@@ -259,7 +259,7 @@ static byte postingsIn, postingsOut;
 #endif
 
 unsigned int loopCount, idleTime = 0, offTime = 0;
-byte pcIntBits;
+uint16_t pcIntBits;
 
 #if !TINY
 const char messagesF[] PROGMEM = { 
@@ -1050,6 +1050,15 @@ memset(pktCount,0,sizeof(pktCount));
 #if !TINY
     showHelp();
 #endif
+#if DEBUG
+    Serial.println(DDRD, HEX);
+    Serial.println(PORTD, HEX);
+    Serial.println(PIND, HEX);
+    Serial.println(UBRR0H, HEX);
+    Serial.println(UBRR0L, HEX);
+    Serial.println(UCSR0B, HEX);
+    Serial.println(UCSR0C, HEX);
+#endif    
 
 } // setup
 
@@ -1607,8 +1616,10 @@ void loop () {
             idleTime += (TERMINAL_TIMEOUT - busy);
             if (!busy) {
     #if !TINY
-                PCMSK2 |= (1 << PCINT16);   // Allow RXD to wake us, first character will be lost
+                cli();
+//                PCMSK2 |= (1 << PCINT16);    // Allow RXD to wake us, first character will be lost
                 RF69::pcIntBits = 0;
+                sei();
     #endif            
                 offTime += Sleepy::pwrDownTimer();
     #if RF69_COMPAT
@@ -1616,8 +1627,12 @@ void loop () {
                 pcIntBits = RF69::pcIntBits;
                 Serial.print(RF69::pcIntCount);
                 Serial.print(" Changed=");
-                Serial.print(pcIntBits);
+                Serial.print(RF69::pcIntBits, HEX);
+                Serial.print(", 0x");
+                Serial.print(pcIntBits, HEX);
                 Serial.println(", I'm awake");
+                Serial.println(UCSR0B, HEX);
+                Serial.println(UCSR0C, HEX);
                 
     #endif
     #if !TINY
