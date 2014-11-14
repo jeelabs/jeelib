@@ -407,12 +407,12 @@ void RF69::interrupt_compat () {
             // rxstate will be TXDONE at this point
 //            IRQ_ENABLE;       // allow nested interrupts from here on
             txP++;
-            if (group == 0) {               // Allow receiving from all groups
-                writeReg(REG_SYNCCONFIG, fourByteSync);
-            }
             rxstate = TXIDLE;
             setMode(MODE_STANDBY);
             writeReg(REG_DIOMAPPING1, 0x80); // Interrupt on RSSI threshold
+            if (group == 0) {               // Allow receiving from all groups
+                writeReg(REG_SYNCCONFIG, fourByteSync);
+            }
         } else {    // Transmit
             overrun++;
         }
