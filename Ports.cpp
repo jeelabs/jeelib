@@ -1121,9 +1121,6 @@ void Sleepy::watchdogInterrupts (char mode) {
 void Sleepy::powerDown () {
     byte adcsraSave = ADCSRA;
     ADCSRA &= ~ bit(ADEN); // disable the ADC
-    byte ucsr0bSave = UCSR0B;
-    UCSR0B &= ~(1 << RXEN0);     // Disable USART RX
-    PCMSK2 |= (1 << PCINT16);    // Allow RXD to wake us // TODO DEBUG 
     set_sleep_mode(SLEEP_MODE_PWR_DOWN);
     ATOMIC_BLOCK(ATOMIC_FORCEON) {
         sleep_enable();
@@ -1137,7 +1134,6 @@ void Sleepy::powerDown () {
     sleep_disable();
     // re-enable what we disabled
     ADCSRA = adcsraSave;
-    UCSR0B = ucsr0bSave;
 }
 
 byte Sleepy::loseSomeTime (word msecs) {

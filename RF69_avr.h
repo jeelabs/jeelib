@@ -1,5 +1,6 @@
 #include <avr/interrupt.h>
 #include <util/crc16.h>            
+#include <avr/sleep.h>
 #if ARDUINO >= 100
 #include <Arduino.h>  // Arduino 1.0
 #else
@@ -202,22 +203,23 @@ static void spiConfigPins () {
         #elif RFM_IRQ > 15
             #define INT_BIT PCIE2
             ISR(PCINT2_vect) {// Create appropriate pin change interrupt handler
+            
+            
 //
                 volatile byte pinD = PIND;      // Read port data
                 PCMSK2 &= (1 << RFM_IRQ - 16);  // Disable 7 pin-change bits
+                sleep_disable();                // Just in case
                                 
                 if ((pinD ^ lastPCInt) & (1 << RFM_IRQ - 16)) {  // IRQ changed?
                     // RFM69x interrupts by raising RFM_IRQ, fall is ignored 
                
                     if (pinD & (1 << RFM_IRQ - 16)) {
-//                        RF69::pcIntBits |= (1 << RFM_IRQ - 16);                   
+                        RF69::pcIntBits |= (1 << RFM_IRQ - 16);                   
                         RF69::interrupt_compat();// Process the RFM69x interrupt
                     }                        
                 } else {
-                // Why do we not see RXD PCINT16 bit as interrupter?
-                // It should be picked up below. The wake up occurs
                      RF69::pcIntBits = pinD ^ lastPCInt;// Store changed bits
-                     ++RF69::pcIntCount;
+                     RF69::pcIntCount++;
                 }
                 lastPCInt = pinD;  
 /* 
@@ -338,7 +340,7 @@ static void InitIntPin () {
 //                bitSet(PORTD, RFM_IRQ - 16);  // pull-up
                 bitSet(PCMSK2, RFM_IRQ - 16); // pin-change
                 bitSet(PCICR, PCIE2);         // enable
-                lastPCInt = PIND;             // Init pin change from value                      
+                lastPCInt = PIND;             // Init pin change from                       
             } else
                 bitClear(PCMSK2, RFM_IRQ - 16);
         #endif

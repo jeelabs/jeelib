@@ -1,5 +1,4 @@
 #include <stdint.h>
-#include <avr/sleep.h>
 #include <RF69.h>
 #include <RF69_avr.h>
 
@@ -104,7 +103,7 @@ namespace RF69 {
     uint16_t underrun;
     uint8_t  present;
     uint16_t pcIntCount;
-    uint16_t pcIntBits;
+    uint8_t  pcIntBits;
     }
 
 static volatile uint8_t rxfill;      // number of data bytes in rf12_buf
@@ -356,7 +355,6 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
 }
 
 void RF69::interrupt_compat () {
-        sleep_disable();                // Just in case
         interruptCount++;
         // Interrupt will remain asserted until FIFO empty or exit RX mode    
 
