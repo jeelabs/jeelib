@@ -16,9 +16,9 @@
 
 // TODO pin change interrupts are currently only supported on ATmega328's
 // 
-#define PINCHG_IRQ 1    // uncomment this to use pin-change interrupts
+#define PINCHG_IRQ  0    // uncomment this to use pin-change interrupts
 // 
-#define RF69_COMPAT      1   // define this to use the RF69 driver
+#define RF69_COMPAT 0   // define this to use the RF69 driver
 
 // maximum transmit / receive buffer: 3 header + data + 2 crc bytes
 #define RF_MAX   (RF12_MAXDATA + 5)

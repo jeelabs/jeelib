@@ -1,5 +1,6 @@
 #include <avr/interrupt.h>
 #include <util/crc16.h>            
+#include <avr/sleep.h>
 #if ARDUINO >= 100
 #include <Arduino.h>  // Arduino 1.0
 #else
@@ -182,49 +183,57 @@ static void spiConfigPins () {
         #if RFM_IRQ < 8
             #define INT_BIT PCIE0
             ISR(PCINT0_vect) {// Create appropriate pin change interrupt handler
-                RF69::pcintCount++;
-                // RFM69x interrupts by raising RFM_IRQ
-                // Ignore the pin change interrupt as RFM_IRQ falls
-                if (bitRead(PINB, RFM_IRQ)) 
-                    RF69::interrupt_compat();
+                volatile byte pinB = PINB;      // Read port data
+                sleep_disable();
+                RF69::pcIntBits |=  pinB ^ lastPCInt;
+                lastPCInt = pinB;
+                // Prevent more pcinterrupts(s) until pcIntBits bit is cleared
+                PCMSK0 = ~(RF69::pcIntBits);
+                PCMSK0 |= (1 << RFM_IRQ);  //Except Radio IRQ
+                RF69::pcIntCount++;
+                                
+                if (pinB & (1 << RFM_IRQ)) {
+                    XXMSK &= ~(1 << INT_BIT);   //Prevent nested IRQ 
+                    RF69::interrupt_compat();   //Process the RFM69x IRQ
+                    XXMSK |= (1 << INT_BIT);    //Restore IRQ function
                 } 
             }
         #elif RFM_IRQ < 15
             #define INT_BIT PCIE1
             ISR(PCINT1_vect) {// Create appropriate pin change interrupt handler 
-                RF69::pcintCount++;
-                // RFM69x interrupts by raising RFM_IRQ
-                // Ignore the pin change interrupt as RFM_IRQ falls
-                if (bitRead(PINC, RFM_IRQ - 8))
-                    RF69::interrupt_compat();
+                volatile byte pinC = PINC;      // Read port data
+                sleep_disable();
+                RF69::pcIntBits |=  pinC ^ lastPCInt;
+                lastPCInt = pinC;
+                // Prevent more pcinterrupts(s) until pcIntBits bit is cleared
+                PCMSK1 = ~(RF69::pcIntBits);
+                PCMSK1 |= (1 << RFM_IRQ - 8);  //Except Radio IRQ
+                RF69::pcIntCount++;
+                                
+                if (pinC & (1 << RFM_IRQ - 8)) {
+                    XXMSK &= ~(1 << INT_BIT);   //Prevent nested IRQ 
+                    RF69::interrupt_compat();   //Process the RFM69x IRQ
+                    XXMSK |= (1 << INT_BIT);    //Restore IRQ function
+                }
             }
             // PCINT15 is not available in ATMega328
         #elif RFM_IRQ > 15
             #define INT_BIT PCIE2
             ISR(PCINT2_vect) {// Create appropriate pin change interrupt handler
-            
-            
-//
                 volatile byte pinD = PIND;     // Read port data
-                PCMSK2 &= (1 << RFM_IRQ - 16); // Disable 7 pin-change bits
-                                
-                if ((pinD ^ lastPCInt) & (1 << RFM_IRQ - 16)) {  // IRQ changed?
-                    // RFM69x interrupts by raising RFM_IRQ, fall is ignored 
-               
-                    if (pinD & (1 << RFM_IRQ - 16)) {
-                        RF69::pcIntBits |= (1 << RFM_IRQ - 16);                   
-                        RF69::interrupt_compat();// Process the RFM69x interrupt
-                    }                        
-                } else {
-                     RF69::pcIntBits = pinD ^ lastPCInt;// Store changed bits
-                     RF69::pcIntCount++;
-                }
+                sleep_disable();
+                RF69::pcIntBits |=  pinD ^ lastPCInt;
                 lastPCInt = pinD;  
-/* 
-                PCMSK2 &= (1 << RFM_IRQ - 16); // Disable 7 pin-change bits
-                if (bitRead(PIND, RFM_IRQ - 16))
-                    RF69::interrupt_compat();
-*/                 
+                // Prevent more pcinterrupts(s) until pcIntBits bit is cleared
+                PCMSK2 = ~(RF69::pcIntBits);
+                PCMSK2 |= (1 << RFM_IRQ - 16);  //Except Radio IRQ
+                RF69::pcIntCount++;
+                                
+                if (pinD & (1 << RFM_IRQ - 16)) {
+                    XXMSK &= ~(1 << INT_BIT);   //Prevent nested IRQ 
+                    RF69::interrupt_compat();   //Process the RFM69x IRQ
+                    XXMSK |= (1 << INT_BIT);    //Restore IRQ function
+                }
             }
         #endif
     #else
@@ -237,20 +246,37 @@ static void spiConfigPins () {
         #if RFM_IRQ < 8
             #define INT_BIT PCIE0
             ISR(PCINT0_vect) {// Create appropriate pin change interrupt handler
-                RF69::pcintCount++;
-                // RFM69x interrupts by raising RFM_IRQ
-                // Ignore the pin change interrupt as RFM_IRQ falls
-                if (bitRead(PINA, RFM_IRQ))
-                    RF69::interrupt_compat();
+                volatile byte pinA = PINA;      // Read port data
+                sleep_disable();
+                RF69::pcIntBits |=  pinA ^ lastPCInt;
+                lastPCInt = pinA;
+                // Prevent more pcinterrupts(s) until pcIntBits bit is cleared
+                PCMSK0 = ~(RF69::pcIntBits);
+                PCMSK0 |= (1 << RFM_IRQ);  // Except Radio IRQ
+                RF69::pcIntCount++;
+                                
+                if (pinA & (1 << RFM_IRQ)) {
+                    XXMSK &= ~(1 << INT_BIT);
+                    RF69::interrupt_compat();// Process the RFM69x interrupt
+                    XXMSK |= (1 << INT_BIT);
                 }
         #elif RFM_IRQ > 7 && RFM_IRQ < 12
             #define INT_BIT PCIE1
             ISR(PCINT1_vect) {// Create appropriate pin change interrupt handler
-                RF69::pcintCount++;
-                // RFM69x interrupts by raising RFM_IRQ
-                // Ignore the pin change interrupt as RFM_IRQ falls
-                if (bitRead(PINB, RFM_IRQ - 8))
-                   RF69::interrupt_compat();
+                volatile byte pinB = PINB;      // Read port data
+                sleep_disable();
+                RF69::pcIntBits |=  pinB ^ lastPCInt;
+                lastPCInt = pinB;
+                // Prevent more pcinterrupts(s) until pcIntBits bit is cleared
+                PCMSK1 = ~(RF69::pcIntBits);
+                PCMSK1 |= (1 << RFM_IRQ - 8);  // Except Radio IRQ
+                RF69::pcIntCount++;
+                                
+                if (pinB & (1 << RFM_IRQ - 8)) {
+                    XXMSK &= ~(1 << INT_BIT);
+                    RF69::interrupt_compat();// Process the RFM69x interrupt
+                    XXMSK |= (1 << INT_BIT);
+                }                        
                 }
         #endif
     #else
@@ -338,7 +364,7 @@ static void InitIntPin () {
 //                bitSet(PORTD, RFM_IRQ - 16);  // pull-up
                 bitSet(PCMSK2, RFM_IRQ - 16); // pin-change
                 bitSet(PCICR, PCIE2);         // enable
-                lastPCInt = PIND;             // Init pin change from                       
+                lastPCInt = PIND;             // Init pin change from value                      
             } else
                 bitClear(PCMSK2, RFM_IRQ - 16);
         #endif

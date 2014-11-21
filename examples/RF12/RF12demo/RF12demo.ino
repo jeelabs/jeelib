@@ -9,8 +9,8 @@
 // Increase support to 100 nodes mixed between all groups 2014-05-24
 // Add 1284p supporting over 1000 nodes 2014-08-20
 
-// RF69n driver is around 636 bytes larger than RF12B when compiled for Uno
-// RF69n driver is around 650 bytes large than RF12B when compiled for Tiny
+// RF69n driver is around ?? bytes larger than RF12B when compiled for Uno
+// RF69n driver is around ?? bytes large than RF12B when compiled for Tiny
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
     #define TINY 1
 #endif
@@ -33,7 +33,7 @@
 #endif
 
 #define REG_SYNCCONFIG 0x2E  // RFM69 only, register containing sync length
-#define oneByteSync    0x80  // RFM69 only, value to get only one byte sync.
+#define oneByteSync    0x87  // RFM69 only, value to get only one byte sync with max bit errors.
 #define REG_SYNCGROUP  0x33  // RFM69 only, register containing group number
 
 #include <JeeLib.h>
@@ -49,8 +49,7 @@
 #if !configSTRING
 #define rf12_configDump()                 // Omit A i1 g210 @ 868 MHz q1
 #endif
-#if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
-#define TINY        1
+#if TINY
 #define SERIAL_BAUD    38400   // can only be 9600 or 38400
 #define DATAFLASH      0       // do not change
 #undef  LED_PIN             // do not change
@@ -89,7 +88,7 @@ static byte stickyGroup = 212;
 #define BITDELAY 12          // 28/5/14 from value 11 // 38k4 @ 8MHz, 76k8 @16MHz
 #endif
 
-#define MAX_NODES 7
+#define MAX_NODES 0
 #define _receivePin 8
 static char _receive_buffer;
 static byte _receive_buffer_index;
@@ -658,8 +657,6 @@ static void handleInput (char c) {
 #if RF69_COMPAT
             // The 5 byte sync used by the RFM69 reduces detected noise dramatically.
             // The command below sets the sync length to 1 to test radio reception.
-// TODO This doesn't work if the group is 0! I haven't found out why yet
-// Current consumption drops to 0, could be stuck in the interrupt routine RF69::interrupt_compat
             if ((!value) && (top == 1)) RF69::control(REG_SYNCCONFIG | 0x80, oneByteSync); // Allow noise
             // Appropriate sync length will be reset by the driver after the next transmission.
             // The 's' command is an good choice to reset the sync length. 
@@ -1013,6 +1010,7 @@ memset(pktCount,0,sizeof(pktCount));
     whackDelay(BITDELAY*2); // if we were low this establishes the end
     pinMode(_receivePin, INPUT);        // PA2 - doesn't work if before the PCMSK0 line
     digitalWrite(_receivePin, HIGH);    // pullup!
+    
 #endif
 
 #if JNuMOSFET     // Power up the wireless hardware
@@ -1187,7 +1185,19 @@ static void nodeShow(byte group) {
 #endif
     Serial.println();
     Serial.println(freeRam());
-}
+    Serial.print(testTX);
+    printOneChar('-');
+    Serial.print(busyCount);
+    printOneChar('=');
+    Serial.println(testTX - busyCount);
+    Serial.print(testRX);
+    printOneChar('+');
+    Serial.print(missedTests);
+    printOneChar('=');
+    Serial.println(testRX + missedTests);
+    busyCount = missedTests = testTX = testRX = testCounter = lastTest = 0;
+    idleTime = loopCount = 0;
+} // nodeShow
 static unsigned int getIndex (byte group, byte node) {
             newNodeMap = NodeMap = 0xFFFF;
             // Search eeprom RF12_EEPROM_NODEMAP for node/group match
@@ -1210,13 +1220,14 @@ static unsigned int getIndex (byte group, byte node) {
             } 
             return(false);
 }
-
 void loop () {
 
 #if TINY
-    if (_receive_buffer_index)
+    if (_receive_buffer_index) {
         handleInput(inChar());
+    }
 #else
+    
     if (Serial.available())
         handleInput(Serial.read());
 #endif
@@ -1300,6 +1311,7 @@ void loop () {
             }
             lastTest = rf12_data[0];
         } else {
+       
         for (byte i = 0; i < n; ++i) {
             if (!(config.output & 1)) // Decimal output?
                 printOneChar(' ');
@@ -1403,7 +1415,7 @@ void loop () {
             // Node 31 will also be added even though a Node Allocation will
             // be offered, to track everyone who was out there.
 #if !TINY           
-                if (!getIndex(rf12_grp, (rf12_hdr & RF12_HDR_MASK))) {
+                if (!getIndex(rf12_grp, (rf12_hdr & RF12_HDR_MASK)) && (!(testPacket))) {
                     if (newNodeMap != 0xFFFF) { // Storage space available?
                         // Node 31 will also be added even though a Node Allocation will
                         // also be offered, to track everyone who is/was out there.
@@ -1466,7 +1478,7 @@ void loop () {
 // it with the returning ACK.
 // If there are no spare Node numbers nothing is offered
 // TODO perhaps we should increment the Group number and find a spare node number there?
-                if (((rf12_hdr & RF12_HDR_MASK) == 31) && (!(rf12_hdr & RF12_HDR_DST))) {
+                if (((rf12_hdr & RF12_HDR_MASK) == 31) && (!(rf12_hdr & RF12_HDR_DST)) && (!(testPacket))) {
                     // Special Node 31 source node
                     // Make sure this nodes node/group is already in the eeprom
                     if (((getIndex(config.group, config.nodeId))) && (newNodeMap != 0xFFFF)) {   
@@ -1537,6 +1549,11 @@ void loop () {
                 }
                 crlf = true;
                 showString(PSTR(" -> ack "));
+                if (testPacket) {  // Return test packet number being ACK'ed
+                    stack[(sizeof stack - 2)] = 0x80;
+                    stack[(sizeof stack - 1)] = rf12_data[0];
+                    ackLen = 2;
+                }
 #if RF69_COMPAT && !TINY
                 if (config.group == 0) {
                     showString(PSTR("g"));
@@ -1548,8 +1565,10 @@ void loop () {
                 printOneChar('i');
                 showByte(rf12_hdr & RF12_HDR_MASK);
                 rf12_sendStart(RF12_ACK_REPLY, &stack[sizeof stack - ackLen], ackLen);
+                rf12_sendWait(1);
             }
             if (crlf) Serial.println();
+
             activityLed(0);
         }
     }
@@ -1557,7 +1576,6 @@ void loop () {
     if (cmd) {
         if (rf12_canSend()) {
             activityLed(1);
-
             showString(PSTR(" -> "));
             showByte(sendLen);
             showString(PSTR(" b\n"));
@@ -1570,11 +1588,13 @@ void loop () {
             }
 #endif
             rf12_sendStart(header, stack, sendLen);
-            cmd = 0;
+            rf12_sendWait(1);  //Wait for transmission complete
 
+            cmd = 0;
             activityLed(0);
-        } else {
+        } else { // rf12_canSend
         showString(PSTR(" Busy\n"));  // Not ready to send
+            busyCount++;
         cmd = 0;                      // Request dropped
         }
     } // cmd

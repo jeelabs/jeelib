@@ -358,7 +358,7 @@ void RF69::interrupt_compat () {
         interruptCount++;
         // Interrupt will remain asserted until FIFO empty or exit RX mode    
 
-        if (rxstate == TXRECV) {  // Receive
+        if (rxstate == TXRECV) {
             IRQ_ENABLE;       // allow nested interrupts from here on
             while (!readReg(REG_IRQFLAGS1) & IRQ1_RXREADY)
                 ;
@@ -399,13 +399,11 @@ void RF69::interrupt_compat () {
             byteCount = rxfill;
             writeReg(REG_AFCFEI, AfcClear); 
             
-        } // End Receive
-
-          else if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {  // Transmit
+        } else if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
             writeReg(REG_TESTPA1, TESTPA1_NORMAL);    // Turn off high power 
             writeReg(REG_TESTPA2, TESTPA2_NORMAL);    // transmit
             // rxstate will be TXDONE at this point
-//            IRQ_ENABLE;       // allow nested interrupts from here on
+            IRQ_ENABLE;       // allow nested interrupts from here on
             txP++;
             rxstate = TXIDLE;
             setMode(MODE_STANDBY);
@@ -413,7 +411,7 @@ void RF69::interrupt_compat () {
             if (group == 0) {               // Allow receiving from all groups
                 writeReg(REG_SYNCCONFIG, fourByteSync);
             }
-        } else {    // Transmit
+        } else {
             overrun++;
         }
 }
