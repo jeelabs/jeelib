@@ -1122,15 +1122,17 @@ void Sleepy::powerDown () {
     byte adcsraSave = ADCSRA;
     ADCSRA &= ~ bit(ADEN); // disable the ADC
     set_sleep_mode(SLEEP_MODE_PWR_DOWN);
-    ATOMIC_BLOCK(ATOMIC_FORCEON) {
-        sleep_enable();
+    cli();
+    sleep_enable();
         // sleep_bod_disable(); // can't use this - not in my avr-libc version!
 #ifdef BODSE
         MCUCR = MCUCR | bit(BODSE) | bit(BODS); // timed sequence
         MCUCR = (MCUCR & ~ bit(BODSE)) | bit(BODS);
 #endif
-    }
+    sei();
     sleep_cpu();
+    cli();
+    // wake up here effectively
     sleep_disable();
     // re-enable what we disabled
     ADCSRA = adcsraSave;
@@ -1181,7 +1183,8 @@ void Sleepy::idle () {
     sleep_enable();
     sei();        // Enable interrupts    
     sleep_cpu();  // Sleep will happen irrespective of interrupts    
-    // wake up here
+    cli();        // Interrupts will be disabled no matter what happens
+    // wake up here effectively
     sleep_disable();
 }
 
@@ -1222,7 +1225,7 @@ word Sleepy::idleSomeTime (unsigned int secs) {
 }
 
 
-word Sleepy::idleTimer () {
+word Sleepy::idleTimer (byte prescale) {
     unsigned int timeIdle = 0;
     word millisAdjust;
     byte saveTIMSK0 = TIMSK0;
@@ -1235,13 +1238,13 @@ word Sleepy::idleTimer () {
     while (1) {
         millisAdjust = 2;         // If we are interrupted assume 2ms passed
         watchdogCounter = 0;
-        watchdogInterrupts(6);    // 1024ms
+        watchdogInterrupts(prescale);    // 6 = 1024ms
         idle(); 
         watchdogInterrupts(-1);   // off
         
         // because there are lots of Serial.print interrupts around
         if (watchdogCounter != 0) {
-            millisAdjust = 1024;  // Wasn't interrupted for 1024ms
+            millisAdjust = 16 << prescale;  // Wasn't interrupted
         }
 // Update millis as we go, if we are interrupted time(ms) should have moved on
 // for the interrupting process        
@@ -1253,26 +1256,26 @@ word Sleepy::idleTimer () {
         timer0_millis += millisAdjust;
 #endif
     if (millisAdjust == 2) break;
-    ++timeIdle;       
+    if (!(++timeIdle + 1)) break;     // Might detect just before overflow
     }
     TIMSK0 = saveTIMSK0;          // re-enable what we disabled
     PRR = savePRR;                //
-    return timeIdle;              // Complete seconds
+    return timeIdle;              // Complete intervals
 }
 
-word Sleepy::pwrDownTimer () {
+word Sleepy::pwrDownTimer (byte prescale) {
     unsigned int timeOff = 0;
     word millisAdjust;
     while (1) {
         millisAdjust = 2;         // If we are interrupted assume 2ms passed
         watchdogCounter = 0;
-        watchdogInterrupts(6);    // 1024ms
+        watchdogInterrupts(prescale);
         powerDown();
         watchdogInterrupts(-1);   // off
         
         // because there are lots of Serial.print interrupts around
         if (watchdogCounter != 0) {
-            millisAdjust = 1024;  // Wasn't interrupted for 1024ms
+            millisAdjust = 16 << prescale;  // Wasn't interrupted
         }
 // Update millis as we go, if we are interrupted time(ms) should have moved on
 // for the interrupting process        
@@ -1284,13 +1287,10 @@ word Sleepy::pwrDownTimer () {
         timer0_millis += millisAdjust;
 #endif
     if (millisAdjust == 2) break;
-    ++timeOff;       
+    if (!(++timeOff + 1)) break;  // Might detect just before overflow
     }
-    return timeOff;               // Complete seconds
+    return timeOff;               // Complete intervals
 }
-
-
-
 
 Scheduler::Scheduler (byte size) : remaining (~0), maxTasks (size) {
     byte bytes = size * sizeof *tasks;
