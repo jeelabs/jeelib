@@ -16,8 +16,7 @@
 // #define OPTIMIZE_SPI 1  // uncomment this to write to the RFM12B @ 8 Mhz
 
 // pin change interrupts are currently only supported on ATmega328's
-// 
-#define PINCHG_IRQ 1    // uncomment this to use pin-change interrupts
+// #define PINCHG_IRQ 1    // uncomment this to use pin-change interrupts
 
 // maximum transmit / receive buffer: 3 header + data + 2 crc bytes
 #define RF_MAX   (RF12_MAXDATA + 5)
