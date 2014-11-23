@@ -256,7 +256,7 @@ uint16_t rf12_control(uint16_t cmd) {
 #if PINCHG_IRQ
     #if RFM_IRQ < 8
         bitClear(PCICR, PCIE0);
-    #elif RFM_IRQ < 14
+    #elif RFM_IRQ < 16
         bitClear(PCICR, PCIE1);
     #else
         bitClear(PCICR, PCIE2);
@@ -268,7 +268,7 @@ uint16_t rf12_control(uint16_t cmd) {
 #if PINCHG_IRQ
     #if RFM_IRQ < 8
         bitSet(PCICR, PCIE0);
-    #elif RFM_IRQ < 15
+    #elif RFM_IRQ < 16
         bitSet(PCICR, PCIE1);
     #else
         bitSet(PCICR, PCIE2);
@@ -328,7 +328,7 @@ static void rf12_interrupt () {
             while (!bitRead(PINB, RFM_IRQ))
                 rf12_interrupt();
         }
-    #elif RFM_IRQ < 15
+    #elif RFM_IRQ < 16
         ISR(PCINT1_vect) { 
             while (!bitRead(PINC, RFM_IRQ - 8))
                 rf12_interrupt();
