@@ -83,7 +83,8 @@
 #else
 
 // ATmega168, ATmega328, etc.
-#define RFM_IRQ     2
+#define RFM_IRQ     2     // 2=JeeNode, 18=JeeNode pin change
+//#define RFM_IRQ       1     // PCINT1=JeeNode Block pin change
 #define SS_DDR      DDRB
 #define SS_PORT     PORTB
 #define SS_BIT      2     // for PORTB: 2 = d.10, 1 = d.9, 0 = d.8
@@ -254,11 +255,11 @@ uint16_t rf12_control(uint16_t cmd) {
 #ifdef EIMSK
 #if PINCHG_IRQ
     #if RFM_IRQ < 8
-        bitClear(PCICR, PCIE2);
-    #elif RFM_IRQ < 14
         bitClear(PCICR, PCIE0);
-    #else
+    #elif RFM_IRQ < 14
         bitClear(PCICR, PCIE1);
+    #else
+        bitClear(PCICR, PCIE2);
     #endif
 #else
     bitClear(EIMSK, INT0);
@@ -266,11 +267,11 @@ uint16_t rf12_control(uint16_t cmd) {
    uint16_t r = rf12_xferSlow(cmd);
 #if PINCHG_IRQ
     #if RFM_IRQ < 8
-        bitSet(PCICR, PCIE2);
-    #elif RFM_IRQ < 14
         bitSet(PCICR, PCIE0);
-    #else
+    #elif RFM_IRQ < 15
         bitSet(PCICR, PCIE1);
+    #else
+        bitSet(PCICR, PCIE2);
     #endif
 #else
     bitSet(EIMSK, INT0);
@@ -323,18 +324,18 @@ static void rf12_interrupt () {
 
 #if PINCHG_IRQ
     #if RFM_IRQ < 8
-        ISR(PCINT2_vect) {
-            while (!bitRead(PIND, RFM_IRQ))
+        ISR(PCINT0_vect) {
+            while (!bitRead(PINB, RFM_IRQ))
                 rf12_interrupt();
         }
-    #elif RFM_IRQ < 14
-        ISR(PCINT0_vect) { 
-            while (!bitRead(PINB, RFM_IRQ - 8))
+    #elif RFM_IRQ < 15
+        ISR(PCINT1_vect) { 
+            while (!bitRead(PINC, RFM_IRQ - 8))
                 rf12_interrupt();
         }
     #else
-        ISR(PCINT1_vect) {
-            while (!bitRead(PINC, RFM_IRQ - 14))
+        ISR(PCINT2_vect) {
+            while (!bitRead(PIND, RFM_IRQ - 16))
                 rf12_interrupt();
         }
     #endif
@@ -588,28 +589,28 @@ uint8_t rf12_initialize (uint8_t id, uint8_t band, uint8_t g, uint16_t f) {
 #if PINCHG_IRQ
     #if RFM_IRQ < 8
         if ((nodeid & NODE_ID) != 0) {
-            bitClear(DDRD, RFM_IRQ);      // input
-            bitSet(PORTD, RFM_IRQ);       // pull-up
-            bitSet(PCMSK2, RFM_IRQ);      // pin-change
-            bitSet(PCICR, PCIE2);         // enable
-        } else
-            bitClear(PCMSK2, RFM_IRQ);
-    #elif RFM_IRQ < 14
-        if ((nodeid & NODE_ID) != 0) {
-            bitClear(DDRB, RFM_IRQ - 8);  // input
-            bitSet(PORTB, RFM_IRQ - 8);   // pull-up
-            bitSet(PCMSK0, RFM_IRQ - 8);  // pin-change
+            bitClear(DDRB, RFM_IRQ);      // input
+            bitSet(PORTB, RFM_IRQ);       // pull-up
+            bitSet(PCMSK0, RFM_IRQ);      // pin-change
             bitSet(PCICR, PCIE0);         // enable
         } else
-            bitClear(PCMSK0, RFM_IRQ - 8);
-    #else
+            bitClear(PCMSK0, RFM_IRQ);
+    #elif RFM_IRQ < 15
         if ((nodeid & NODE_ID) != 0) {
-            bitClear(DDRC, RFM_IRQ - 14); // input
-            bitSet(PORTC, RFM_IRQ - 14);  // pull-up
-            bitSet(PCMSK1, RFM_IRQ - 14); // pin-change
+            bitClear(DDRC, RFM_IRQ - 8);  // input
+            bitSet(PORTC, RFM_IRQ - 8);   // pull-up
+            bitSet(PCMSK1, RFM_IRQ - 8);  // pin-change
             bitSet(PCICR, PCIE1);         // enable
         } else
-            bitClear(PCMSK1, RFM_IRQ - 14);
+            bitClear(PCMSK1, RFM_IRQ - 8);
+    #else
+        if ((nodeid & NODE_ID) != 0) {
+            bitClear(DDRD, RFM_IRQ - 16); // input
+            bitSet(PORTD, RFM_IRQ - 16);  // pull-up
+            bitSet(PCMSK2, RFM_IRQ - 16); // pin-change
+            bitSet(PCICR, PCIE2);         // enable
+        } else
+            bitClear(PCMSK2, RFM_IRQ - 16);
     #endif
 #else
     if ((nodeid & NODE_ID) != 0)
