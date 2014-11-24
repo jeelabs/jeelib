@@ -8,16 +8,15 @@
 // Add acknowledgement to all node groups 2014-05-20
 // Increase support to 100 nodes mixed between all groups 2014-05-24
 // Add 1284p supporting over 1000 nodes 2014-08-20
+// Based on RF12Demo from RF12Demo branch 2014-11-24
 
-// RF69n driver is around ?? bytes larger than RF12B when compiled for Uno
-// RF69n driver is around ?? bytes large than RF12B when compiled for Tiny
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
     #define TINY 1
 #endif
 
-#define RF69_COMPAT      0   // define this to use the RF69 driver i.s.o. RF12 - Adds ?? bytes to Tiny image
+#define RF69_COMPAT      1   // define this to use the RF69 driver i.s.o. RF12 - Adds ?? bytes to Tiny image
 
-#define PINCHG_IRQ       0   // Best power savings: set to 1 if using pin-change interrupts in RF69_avr.h
+#define PINCHG_IRQ       1   // Best power savings: set to 1 if using pin-change interrupts in RF69_avr.h
                              // Terminal interface will sleep after 5 seconds inactivity use '.' to wake it up
 #define TERMINAL_TIMEOUT 5   // If PINCHG_IRQ then 5 seconds                             
 #if TINY
