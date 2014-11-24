@@ -14,11 +14,8 @@
 
 #define OPTIMIZE_SPI 1  // uncomment this to write to the RFM12B @ 8 Mhz
 
-// TODO pin change interrupts are currently only supported on ATmega328's
-// 
-#define PINCHG_IRQ  0    // uncomment this to use pin-change interrupts
-// 
-#define RF69_COMPAT 0   // define this to use the RF69 driver
+#define PINCHG_IRQ  1    // Set this true to use pin-change interrupts
+#define RF69_COMPAT 0    // Set this true to use the RF69 driver
 
 // maximum transmit / receive buffer: 3 header + data + 2 crc bytes
 #define RF_MAX   (RF12_MAXDATA + 5)
@@ -85,7 +82,7 @@
 #else
 
 // ATmega168, ATmega328, etc.
-#define RFM_IRQ     2     // 2 for pin change on JeeNode 
+#define RFM_IRQ     18     // 2 for pin change on JeeNode 
 #define SS_DDR      DDRB
 #define SS_PORT     PORTB
 #define SS_BIT      2     // for PORTB: 2 = d.10, 1 = d.9, 0 = d.8
@@ -330,9 +327,8 @@ static void rf12_interrupt () {
         rf12_xfer(RF_TXREG_WRITE + out);
     }
 }
-#ifndef RF69_COMPAT
 #ifdef EIMSK  // ATMega
-    #if PINCHG_IRQ
+    #if PINCHG_IRQ && !RF69_COMPAT
         #if RFM_IRQ < 8       // Create appropriate pin change interrupt handler
             ISR(PCINT0_vect) {
                 while (!bitRead(PINB, RFM_IRQ))
@@ -351,18 +347,16 @@ static void rf12_interrupt () {
         #endif
     #endif
 #endif
-#endif
 
-#ifndef RF69_COMPAT
 #ifdef GIMSK      // ATTiny
-    #if PINCHG_IRQ            
+    #if PINCHG_IRQ && !RF69_COMPAT            
         ISR(PCINT1_vect) {    // Create appropriate pin change interrupt handler
             while (!bitRead(PINB, RFM_IRQ))
                 rf12_interrupt();
             }
     #endif
 #endif
-#endif
+
 static void rf12_recvStart () {
     if (rf12_fixed_pkt_len) {
         rf12_len = rf12_fixed_pkt_len;
@@ -608,9 +602,10 @@ uint8_t rf12_initialize (uint8_t id, uint8_t band, uint8_t g, uint16_t f) {
     rf12_xfer(0xC049); // 1.66MHz,3.1V 
 
     rxstate = TXIDLE;
-#ifndef RF69_COMPAT
+
 #ifdef EIMSK    // ATMega
-    #if PINCHG_IRQ
+    #if PINCHG_IRQ && !RF69_COMPAT
+            EIMSK &= ~ (1 << INT0);           // Disable INTx
         #if RFM_IRQ < 8
             if ((nodeid & NODE_ID) != 0) {
                 bitClear(DDRB, RFM_IRQ);      // input
@@ -636,31 +631,28 @@ uint8_t rf12_initialize (uint8_t id, uint8_t band, uint8_t g, uint16_t f) {
             } else
                 bitClear(PCMSK2, RFM_IRQ - 16);
         #endif
-    #else
+    #elif !RF69_COMPAT
         if ((nodeid & NODE_ID) != 0)
             attachInterrupt(0, rf12_interrupt, LOW);
         else
             detachInterrupt(0);
     #endif
 #endif
-#endif
 
-#ifndef RF69_COMPAT
 #ifdef GIMSK    // ATTiny
-    #if PINCHG_IRQ
+    #if PINCHG_IRQ && !RF69_COMPAT
         if ((nodeid & NODE_ID) != 0) {
             bitClear(DDRB, RFM_IRQ);      // input
             bitSet(PORTB, RFM_IRQ);       // pull-up
             bitSet(PCMSK1, RFM_IRQ);      // pin-change
             bitSet(GIMSK, PCIE1);         // enable
         }        
-    #else
+    #elif !RF69_COMPAT
         if ((nodeid & NODE_ID) != 0)
             attachInterrupt(0, rf12_interrupt, LOW);
         else
             detachInterrupt(0);
     #endif
-#endif
 #endif
     return nodeid;
 }

@@ -7,9 +7,8 @@
 #include <WProgram.h> // Arduino 0022
 #endif
 
-// pin change interrupts are currently only supported on ATmega328's & Tiny84's
-// 
-#define PINCHG_IRQ 1    // uncomment this to use pin-change interrupts
+#define PINCHG_IRQ  1    // Set this true to use pin-change interrupts
+#define RF69_COMPAT 0    // Set this true to use the RF69 driver
 
 // For pin change interrupts make sure you adjust the RFM_IRQ around line 130
 
@@ -179,7 +178,7 @@ static void spiConfigPins () {
 
 #ifdef EIMSK    // ATMega
     #define XXMSK EIMSK
-    #if PINCHG_IRQ
+    #if PINCHG_IRQ && RF69_COMPAT
         #if RFM_IRQ < 8
             #define INT_BIT PCIE0
             ISR(PCINT0_vect) {// Create appropriate pin change interrupt handler
@@ -207,7 +206,7 @@ static void spiConfigPins () {
                 lastPCInt = pinC;
                 // Prevent more pcinterrupts(s) until pcIntBits bit is cleared
                 PCMSK1 = ~(RF69::pcIntBits);
-                PCMSK1 |= (1 << RFM_IRQ - 8);  //Except Radio IRQ
+                PCMSK1 |= (1 << RFM_IRQ - 8);   //Except Radio IRQ
                 RF69::pcIntCount++;
                                 
                 if (pinC & (1 << RFM_IRQ - 8)) {
@@ -242,7 +241,7 @@ static void spiConfigPins () {
 #endif
 #ifdef GIMSK    // ATTiny
     #define XXMSK GIMSK    
-    #if PINCHG_IRQ
+    #if PINCHG_IRQ && RF69_COMPAT
         #if RFM_IRQ < 8
             #define INT_BIT PCIE0
             ISR(PCINT0_vect) {// Create appropriate pin change interrupt handler
@@ -337,7 +336,7 @@ static uint8_t spiTransfer (uint8_t cmd, uint8_t val) {
 
 static void InitIntPin () {
 #ifdef EIMSK    // ATMega
-    #if PINCHG_IRQ
+    #if PINCHG_IRQ && RF69_COMPAT
         EIMSK &= ~ (1 << INT);                // Disable INTx
         #if RFM_IRQ < 8
             if (RF69::node != 0) {
@@ -368,7 +367,7 @@ static void InitIntPin () {
             } else
                 bitClear(PCMSK2, RFM_IRQ - 16);
         #endif
-    #else
+    #elif RF69_COMPAT
         if (RF69::node != 0)
             attachInterrupt(INT_NUMBER, RF69::interrupt_compat, RISING);
         else
@@ -377,7 +376,7 @@ static void InitIntPin () {
 #endif
 
 #ifdef GIMSK    // ATTiny
-    #if PINCHG_IRQ
+    #if PINCHG_IRQ && RF69_COMPAT
         GIMSK &= ~ (1 << INT);            // Disable INTx
         #if RFM_IRQ < 8   // Be aware of conflict with JNu serial input
             if (RF69::node != 0) {
@@ -397,7 +396,7 @@ static void InitIntPin () {
             } else
                 bitClear(PCMSK1, RFM_IRQ - 8);
         #endif                   
-    #else
+    #elif RF69_COMPAT
         if (RF69::node != 0)
             attachInterrupt(INT_NUMBER, RF69::interrupt_compat, RISING);
         else
