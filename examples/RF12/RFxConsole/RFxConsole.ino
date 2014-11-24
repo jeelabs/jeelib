@@ -13,8 +13,11 @@
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
     #define TINY 1
 #endif
-
-#define RF69_COMPAT      1   // define this to use the RF69 driver i.s.o. RF12 - Adds ?? bytes to Tiny image
+///////////////////////////////////////////////////////////////////////////////
+#define RF69_COMPAT      0   // define this to use the RF69 driver i.s.o. RF12 
+//                           // The above flag must be set similarly in RF12.cpp
+//                           // and RF69_avr.h
+///////////////////////////////////////////////////////////////////////////////
 
 #define PINCHG_IRQ       1   // Best power savings: set to 1 if using pin-change interrupts in RF69_avr.h
                              // Terminal interface will sleep after 5 seconds inactivity use '.' to wake it up

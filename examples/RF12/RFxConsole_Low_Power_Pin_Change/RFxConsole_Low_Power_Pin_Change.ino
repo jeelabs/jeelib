@@ -13,10 +13,13 @@
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
     #define TINY 1
 #endif
+///////////////////////////////////////////////////////////////////////////////
+#define RF69_COMPAT      1   // define this to use the RF69 driver i.s.o. RF12 
+//                           // The above flag must be set similarly in RF12.cpp
+//                           // and RF69_avr.h
+///////////////////////////////////////////////////////////////////////////////
 
-#define RF69_COMPAT      1   // define this to use the RF69 driver i.s.o. RF12 - Adds ?? bytes to Tiny image
-
-#define PowerDown       1   // Best power savings: set to 1 if using pin-change interrupts in RF69_avr.h
+#define PowerDown        1   // Best power savings: set to 1 if using pin-change interrupts in RF69_avr.h
                              // Terminal interface will sleep after 5 seconds inactivity use '.' to wake it up
 #define TERMINAL_TIMEOUT 5   // If PowerDown then 5 seconds                             
 #if TINY
@@ -1243,7 +1246,7 @@ void loop () {
         handleInput(Serial.read());
 #endif
     Serial.flush();
-    cli();  
+//    cli();  
     if (rf12_recvDone()) { // rf12_recvDone
 #if RF69_COMPAT && !TINY
         observedRX.afc = (RF69::afc);                  // Grab values before next interrupt
@@ -1597,17 +1600,19 @@ void loop () {
 
             activityLed(0);
         }
-    } else { // rf12_recvDone
+    }
+#if RF69_COMPAT  // I am currently unable to stablise the code for RFM12B 
+      else { // rf12_recvDone
         if (!cmd) {
             // Interrupts are already disabled
-#if PowerDown            
+    #if PowerDown    
             byte busy = Sleepy::idleSomeTime(TERMINAL_TIMEOUT);  // 5 seconds timeout for keyboard activity
             idleTime += (TERMINAL_TIMEOUT - busy);
             // Interrupts are still disabled
             if (!busy) {
                 busy = true;
-    #if !TINY
-                RF69::pcIntBits &= ~(1 << PCINT16);  // AVR bug? - pin change not entered.
+        #if !TINY
+                RF69::pcIntBits &= ~(1 << PCINT16);  // AVR bug? - pin change never entered.
 /*
                 UCSR0B &= ~(1 << RXEN0);    // Disable USART RX
 	        DDRD &= ~1;	            //PD0 as input
@@ -1615,23 +1620,21 @@ void loop () {
 */
 
                 PCMSK2 |= (1 << PCINT16);   // Allow RXD to wake us, first character will be lost
-    #endif   
-
-                    
+        #endif   
                 offTime += Sleepy::pwrDownTimer(6);  //0=16ms precision, 6=1024ms precision
-    #if !TINY
+        #if !TINY
 //                UCSR0B |= (1 << RXEN0);       // Enable USART RX
-//                PCMSK2 &= ~ (1 << PCINT16); // Disable RXD interrupt
-    #endif
+//                PCMSK2 &= ~ (1 << PCINT16);   // Disable RXD interrupt
+        #endif
             }  // Busy
-#else  // PowerDown
+    #else  // PowerDown
             idleTime += Sleepy::idleTimer(6); // 1 second intervals
-#endif  // PowerDown
+    #endif  // PowerDown
         sei();
         }  // cmd
     }
-            
     // If we didn't sleep then interrupts are still disabled from prior to rf12_recvDone()
+#endif  //  #if RF69_COMPAT    
     sei();
     if (cmd) {  // Checking again in case it interrupted whilst we slept
         if (rf12_canSend()) {

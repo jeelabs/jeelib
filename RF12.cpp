@@ -59,7 +59,11 @@
 
 #elif defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
 
-#define RFM_IRQ     2     // 2 for pin change on JeeNode
+#if PINCHG_IRQ
+    #define RFM_IRQ     10     // 10 for pin change on PB2
+#else
+    #define RFM_IRQ     2      // 2 for INT0 on PB2
+#endif 
 #define SS_DDR      DDRB
 #define SS_PORT     PORTB
 #define SS_BIT      1
@@ -84,7 +88,11 @@
 #else
 
 // ATmega168, ATmega328, etc.
-#define RFM_IRQ     18     // 2 for pin change on JeeNode 
+#if PINCHG_IRQ
+    #define RFM_IRQ     18     // 18 for pin change on PB2
+#else
+    #define RFM_IRQ     2      // 2 for INT0 on PB2
+#endif 
 #define SS_DDR      DDRB
 #define SS_PORT     PORTB
 #define SS_BIT      2     // for PORTB: 2 = d.10, 1 = d.9, 0 = d.8
