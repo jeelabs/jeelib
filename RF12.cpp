@@ -255,11 +255,11 @@ uint16_t rf12_control(uint16_t cmd) {
 #ifdef EIMSK    // ATMega
     #if PINCHG_IRQ    
         #if RFM_IRQ < 8     // Disable appropriate interrupt
-           bitClear(PCICR, PCIE2);
-        #elif RFM_IRQ < 14
            bitClear(PCICR, PCIE0);
-        #else
+        #elif RFM_IRQ < 16
            bitClear(PCICR, PCIE1);
+        #else
+           bitClear(PCICR, PCIE2);
         #endif
     #else
         bitClear(EIMSK, INT0);
@@ -267,11 +267,11 @@ uint16_t rf12_control(uint16_t cmd) {
     uint16_t r = rf12_xferSlow(cmd); // Transfer the SPI command
     #if PINCHG_IRQ
         #if RFM_IRQ < 8     // Enable appropriate interrupt
-            bitSet(PCICR, PCIE2);
-        #elif RFM_IRQ < 14
             bitSet(PCICR, PCIE0);
-        #else
+        #elif RFM_IRQ < 16
             bitSet(PCICR, PCIE1);
+        #else
+            bitSet(PCICR, PCIE2);
         #endif
     #else
         bitSet(EIMSK, INT0);
@@ -334,18 +334,18 @@ static void rf12_interrupt () {
 #ifdef EIMSK  // ATMega
     #if PINCHG_IRQ
         #if RFM_IRQ < 8       // Create appropriate pin change interrupt handler
-            ISR(PCINT2_vect) {
-                while (!bitRead(PIND, RFM_IRQ))
+            ISR(PCINT0_vect) {
+                while (!bitRead(PINB, RFM_IRQ))
                     rf12_interrupt();
             }
-        #elif RFM_IRQ < 14
-            ISR(PCINT0_vect) { 
-                while (!bitRead(PINB, RFM_IRQ - 8))
+        #elif RFM_IRQ < 16
+            ISR(PCINT1_vect) { 
+                while (!bitRead(PINC, RFM_IRQ - 8))
                     rf12_interrupt();
             }
         #else
-            ISR(PCINT1_vect) {
-                while (!bitRead(PINC, RFM_IRQ - 14))
+            ISR(PCINT2_vect) {
+                while (!bitRead(PIND, RFM_IRQ - 16))
                     rf12_interrupt();
             }
         #endif
@@ -357,7 +357,7 @@ static void rf12_interrupt () {
 #ifdef GIMSK      // ATTiny
     #if PINCHG_IRQ            
         ISR(PCINT1_vect) {    // Create appropriate pin change interrupt handler
-
+            while (!bitRead(PINB, RFM_IRQ))
                 rf12_interrupt();
             }
     #endif
@@ -613,28 +613,28 @@ uint8_t rf12_initialize (uint8_t id, uint8_t band, uint8_t g, uint16_t f) {
     #if PINCHG_IRQ
         #if RFM_IRQ < 8
             if ((nodeid & NODE_ID) != 0) {
-                bitClear(DDRD, RFM_IRQ);      // input
-                bitSet(PORTD, RFM_IRQ);       // pull-up
-                bitSet(PCMSK2, RFM_IRQ);      // pin-change
-                bitSet(PCICR, PCIE2);         // enable
-            } else
-                bitClear(PCMSK2, RFM_IRQ);
-        #elif RFM_IRQ < 14
-            if ((nodeid & NODE_ID) != 0) {
-                bitClear(DDRB, RFM_IRQ - 8);  // input
-                bitSet(PORTB, RFM_IRQ - 8);   // pull-up
-                bitSet(PCMSK0, RFM_IRQ - 8);  // pin-change
+                bitClear(DDRB, RFM_IRQ);      // input
+                bitSet(PORTB, RFM_IRQ);       // pull-up
+                bitSet(PCMSK0, RFM_IRQ);      // pin-change
                 bitSet(PCICR, PCIE0);         // enable
             } else
-                bitClear(PCMSK0, RFM_IRQ - 8);
-        #else
+                bitClear(PCMSK0, RFM_IRQ);
+        #elif RFM_IRQ < 16
             if ((nodeid & NODE_ID) != 0) {
-                bitClear(DDRC, RFM_IRQ - 14); // input
-                bitSet(PORTC, RFM_IRQ - 14);  // pull-up
-                bitSet(PCMSK1, RFM_IRQ - 14); // pin-change
+                bitClear(DDRC, RFM_IRQ - 8);  // input
+                bitSet(PORTC, RFM_IRQ - 8);   // pull-up
+                bitSet(PCMSK1, RFM_IRQ - 8);  // pin-change
                 bitSet(PCICR, PCIE1);         // enable
             } else
-                bitClear(PCMSK1, RFM_IRQ - 14);
+                bitClear(PCMSK1, RFM_IRQ - 8);
+        #else
+            if ((nodeid & NODE_ID) != 0) {
+                bitClear(DDRD, RFM_IRQ - 16); // input
+                bitSet(PORTD, RFM_IRQ - 16);  // pull-up
+                bitSet(PCMSK2, RFM_IRQ - 16); // pin-change
+                bitSet(PCICR, PCIE2);         // enable
+            } else
+                bitClear(PCMSK2, RFM_IRQ - 16);
         #endif
     #else
         if ((nodeid & NODE_ID) != 0)
