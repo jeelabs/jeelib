@@ -16,9 +16,9 @@
 
 #define RF69_COMPAT      1   // define this to use the RF69 driver i.s.o. RF12 - Adds ?? bytes to Tiny image
 
-#define PINCHG_IRQ       1   // Best power savings: set to 1 if using pin-change interrupts in RF69_avr.h
+#define PowerDown       1   // Best power savings: set to 1 if using pin-change interrupts in RF69_avr.h
                              // Terminal interface will sleep after 5 seconds inactivity use '.' to wake it up
-#define TERMINAL_TIMEOUT 5   // If PINCHG_IRQ then 5 seconds                             
+#define TERMINAL_TIMEOUT 5   // If PowerDown then 5 seconds                             
 #if TINY
     #define OOK          0   // Define this to include OOK code f, k - Adds ?? bytes to Tiny image
     #define JNuMOSFET    1   // Define to power up RFM12B on JNu2/3 - Adds 4 bytes to Tiny image
@@ -1600,7 +1600,7 @@ void loop () {
     } else { // rf12_recvDone
         if (!cmd) {
             // Interrupts are already disabled
-#if PINCHG_IRQ            
+#if PowerDown            
             byte busy = Sleepy::idleSomeTime(TERMINAL_TIMEOUT);  // 5 seconds timeout for keyboard activity
             idleTime += (TERMINAL_TIMEOUT - busy);
             // Interrupts are still disabled
@@ -1608,11 +1608,11 @@ void loop () {
                 busy = true;
     #if !TINY
                 RF69::pcIntBits &= ~(1 << PCINT16);  // AVR bug? - pin change not entered.
-
+/*
                 UCSR0B &= ~(1 << RXEN0);    // Disable USART RX
 	        DDRD &= ~1;	            //PD0 as input
 	        PORTD|=1;	            //enable pullup
-
+*/
 
                 PCMSK2 |= (1 << PCINT16);   // Allow RXD to wake us, first character will be lost
     #endif   
@@ -1620,13 +1620,13 @@ void loop () {
                     
                 offTime += Sleepy::pwrDownTimer(6);  //0=16ms precision, 6=1024ms precision
     #if !TINY
-                UCSR0B |= (1 << RXEN0);       // Enable USART RX
+//                UCSR0B |= (1 << RXEN0);       // Enable USART RX
 //                PCMSK2 &= ~ (1 << PCINT16); // Disable RXD interrupt
     #endif
             }  // Busy
-#else  // PINCHG_IRQ
+#else  // PowerDown
             idleTime += Sleepy::idleTimer(6); // 1 second intervals
-#endif  // PINCHG_IRQ
+#endif  // PowerDown
         sei();
         }  // cmd
     }
