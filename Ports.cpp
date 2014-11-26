@@ -1192,11 +1192,11 @@ word Sleepy::idleSomeTime (unsigned int secs) {
     unsigned int timeLeft = secs;
     word millisAdjust;
     byte saveTIMSK0 = TIMSK0;
-    byte savePRR = PRR;
-    TIMSK0 &= ~(1 << TOIE0);      // Reduce background interrupts, millis()
 #ifndef PRR
 #define PRR PRR0
 #endif   
+    byte savePRR = PRR;
+    TIMSK0 &= ~(1 << TOIE0);      // Reduce background interrupts, millis()
     PRR |= (1 << PRTIM0);         // Power down Timer0
     while (timeLeft) {
         millisAdjust = 2;         // If we are interrupted assume 2ms
