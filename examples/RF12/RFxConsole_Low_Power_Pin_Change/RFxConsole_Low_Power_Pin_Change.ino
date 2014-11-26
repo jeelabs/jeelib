@@ -31,8 +31,9 @@
     #define MESSAGING    1   // Define to include message posting code m, p - Will not fit into any Tiny image
     #define STATISTICS   1   // Define to include stats gathering - Adds ?? bytes to Tiny image
     #define NODE31ALLOC  1   // Define to include offering of spare node numbers if node 31 requests ack
-    #define DEBUG        1   //
+    #define BLOCK        1   // JeeNode Block
 #endif
+    #define DEBUG        1   //
 
 #define REG_SYNCCONFIG 0x2E  // RFM69 only, register containing sync length
 #define oneByteSync    0x87  // RFM69 only, value to get only one byte sync with max bit errors.
@@ -46,7 +47,7 @@
 
 #define MAJOR_VERSION RF12_EEPROM_VERSION // bump when EEPROM layout changes
 #define MINOR_VERSION 3                   // bump on other non-trivial changes
-#define VERSION "\n[RF12demo.13]"         // keep in sync with the above
+#define VERSION "\n[RfxConsole]"         // keep in sync with the above
 
 #if !configSTRING
 #define rf12_configDump()                 // Omit A i1 g210 @ 868 MHz q1
@@ -144,12 +145,21 @@ static byte inChar () {
 #define MAX_NODES 1004       // Constrained by eeprom
 
 #else
+    #if BLOCK
+        #define LED_PIN     8        // activity LED, comment out to disable
+    #else
 #define LED_PIN     9        // activity LED, comment out to disable
+    #endif
 #define messageStore  128
 #define MAX_NODES 100        // Contrained by RAM
 #endif
 
-ISR(WDT_vect) { Sleepy::watchdogEvent(); }
+ISR(WDT_vect) { Sleepy::watchdogEvent(); } // 
+
+#if BLOCK
+ISR(PCINT2_vect) {/*PCMSK2 &= ~ (1 << PCINT16);*/  // Disable RXD interrupt}
+}
+#endif
 
 static unsigned long now () {
     // FIXME 49-day overflow
@@ -1049,6 +1059,10 @@ memset(pktCount,0,sizeof(pktCount));
 
     df_initialize();
 
+#if BLOCK
+    bitSet(PCICR, PCIE2);
+#endif
+
 #if !TINY
     showHelp();
 #endif
@@ -1245,8 +1259,10 @@ void loop () {
     if (Serial.available())
         handleInput(Serial.read());
 #endif
+#if PowerDown    
     Serial.flush();
-//    cli();  
+#endif
+    cli();  
     if (rf12_recvDone()) { // rf12_recvDone
 #if RF69_COMPAT && !TINY
         observedRX.afc = (RF69::afc);                  // Grab values before next interrupt
@@ -1613,6 +1629,7 @@ void loop () {
                 busy = true;
         #if !TINY
                 RF69::pcIntBits &= ~(1 << PCINT16);  // AVR bug? - pin change never entered.
+                sei();
 /*
                 UCSR0B &= ~(1 << RXEN0);    // Disable USART RX
 	        DDRD &= ~1;	            //PD0 as input
@@ -1629,8 +1646,8 @@ void loop () {
             }  // Busy
     #else  // PowerDown
             idleTime += Sleepy::idleTimer(6); // 1 second intervals
+            sei();
     #endif  // PowerDown
-        sei();
         }  // cmd
     }
     // If we didn't sleep then interrupts are still disabled from prior to rf12_recvDone()

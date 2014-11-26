@@ -16,7 +16,7 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 #define PINCHG_IRQ  1    // Set this true to use pin-change interrupts
-#define RF69_COMPAT 1    // Set this true to use the RF69 driver
+#define RF69_COMPAT 0    // Set this true to use the RF69 driver
                          // The above flags must be set similarly in RF69_avr.h
 ///////////////////////////////////////////////////////////////////////////////                         
 // maximum transmit / receive buffer: 3 header + data + 2 crc bytes
@@ -89,9 +89,9 @@
 
 // ATmega168, ATmega328, etc.
 #if PINCHG_IRQ
-    #define RFM_IRQ     18     // 18 for pin change on PB2
+    #define RFM_IRQ     1     // 18=JeeNode on PB2,  1=JeeNode Block pin change
 #else
-    #define RFM_IRQ     2      // 2 for INT0 on PB2
+    #define RFM_IRQ     2      // 2=INT0 on PB2,
 #endif 
 #define SS_DDR      DDRB
 #define SS_PORT     PORTB

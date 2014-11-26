@@ -9,7 +9,7 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 #define PINCHG_IRQ  1    // Set this true to use pin-change interrupts
-#define RF69_COMPAT 1    // Set this true to use the RF69 driver
+#define RF69_COMPAT 0    // Set this true to use the RF69 driver
                          // The above flags must be set similarly in RF12.cpp
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -200,7 +200,7 @@ static void spiConfigPins () {
                     XXMSK |= (1 << INT_BIT);    //Restore IRQ function
                 } 
             }
-        #elif RFM_IRQ < 15
+        #elif RFM_IRQ < 16
             #define INT_BIT PCIE1
             ISR(PCINT1_vect) {// Create appropriate pin change interrupt handler 
                 volatile byte pinC = PINC;      // Read port data
@@ -219,7 +219,7 @@ static void spiConfigPins () {
                 }
             }
             // PCINT15 is not available in ATMega328
-        #elif RFM_IRQ > 15
+        #else
             #define INT_BIT PCIE2
             ISR(PCINT2_vect) {// Create appropriate pin change interrupt handler
                 volatile byte pinD = PIND;     // Read port data
@@ -279,7 +279,7 @@ static void spiConfigPins () {
                     RF69::interrupt_compat();// Process the RFM69x interrupt
                     XXMSK |= (1 << INT_BIT);
                 }                        
-                }
+            }
         #endif
     #else
         #define INT_BIT INT
@@ -350,7 +350,7 @@ static void InitIntPin () {
             } else
                 bitClear(PCMSK0, RFM_IRQ);
                 
-        #elif RFM_IRQ < 15
+        #elif RFM_IRQ < 16
             if (RF69::node != 0) {
                 bitClear(DDRC, RFM_IRQ - 8);  // input
 //                bitSet(PORTC, RFM_IRQ - 8);   // pull-up
@@ -360,7 +360,7 @@ static void InitIntPin () {
                 bitClear(PCMSK1, RFM_IRQ - 8);
         // PCINT15 is not available in ATMega328
 
-        #elif RFM_IRQ > 15
+        #else
             if (RF69::node != 0) {
                 bitClear(DDRD, RFM_IRQ - 16); // input
 //                bitSet(PORTD, RFM_IRQ - 16);  // pull-up
