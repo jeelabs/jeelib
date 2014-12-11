@@ -1131,7 +1131,7 @@ void Sleepy::powerDown () {
 #endif
     sei();
     sleep_cpu();
-    cli();
+
     // wake up here effectively
     sleep_disable();
     // re-enable what we disabled
