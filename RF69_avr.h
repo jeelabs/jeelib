@@ -157,23 +157,23 @@ static void spiConfigPins () {
 #define INT         INT0
 #define INT_NUMBER  0
 #if PINCHG_IRQ
-    #define RFM_IRQ     18     // 18 for pin change on PB2
+    #define RFM_IRQ     18  // 18 for pin change on PB2
 #else
-    #define RFM_IRQ     2      // 2 for INT0 on PB2
+    #define RFM_IRQ     2   // 2 for INT0 on PB2
 #endif 
 #define SS_DDR      DDRB
 #define SS_PORT     PORTB
-#define SS_BIT      2     // for PORTB: 2 = d.10, 1 = d.9, 0 = d.8
+#define SS_BIT      2       // for PORTB: 2 = d.10, 1 = d.9, 0 = d.8
 
-#define SPI_SS      2     // PB0
-#define SPI_MOSI    3     // PB1
-#define SPI_MISO    4     // PB2
-#define SPI_SCK     5     // PB3
+#define SPI_SS      2       // PB2: Required to enable SPI 
+#define SPI_MOSI    3       // PB3
+#define SPI_MISO    4       // PB4
+#define SPI_SCK     5       // PB5
 
 static void spiConfigPins () {
     SS_PORT |= _BV(SS_BIT);
-    SS_DDR |= _BV(SS_BIT);
-    PORTB |= _BV(SPI_SS);
+    SS_DDR |= _BV(SS_BIT);  // Slave select, maybe same pin as SPI_SS
+    PORTB |= _BV(SPI_SS);   // Required to enable SPI
     DDRB |= _BV(SPI_SS) | _BV(SPI_MOSI) | _BV(SPI_SCK);
 }
 
