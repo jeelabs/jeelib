@@ -9,6 +9,7 @@
 // Increase support to 100 nodes mixed between all groups 2014-05-24
 // Add 1284p supporting over 1000 nodes 2014-08-20
 // Based on RF12Demo from RF12Demo branch 2014-11-24
+// Add RegRssiThresh to eeprom config 2015-01-08
 
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
     #define TINY 1
@@ -47,7 +48,7 @@
 
 #define MAJOR_VERSION RF12_EEPROM_VERSION // bump when EEPROM layout changes
 #define MINOR_VERSION 3                   // bump on other non-trivial changes
-#define VERSION "\n[RfxConsole]"         // keep in sync with the above
+#define VERSION "\n[RFxConsole.0]"         // keep in sync with the above
 
 #if !configSTRING
 #define rf12_configDump()                 // Omit A i1 g210 @ 868 MHz q1
@@ -210,7 +211,8 @@ typedef struct {
     byte spare_flags  :4;
     word frequency_offset;  // used by rf12_config, offset 4
     byte RegPaLvl;          // See datasheet RFM69x Register 0x11
-    byte pad[RF12_EEPROM_SIZE-9];
+    byte RegRssiThresh;     // See datasheet RFM69x Register 0x29
+    byte pad[RF12_EEPROM_SIZE-10];
     word crc;
 } RF12Config;
 
@@ -277,6 +279,7 @@ unsigned long idleTime = 0, offTime = 0;
 const char messagesF[] PROGMEM = { 
                       0x05, 'T', 'e', 's', 't', '1', 
                       0x05, 'T', 'e', 's', 't', '2', 
+
                                0 }; // Mandatory delimiter
 
 #define MessagesStart 129
@@ -685,6 +688,7 @@ static void handleInput (char c) {
             config.output = value;
 #if RF69_COMPAT
             config.RegPaLvl = RF69::control(0x11, 0x9F);   // Pull the current RegPaLvl from the radio
+            config.RegRssiThresh = RF69::control(0x29, 0xA0);   // Pull the current RegRssiThresh from the radio
 #endif                                                     // An obscure method because one can blow the hardware
             saveConfig();
             break;
@@ -1010,17 +1014,6 @@ memset(maxLNA,0,sizeof(maxLNA));
 memset(pktCount,0,sizeof(pktCount));
 #endif
 
-#if DEBUG
-// Debug code to fill up the eeprom node table
-/*
-                    for (unsigned int n = 0; n < MAX_NODES; n++) {
-                        eeprom_write_byte((RF12_EEPROM_NODEMAP) + (n * 4), 32);
-                    }
-*/                   
-//    dumpRegs();
-//    dumpEEprom();
-#endif
-
 #if TINY
     PCMSK0 |= (1<<PCINT2);  // tell pin change mask to listen to PA2
     GIMSK |= (1<<PCIE0);    // enable PCINT interrupt in general interrupt mask
@@ -1066,6 +1059,18 @@ memset(pktCount,0,sizeof(pktCount));
 #if !TINY
     showHelp();
 #endif
+
+#if DEBUG
+// Debug code to fill up the eeprom node table
+/*
+                    for (unsigned int n = 0; n < MAX_NODES; n++) {
+                        eeprom_write_byte((RF12_EEPROM_NODEMAP) + (n * 4), 32);
+                    }
+*/                   
+//    dumpRegs();
+//    dumpEEprom();
+#endif
+
 } // setup
 
 #if DEBUG

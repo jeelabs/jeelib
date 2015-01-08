@@ -754,10 +754,17 @@ void rf12_configDump () {
         Serial.print(flags & 0x03);
     }
     // Bad reuse of flags variable
-    flags = eeprom_read_byte(RF12_EEPROM_ADDR + 6);
+    flags = eeprom_read_byte(RF12_EEPROM_ADDR + 6); // RegPaLvl
     if (flags) {
         if (flags != 0x9F) {
-            Serial.print(" r");
+            Serial.print(" tx");
+            Serial.print(flags, HEX);
+       }
+    }
+    flags = eeprom_read_byte(RF12_EEPROM_ADDR + 7); // RegRssiThresh
+    if (flags) {
+        if (flags != 0xA0) {
+            Serial.print(" rx");
             Serial.print(flags, HEX);
        }
     }
