@@ -18,6 +18,7 @@
 // The interrupt routine (ISR) defined by rf12.cpp routine may also set up
 // determined by the RF69_COMPAT flag setting
 
+// Compile errors with Arduino 1.5.8
 
 // prog_uint8_t appears to be deprecated in avr libc, this resolves it for now
 #define __PROG_TYPES_COMPAT__
