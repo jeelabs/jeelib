@@ -34,7 +34,7 @@ void loop () {
         receiveLed(1);
         Serial.print("OK ");
         for (byte i = 0; i < rf12_len; ++i)
-            Serial.print(rf12_data[i]);
+            Serial.print((char) rf12_data[i]);
         Serial.println();
         delay(100); // otherwise led blinking isn't visible
         receiveLed(0);
