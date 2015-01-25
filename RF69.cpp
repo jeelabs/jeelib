@@ -1,6 +1,13 @@
 #include <stdint.h>
 #include <RF69.h>
 #include <RF69_avr.h>
+#define __PROG_TYPES_COMPAT__
+#include <avr/pgmspace.h>
+
+#define ROM_UINT8       const uint8_t // Does this change storage to RAM?
+#define ROM_READ_UINT8  pgm_read_byte
+#define ROM_DATA        PROGMEM
+
 
 #define LIBRARY_VERSION     13      // Stored in REG_SYNCVALUE6 by initRadio 
 

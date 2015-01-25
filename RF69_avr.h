@@ -18,16 +18,6 @@
 // The interrupt routine (ISR) defined by rf12.cpp routine may also set up
 // determined by the RF69_COMPAT flag setting
 
-// Compile errors with Arduino 1.5.8
-
-// prog_uint8_t appears to be deprecated in avr libc, this resolves it for now
-#define __PROG_TYPES_COMPAT__
-#include <avr/pgmspace.h>
-
-#define ROM_UINT8       const uint8_t
-#define ROM_READ_UINT8  pgm_read_byte
-#define ROM_DATA        PROGMEM
-
 #define IRQ_ENABLE      sei()
 
 volatile byte lastPCInt;
