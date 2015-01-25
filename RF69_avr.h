@@ -24,7 +24,7 @@
 #define __PROG_TYPES_COMPAT__
 #include <avr/pgmspace.h>
 
-#define ROM_UINT8       const prog_uint8_t
+#define ROM_UINT8       const uint8_t
 #define ROM_READ_UINT8  pgm_read_byte
 #define ROM_DATA        PROGMEM
 
