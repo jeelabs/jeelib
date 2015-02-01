@@ -145,12 +145,12 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 //  0x25, 0x80, // DioMapping1 = RSSI threshold
   0x29, 0xA0, // RssiThresh ... -80dB
 
-  0x2E, 0xA0, // SyncConfig = sync on, sync size = 5
-  0x2F, 0xAA, // SyncValue1 = 0xAA
-  0x30, 0xAA, // SyncValue2 = 0xAA
-  0x31, 0xAA, // SyncValue3 = 0xAA
-  0x32, 0x2D, // SyncValue4 = 0x2D
-  0x33, 0xD4, // SyncValue5 = 212, Group
+  0x2C, 0x00, // Preamble bytes MSB
+  0x2D, 0x06, // Preamble bytes LSB
+  0x2E, 0x88, // SyncConfig = sync on, sync size = 2
+  0x2F, 0x2D, // SyncValue1 = 0x2D
+  0x30, 0xD4, // SyncValue2 = 212, Group
+
   0x37, 0x00, // PacketConfig1 = fixed, no crc, filt off
   0x38, 0x00, // PayloadLength = 0, unlimited
   0x3C, 0x8F, // FifoTresh, not empty, level 15
@@ -263,9 +263,9 @@ void RF69::configure_compat () {
     if (initRadio(configRegs_compat)) {
         writeReg(REG_SYNCGROUP, group);
         if (group == 0) {
-            writeReg(REG_SYNCCONFIG, fourByteSync);
+            writeReg(REG_SYNCCONFIG, oneByteSync);
         } else {
-            writeReg(REG_SYNCCONFIG, fiveByteSync);
+            writeReg(REG_SYNCCONFIG, twoByteSync);
         }   
 
         writeReg(REG_FRFMSB, frf >> 16);
@@ -331,7 +331,7 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
     even when the group is zero                                               */
     
     // REG_SYNCGROUP must have been set to an appropriate group before this.
-    writeReg(REG_SYNCCONFIG, fiveByteSync);
+    writeReg(REG_SYNCCONFIG, twoByteSync);
     crc = _crc16_update(~0, readReg(REG_SYNCGROUP));
 
     setMode(MODE_TRANSMITTER);
@@ -416,7 +416,7 @@ void RF69::interrupt_compat () {
             setMode(MODE_STANDBY);
             writeReg(REG_DIOMAPPING1, 0x80); // Interrupt on RSSI threshold
             if (group == 0) {               // Allow receiving from all groups
-                writeReg(REG_SYNCCONFIG, fourByteSync);
+                writeReg(REG_SYNCCONFIG, oneByteSync);
             }
         } else {
             overrun++;
