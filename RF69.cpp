@@ -78,7 +78,7 @@
 #define RssiStart           0x01
 #define RssiDone            0x02
 
-#define AfcClear            0x02
+#define AfcClear            0x0C
 
 #define oneByteSync         0x80
 #define twoByteSync         0x88
