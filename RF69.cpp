@@ -141,7 +141,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 */
   0x19, 0x42, // RxBw ...
   0x1A, 0x91, // 0x8B,   // Channel filter BW
-  0x1E, 0x0E, // AfcAutoclearOn, AfcAutoOn
+  0x1E, 0x02, // AFC is manually cleared.
 //  0x25, 0x80, // DioMapping1 = RSSI threshold
   0x29, 0xA0, // RssiThresh ... -80dB
 
@@ -275,7 +275,6 @@ void RF69::configure_compat () {
         writeReg(REG_OSC1, RcCalStart);             // Calibrate
         while(!(readReg(REG_OSC1) & RcCalDone));    // Wait for completion
         writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
-        writeReg(REG_AFCFEI, AfcClear);             // Clear AFC
         writeReg(REG_DIOMAPPING1, 0x80);            // Interrupt on RSSI
 
         rxstate = TXIDLE;
