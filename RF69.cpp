@@ -139,8 +139,8 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 // Mismatching PA1 below with the RFM69x module present risks blowing a hole in the LNA
 // 0x11, 0x5F, // PA1 enable, Pout = max // uncomment this for RFM69H
 */
-  0x19, 0x42, // RxBw ...
-  0x1A, 0x91, // 0x8B,   // Channel filter BW
+  0x19, 0x4A, // RxBw 100 KHz
+  0x1A, 0x42, // AfcBw 125 KHz Channel filter BW
   0x1E, 0x02, // AFC is manually cleared.
 //  0x25, 0x80, // DioMapping1 = RSSI threshold
   0x29, 0xA0, // RssiThresh ... -80dB
