@@ -134,8 +134,9 @@ void rf69_sendWait (uint8_t mode) {
         }
 }
 
-// void rf69_onOff (uint8_t value) {
-// }
+void rf69_onOff (uint8_t value) {
+    // TODO: not yet implemented
+}
 
 void rf69_sleep (char n) {
     RF69::sleep(n == RF12_SLEEP);
@@ -190,8 +191,12 @@ char rf69_easySend (const void* data, uint8_t size) {
     return 1;
 }
 
-// void rf69_encrypt (const uint8_t*) {
-// }
+void rf69_encrypt (const uint8_t*) {
+    // TODO: not yet implemented
+}
 
-// uint16_t rf69_control (uint16_t cmd) {
-// }
+uint16_t rf69_control (uint16_t cmd) {
+    // the RF69's API is different: use top 8 bits as reg + w/r flag, and
+    // bottom 8 bits as the value to store, result is only 8 bits, not 16
+    return RF69::control(cmd >> 8, cmd);
+}

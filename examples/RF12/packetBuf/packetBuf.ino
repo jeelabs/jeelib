@@ -52,7 +52,7 @@ void loop () {
         // a packet has been received
         Serial.print("GOT ");
         for (byte i = 0; i < rf12_len; ++i)
-            Serial.print(rf12_data[i]);
+            Serial.print((char) rf12_data[i]);
         Serial.println();
     }
     
