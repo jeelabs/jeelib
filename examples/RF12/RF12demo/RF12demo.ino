@@ -49,6 +49,7 @@ const char INITFAIL[] PROGMEM = "config save failed\n";
 // Connect Tiny84 PA2 to USB-BUB TXD for serial input to sketch.
 // Jeenode DIO2
 // 9600 or 38400 at present.
+// http://jeelabs.net/boards/7/topics/3229?r=3268#message-3268
 
 #if SERIAL_BAUD == 9600
 #define BITDELAY 54          // 9k6 @ 8MHz, 19k2 @16MHz
