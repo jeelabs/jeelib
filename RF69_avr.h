@@ -72,7 +72,7 @@ static void spiConfigPins () {
 
 #elif defined(__AVR_ATmega32U4__) //Arduino Leonardo 
 
-#define RFM_IRQ     3	  // PD0, INT0, Digital3 
+#define RFM_IRQ     0	  // PD0, INT0, Digital3 
 #define SS_DDR      DDRB
 #define SS_PORT     PORTB
 #define SS_BIT      6	  // Dig10, PB6
@@ -86,8 +86,11 @@ static void spiConfigPins () {
     SS_PORT |= _BV(SS_BIT);
     SS_DDR |= _BV(SS_BIT);
     PORTB |= _BV(SPI_SS);
-    DDRB |= _BV(SPI_SS) | _BV(SPI_MOSI) | _BV(SPI_SCK);
+	pinMode(SPI_MOSI, OUTPUT);
+    pinMode(SPI_MISO, INPUT);
+    pinMode(SPI_SCK, OUTPUT);
 }
+
 
 #else // ATmega168, ATmega328, etc.
 
