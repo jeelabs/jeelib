@@ -124,13 +124,9 @@ static void setPrescaler (uint8_t mode) {
 
 #elif defined(__AVR_ATmega32U4__) //Arduino Leonardo
 
-<<<<<<< HEAD
 #define INT         INT0
 #define INT_NUMBER  0
-#define RFM_IRQ     3	  // PD0, INT0, Digital3 
-=======
 #define RFM_IRQ     0	    // PD0, INT0, Digital3
->>>>>>> origin/master
 #define SS_DDR      DDRB
 #define SS_PORT     PORTB
 #define SS_BIT      6	    // Dig10, PB6
@@ -288,18 +284,12 @@ struct PreventInterrupt {
 
 static void spiInit (void) {
     spiConfigPins();
-<<<<<<< HEAD
     
 #ifdef SPCR    
     SPCR = _BV(SPE) | _BV(MSTR);    
     
 //    SPCR |= _BV(SPR0);  // Divide SPI by 4
     
-=======
-
-#ifdef SPCR
-    SPCR = _BV(SPE) | _BV(MSTR);
->>>>>>> origin/master
     SPSR |= _BV(SPI2X);
 #else
     USICR = _BV(USIWM0); // ATtiny
