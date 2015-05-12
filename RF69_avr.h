@@ -6,7 +6,8 @@
 #else
 #include <WProgram.h> // Arduino 0022
 #endif
-
+#define OPTIMIZE_SPI 1  // comment this to write to the RFM69x @ 250Khz
+                        // otherwise frequency is 8Mhz
 ///////////////////////////////////////////////////////////////////////////////
 #define PINCHG_IRQ  0    // Set this true to use pin-change interrupts
 #define RF69_COMPAT 1    // Set this true to use the RF69 driver
@@ -287,10 +288,14 @@ static void spiInit (void) {
     
 #ifdef SPCR    
     SPCR = _BV(SPE) | _BV(MSTR);    
-    
+
+  #if OPTIMIZE_SPI == 0    
 //    SPCR |= _BV(SPR0);  // Divide SPI by 4
-    
-    SPSR |= _BV(SPI2X);
+    SPCR |= _BV(SPR1);  // Divide SPI by 16
+  #else    
+    SPSR |= _BV(SPI2X);  // Double SPI
+  #endif
+  
 #else
     USICR = _BV(USIWM0); // ATtiny
 #endif
