@@ -6,7 +6,8 @@
 #else
 #include <WProgram.h> // Arduino 0022
 #endif
-#define OPTIMIZE_SPI 1  // comment this to write to the RFM69x @ 250Khz
+// NOTE: The following does not apply to the ATTiny processors which use USI
+#define OPTIMIZE_SPI 1  // comment this out to write to the RFM69x @ 125Khz
                         // otherwise frequency is 8Mhz with 16Mhz processor
 ///////////////////////////////////////////////////////////////////////////////
 #define PINCHG_IRQ  0    // Set this true to use pin-change interrupts
