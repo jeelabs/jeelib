@@ -477,7 +477,19 @@ static void showHelp () {
     showString(PSTR("Current configuration:\n"));
     rf12_configDump();
   #if RF69_COMPAT
-    if (!RF69::present) showString(PSTR("Radio is absent\n"));
+    if (RF69::present) {
+        showString(PSTR("RFM69x Problem\n"));
+        Serial.println((RF69::control(REG_SYNCVALUE7),0), HEX);
+        Serial.println((RF69::control(REG_SYNCVALUE8),0), HEX);
+        unsigned int mask = 0xAA;
+        for (unsigned int i = 0; i < 8; i++) {
+            RF69::control(REG_SYNCVALUE7 | 0x80, mask);
+            Serial.print(mask, BIN);
+            printOneChar('?');
+            Serial.println((RF69::control(REG_SYNCVALUE7),0), BIN);
+            mask >> 1;
+        }
+    }
   #endif    
 #endif
 }
@@ -1042,8 +1054,12 @@ memset(pktCount,0,sizeof(pktCount));
 
 #if !TINY
     showHelp();
+    unsigned int a = ((SPCR | (SPSR << 2)) & 7);    
+    if (a != 4) {    // Table 18.5 Relationship Between SCK and the Oscillator Frequency
+        showString(PSTR("SPI="));
+        Serial.println(a, BIN); 
+    }
 #endif
-
 #if DEBUG
 // Debug code to fill up the eeprom node table
 /*
