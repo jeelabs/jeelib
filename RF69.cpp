@@ -67,8 +67,8 @@
 #define IRQ1_MODEREADY      0x80
 #define IRQ1_RXREADY        0x40
 
-#define START_TX            0xB0
-#define DELAY_TX            0x30
+#define START_TX            0xA0  // With 125Khz SPI a minimum
+#define DELAY_TX            0x20  // 22 byte head start required, 32 to be safe 
 
 
 #define IRQ2_FIFOFULL       0x80
@@ -158,7 +158,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x33, 0xD4, // SyncValue5 = 212, Group
   0x37, 0x00, // PacketConfig1 = fixed, no crc, filt off
   0x38, 0x00, // PayloadLength = 0, unlimited
-  0x3C, 0xB0, // FifoTresh, not empty, level 48 bytes
+//  0x3C, 0x8F, // FifoTresh, not empty, level 15 bytes
   0x3D, 0x10, // PacketConfig2, interpkt = 1, autorxrestart off
   0x6F, 0x20, // 0x30, // TestDagc ...
   0
