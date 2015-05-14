@@ -341,8 +341,10 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
     setMode(MODE_TRANSMITTER);
     writeReg(REG_DIOMAPPING1, 0x00); // PacketSent
     
-    writeReg(REG_FIFOTHRESH, DELAY_TX);     // Wait for FIFO to hit 48 bytes
-                                            // transmission will then begin    
+    if (rf12_len > 9)                       // Expedite short packet TX
+      writeReg(REG_FIFOTHRESH, DELAY_TX);   // Wait for FIFO to hit 32 bytes
+                                            // transmission will then begin  
+                                              
     // use busy polling until the last byte fits into the buffer
     // this makes sure it all happens on time, and that sendWait can sleep
     while (rxstate < TXDONE)
