@@ -38,6 +38,7 @@
 #define REG_SYNCVALUE8      0x36
 #define REG_SYNCGROUP       0x33
 #define REG_NODEADRS        0x39
+#define REG_FIFOTHRESH      0x3C
 #define REG_PACKETCONFIG2   0x3D
 #define REG_AESKEY1         0x3E
 #define REG_TEMP1           0x4E
@@ -65,6 +66,10 @@
 
 #define IRQ1_MODEREADY      0x80
 #define IRQ1_RXREADY        0x40
+
+#define START_TX            0xB0
+#define DELAY_TX            0x30
+
 
 #define IRQ2_FIFOFULL       0x80
 #define IRQ2_FIFONOTEMPTY   0x40
@@ -153,7 +158,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x33, 0xD4, // SyncValue5 = 212, Group
   0x37, 0x00, // PacketConfig1 = fixed, no crc, filt off
   0x38, 0x00, // PayloadLength = 0, unlimited
-  0x3C, 0x8F, // FifoTresh, not empty, level 15
+  0x3C, 0xB0, // FifoTresh, not empty, level 48 bytes
   0x3D, 0x10, // PacketConfig2, interpkt = 1, autorxrestart off
   0x6F, 0x20, // 0x30, // TestDagc ...
   0
@@ -336,6 +341,8 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
     setMode(MODE_TRANSMITTER);
     writeReg(REG_DIOMAPPING1, 0x00); // PacketSent
     
+    writeReg(REG_FIFOTHRESH, DELAY_TX);     // Wait for FIFO to hit 48 bytes
+                                            // transmission will then begin    
     // use busy polling until the last byte fits into the buffer
     // this makes sure it all happens on time, and that sendWait can sleep
     while (rxstate < TXDONE)
@@ -353,9 +360,11 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
             writeReg(REG_FIFO, out);
             ++rxstate;
         }
-
+        writeReg(REG_FIFOTHRESH, START_TX);     // if < 48 bytes, release FIFO
+                                                // for transmission
 /*  At this point packet is typically in the FIFO but not fully transmitted.
-    transmission complete will be indicated by an interrupt                   */
+    transmission complete will be indicated by an interrupt.                   
+*/
 
 
 }
