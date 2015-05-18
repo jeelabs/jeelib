@@ -38,6 +38,8 @@
 #define REG_SYNCCONFIG 0x2E  // RFM69 only, register containing sync length
 #define oneByteSync    0x87  // RFM69 only, value to get only one byte sync with max bit errors.
 #define REG_SYNCGROUP  0x33  // RFM69 only, register containing group number
+#define REG_SYNCVALUE7 0x35  // RFM69 only
+#define REG_SYNCVALUE8 0x36  // RFM69 only
 
 #include <JeeLib.h>
 #include <util/crc16.h>
@@ -477,17 +479,17 @@ static void showHelp () {
     showString(PSTR("Current configuration:\n"));
     rf12_configDump();
   #if RF69_COMPAT
-    if (RF69::present) {
-        showString(PSTR("RFM69x Problem\n"));
-        Serial.println((RF69::control(REG_SYNCVALUE7),0), HEX);
-        Serial.println((RF69::control(REG_SYNCVALUE8),0), HEX);
+    if (!RF69::present) {
+        showString(PSTR("RFM69x Problem "));
+        Serial.print((RF69::control(REG_SYNCVALUE7,0)), HEX);
+        Serial.println((RF69::control(REG_SYNCVALUE8,0)), HEX);
         unsigned int mask = 0xAA;
         for (unsigned int i = 0; i < 8; i++) {
             RF69::control(REG_SYNCVALUE7 | 0x80, mask);
             Serial.print(mask, BIN);
             printOneChar('?');
-            Serial.println((RF69::control(REG_SYNCVALUE7),0), BIN);
-            mask >> 1;
+            Serial.println((RF69::control(REG_SYNCVALUE7, 0)), BIN);
+            mask = mask >> 1;
         }
     }
   #endif    
@@ -1056,8 +1058,8 @@ memset(pktCount,0,sizeof(pktCount));
     showHelp();
     unsigned int a = ((SPCR | (SPSR << 2)) & 7);    
     if (a != 4) {    // Table 18.5 Relationship Between SCK and the Oscillator Frequency
-        showString(PSTR("SPI="));
-        Serial.println(a, BIN); 
+        showString(PSTR(" SPI="));
+        Serial.println(a); 
     }
 #endif
 #if DEBUG
@@ -1200,11 +1202,11 @@ static void nodeShow(byte group) {
     printOneChar(',');
     Serial.print(RF69::discards);
     printOneChar(',');
-    Serial.print(RF69::byteCount);
+    Serial.print(RF69::byteCount);  // Length of previous packet
+    printOneChar(',');
+    Serial.print((RF69::len));      // Length of previous payload
     printOneChar(',');
     Serial.print(RF69::overrun);
-    printOneChar(',');
-    Serial.print(RF69::fifooverrun);
     printOneChar(',');
     Serial.print(RF69::underrun);
     printOneChar(')');
@@ -1619,9 +1621,9 @@ void loop () {
             cmd = 0;
             activityLed(0);
         } else { // rf12_canSend
-        showString(PSTR(" Busy\n"));  // Not ready to send
+            showString(PSTR(" Busy\n"));  // Not ready to send
             busyCount++;
-        cmd = 0;                      // Request dropped
+        cmd = 0;                          // Request dropped
         }
     } // cmd
 } // loop

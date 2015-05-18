@@ -110,12 +110,12 @@ namespace RF69 {
     uint16_t txP;
     uint16_t discards;
     uint16_t overrun;
-    uint16_t fifooverrun;
     uint16_t byteCount;
     uint16_t underrun;
     uint8_t  present;
     uint16_t pcIntCount;
     uint8_t  pcIntBits;
+    int8_t   len;
     }
 
 static volatile uint8_t rxfill;      // number of data bytes in rf12_buf
@@ -280,7 +280,6 @@ void RF69::configure_compat () {
         writeReg(REG_OSC1, RcCalStart);             // Calibrate
         while(!(readReg(REG_OSC1) & RcCalDone));    // Wait for completion
         writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
-        writeReg(REG_DIOMAPPING1, 0x80);            // Interrupt on RSSI
 
         rxstate = TXIDLE;
         present = 1;                                // Radio is present
@@ -298,6 +297,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         recvBuf = buf;
         rxstate = TXRECV;
         flushFifo();
+        writeReg(REG_DIOMAPPING1, 0x80);            // Interrupt on RSSI
         setMode(MODE_RECEIVER);
         break;
     case TXRECV:
@@ -337,6 +337,7 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
     // REG_SYNCGROUP must have been set to an appropriate group before this.
     writeReg(REG_SYNCCONFIG, fiveByteSync);
     crc = _crc16_update(~0, readReg(REG_SYNCGROUP));
+    writeReg(REG_AFCFEI, AfcClear);
 
     setMode(MODE_TRANSMITTER);
     writeReg(REG_DIOMAPPING1, 0x00); // PacketSent
@@ -392,43 +393,58 @@ void RF69::interrupt_compat () {
             crc = ~0;
             packetBytes = 0;
             
-            for (;;) { // busy loop, to get each data byte as soon as it comes in                 
-                uint8_t r = readReg(REG_IRQFLAGS2); 
-                if (!(r & IRQ2_FIFOOVERRUN)) {
-                    if (r & IRQ2_FIFONOTEMPTY) { 
-                        if (rxfill == 0 && group != 0) { 
-                           recvBuf[rxfill++] = group;
-                           packetBytes++;
-                           crc = _crc16_update(crc, group);
-                        } 
-                        uint8_t in = readReg(REG_FIFO);
-                        recvBuf[rxfill++] = in;
-                        packetBytes++;
-                        crc = _crc16_update(crc, in);              
-                        if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX)
-                           break;
+            for (;;) { // busy loop, to get each data byte as soon as it comes in 
+                if (readReg(REG_IRQFLAGS2) & (IRQ2_FIFONOTEMPTY|IRQ2_FIFOOVERRUN)) {
+                    if (rxfill == 0 && group != 0) { 
+                      recvBuf[rxfill++] = group;
+                      packetBytes++;
+                      crc = _crc16_update(crc, group);
+                    } 
+                    uint8_t in = readReg(REG_FIFO);
+                        
+                    if (rxfill == 2) {
+                        if (in <= 66)       // Validate and
+                            len = in;       // capture length byte
+                        else {
+                            len = -2;       // drop crc if invalid length
+                            in = 0;         // set to zero length
+                            crc = ~0;       // Set bad CRC
+                        }
                     }
-                } else {             
-                    fifooverrun++;                  
-                }
-            }
+                    recvBuf[rxfill++] = in;
+                    packetBytes++;
+                    crc = _crc16_update(crc, in);              
+                    if (rxfill >= (len + 5)) {  // Trap RX overrun
+                        setMode(MODE_STANDBY);  // Get radio out of RX mode
+                        writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);
+                        rxfill = RF_MAX;        // TODO Why is this required?
+                        break;
+                    }
+                        
+                    if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX)
+                      break;
+            } 
+
             if (packetBytes < 5) underrun++;
-            byteCount = rxfill;
-            writeReg(REG_AFCFEI, AfcClear); 
             
-        } else if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
-            writeReg(REG_TESTPA1, TESTPA1_NORMAL);    // Turn off high power 
-            writeReg(REG_TESTPA2, TESTPA2_NORMAL);    // transmit
-            // rxstate will be TXDONE at this point
-            IRQ_ENABLE;       // allow nested interrupts from here on
-            txP++;
-            rxstate = TXIDLE;
-            setMode(MODE_STANDBY);
-            writeReg(REG_DIOMAPPING1, 0x80); // Interrupt on RSSI threshold
-            if (group == 0) {               // Allow receiving from all groups
-                writeReg(REG_SYNCCONFIG, fourByteSync);
-            }
-        } else {
-            overrun++;
-        }
+            byteCount = rxfill;
+            writeReg(REG_AFCFEI, AfcClear);
+        }    
+    } else if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
+          writeReg(REG_TESTPA1, TESTPA1_NORMAL);    // Turn off high power 
+          writeReg(REG_TESTPA2, TESTPA2_NORMAL);    // transmit
+          // rxstate will be TXDONE at this point
+          IRQ_ENABLE;       // allow nested interrupts from here on
+          txP++;
+          rxstate = TXIDLE;
+          setMode(MODE_STANDBY);
+          writeReg(REG_DIOMAPPING1, 0x80); // Interrupt on RSSI threshold
+          writeReg(REG_AFCFEI, AfcClear);
+
+          if (group == 0) {               // Allow receiving from all groups
+              writeReg(REG_SYNCCONFIG, fourByteSync);
+          }
+    } else {
+          overrun++;
+    }
 }
