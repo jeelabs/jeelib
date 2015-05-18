@@ -134,8 +134,8 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
  // 0x02, 0x00, // DataModul = packet mode, fsk
   0x03, 0x02, // BitRateMsb, data rate = 49,261 khz
   0x04, 0x8A, // BitRateLsb, divider = 32 MHz / 650 == 49,230 khz
-  0x05, 0x05, // FdevMsb = 90 KHz
-  0x06, 0xC3, // FdevLsb = 90 KHz
+  0x05, 0x02, // FdevMsb = 45 KHz
+  0x06, 0xE1, // FdevLsb = 45 KHz
   // 0x07, 0xD9, // FrfMsb, freq = 868.000 MHz
   // 0x08, 0x00, // FrfMib, divider = 14221312
   // 0x09, 0x00, // FrfLsb, step = 61.03515625
@@ -146,7 +146,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 */
   0x19, 0x4A, // RxBw 100 KHz
   0x1A, 0x42, // AfcBw 125 KHz Channel filter BW
-  0x1E, 0x02, // AFC is manually cleared.
+  0x1E, 0x0C, // AfcAutoclearOn, AfcAutoOn
 //  0x25, 0x80, // DioMapping1 = RSSI threshold
   0x29, 0xA0, // RssiThresh ... -80dB
 
@@ -337,7 +337,6 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
     // REG_SYNCGROUP must have been set to an appropriate group before this.
     writeReg(REG_SYNCCONFIG, fiveByteSync);
     crc = _crc16_update(~0, readReg(REG_SYNCGROUP));
-    writeReg(REG_AFCFEI, AfcClear);
 
     setMode(MODE_TRANSMITTER);
     writeReg(REG_DIOMAPPING1, 0x00); // PacketSent
@@ -428,7 +427,6 @@ void RF69::interrupt_compat () {
             if (packetBytes < 5) underrun++;
             
             byteCount = rxfill;
-            writeReg(REG_AFCFEI, AfcClear);
         }    
     } else if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
           writeReg(REG_TESTPA1, TESTPA1_NORMAL);    // Turn off high power 
@@ -439,7 +437,6 @@ void RF69::interrupt_compat () {
           rxstate = TXIDLE;
           setMode(MODE_STANDBY);
           writeReg(REG_DIOMAPPING1, 0x80); // Interrupt on RSSI threshold
-          writeReg(REG_AFCFEI, AfcClear);
 
           if (group == 0) {               // Allow receiving from all groups
               writeReg(REG_SYNCCONFIG, fourByteSync);
