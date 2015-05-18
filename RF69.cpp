@@ -146,7 +146,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 */
   0x19, 0x4A, // RxBw 100 KHz
   0x1A, 0x42, // AfcBw 125 KHz Channel filter BW
-  0x1E, 0x0C, // AfcAutoclearOn, AfcAutoOn
+  0x1E, 0x02, // AFC is manually cleared
 //  0x25, 0x80, // DioMapping1 = RSSI threshold
   0x29, 0xA0, // RssiThresh ... -80dB
 
@@ -299,6 +299,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         flushFifo();
         writeReg(REG_DIOMAPPING1, 0x80);            // Interrupt on RSSI
         setMode(MODE_RECEIVER);
+        writeReg(REG_AFCFEI, AfcClear);
         break;
     case TXRECV:
         if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX) {
@@ -414,6 +415,7 @@ void RF69::interrupt_compat () {
                     packetBytes++;
                     crc = _crc16_update(crc, in);              
                     if (rxfill >= (len + 5)) {  // Trap RX overrun
+                        writeReg(REG_AFCFEI, AfcClear);
                         setMode(MODE_STANDBY);  // Get radio out of RX mode
                         writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);
                         rxfill = RF_MAX;        // TODO Why is this required?
