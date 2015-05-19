@@ -17,8 +17,7 @@ void loop() {
     Serial.print(" hdr: ");
     Serial.print(rf12_hdr, HEX);
     Serial.print(' ');
-    // include the two CRC bytes at the end
-    for (int i = 0; i < rf12_len + 2; ++i) {
+    for (int i = 0; i < rf12_len; ++i) {
       Serial.print(rf12_data[i] >> 4, HEX);
       Serial.print(rf12_data[i] & 0xF, HEX);
     }
