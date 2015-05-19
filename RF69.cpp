@@ -292,7 +292,6 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
     switch (rxstate) {
     case TXIDLE:
         rxfill = rf12_len = 0;
-        // What does the next line do for group zero?
         crc = _crc16_update(~0, group);
         recvBuf = buf;
         rxstate = TXRECV;
@@ -304,20 +303,22 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
     case TXRECV:
         if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX) {
             rxstate = TXIDLE;
-            setMode(MODE_STANDBY);
+//            setMode(MODE_STANDBY); // Only required for *backstop*
  
             if (rf12_len > RF12_MAXDATA) {
-                crc = 1; // force bad crc for invalid packet                
+                crc = 1;  // force bad crc for invalid packet                
             }
-            // TODO The following test is arbitrary if the CRC is bad
-            if (!(rf12_hdr & RF12_HDR_DST) || node == 31 ||
+//            if (!crc) {   // Good crc?
+                if (!(rf12_hdr & RF12_HDR_DST) || node == 31 ||
                     (rf12_hdr & RF12_HDR_MASK) == node) {
-                return crc;
-            } else {
-                discards++; // TODO How to return and clear the buffer
-                return ~0;  // What should we return, what does "if" detect?
-            }               // Suspect were are returning saying no packet
-        }                   // When in fact buffer was full and waiting to clear
+                    return crc;
+                } else {
+                    discards++;
+//                    return ~0;    // Hard hang! 
+                    return 1; 
+                }
+//            }
+        }
     }
     return ~0;
 }
@@ -363,7 +364,7 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
             writeReg(REG_FIFO, out);
             ++rxstate;
         }
-        writeReg(REG_FIFOTHRESH, START_TX);     // if < 48 bytes, release FIFO
+        writeReg(REG_FIFOTHRESH, START_TX);     // if < 32 bytes, release FIFO
                                                 // for transmission
 /*  At this point packet is typically in the FIFO but not fully transmitted.
     transmission complete will be indicated by an interrupt.                   
@@ -403,27 +404,27 @@ void RF69::interrupt_compat () {
                     uint8_t in = readReg(REG_FIFO);
                         
                     if (rxfill == 2) {
-                        if (in <= 66)       // Validate and
+                        if (in <= 66)       // validate and
                             len = in;       // capture length byte
                         else {
                             len = -2;       // drop crc if invalid length
                             in = 0;         // set to zero length
-                            crc = ~0;       // Set bad CRC
+                            crc = ~0;       // set bad CRC
                         }
                     }
                     recvBuf[rxfill++] = in;
                     packetBytes++;
                     crc = _crc16_update(crc, in);              
-                    if (rxfill >= (len + 5)) {  // Trap RX overrun
+                    if (rxfill >= (len + 5)) {  // Trap end of payload
                         writeReg(REG_AFCFEI, AfcClear);
                         setMode(MODE_STANDBY);  // Get radio out of RX mode
-                        writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);
-                        rxfill = RF_MAX;        // TODO Why is this required?
+                        writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  //clear Fifo
+                        rxfill = RF_MAX;        // trip RF69::recvDone_compat
                         break;
                     }
                         
-                    if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX)
-                      break;
+//                  if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX) //*backstop*
+//                    break;
             } 
 
             if (packetBytes < 5) underrun++;
