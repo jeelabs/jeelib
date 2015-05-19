@@ -17,6 +17,7 @@
 #define rf12_rawlen     rf12_buf[1]
 #define rf12_dest       (rf12_buf[2] & RF12_HDR_MASK)
 #define rf12_orig       (rf12_buf[3] & RF12_HDR_MASK)
+#define slack           6
 #define crc_initVal     0x1D0F
 #define crc_endVal      0x1D0F
 #define crc_update      _crc_xmodem_update
@@ -24,6 +25,7 @@
 #define rf12_rawlen     rf12_len
 // #define rf12_dest    (rf12_hdr & RF12_HDR_DST ? rf12_hdr & RF12_HDR_MASK : 0)
 // #define rf12_orig    (rf12_hdr & RF12_HDR_DST ? 0 : rf12_hdr & RF12_HDR_MASK)
+#define slack           5
 #define crc_initVal     ~0
 #define crc_endVal      0
 #define crc_update      _crc16_update
@@ -315,7 +317,7 @@ static void rf12_interrupt () {
         rf12_buf[rxfill++] = in;
         rf12_crc = crc_update(rf12_crc, in);
 
-        if (rxfill >= rf12_rawlen + 4 || rxfill >= RF_MAX)
+        if (rxfill >= rf12_len + slack || rxfill >= RF_MAX)
             rf12_xfer(RF_IDLE_MODE);
     } else {
         uint8_t out;
@@ -404,7 +406,7 @@ static void rf12_recvStart () {
 ///      }
 /// @see http://jeelabs.org/2010/12/11/rf12-acknowledgements/
 uint8_t rf12_recvDone () {
-    if (rxstate == TXRECV && (rxfill >= rf12_rawlen + 4 || rxfill >= RF_MAX)) {
+    if (rxstate == TXRECV && (rxfill >= rf12_len + slack || rxfill >= RF_MAX)) {
         rxstate = TXIDLE;
         rf12_crc ^= crc_endVal;
         if (rf12_len > RF12_MAXDATA)
