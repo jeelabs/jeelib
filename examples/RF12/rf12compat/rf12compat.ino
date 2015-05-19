@@ -4,6 +4,8 @@
 
 #include <JeeLib.h>
 
+MilliTimer timer;
+
 void setup() {
   Serial.begin(57600);
   Serial.println("\n[rf12compat]");
@@ -24,4 +26,6 @@ void loop() {
     }
     Serial.println();
   }
+  if (timer.poll(1000))
+    rf12_sendNow(0, "abc", 3);
 }
