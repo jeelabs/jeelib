@@ -12,16 +12,16 @@ void setup() {
 
 void loop() {
   if (rf12_recvDone()) {
-    Serial.print("OK dst: ");
+    Serial.print(rf12_crc == 0 ? "OK" : " ?");
+    Serial.print(" dst: ");
     Serial.print(rf12_dst, HEX);
     Serial.print(" hdr: ");
     Serial.print(rf12_hdr, HEX);
     Serial.print(' ');
-    for (int i = 0; i < rf12_len; ++i) {
+    for (int i = 0; i < rf12_len && i < 66; ++i) {
       Serial.print(rf12_data[i] >> 4, HEX);
       Serial.print(rf12_data[i] & 0xF, HEX);
     }
-    Serial.print(" crc: ");
-    Serial.println(rf12_crc, HEX);
+    Serial.println();
   }
 }
