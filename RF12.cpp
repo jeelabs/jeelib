@@ -325,7 +325,7 @@ static void rf12_interrupt () {
             rf12_buf[rxfill++] = group;
 
 #if RF12_COMPAT
-        // in ^= whitening[rxfill-1];
+        in ^= whitening[rxfill-1];
 #endif
         rf12_buf[rxfill++] = in;
         rf12_crc = crc_update(rf12_crc, in);
@@ -339,11 +339,14 @@ static void rf12_interrupt () {
             uint8_t pos = 3 + RF12_COMPAT + rf12_len + rxstate++;
             out = rf12_buf[pos];
             rf12_crc = crc_update(rf12_crc, out);
-        } else
-            switch (rxstate++) {
+#if RF12_COMPAT
+            out ^= whitening[pos-1];
+#endif
+        } else {
+            switch (rxstate) {
                 case TXSYN1: out = 0x2D; break;
                 case TXSYN2: out = group;
-                             rxstate = - (2 + RF12_COMPAT + rf12_len);
+                             rxstate = - (3 + RF12_COMPAT + rf12_len);
                              break;
 #if RF12_COMPAT
                 case TXCRC1: out = ~rf12_crc >> 8; break;
@@ -355,6 +358,12 @@ static void rf12_interrupt () {
                 case TXDONE: rf12_xfer(RF_IDLE_MODE); // fall through
                 default:     out = 0xAA;
             }
+#if RF12_COMPAT
+            if (rxstate < TXDONE) // this applies only to TXCRC1 and TXCRC2
+                out ^= whitening[3 + rf12_len + rxstate];
+#endif
+            ++rxstate;
+        }
 
         rf12_xfer(RF_TXREG_WRITE + out);
     }
