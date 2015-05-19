@@ -17,10 +17,16 @@
 #define rf12_rawlen     rf12_buf[1]
 #define rf12_dest       (rf12_buf[2] & RF12_HDR_MASK)
 #define rf12_orig       (rf12_buf[3] & RF12_HDR_MASK)
+#define crc_initVal     0x1D0F
+#define crc_endVal      0x1D0F
+#define crc_update      _crc_xmodem_update
 #else
 #define rf12_rawlen     rf12_len
 // #define rf12_dest    (rf12_hdr & RF12_HDR_DST ? rf12_hdr & RF12_HDR_MASK : 0)
 // #define rf12_orig    (rf12_hdr & RF12_HDR_DST ? 0 : rf12_hdr & RF12_HDR_MASK)
+#define crc_initVal     ~0
+#define crc_endVal      0
+#define crc_update      _crc16_update
 #endif
 
 // #define OPTIMIZE_SPI 1  // uncomment this to write to the RFM12B @ 8 Mhz
@@ -307,9 +313,9 @@ static void rf12_interrupt () {
             rf12_buf[rxfill++] = group;
 
         rf12_buf[rxfill++] = in;
-        rf12_crc = _crc16_update(rf12_crc, in);
+        rf12_crc = crc_update(rf12_crc, in);
 
-        if (rxfill >= rf12_rawlen + 5 || rxfill >= RF_MAX)
+        if (rxfill >= rf12_rawlen + 4 || rxfill >= RF_MAX)
             rf12_xfer(RF_IDLE_MODE);
     } else {
         uint8_t out;
@@ -317,7 +323,7 @@ static void rf12_interrupt () {
         if (rxstate < 0) {
             uint8_t pos = 3 + rf12_len + rxstate++;
             out = rf12_buf[pos];
-            rf12_crc = _crc16_update(rf12_crc, out);
+            rf12_crc = crc_update(rf12_crc, out);
         } else
             switch (rxstate++) {
                 case TXSYN1: out = 0x2D; break;
@@ -358,10 +364,10 @@ static void rf12_recvStart () {
         rxfill = 3;
     } else
         rxfill = rf12_rawlen = 0;
-    rf12_crc = ~0;
-#if RF12_VERSION >= 2
+    rf12_crc = crc_initVal;
+#if RF12_VERSION >= 2 && !RF12_COMPAT
     if (group != 0)
-        rf12_crc = _crc16_update(~0, group);
+        rf12_crc = crc_update(rf12_crc, group);
 #endif
     rxstate = TXRECV;
 
@@ -398,8 +404,9 @@ static void rf12_recvStart () {
 ///      }
 /// @see http://jeelabs.org/2010/12/11/rf12-acknowledgements/
 uint8_t rf12_recvDone () {
-    if (rxstate == TXRECV && (rxfill >= rf12_rawlen + 5 || rxfill >= RF_MAX)) {
+    if (rxstate == TXRECV && (rxfill >= rf12_rawlen + 4 || rxfill >= RF_MAX)) {
         rxstate = TXIDLE;
+        rf12_crc ^= crc_endVal;
         if (rf12_len > RF12_MAXDATA)
             rf12_crc = 1; // force bad crc if packet length is invalid
 #if RF12_COMPAT
@@ -454,9 +461,9 @@ void rf12_sendStart (uint8_t hdr) {
     if (crypter != 0)
         crypter(1);
 
-    rf12_crc = ~0;
-#if RF12_VERSION >= 2
-    rf12_crc = _crc16_update(rf12_crc, group);
+    rf12_crc = crc_initVal;
+#if RF12_VERSION >= 2 && !RF12_COMPAT
+    rf12_crc = crc_update(rf12_crc, group);
 #endif
     rxstate = TXPRE1;
     rf12_xfer(RF_XMITTER_ON); // bytes will be fed via interrupts
@@ -669,7 +676,7 @@ uint8_t rf12_configSilent () {
     uint16_t crc = ~0;
     for (uint8_t i = 0; i < RF12_EEPROM_SIZE; ++i) {
         byte e = eeprom_read_byte(RF12_EEPROM_ADDR + i);
-        crc = _crc16_update(crc, e);
+        crc = crc_update(crc, e);
     }
     if (crc || eeprom_read_byte(RF12_EEPROM_ADDR + 2) != RF12_EEPROM_VERSION)
         return 0;

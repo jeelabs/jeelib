@@ -23,6 +23,6 @@ void loop() {
       Serial.print(rf12_data[i] & 0xF, HEX);
     }
     Serial.print(" crc: ");
-    Serial.println(rf12_crc);
+    Serial.println(rf12_crc, HEX);
   }
 }
