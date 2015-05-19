@@ -166,6 +166,15 @@ static uint32_t seqNum;             // encrypted send sequence number
 static uint32_t cryptKey[4];        // encryption key to use
 void (*crypter)(uint8_t);           // does en-/decryption (null if disabled)
 
+#if RF12_COMPAT
+const uint8_t whitening[] = {
+  255,135,184,89,183,161,204,36,87,94,75,156,14,233,234,80,42,190,180,27,182,
+  176,93,241,230,154,227,69,253,44,83,24,12,202,201,251,73,55,229,168,81,59,
+  47,97,170,114,24,132,2,35,35,171,99,137,81,179,231,139,114,144,76,232,251,
+  193,255,15,
+};
+#endif
+
 // function to set chip select pin from within sketch
 void rf12_set_cs (uint8_t pin) {
 #if defined(__AVR_ATmega32U4__) //Arduino Leonardo
@@ -314,6 +323,9 @@ static void rf12_interrupt () {
         if (rxfill == 0 && group != 0)
             rf12_buf[rxfill++] = group;
 
+#if RF12_COMPAT
+        in ^= whitening[rxfill-1];
+#endif
         rf12_buf[rxfill++] = in;
         rf12_crc = crc_update(rf12_crc, in);
 
