@@ -19,9 +19,7 @@ namespace RF69 {
     extern uint8_t  present;
     extern uint16_t pcIntCount;
     extern uint8_t  pcIntBits;
-    extern int8_t   PayloadLen;
-    extern uint16_t crcGood;
-    extern uint16_t debugCRC;
+    extern int8_t   payloadLen;
 
     void setFrequency (uint32_t freq);
     bool canSend ();

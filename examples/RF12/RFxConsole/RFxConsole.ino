@@ -1204,7 +1204,7 @@ static void nodeShow(byte group) {
     printOneChar(',');
     Serial.print(RF69::byteCount);  // Length of previous packet
     printOneChar(',');
-    Serial.print((RF69::len));      // Length of previous payload
+    Serial.print((RF69::payloadLen));      // Length of previous payload
     printOneChar(',');
     Serial.print(RF69::overrun);
     printOneChar(',');
@@ -1261,6 +1261,7 @@ void loop () {
 #endif
     if (rf12_recvDone()) {
 #if RF69_COMPAT && !TINY
+
         observedRX.afc = (RF69::afc);                  // Grab values before next interrupt
         observedRX.fei = (RF69::fei);
         observedRX.rssi2 = (RF69::rssi);
