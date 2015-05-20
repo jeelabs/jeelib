@@ -116,8 +116,6 @@ namespace RF69 {
     uint16_t pcIntCount;
     uint8_t  pcIntBits;
     int8_t   payloadLen;
-    uint16_t crcGood;
-    uint16_t debugCRC;
     }
 
 static volatile uint8_t rxfill;      // number of data bytes in rf12_buf
