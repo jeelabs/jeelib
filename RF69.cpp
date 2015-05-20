@@ -416,18 +416,23 @@ void RF69::interrupt_compat () {
                     packetBytes++;
                     crc = _crc16_update(crc, in);              
                     if (rxfill >= (payloadLen + 5)) {  // Trap end of payload
-                        writeReg(REG_AFCFEI, AfcClear);
+                        writeReg(REG_AFCFEI, AfcClear);// Whilst in RX mode
                         setMode(MODE_STANDBY);  // Get radio out of RX mode
-                        writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  //clear Fifo
-                        rxfill = RF_MAX;        // trip RF69::recvDone_compat
+//                        writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);
+
+                                                // Debug sometimes fails to exit
                         break;
                     }
-                        
-//                  if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX) //*backstop*
+//                        
+// Wow, that is indirect; as the buffer is filled rf12_len gets its value
+//                  if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX)
 //                    break;
             } 
 
-            if (packetBytes < 5) underrun++;
+            if (packetBytes < 5) {
+                  underrun++;
+                  rxfill = RF_MAX;        // force RF69::recvDone_compat
+            }
             
             byteCount = rxfill;
         }    
