@@ -315,8 +315,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
                     return crc;
                 } else {
                     discards++;
-//                    return ~0;    // Hard hang! 
-                    return 1; 
+//                    return 0; 
                 }
 //            }
         }
