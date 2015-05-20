@@ -122,6 +122,7 @@ static volatile uint8_t rxfill;      // number of data bytes in rf12_buf
 static volatile int8_t rxstate;      // current transceiver state
 static volatile uint8_t packetBytes; // Count of bytes in packet
 static volatile uint16_t discards;   // Count of packets discarded
+static volatile uint8_t pktDone; 
 
 static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x2E, 0xA0, // SyncConfig = sync on, sync size = 5
@@ -299,11 +300,11 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         writeReg(REG_DIOMAPPING1, 0x80);            // Interrupt on RSSI
         setMode(MODE_RECEIVER);
         writeReg(REG_AFCFEI, AfcClear);
+        pktDone = false;
         break;
     case TXRECV:
-        if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX) {
+        if (pktDone || rxfill >= RF_MAX) {
             rxstate = TXIDLE;
-//            setMode(MODE_STANDBY); // Only required for *backstop*
  
             if (rf12_len > RF12_MAXDATA) {
                 crc = 1;  // force bad crc for invalid packet                
@@ -404,23 +405,22 @@ void RF69::interrupt_compat () {
                     uint8_t in = readReg(REG_FIFO);
                         
                     if (rxfill == 2) {
-                        if (in <= 66)       // validate and
-                            payloadLen = in;       // capture length byte
+                        if (in <= 66)         // validate and
+                            payloadLen = in;  // capture length byte
                         else {
-                            payloadLen = -2;       // drop crc if invalid length
-                            in = 0;         // set to zero length
-                            crc = ~0;       // set bad CRC
+                            payloadLen = -2;  // drop crc if invalid length
+                            in = 0;           // set to zero length
+                            crc = ~0;         // set bad CRC
                         }
                     }
                     recvBuf[rxfill++] = in;
                     packetBytes++;
                     crc = _crc16_update(crc, in);              
                     if (rxfill >= (payloadLen + 5)) {  // Trap end of payload
+                        pktDone = true;
                         writeReg(REG_AFCFEI, AfcClear);// Whilst in RX mode
                         setMode(MODE_STANDBY);  // Get radio out of RX mode
 //                        writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);
-
-                                                // Debug sometimes fails to exit
                         break;
                     }
 //                        
@@ -429,11 +429,7 @@ void RF69::interrupt_compat () {
 //                    break;
             } 
 
-            if (packetBytes < 5) {
-                  underrun++;
-                  rxfill = RF_MAX;        // force RF69::recvDone_compat
-            }
-            
+            if (packetBytes < 5) underrun++;
             byteCount = rxfill;
         }    
     } else if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
