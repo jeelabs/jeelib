@@ -115,7 +115,9 @@ namespace RF69 {
     uint8_t  present;
     uint16_t pcIntCount;
     uint8_t  pcIntBits;
-    int8_t   len;
+    int8_t   PayloadLen;
+    uint16_t crcGood;
+    uint16_t debugCRC;
     }
 
 static volatile uint8_t rxfill;      // number of data bytes in rf12_buf
@@ -405,9 +407,9 @@ void RF69::interrupt_compat () {
                         
                     if (rxfill == 2) {
                         if (in <= 66)       // validate and
-                            len = in;       // capture length byte
+                            PayloadLen = in;       // capture length byte
                         else {
-                            len = -2;       // drop crc if invalid length
+                            PayloadLen = -2;       // drop crc if invalid length
                             in = 0;         // set to zero length
                             crc = ~0;       // set bad CRC
                         }
@@ -415,10 +417,13 @@ void RF69::interrupt_compat () {
                     recvBuf[rxfill++] = in;
                     packetBytes++;
                     crc = _crc16_update(crc, in);              
-                    if (rxfill >= (len + 5)) {  // Trap end of payload
+                    if (rxfill >= (PayloadLen + 5)) {  // Trap end of payload
                         writeReg(REG_AFCFEI, AfcClear);
                         setMode(MODE_STANDBY);  // Get radio out of RX mode
                         writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  //clear Fifo
+                        if(crc == recvBuf[(rxfill - 3)]) crcGood = true;
+                        else crcGood = false;
+                        debugCRC = crc;
                         rxfill = RF_MAX;        // trip RF69::recvDone_compat
                         break;
                     }
