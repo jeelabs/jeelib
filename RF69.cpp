@@ -110,6 +110,7 @@ namespace RF69 {
     uint16_t txP;
     uint16_t discards;
     uint16_t overrun;
+    uint8_t  overrunFSM;
     uint16_t byteCount;
     uint16_t underrun;
     uint8_t  present;
@@ -462,5 +463,6 @@ void RF69::interrupt_compat () {
           }
     } else {
           overrun++;
+          overrunFSM = rxstate; // Save Finite State Machine status
     }
 }

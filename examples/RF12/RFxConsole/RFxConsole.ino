@@ -1213,6 +1213,8 @@ static void nodeShow(byte group) {
     printOneChar(',');
     Serial.print(RF69::overrun);
     printOneChar(',');
+    Serial.print(RF69::overrunFSM);
+    printOneChar(',');
     Serial.print(RF69::underrun);
     printOneChar(')');
 #endif
