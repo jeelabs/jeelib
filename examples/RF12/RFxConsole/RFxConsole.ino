@@ -19,6 +19,7 @@
 //                           // The above flag must be set similarly in RF12.cpp
 //                           // and RF69_avr.h
 ///////////////////////////////////////////////////////////////////////////////
+#define rf12_len        (rf12_buf[1] - 2)
 
 #define PINCHG_IRQ       0   // Best power savings: set to 1 if using pin-change interrupts in RF69_avr.h
                              // Terminal interface will sleep after 5 seconds inactivity use '.' to wake it up
@@ -1205,6 +1206,10 @@ static void nodeShow(byte group) {
     Serial.print(RF69::byteCount);  // Length of previous packet
     printOneChar(',');
     Serial.print((RF69::payloadLen));      // Length of previous payload
+    printOneChar(',');
+    Serial.print(RF69::badLen);            // Invalid payload lengths detected 
+    printOneChar(',');
+    Serial.print((RF69::packetShort));     // Packet ended short
     printOneChar(',');
     Serial.print(RF69::overrun);
     printOneChar(',');

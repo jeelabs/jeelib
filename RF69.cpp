@@ -117,6 +117,7 @@ namespace RF69 {
     uint8_t  pcIntBits;
     int8_t   payloadLen;
     uint16_t badLen;
+    uint16_t packetShort;
     }
 
 static volatile uint8_t rxfill;      // number of data bytes in rf12_buf
@@ -390,6 +391,7 @@ void RF69::interrupt_compat () {
             // The window for grabbing the above values is quite small
             // values available during transfer between the ether
             // and the inbound fifo buffer.
+            volatile uint8_t stillCollecting = true;
             rxP++;
             crc = ~0;
             packetBytes = 0;
@@ -402,7 +404,7 @@ void RF69::interrupt_compat () {
                       packetBytes++;
                       crc = _crc16_update(crc, group);
                     } 
-                    uint8_t in = readReg(REG_FIFO);
+                    volatile uint8_t in = readReg(REG_FIFO);
                     
 /* TODO Still a problem with zero through two byte *packets* 
         RF69::recvDone_compat "TXRECV" exit conditions not met                */
@@ -429,6 +431,7 @@ void RF69::interrupt_compat () {
                     if (rxfill >= (payloadLen + 5)) {  // Trap end of payload
                         writeReg(REG_AFCFEI, AfcClear);// Whilst in RX mode
                         setMode(MODE_STANDBY);  // Get radio out of RX mode
+                        stillCollecting = false;
 //                        writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);
 
                         break;
@@ -436,9 +439,14 @@ void RF69::interrupt_compat () {
             } 
 
         }
-        if (packetBytes < 5) underrun++;            
         byteCount = rxfill;
+        if (packetBytes < 5) underrun++;
             
+        if (stillCollecting) {
+            // We are exiting before a successful packet completion
+            packetShort++;           
+            rxfill = RF_MAX; // force TXRECV in RF69::recvDone_compat
+        }    
     } else if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
           writeReg(REG_TESTPA1, TESTPA1_NORMAL);    // Turn off high power 
           writeReg(REG_TESTPA2, TESTPA2_NORMAL);    // transmit
