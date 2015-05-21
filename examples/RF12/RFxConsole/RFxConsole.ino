@@ -1256,7 +1256,7 @@ static unsigned int getIndex (byte group, byte node) {
             return(false);
 }
 void loop () {
-
+    delay(20);  // DEBUG
 #if TINY
     if (_receive_buffer_index) {
         handleInput(inChar());
@@ -1292,6 +1292,7 @@ void loop () {
             showString(PSTR("OK"));
             crc = true;
         } else {
+            activityLed(1);
 #if STATISTICS && !TINY
             CRCbadCount++;
 #endif
@@ -1301,6 +1302,7 @@ void loop () {
             if (observedRX.rssi2 > (CRCbadMaxRSSI))
               CRCbadMaxRSSI = observedRX.rssi2;   
 #endif            
+            activityLed(0);
             if (config.quiet_mode)
                 return;
             crc = false;
