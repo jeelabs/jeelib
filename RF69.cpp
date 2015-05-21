@@ -305,8 +305,8 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         break;
     case TXRECV:
         if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX) {
+//            setMode(MODE_STANDBY);
             rxstate = TXIDLE;
-//            setMode(MODE_STANDBY); // Only required for *backstop*
  
             if (rf12_len > RF12_MAXDATA) {
                 crc = 1;  // force bad crc for invalid packet                
@@ -432,6 +432,7 @@ void RF69::interrupt_compat () {
                     if (rxfill >= (payloadLen + 5)) {  // Trap end of payload
                         writeReg(REG_AFCFEI, AfcClear);// Whilst in RX mode
                         setMode(MODE_STANDBY);  // Get radio out of RX mode
+//                        rxstate = TXIDLE;
                         stillCollecting = false;
 //                        writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);
 
@@ -445,18 +446,20 @@ void RF69::interrupt_compat () {
             
         if (stillCollecting) {
             // We are exiting before a successful packet completion
-            packetShort++;           
+            packetShort++;
             rxfill = RF_MAX; // force TXRECV in RF69::recvDone_compat
         }    
+        setMode(MODE_STANDBY);
+//        rxstate = TXIDLE;         
     } else if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
           writeReg(REG_TESTPA1, TESTPA1_NORMAL);    // Turn off high power 
           writeReg(REG_TESTPA2, TESTPA2_NORMAL);    // transmit
           // rxstate will be TXDONE at this point
           IRQ_ENABLE;       // allow nested interrupts from here on
           txP++;
-          rxstate = TXIDLE;
           setMode(MODE_STANDBY);
-          writeReg(REG_DIOMAPPING1, 0x80); // Interrupt on RSSI threshold
+          rxstate = TXIDLE;
+//          writeReg(REG_DIOMAPPING1, 0x80); // Interrupt on RSSI threshold
 
           if (group == 0) {               // Allow receiving from all groups
               writeReg(REG_SYNCCONFIG, fourByteSync);
@@ -465,4 +468,6 @@ void RF69::interrupt_compat () {
           overrun++;
           overrunFSM = rxstate; // Save Finite State Machine status
     }
+//    setMode(MODE_STANDBY);
+//    rxstate = TXIDLE;    
 }
