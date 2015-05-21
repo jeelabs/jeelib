@@ -116,6 +116,7 @@ namespace RF69 {
     uint16_t pcIntCount;
     uint8_t  pcIntBits;
     int8_t   payloadLen;
+    uint16_t badLen;
     }
 
 static volatile uint8_t rxfill;      // number of data bytes in rf12_buf
@@ -393,25 +394,36 @@ void RF69::interrupt_compat () {
             rxP++;
             crc = ~0;
             packetBytes = 0;
-            
+
             for (;;) { // busy loop, to get each data byte as soon as it comes in 
-                if (readReg(REG_IRQFLAGS2) & (IRQ2_FIFONOTEMPTY|IRQ2_FIFOOVERRUN)) {
+                if (readReg(REG_IRQFLAGS2) & 
+                   (IRQ2_FIFONOTEMPTY|IRQ2_FIFOOVERRUN)) {
                     if (rxfill == 0 && group != 0) { 
                       recvBuf[rxfill++] = group;
                       packetBytes++;
                       crc = _crc16_update(crc, group);
                     } 
                     uint8_t in = readReg(REG_FIFO);
-                        
+                    
+/* TODO Still a problem with zero through two byte *packets* 
+        RF69::recvDone_compat "TXRECV" exit conditions not met                */
+/* TODO Still also a problem with *payloads* claiming to be <= 66
+        where the bytes don't actually arrive                                 */
+        
                     if (rxfill == 2) {
-                        if (in <= 66)       // validate and
+                        if (in <= 66) {            // validate and
                             payloadLen = in;       // capture length byte
-                        else {
-                            payloadLen = -2;       // drop crc if invalid length
-                            in = 0;         // set to zero length
-                            crc = ~0;       // set bad CRC
+                        } else {
+                            recvBuf[rxfill++] = 0; // Set rf12_len to zero!
+                            payloadLen = -2;       // skip crc in payload
+                            in = ~0;               // fake CRC 
+                            recvBuf[rxfill++] = in;// in buffer
+                            packetBytes+=2;        // don't trip underflow
+                            crc = 1;               // set bad CRC
+                            badLen++;
                         }
                     }
+                    
                     recvBuf[rxfill++] = in;
                     packetBytes++;
                     crc = _crc16_update(crc, in);              
@@ -420,22 +432,14 @@ void RF69::interrupt_compat () {
                         setMode(MODE_STANDBY);  // Get radio out of RX mode
 //                        writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);
 
-                                                // Debug sometimes fails to exit
                         break;
                     }
-//                        
-// Wow, that is indirect; as the buffer is filled rf12_len gets its value
-//                  if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX)
-//                    break;
             } 
 
-            if (packetBytes < 5) {
-                  underrun++;
-                  rxfill = RF_MAX;        // force RF69::recvDone_compat
-            }
+        }
+        if (packetBytes < 5) underrun++;            
+        byteCount = rxfill;
             
-            byteCount = rxfill;
-        }    
     } else if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
           writeReg(REG_TESTPA1, TESTPA1_NORMAL);    // Turn off high power 
           writeReg(REG_TESTPA2, TESTPA2_NORMAL);    // transmit
