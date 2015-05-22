@@ -214,6 +214,8 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
 
 void RF69::interrupt_compat () {
     if (rxstate == TXRECV) {
+        // The following line attempts to stop further interrupts
+        writeReg(REG_DIOMAPPING1, 0x40);  // Interrupt on PayloadReady
         rssi = readReg(REG_RSSIVALUE);
         IRQ_ENABLE; // allow nested interrupts from here on
         for (;;) { // busy loop, to get each data byte as soon as it comes in
