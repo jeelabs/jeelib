@@ -1211,9 +1211,13 @@ static void nodeShow(byte group) {
     printOneChar(',');
     Serial.print((RF69::packetShort));     // Packet ended short
     printOneChar(',');
-    Serial.print(RF69::overrun);
+    printOneChar('[');
+    Serial.print(RF69::unexpected);
     printOneChar(',');
-    Serial.print(RF69::overrunFSM);
+    Serial.print(RF69::unexpectedFSM);
+    printOneChar(',');
+    Serial.print(RF69::unexpectedIRQFLAGS2);
+    printOneChar(']');
     printOneChar(',');
     Serial.print(RF69::nestedInterrupts);
     printOneChar(',');

@@ -109,8 +109,9 @@ namespace RF69 {
     uint16_t rxP;
     uint16_t txP;
     uint16_t discards;
-    uint16_t overrun;
-    uint8_t  overrunFSM;
+    uint16_t unexpected;
+    uint8_t  unexpectedFSM;
+    uint8_t  unexpectedIRQFLAGS2;
     uint16_t byteCount;
     uint16_t underrun;
     uint8_t  present;
@@ -384,6 +385,8 @@ void RF69::interrupt_compat () {
         // Interrupt will ONLY remain asserted until FIFO empty or exit RX mode
         // 
         if (rxstate == TXRECV) {
+            // The following line attempts to stop further interrupts
+            writeReg(REG_DIOMAPPING1, 0x40);  // Interrupt on PayloadReady
             if (reentry) {
                 nestedInterrupts++;
                 uint8_t f = readReg(REG_IRQFLAGS2);
@@ -473,8 +476,15 @@ void RF69::interrupt_compat () {
               writeReg(REG_SYNCCONFIG, fourByteSync);
           }
     } else {
-          overrun++;
-          overrunFSM = rxstate; // Save Finite State Machine status
+          // We get here when a interrupt that is neither for RX or as a TX
+          // completion. Appears related to receiving noise when the bad CRC
+          //  packet display is enabled using "0q".
+          unexpected++;
+          unexpectedFSM = rxstate; // Save Finite State Machine status
+                uint8_t f = readReg(REG_IRQFLAGS2);
+                if(f != 0) unexpectedIRQFLAGS2 = f;
+//                unexpectedIRQFLAGS2 = f;
+                if(f == 0) unexpectedIRQFLAGS2 = 0xFF;
     }
     reentry = false;
 }

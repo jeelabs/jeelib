@@ -13,8 +13,9 @@ namespace RF69 {
     extern uint16_t rxP;
     extern uint16_t txP;
     extern uint16_t discards;
-    extern uint16_t overrun;
-    extern uint8_t  overrunFSM;
+    extern uint16_t unexpected;
+    extern uint8_t  unexpectedFSM;
+    extern uint8_t  unexpectedIRQFLAGS2;
     extern uint16_t byteCount;
     extern uint16_t underrun;
     extern uint8_t  present;
