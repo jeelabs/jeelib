@@ -119,12 +119,14 @@ namespace RF69 {
     int8_t   payloadLen;
     uint16_t badLen;
     uint16_t packetShort;
+    uint16_t nestedInterrupts;
     }
 
 static volatile uint8_t rxfill;      // number of data bytes in rf12_buf
 static volatile int8_t rxstate;      // current transceiver state
 static volatile uint8_t packetBytes; // Count of bytes in packet
 static volatile uint16_t discards;   // Count of packets discarded
+static volatile uint8_t reentry = false;
 
 static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x2E, 0xA0, // SyncConfig = sync on, sync size = 5
@@ -282,8 +284,9 @@ void RF69::configure_compat () {
         setMode(MODE_STANDBY);
         writeReg(REG_OSC1, RcCalStart);             // Calibrate
         while(!(readReg(REG_OSC1) & RcCalDone));    // Wait for completion
+        noInterrupts();
         writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
-
+        interrupts();
         rxstate = TXIDLE;
         present = 1;                                // Radio is present
     }
@@ -301,7 +304,9 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         flushFifo();
         writeReg(REG_DIOMAPPING1, 0x80);            // Interrupt on RSSI
         setMode(MODE_RECEIVER);
+        noInterrupts();
         writeReg(REG_AFCFEI, AfcClear);
+        interrupts();
         break;
     case TXRECV:
         if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX) {
@@ -363,7 +368,9 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
                     case TXCRC2: out = crc >> 8; break;
                 }
             }
+            noInterrupts();                // DEBUG
             writeReg(REG_FIFO, out);
+            interrupts();                  // DEBUG
             ++rxstate;
         }
         writeReg(REG_FIFOTHRESH, START_TX);     // if < 32 bytes, release FIFO
@@ -377,9 +384,13 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
 
 void RF69::interrupt_compat () {
         interruptCount++;
-        // Interrupt will remain asserted until FIFO empty or exit RX mode    
-
+        // Interrupt will remain asserted until FIFO empty or exit RX mode
         if (rxstate == TXRECV) {
+            if (reentry) {
+                nestedInterrupts++;
+                return;
+            }   
+            reentry = true;
             IRQ_ENABLE;       // allow nested interrupts from here on
             while (!readReg(REG_IRQFLAGS1) & IRQ1_RXREADY)
                 ;
@@ -396,10 +407,13 @@ void RF69::interrupt_compat () {
             rxP++;
             crc = ~0;
             packetBytes = 0;
-
+            
+            
             for (;;) { // busy loop, to get each data byte as soon as it comes in 
+                noInterrupts();
                 if (readReg(REG_IRQFLAGS2) & 
                    (IRQ2_FIFONOTEMPTY|IRQ2_FIFOOVERRUN)) {
+                    interrupts();
                     if (rxfill == 0 && group != 0) { 
                       recvBuf[rxfill++] = group;
                       packetBytes++;
@@ -407,11 +421,6 @@ void RF69::interrupt_compat () {
                     } 
                     volatile uint8_t in = readReg(REG_FIFO);
                     
-/* TODO Still a problem with zero through two byte *packets* 
-        RF69::recvDone_compat "TXRECV" exit conditions not met                */
-/* TODO Still also a problem with *payloads* claiming to be <= 66
-        where the bytes don't actually arrive                                 */
-        
                     if (rxfill == 2) {
                         if (in <= 66) {            // validate and
                             payloadLen = in;       // capture length byte
@@ -455,7 +464,7 @@ void RF69::interrupt_compat () {
           writeReg(REG_TESTPA1, TESTPA1_NORMAL);    // Turn off high power 
           writeReg(REG_TESTPA2, TESTPA2_NORMAL);    // transmit
           // rxstate will be TXDONE at this point
-          IRQ_ENABLE;       // allow nested interrupts from here on
+//          IRQ_ENABLE;       // allow nested interrupts from here on
           txP++;
           setMode(MODE_STANDBY);
           rxstate = TXIDLE;
@@ -468,6 +477,5 @@ void RF69::interrupt_compat () {
           overrun++;
           overrunFSM = rxstate; // Save Finite State Machine status
     }
-//    setMode(MODE_STANDBY);
-//    rxstate = TXIDLE;    
+    reentry = false;
 }
