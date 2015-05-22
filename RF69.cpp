@@ -120,6 +120,8 @@ namespace RF69 {
     uint16_t badLen;
     uint16_t packetShort;
     uint16_t nestedInterrupts;
+    uint8_t  IRQFLAGS2;
+    uint8_t  DIOMAPPING1;
     }
 
 static volatile uint8_t rxfill;      // number of data bytes in rf12_buf
@@ -284,9 +286,7 @@ void RF69::configure_compat () {
         setMode(MODE_STANDBY);
         writeReg(REG_OSC1, RcCalStart);             // Calibrate
         while(!(readReg(REG_OSC1) & RcCalDone));    // Wait for completion
-        noInterrupts();
         writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
-        interrupts();
         rxstate = TXIDLE;
         present = 1;                                // Radio is present
     }
@@ -302,11 +302,10 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         recvBuf = buf;
         rxstate = TXRECV;
         flushFifo();
-        writeReg(REG_DIOMAPPING1, 0x80);            // Interrupt on RSSI
+        writeReg(REG_DIOMAPPING1, 0x80);            // Interrupt on SyncAddress
         setMode(MODE_RECEIVER);
-        noInterrupts();
         writeReg(REG_AFCFEI, AfcClear);
-        interrupts();
+        
         break;
     case TXRECV:
         if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX) {
@@ -368,9 +367,7 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
                     case TXCRC2: out = crc >> 8; break;
                 }
             }
-            noInterrupts();                // DEBUG
             writeReg(REG_FIFO, out);
-            interrupts();                  // DEBUG
             ++rxstate;
         }
         writeReg(REG_FIFOTHRESH, START_TX);     // if < 32 bytes, release FIFO
@@ -384,10 +381,15 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
 
 void RF69::interrupt_compat () {
         interruptCount++;
-        // Interrupt will remain asserted until FIFO empty or exit RX mode
+        // Interrupt will ONLY remain asserted until FIFO empty or exit RX mode
+        // 
         if (rxstate == TXRECV) {
             if (reentry) {
                 nestedInterrupts++;
+                uint8_t f = readReg(REG_IRQFLAGS2);
+                if(f != 64) IRQFLAGS2 = f;
+//                if(f == 0) IRQFLAGS2 = 0xFF;
+                DIOMAPPING1 = readReg(REG_DIOMAPPING1);
                 return;
             }   
             reentry = true;
@@ -410,10 +412,8 @@ void RF69::interrupt_compat () {
             
             
             for (;;) { // busy loop, to get each data byte as soon as it comes in 
-                noInterrupts();
                 if (readReg(REG_IRQFLAGS2) & 
                    (IRQ2_FIFONOTEMPTY|IRQ2_FIFOOVERRUN)) {
-                    interrupts();
                     if (rxfill == 0 && group != 0) { 
                       recvBuf[rxfill++] = group;
                       packetBytes++;
@@ -459,16 +459,15 @@ void RF69::interrupt_compat () {
             rxfill = RF_MAX; // force TXRECV in RF69::recvDone_compat
         }    
         setMode(MODE_STANDBY);
-//        rxstate = TXIDLE;         
     } else if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
           writeReg(REG_TESTPA1, TESTPA1_NORMAL);    // Turn off high power 
           writeReg(REG_TESTPA2, TESTPA2_NORMAL);    // transmit
           // rxstate will be TXDONE at this point
-//          IRQ_ENABLE;       // allow nested interrupts from here on
+          IRQ_ENABLE;       // allow nested interrupts from here on
           txP++;
           setMode(MODE_STANDBY);
           rxstate = TXIDLE;
-//          writeReg(REG_DIOMAPPING1, 0x80); // Interrupt on RSSI threshold
+//          writeReg(REG_DIOMAPPING1, 0x80); // Interrupt on SyncAddress
 
           if (group == 0) {               // Allow receiving from all groups
               writeReg(REG_SYNCCONFIG, fourByteSync);

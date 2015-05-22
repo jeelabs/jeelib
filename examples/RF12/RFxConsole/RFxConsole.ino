@@ -1217,6 +1217,10 @@ static void nodeShow(byte group) {
     printOneChar(',');
     Serial.print(RF69::nestedInterrupts);
     printOneChar(',');
+    Serial.print(RF69::IRQFLAGS2);
+    printOneChar(',');
+    Serial.print(RF69::DIOMAPPING1);
+    printOneChar(',');
     Serial.print(RF69::underrun);
     printOneChar(')');
 #endif
@@ -1258,7 +1262,6 @@ static unsigned int getIndex (byte group, byte node) {
             return(false);
 }
 void loop () {
-//    delay(50);  // DEBUG
 #if TINY
     if (_receive_buffer_index) {
         handleInput(inChar());
