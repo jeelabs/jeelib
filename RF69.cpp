@@ -317,7 +317,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
             if (rf12_len > RF12_MAXDATA) {
                 crc = 1;  // force bad crc for invalid packet                
             }
-            if (crc == 0) {
+//            if (crc == 0) {
                 if (!(rf12_hdr & RF12_HDR_DST) || node == 31 ||
                     (rf12_hdr & RF12_HDR_MASK) == node) {
                     return crc;
@@ -325,7 +325,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
                     discards++;
                     return 1;   // Directed to a different node, drop
                 }
-            }
+//            }
         }
     }
     return ~0;
