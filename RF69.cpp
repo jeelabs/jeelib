@@ -303,10 +303,10 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
     case TXIDLE:
         rxfill = rf12_len = 0;
         crc = _crc16_update(~0, group);
-        recvBuf = buf;
+        recvBuf = buf;    // What is this buf
         rxstate = TXRECV;
         flushFifo();
-        writeReg(REG_DIOMAPPING1, DIO1_SYNCADDRESS);  // Interrupt
+        writeReg(REG_DIOMAPPING1, DIO1_SYNCADDRESS);    // Interrupt trigger
         setMode(MODE_RECEIVER);
         writeReg(REG_AFCFEI, AfcClear);
         
@@ -317,15 +317,36 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
             if (rf12_len > RF12_MAXDATA) {
                 crc = 1;  // force bad crc for invalid packet                
             }
-            if (crc == 0) {
+            if (crc == 0) {   // We must check the CRC before taking a decision
                 if (!(rf12_hdr & RF12_HDR_DST) || node == 31 ||
                     (rf12_hdr & RF12_HDR_MASK) == node) {
                     return crc;
                 } else {
                     discards++;
-                    return 1;   // Directed to a different node, drop
+                    return 1;//crc; // There is a problem here, dropping though
+                                    // hangs the state machine.
+                                    // returning 1 show a bad CRC packet
+                                    // Therefore lets clear up for a new packet
+                                    // this blocks all bad CRC packets
+                                    /*
+                    rxfill = rf12_len = 0;
+                    crc = _crc16_update(~0, group);
+                    recvBuf = buf;    // What is this buf
+                    flushFifo();                    
+                    // Directed to a different node, drop through
+                    
+                    One presumes that the purpose of the section is to only
+                    permit broadcast or specifically *addressed to me* packets
+                    to pass to the calling sketch.
+                    This probably explains the double checks in sketches.
+                    
+                    If the CRC is bad then all is well but if the CRC is good
+                    the state machine gets stuck with rf12_canSend returning
+                    false. This state clears after a few transmits.
+                    
+                                    */
                 }
-            }
+            } else return 1;
         }
     }
     return ~0;
@@ -349,7 +370,7 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
     crc = _crc16_update(~0, readReg(REG_SYNCGROUP));
 
     setMode(MODE_TRANSMITTER);
-    writeReg(REG_DIOMAPPING1, DIO1_PACKETSENT); //Interrupt
+    writeReg(REG_DIOMAPPING1, DIO1_PACKETSENT);     // Interrupt trigger
     
     if (rf12_len > 9)                       // Expedite short packet TX
       writeReg(REG_FIFOTHRESH, DELAY_TX);   // Wait for FIFO to hit 32 bytes
@@ -387,7 +408,7 @@ void RF69::interrupt_compat () {
         // FIFO can pass through empty during reception since also draining 
         if (rxstate == TXRECV) {
             // The following line attempts to stop further interrupts
-            writeReg(REG_DIOMAPPING1, DIO1_PAYLOADREADY);  // Interrupt
+            writeReg(REG_DIOMAPPING1, DIO1_PAYLOADREADY);   // Interrupt trigger
             if (reentry) {
                 nestedInterrupts++;
                 uint8_t f = readReg(REG_IRQFLAGS2);
@@ -430,9 +451,9 @@ void RF69::interrupt_compat () {
                             payloadLen = in;       // validate length byte
                         } else {
                             recvBuf[rxfill++] = 0; // Set rf12_len to zero!
-                            payloadLen = -2;       // skip crc in payload
+                            payloadLen = -2;       // skip CRC in payload
                             in = ~0;               // fake CRC 
-                            recvBuf[rxfill++] = in;// in buffer
+                            recvBuf[rxfill++] = in;// into buffer
                             packetBytes+=2;        // don't trip underflow
                             crc = 1;               // set bad CRC
                             badLen++;
