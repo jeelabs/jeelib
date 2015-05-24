@@ -76,6 +76,9 @@
 #define IRQ2_FIFOOVERRUN    0x10
 #define IRQ2_PACKETSENT     0x08
 #define IRQ2_PAYLOADREADY   0x04
+#define DIO1_PACKETSENT     0x00
+#define DIO1_PAYLOADREADY   0x40
+#define DIO1_SYNCADDRESS    0x80
 
 #define RcCalStart          0x81
 #define RcCalDone           0x40
@@ -303,28 +306,26 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         recvBuf = buf;
         rxstate = TXRECV;
         flushFifo();
-        writeReg(REG_DIOMAPPING1, 0x80);            // Interrupt on SyncAddress
+        writeReg(REG_DIOMAPPING1, DIO1_SYNCADDRESS);  // Interrupt
         setMode(MODE_RECEIVER);
         writeReg(REG_AFCFEI, AfcClear);
         
         break;
     case TXRECV:
         if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX) {
-//            setMode(MODE_STANDBY);
             rxstate = TXIDLE;
- 
             if (rf12_len > RF12_MAXDATA) {
                 crc = 1;  // force bad crc for invalid packet                
             }
-//            if (!crc) {   // Good crc?
+            if (crc == 0) {
                 if (!(rf12_hdr & RF12_HDR_DST) || node == 31 ||
                     (rf12_hdr & RF12_HDR_MASK) == node) {
                     return crc;
                 } else {
                     discards++;
-//                    return 0; 
+                    return 1;   // Directed to a different node, drop
                 }
-//            }
+            }
         }
     }
     return ~0;
@@ -348,7 +349,7 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
     crc = _crc16_update(~0, readReg(REG_SYNCGROUP));
 
     setMode(MODE_TRANSMITTER);
-    writeReg(REG_DIOMAPPING1, 0x00); // PacketSent
+    writeReg(REG_DIOMAPPING1, DIO1_PACKETSENT); //Interrupt
     
     if (rf12_len > 9)                       // Expedite short packet TX
       writeReg(REG_FIFOTHRESH, DELAY_TX);   // Wait for FIFO to hit 32 bytes
@@ -383,10 +384,10 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
 void RF69::interrupt_compat () {
         interruptCount++;
         // Interrupt will ONLY remain asserted until FIFO empty or exit RX mode
-        // 
+        // FIFO can pass through empty during reception since also draining 
         if (rxstate == TXRECV) {
             // The following line attempts to stop further interrupts
-            writeReg(REG_DIOMAPPING1, 0x40);  // Interrupt on PayloadReady
+            writeReg(REG_DIOMAPPING1, DIO1_PAYLOADREADY);  // Interrupt
             if (reentry) {
                 nestedInterrupts++;
                 uint8_t f = readReg(REG_IRQFLAGS2);
@@ -425,8 +426,8 @@ void RF69::interrupt_compat () {
                     volatile uint8_t in = readReg(REG_FIFO);
                     
                     if (rxfill == 2) {
-                        if (in <= 66) {            // validate and
-                            payloadLen = in;       // capture length byte
+                        if (in <= RF12_MAXDATA) {  // capture and
+                            payloadLen = in;       // validate length byte
                         } else {
                             recvBuf[rxfill++] = 0; // Set rf12_len to zero!
                             payloadLen = -2;       // skip crc in payload
@@ -444,10 +445,7 @@ void RF69::interrupt_compat () {
                     if (rxfill >= (payloadLen + 5)) {  // Trap end of payload
                         writeReg(REG_AFCFEI, AfcClear);// Whilst in RX mode
                         setMode(MODE_STANDBY);  // Get radio out of RX mode
-//                        rxstate = TXIDLE;
                         stillCollecting = false;
-//                        writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);
-
                         break;
                     }
             } 
@@ -470,15 +468,13 @@ void RF69::interrupt_compat () {
           txP++;
           setMode(MODE_STANDBY);
           rxstate = TXIDLE;
-//          writeReg(REG_DIOMAPPING1, 0x80); // Interrupt on SyncAddress
-
           if (group == 0) {               // Allow receiving from all groups
               writeReg(REG_SYNCCONFIG, fourByteSync);
           }
     } else {
           // We get here when a interrupt that is neither for RX or as a TX
           // completion. Appears related to receiving noise when the bad CRC
-          //  packet display is enabled using "0q".
+          // packet display is enabled using "0q".
           unexpected++;
           unexpectedFSM = rxstate; // Save Finite State Machine status
                 uint8_t f = readReg(REG_IRQFLAGS2);
