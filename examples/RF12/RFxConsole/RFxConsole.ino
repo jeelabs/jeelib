@@ -1177,9 +1177,12 @@ static void nodeShow(byte group) {
     }
     Serial.print(word(changedAFC));    
     printOneChar(',');
-    Serial.println(word(changedFEI));  
+    Serial.println(word(changedFEI));
+Serial.println(RF69::control(REG_SYNCCONFIG, 0));  // DEBUG    
 #endif  
 #if STATISTICS
+    Serial.print((millis() >> 10));  // An approximation to seconds
+    printOneChar(':');
     Serial.print(messageCount);
     printOneChar('(');
     Serial.print(CRCbadCount);
