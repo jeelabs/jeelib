@@ -76,9 +76,9 @@
 #define IRQ2_FIFOOVERRUN    0x10
 #define IRQ2_PACKETSENT     0x08
 #define IRQ2_PAYLOADREADY   0x04
-#define DIO1_PACKETSENT     0x00
-#define DIO1_PAYLOADREADY   0x40
-#define DIO1_SYNCADDRESS    0x80
+#define DMAP1_PACKETSENT    0x00
+#define DMAP1_PAYLOADREADY  0x40
+#define DMAP1_SYNCADDRESS   0x80
 
 #define RcCalStart          0x81
 #define RcCalDone           0x40
@@ -301,15 +301,17 @@ uint8_t* recvBuf;
 uint16_t RF69::recvDone_compat (uint8_t* buf) {
     switch (rxstate) {
     case TXIDLE:
+        // It would be nice to wrap this code up and share it with identical
+        // code in case TXRECV below.
         rxfill = rf12_len = 0;
         crc = _crc16_update(~0, group);
-        recvBuf = buf;    // What is this buf
+        recvBuf = buf;
         rxstate = TXRECV;
         flushFifo();
-        writeReg(REG_DIOMAPPING1, DIO1_SYNCADDRESS);    // Interrupt trigger
+        writeReg(REG_DIOMAPPING1, DMAP1_SYNCADDRESS);    // Interrupt trigger
         setMode(MODE_RECEIVER);
         writeReg(REG_AFCFEI, AfcClear);
-        
+        // end identical code        
         break;
     case TXRECV:
         if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX) {
@@ -323,13 +325,18 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
                     return crc;
                 } else {
                     discards++;
+        // It would be nice to wrap this code up and share it with identical
+        // code in case TXIDLE above.
                     rxfill = rf12_len = 0;
                     crc = _crc16_update(~0, group);
-                    recvBuf = buf;    // What is this buf
+                    recvBuf = buf;
                     rxstate = TXRECV;
                     flushFifo();                    
+                    writeReg(REG_DIOMAPPING1, DMAP1_SYNCADDRESS);// Interrupt trigger
+                    setMode(MODE_RECEIVER);
+                    writeReg(REG_AFCFEI, AfcClear);
+        // end identical code        
                     return ~0;
-
                 }
             } else return 1;
         }
@@ -355,7 +362,7 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
     crc = _crc16_update(~0, readReg(REG_SYNCGROUP));
 
     setMode(MODE_TRANSMITTER);
-    writeReg(REG_DIOMAPPING1, DIO1_PACKETSENT);     // Interrupt trigger
+    writeReg(REG_DIOMAPPING1, DMAP1_PACKETSENT);     // Interrupt trigger
     
     if (rf12_len > 9)                       // Expedite short packet TX
       writeReg(REG_FIFOTHRESH, DELAY_TX);   // Wait for FIFO to hit 32 bytes
@@ -393,7 +400,7 @@ void RF69::interrupt_compat () {
         // FIFO can pass through empty during reception since also draining 
         if (rxstate == TXRECV) {
             // The following line attempts to stop further interrupts
-            writeReg(REG_DIOMAPPING1, DIO1_PAYLOADREADY);   // Interrupt trigger
+            writeReg(REG_DIOMAPPING1, DMAP1_PAYLOADREADY);   // Interrupt trigger
             if (reentry) {
                 nestedInterrupts++;
                 uint8_t f = readReg(REG_IRQFLAGS2);
