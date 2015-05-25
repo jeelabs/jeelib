@@ -317,34 +317,19 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
             if (rf12_len > RF12_MAXDATA) {
                 crc = 1;  // force bad crc for invalid packet                
             }
-            if (crc == 0) {   // We must check the CRC before taking a decision
+            if (crc == 0) {
                 if (!(rf12_hdr & RF12_HDR_DST) || node == 31 ||
                     (rf12_hdr & RF12_HDR_MASK) == node) {
                     return crc;
                 } else {
                     discards++;
-                    return 1;//crc; // There is a problem here, dropping though
-                                    // hangs the state machine.
-                                    // returning 1 show a bad CRC packet
-                                    // Therefore lets clear up for a new packet
-                                    // this blocks all bad CRC packets
-                                    /*
                     rxfill = rf12_len = 0;
                     crc = _crc16_update(~0, group);
                     recvBuf = buf;    // What is this buf
+                    rxstate = TXRECV;
                     flushFifo();                    
-                    // Directed to a different node, drop through
-                    
-                    One presumes that the purpose of the section is to only
-                    permit broadcast or specifically *addressed to me* packets
-                    to pass to the calling sketch.
-                    This probably explains the double checks in sketches.
-                    
-                    If the CRC is bad then all is well but if the CRC is good
-                    the state machine gets stuck with rf12_canSend returning
-                    false. This state clears after a few transmits.
-                    
-                                    */
+                    return ~0;
+
                 }
             } else return 1;
         }
