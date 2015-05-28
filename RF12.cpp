@@ -13,6 +13,24 @@
 #include <WProgram.h> // Arduino 0022
 #endif
 
+#if RF12_COMPAT
+#define rf12_rawlen     rf12_buf[1]
+#define rf12_dest       (rf12_buf[2] & RF12_HDR_MASK)
+#define rf12_orig       (rf12_buf[3] & RF12_HDR_MASK)
+#define slack           6
+#define crc_initVal     0x1D0F
+#define crc_endVal      0x1D0F
+#define crc_update      _crc_xmodem_update
+#else
+#define rf12_rawlen     rf12_len
+// #define rf12_dest    (rf12_hdr & RF12_HDR_DST ? rf12_hdr & RF12_HDR_MASK : 0)
+// #define rf12_orig    (rf12_hdr & RF12_HDR_DST ? 0 : rf12_hdr & RF12_HDR_MASK)
+#define slack           5
+#define crc_initVal     ~0
+#define crc_endVal      0
+#define crc_update      _crc16_update
+#endif
+
 // #define OPTIMIZE_SPI 1  // uncomment this to write to the RFM12B @ 8 Mhz
 
 // pin change interrupts are currently only supported on ATmega328's
@@ -113,7 +131,7 @@
 
 // bits in the node id configuration byte
 #define NODE_BAND       0xC0        // frequency band
-#define NODE_ID         0x1F        // id of this node, as A..Z or 1..31
+#define NODE_ID         RF12_HDR_MASK // id of this node, as A..Z or 1..31
 
 // transceiver states, these determine what to do with each interrupt
 enum {
@@ -147,6 +165,16 @@ static uint8_t rf12_fixed_pkt_len;  // fixed packet length reception
 static uint32_t seqNum;             // encrypted send sequence number
 static uint32_t cryptKey[4];        // encryption key to use
 void (*crypter)(uint8_t);           // does en-/decryption (null if disabled)
+
+#if RF12_COMPAT
+const uint8_t whitening[] = {
+  // see http://www.semtech.com/images/datasheet/AN1200.18_STD.pdf
+  255,135,184,89,183,161,204,36,87,94,75,156,14,233,234,80,42,190,180,27,182,
+  176,93,241,230,154,227,69,253,44,83,24,12,202,201,251,73,55,229,168,81,59,
+  47,97,170,114,24,132,2,35,35,171,99,137,81,179,231,139,114,144,76,232,251,
+  193,255,15,112,179,111,67,
+};
+#endif
 
 // function to set chip select pin from within sketch
 void rf12_set_cs (uint8_t pin) {
@@ -296,27 +324,46 @@ static void rf12_interrupt () {
         if (rxfill == 0 && group != 0)
             rf12_buf[rxfill++] = group;
 
+#if RF12_COMPAT
+        in ^= whitening[rxfill-1];
+#endif
         rf12_buf[rxfill++] = in;
-        rf12_crc = _crc16_update(rf12_crc, in);
+        rf12_crc = crc_update(rf12_crc, in);
 
-        if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX)
+        if (rxfill >= rf12_len + 5 + RF12_COMPAT || rxfill >= RF_MAX)
             rf12_xfer(RF_IDLE_MODE);
     } else {
         uint8_t out;
 
         if (rxstate < 0) {
-            uint8_t pos = 3 + rf12_len + rxstate++;
+            uint8_t pos = 3 + RF12_COMPAT + rf12_len + rxstate++;
             out = rf12_buf[pos];
-            rf12_crc = _crc16_update(rf12_crc, out);
-        } else
-            switch (rxstate++) {
+            rf12_crc = crc_update(rf12_crc, out);
+#if RF12_COMPAT
+            out ^= whitening[pos-1];
+#endif
+        } else {
+            switch (rxstate) {
                 case TXSYN1: out = 0x2D; break;
-                case TXSYN2: out = group; rxstate = - (2 + rf12_len); break;
+                case TXSYN2: out = group;
+                             rxstate = - (3 + RF12_COMPAT + rf12_len);
+                             break;
+#if RF12_COMPAT
+                case TXCRC1: out = ~rf12_crc >> 8; break;
+                case TXCRC2: out = ~rf12_crc; break;
+#else
                 case TXCRC1: out = rf12_crc; break;
                 case TXCRC2: out = rf12_crc >> 8; break;
+#endif
                 case TXDONE: rf12_xfer(RF_IDLE_MODE); // fall through
                 default:     out = 0xAA;
             }
+#if RF12_COMPAT
+            if (rxstate < TXDONE) // this applies only to TXCRC1 and TXCRC2
+                out ^= whitening[3 + rf12_len + rxstate];
+#endif
+            ++rxstate;
+        }
 
         rf12_xfer(RF_TXREG_WRITE + out);
     }
@@ -343,15 +390,15 @@ static void rf12_interrupt () {
 
 static void rf12_recvStart () {
     if (rf12_fixed_pkt_len) {
-        rf12_len = rf12_fixed_pkt_len;
+        rf12_rawlen = rf12_fixed_pkt_len;
         rf12_grp = rf12_hdr = 0;
         rxfill = 3;
     } else
-        rxfill = rf12_len = 0;
-    rf12_crc = ~0;
-#if RF12_VERSION >= 2
+        rxfill = rf12_rawlen = 0;
+    rf12_crc = crc_initVal;
+#if RF12_VERSION >= 2 && !RF12_COMPAT
     if (group != 0)
-        rf12_crc = _crc16_update(~0, group);
+        rf12_crc = crc_update(rf12_crc, group);
 #endif
     rxstate = TXRECV;
 
@@ -388,12 +435,20 @@ static void rf12_recvStart () {
 ///      }
 /// @see http://jeelabs.org/2010/12/11/rf12-acknowledgements/
 uint8_t rf12_recvDone () {
-    if (rxstate == TXRECV && (rxfill >= rf12_len + 5 || rxfill >= RF_MAX)) {
+    if (rxstate == TXRECV &&
+            (rxfill >= rf12_len + 5 + RF12_COMPAT || rxfill >= RF_MAX)) {
         rxstate = TXIDLE;
+        rf12_crc ^= crc_endVal;
         if (rf12_len > RF12_MAXDATA)
             rf12_crc = 1; // force bad crc if packet length is invalid
+#if RF12_COMPAT
+        if (rf12_dest == 0 || (nodeid & NODE_ID) == 63 ||
+                (rf12_dest == (nodeid & NODE_ID)))
+#else
         if (!(rf12_hdr & RF12_HDR_DST) || (nodeid & NODE_ID) == 31 ||
-                (rf12_hdr & RF12_HDR_MASK) == (nodeid & NODE_ID)) {
+                (rf12_hdr & RF12_HDR_MASK) == (nodeid & NODE_ID))
+#endif
+        {
             if (rf12_crc == 0 && crypter != 0)
                 crypter(0);
             else
@@ -433,14 +488,24 @@ uint8_t rf12_canSend () {
 }
 
 void rf12_sendStart (uint8_t hdr) {
+#if RF12_COMPAT
+    // top 2 bits are the parity bits of the net group
+    uint8_t parity = group ^ (group << 4);
+    parity = (parity ^ (parity << 2)) & 0xC0;
+    // the lower 6 bits are the destination, or zer of broadcasting
+    rf12_dst = parity | (hdr & RF12_HDR_DST ? hdr & RF12_HDR_MASK : 0);
+    // the header byte has the two flag bits and the origin address
+    rf12_hdr = (hdr & ~RF12_HDR_MASK) + (nodeid & NODE_ID);
+#else
     rf12_hdr = hdr & RF12_HDR_DST ? hdr :
                 (hdr & ~RF12_HDR_MASK) + (nodeid & NODE_ID);
+#endif
     if (crypter != 0)
         crypter(1);
 
-    rf12_crc = ~0;
-#if RF12_VERSION >= 2
-    rf12_crc = _crc16_update(rf12_crc, group);
+    rf12_crc = crc_initVal;
+#if RF12_VERSION >= 2 && !RF12_COMPAT
+    rf12_crc = crc_update(rf12_crc, group);
 #endif
     rxstate = TXPRE1;
     rf12_xfer(RF_XMITTER_ON); // bytes will be fed via interrupts
@@ -475,7 +540,10 @@ void rf12_sendStart (uint8_t hdr) {
 /// @param ptr Pointer to the data to send as packet.
 /// @param len Number of data bytes to send. Must be in the range 0 .. 65.
 void rf12_sendStart (uint8_t hdr, const void* ptr, uint8_t len) {
-    rf12_len = len;
+    rf12_rawlen = len;
+#if RF12_COMPAT
+    rf12_rawlen += 2; // length as sent includes rf12_dst and rf12_hdr
+#endif
     memcpy((void*) rf12_data, ptr, len);
     rf12_sendStart(hdr);
 }
@@ -653,7 +721,7 @@ uint8_t rf12_configSilent () {
     uint16_t crc = ~0;
     for (uint8_t i = 0; i < RF12_EEPROM_SIZE; ++i) {
         byte e = eeprom_read_byte(RF12_EEPROM_ADDR + i);
-        crc = _crc16_update(crc, e);
+        crc = crc_update(crc, e);
     }
     if (crc || eeprom_read_byte(RF12_EEPROM_ADDR + 2) != RF12_EEPROM_VERSION)
         return 0;
@@ -897,10 +965,10 @@ static void cryptFun (uint8_t send) {
         // pad with 1..4-byte sequence number
         *(uint32_t*)(rf12_data + rf12_len) = ++seqNum;
         uint8_t pad = 3 - (rf12_len & 3);
-        rf12_len += pad;
+        rf12_rawlen += pad;
         rf12_data[rf12_len] &= 0x3F;
         rf12_data[rf12_len] |= pad << 6;
-        ++rf12_len;
+        ++rf12_rawlen;
         // actual encoding
         char n = rf12_len / 4;
         if (n > 1) {
@@ -931,10 +999,10 @@ static void cryptFun (uint8_t send) {
         }
         // strip sequence number from the end again
         if (n > 0) {
-            uint8_t pad = rf12_data[--rf12_len] >> 6;
+            uint8_t pad = rf12_data[--rf12_rawlen] >> 6;
             rf12_seq = rf12_data[rf12_len] & 0x3F;
             while (pad-- > 0)
-                rf12_seq = (rf12_seq << 8) | rf12_data[--rf12_len];
+                rf12_seq = (rf12_seq << 8) | rf12_data[--rf12_rawlen];
         }
     }
 }

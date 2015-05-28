@@ -161,7 +161,7 @@ uint8_t* recvBuf;
 uint16_t RF69::recvDone_compat (uint8_t* buf) {
     switch (rxstate) {
     case TXIDLE:
-        rxfill = rf12_len = 0;
+        rxfill = rf12_buf[2] = 0;
         crc = _crc16_update(~0, group);
         recvBuf = buf;
         rxstate = TXRECV;
@@ -183,7 +183,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
 }
 
 void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
-    rf12_len = len;
+    rf12_buf[2] = len;
     for (int i = 0; i < len; ++i)
         rf12_data[i] = ((const uint8_t*) ptr)[i];
     rf12_hdr = hdr & RF12_HDR_DST ? hdr : (hdr & ~RF12_HDR_MASK) + node;
