@@ -8,7 +8,7 @@
 
 // Modify the RF12 driver in such a way that it can inter-operate with RFM69
 // modules running in "native" mode. This affects packet layout and some more.
-#define RF12_COMPAT 1
+#define RF12_COMPAT 0
 
 #include <stdint.h>
 
