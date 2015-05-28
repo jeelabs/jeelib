@@ -50,7 +50,7 @@
 /// Shorthand to simplify sending out the proper ACK reply.
 #define RF12_ACK_REPLY (rf12_hdr & RF12_HDR_DST ? RF12_HDR_CTL : \
             RF12_HDR_CTL | RF12_HDR_DST | (rf12_hdr & RF12_HDR_MASK))
-            
+
 // options for RF12_sleep()
 #define RF12_SLEEP 0        ///< Enter sleep mode.
 #define RF12_WAKEUP -1      ///< Wake up from sleep mode.
@@ -131,7 +131,7 @@ void rf12_setRawRecvMode(uint8_t fixed_pkt_len);
 uint16_t rf12_control(uint16_t cmd);
 
 /// See http://blog.strobotics.com.au/2009/07/27/rfm12-tutorial-part-3a/
-/// Transmissions are packetized, don't assume you can sustain these speeds! 
+/// Transmissions are packetized, don't assume you can sustain these speeds!
 ///
 /// @note Data rates are approximate. For higher data rates you may need to
 /// alter receiver radio bandwidth and transmitter modulator bandwidth.

@@ -117,7 +117,7 @@ void RF69::setFrequency (uint32_t freq) {
     // use multiples of 64 to avoid multi-precision arithmetic, i.e. 3906.25 Hz
     // due to this, the lower 6 bits of the calculated factor will always be 0
     // this is still 4 ppm, i.e. well below the radio's 32 MHz crystal accuracy
-    // 868.0 MHz = 0xD90000, 868.3 MHz = 0xD91300, 915.0 MHz = 0xE4C000  
+    // 868.0 MHz = 0xD90000, 868.3 MHz = 0xD91300, 915.0 MHz = 0xE4C000
     frf = ((freq << 2) / (32000000L >> 11)) << 6;
 }
 
@@ -144,7 +144,7 @@ void RF69::sleep (bool off) {
 #include <RF12.h>
 
 void RF69::configure_compat () {
-    initRadio(configRegs_compat);    
+    initRadio(configRegs_compat);
     // FIXME doesn't seem to work, nothing comes in but noise for group 0
     // writeReg(REG_SYNCCONFIG, group ? 0x88 : 0x80);
     writeReg(REG_SYNCVALUE2, group);
@@ -186,13 +186,13 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
     rf12_len = len;
     for (int i = 0; i < len; ++i)
         rf12_data[i] = ((const uint8_t*) ptr)[i];
-    rf12_hdr = hdr & RF12_HDR_DST ? hdr : (hdr & ~RF12_HDR_MASK) + node;  
+    rf12_hdr = hdr & RF12_HDR_DST ? hdr : (hdr & ~RF12_HDR_MASK) + node;
     crc = _crc16_update(~0, group);
     rxstate = - (2 + rf12_len); // preamble and SYN1/SYN2 are sent by hardware
     flushFifo();
     setMode(MODE_TRANSMITTER);
     writeReg(REG_DIOMAPPING1, 0x00); // PacketSent
-    
+
     // use busy polling until the last byte fits into the buffer
     // this makes sure it all happens on time, and that sendWait can sleep
     while (rxstate < TXDONE)
@@ -222,7 +222,7 @@ void RF69::interrupt_compat () {
                     recvBuf[rxfill++] = group;
                 uint8_t in = readReg(REG_FIFO);
                 recvBuf[rxfill++] = in;
-                crc = _crc16_update(crc, in);              
+                crc = _crc16_update(crc, in);
                 if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX)
                     break;
             }
