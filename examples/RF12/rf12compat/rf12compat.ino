@@ -1,6 +1,8 @@
 /// @dir rf12compat
 /// Test for making the RFM12 modules compatible with RFM69 in native mode.
 // 2015-05-19 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
+//
+// Note: you need to set RF12_COMPAT to 1 in "rf12.h" to compile the sketch.
 
 #include <JeeLib.h>
 
