@@ -5,6 +5,7 @@
 #define REG_FIFO            0x00
 #define REG_OPMODE          0x01
 #define REG_FRFMSB          0x07
+#define REG_AFCFEI          0x1E
 #define REG_RSSIVALUE       0x24
 #define REG_DIOMAPPING1     0x25
 #define REG_IRQFLAGS1       0x27
@@ -29,6 +30,12 @@
 #define IRQ2_FIFOOVERRUN    0x10
 #define IRQ2_PACKETSENT     0x08
 #define IRQ2_PAYLOADREADY   0x04
+
+#define DMAP1_PACKETSENT    0x00
+#define DMAP1_PAYLOADREADY  0x40
+#define DMAP1_SYNCADDRESS   0x80
+
+#define AFC_CLEAR           0x02
 
 #define RF_MAX   72
 
@@ -161,25 +168,28 @@ uint8_t* recvBuf;
 uint16_t RF69::recvDone_compat (uint8_t* buf) {
     switch (rxstate) {
     case TXIDLE:
-        rxfill = rf12_buf[2] = 0;
+        rxfill = rf12_len = 0;
         crc = _crc16_update(~0, group);
         recvBuf = buf;
         rxstate = TXRECV;
         flushFifo();
+        writeReg(REG_DIOMAPPING1, DMAP1_SYNCADDRESS);    // Interrupt trigger
         setMode(MODE_RECEIVER);
+        writeReg(REG_AFCFEI, AFC_CLEAR);
         break;
     case TXRECV:
         if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX) {
             rxstate = TXIDLE;
             setMode(MODE_STANDBY);
-            if (rf12_len > RF12_MAXDATA)
-                crc = 1; // force bad crc for invalid packet
+            if (crc != 0 | rf12_len > RF12_MAXDATA)
+                return 1; // force bad crc for invalid packet
             if (!(rf12_hdr & RF12_HDR_DST) || node == 31 ||
                     (rf12_hdr & RF12_HDR_MASK) == node)
-                return crc;
+                return 0; // it's for us, good packet received
         }
+        break;
     }
-    return ~0;
+    return ~0; // keep going, not done yet
 }
 
 void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
