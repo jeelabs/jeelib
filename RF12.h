@@ -6,6 +6,10 @@
 /// @file
 /// RFM12B driver definitions
 
+// Modify the RF12 driver in such a way that it can inter-operate with RFM69
+// modules running in "native" mode. This affects packet layout and some more.
+#define RF12_COMPAT 0
+
 #include <stdint.h>
 
 /// RFM12B Protocol version.
@@ -15,6 +19,19 @@
 
 /// Shorthand for RFM12B group byte in rf12_buf.
 #define rf12_grp        rf12_buf[0]
+
+#if RF12_COMPAT
+#define rf12_len        (rf12_buf[1] - 2)
+#define rf12_dst        rf12_buf[2]       // parity bits and dest addr
+#define rf12_hdr        rf12_buf[3]       // flag bits and origin addr
+#define rf12_data       (rf12_buf + 4)
+
+#define RF12_HDR_CTL    0x80
+#define RF12_HDR_DST    0     // never set in native RF69 packets
+#define RF12_HDR_ACK    0x40
+#define RF12_HDR_MASK   0x3F
+#else
+
 /// Shorthand for RFM12B header byte in rf12_buf.
 #define rf12_hdr        rf12_buf[1]
 /// Shorthand for RFM12B length byte in rf12_buf.
@@ -30,6 +47,8 @@
 #define RF12_HDR_ACK    0x20
 /// RFM12B HDR bit mask.
 #define RF12_HDR_MASK   0x1F
+
+#endif
 
 /// RFM12B Maximum message size in bytes.
 #define RF12_MAXDATA    66                   
@@ -51,7 +70,7 @@
 /// Shorthand to simplify sending out the proper ACK reply.
 #define RF12_ACK_REPLY (rf12_hdr & RF12_HDR_DST ? RF12_HDR_CTL : \
             RF12_HDR_CTL | RF12_HDR_DST | (rf12_hdr & RF12_HDR_MASK))
-            
+
 // options for RF12_sleep()
 #define RF12_SLEEP 0        ///< Enter sleep mode.
 #define RF12_WAKEUP -1      ///< Wake up from sleep mode.
@@ -135,7 +154,7 @@ void rf12_setRawRecvMode(uint8_t fixed_pkt_len);
 uint16_t rf12_control(uint16_t cmd);
 
 /// See http://blog.strobotics.com.au/2009/07/27/rfm12-tutorial-part-3a/
-/// Transmissions are packetized, don't assume you can sustain these speeds! 
+/// Transmissions are packetized, don't assume you can sustain these speeds!
 ///
 /// @note Data rates are approximate. For higher data rates you may need to
 /// alter receiver radio bandwidth and transmitter modulator bandwidth.

@@ -94,6 +94,12 @@
 #define fourByteSync        0x98
 #define fiveByteSync        0xA0
 
+#define DMAP1_PACKETSENT    0x00
+#define DMAP1_PAYLOADREADY  0x40
+#define DMAP1_SYNCADDRESS   0x80
+
+#define AFC_CLEAR           0x02
+
 #define RF_MAX   72
 
 // transceiver states, these determine what to do with each interrupt
@@ -238,8 +244,8 @@ void RF69::setFrequency (uint32_t freq) {
     // use multiples of 64 to avoid multi-precision arithmetic, i.e. 3906.25 Hz
     // due to this, the lower 6 bits of the calculated factor will always be 0
     // this is still 4 ppm, i.e. well below the radio's 32 MHz crystal accuracy
-    // 868.0 MHz = 0xD90000, 868.3 MHz = 0xD91300, 915.0 MHz = 0xE4C000  
-    frf = ((freq << 2) / (32000000L >> 11)) << 6; 
+    // 868.0 MHz = 0xD90000, 868.3 MHz = 0xD91300, 915.0 MHz = 0xE4C000
+    frf = ((freq << 2) / (32000000L >> 11)) << 6;
 }
 
 bool RF69::canSend () {
@@ -340,8 +346,9 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
                 }
             } else return 1;
         }
+        break;
     }
-    return ~0;
+    return ~0; // keep going, not done yet
 }
 
 void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
