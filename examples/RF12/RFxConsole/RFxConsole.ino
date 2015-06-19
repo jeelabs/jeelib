@@ -19,7 +19,6 @@
 //                           // The above flag must be set similarly in RF12.cpp
 //                           // and RF69_avr.h
 ///////////////////////////////////////////////////////////////////////////////
-#define rf12_len        (rf12_buf[1] - 2)
 
 #define PINCHG_IRQ       0   // Best power savings: set to 1 if using pin-change interrupts in RF69_avr.h
                              // Terminal interface will sleep after 5 seconds inactivity use '.' to wake it up
@@ -49,8 +48,8 @@
 #include <util/parity.h>
 
 #define MAJOR_VERSION RF12_EEPROM_VERSION // bump when EEPROM layout changes
-#define MINOR_VERSION 3                   // bump on other non-trivial changes
-#define VERSION "\n[RFxConsole.0]"         // keep in sync with the above
+#define MINOR_VERSION 4                   // bump on other non-trivial changes
+#define VERSION "\n[RFxConsole.1]"        // keep in sync with the above
 
 #if !configSTRING
 #define rf12_configDump()                 // Omit A i1 g210 @ 868 MHz q1
@@ -994,10 +993,16 @@ void setup () {
 #endif
     Serial.begin(SERIAL_BAUD);
     displayVersion();
+    byte* b = RF69::SPI_pins();  // {OPTIMIZE_SPI, PINCHG_IRQ, RF69_COMPAT, RFM_IRQ, SPI_SS, SPI_MOSI, SPI_MISO, SPI_SCK }
+    static byte n[] = {1,0,1,2,2,3,4,5};     // Default ATMega328 with RFM69 settings
+    for (byte i = 0; i < 9; i++) {
+        printOneChar(' ');
+        if(b[i] != n[i]) showByte(b[i]);
+    }
     
 #if !TINY
-    showNibble(resetFlags >> 4);
-    showNibble(resetFlags);
+//    showNibble(resetFlags >> 4);
+//    showNibble(resetFlags);
 // TODO the above doesn't do what we need, results vary with Bootloader etc
 #endif
 
@@ -1402,9 +1407,6 @@ void loop () {
         }
         printOneChar(')');
 #endif
-//TODO MartynJ       showString(PSTR(" Samples="));
-//TODO        Serial.print((RF69::rssiSamples));
-        
         Serial.println();
         
 #if !TINY

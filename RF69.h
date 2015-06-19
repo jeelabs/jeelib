@@ -34,6 +34,8 @@ namespace RF69 {
     void sleep (bool off);
     uint8_t control(uint8_t cmd, uint8_t val);
     int8_t readTemperature(int8_t);
+    uint8_t* SPI_pins();  // {OPTIMIZE_SPI, PINCHG_IRQ, RF69_COMPAT, RFM_IRQ, 
+                          //  SPI_SS, SPI_MOSI, SPI_MISO, SPI_SCK }
     
     void configure_compat ();
     uint16_t recvDone_compat (uint8_t* buf);
