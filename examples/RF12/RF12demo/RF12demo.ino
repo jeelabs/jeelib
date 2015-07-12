@@ -370,7 +370,7 @@ static void handleInput (char c) {
         switch (c) {
 
         case 'i': // set node id
-            if ((value > 0) && (value < 31)) {
+            if ((value > 0) && (value < 33)) {
                 config.nodeId = (config.nodeId & 0xE0) + (value & 0x1F);
                 saveConfig();
             }
