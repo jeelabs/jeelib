@@ -114,6 +114,8 @@ uint8_t rf12_canSend(void);
 
 /// Call this only when rf12_recvDone() or rf12_canSend() return true.
 void rf12_sendStart(uint8_t hdr);
+///
+void rf12_skip_hdr (uint8_t skip);
 /// Call this only when rf12_recvDone() or rf12_canSend() return true.
 void rf12_sendStart(uint8_t hdr, const void* ptr, uint8_t len);
 /// This variant loops on rf12_canSend() and then calls rf12_sendStart() asap.

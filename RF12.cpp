@@ -1,4 +1,4 @@
-﻿/// @file
+/// @file
 /// RFM12B driver implementation
 // 2009-02-09 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 #include "RF12.h"
@@ -37,7 +37,7 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 #define PINCHG_IRQ  0    // Set this true to use pin-change interrupts
-#define RF69_COMPAT 1    // Set this true to use the RF69 driver
+#define RF69_COMPAT 0    // Set this true to use the RF69 driver
                          // The above flags must be set similarly in RF69_avr.h
 ///////////////////////////////////////////////////////////////////////////////                         
 // maximum transmit / receive buffer: 3 header + data + 2 crc bytes
@@ -169,6 +169,7 @@ static long ezNextSend[2];          // when was last retry [0] or data [1] sent
 
 volatile uint16_t rf12_crc;         // running crc value
 volatile uint8_t rf12_buf[RF_MAX];  // recv/xmit buf, including hdr & crc bytes
+volatile uint8_t rf12_skip = 0;     // header bytes to skip
 long rf12_seq;                      // seq number of encrypted packet (or -1)
 static uint8_t rf12_fixed_pkt_len;  // fixed packet length reception
 
@@ -355,7 +356,7 @@ static void rf12_interrupt () {
         uint8_t out;
 
         if (rxstate < 0) {
-            uint8_t pos = 3 + RF12_COMPAT + rf12_len + rxstate++;
+            uint8_t pos = 3 + RF12_COMPAT + rf12_len + rf12_skip + rxstate++;
             out = rf12_buf[pos];
             rf12_crc = crc_update(rf12_crc, out);
 #if RF12_COMPAT
@@ -375,6 +376,7 @@ static void rf12_interrupt () {
                 case TXCRC2: out = rf12_crc >> 8; break;
 #endif
                 case TXDONE: rf12_xfer(RF_IDLE_MODE); // fall through
+                             rf12_skip = 0; // Cancel frame skip if applicable
                 default:     out = 0xAA;
             }
 #if RF12_COMPAT
@@ -516,12 +518,19 @@ uint8_t rf12_canSend () {
     return 0;
 }
 
+
+void rf12_skip_hdr (uint8_t skip) {
+    rf12_skip = skip;
+}
+
+
+
 void rf12_sendStart (uint8_t hdr) {
 #if RF12_COMPAT
     // top 2 bits are the parity bits of the net group
     uint8_t parity = group ^ (group << 4);
     parity = (parity ^ (parity << 2)) & 0xC0;
-    // the lower 6 bits are the destination, or zer of broadcasting
+    // the lower 6 bits are the destination, or zero if broadcasting
     rf12_dst = parity | (hdr & RF12_HDR_DST ? hdr & RF12_HDR_MASK : 0);
     // the header byte has the two flag bits and the origin address
     rf12_hdr = (hdr & ~RF12_HDR_MASK) + (nodeid & NODE_ID);

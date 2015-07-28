@@ -15,11 +15,11 @@
     #define TINY 1
 #endif
 ///////////////////////////////////////////////////////////////////////////////
-#define RF69_COMPAT      1   // define this to use the RF69 driver i.s.o. RF12 
+#define RF69_COMPAT      0   // define this to use the RF69 driver i.s.o. RF12 
 //                           // The above flag must be set similarly in RF12.cpp
 //                           // and RF69_avr.h
 ///////////////////////////////////////////////////////////////////////////////
-#define rf12_len        (rf12_buf[1] - 2)
+// #define BLOCK  1
 
 #define PINCHG_IRQ       0   // Best power savings: set to 1 if using pin-change interrupts in RF69_avr.h
                              // Terminal interface will sleep after 5 seconds inactivity use '.' to wake it up
@@ -341,7 +341,12 @@ static void saveConfig () {
         rf12_configDump();
     else
         showString(INITFAIL);
-}
+
+            rf12_control(RF12_DATA_RATE_2); // 2.4kbps
+//            rf12_control(0xA674); // 868.260khz
+            rf12_control(0x9840); // 75khz freq shift
+        
+} // saveConfig
 
 static byte bandToFreq (byte band) {
      return band == 4 ? RF12_433MHZ : band == 8 ? RF12_868MHZ : band == 9 ? RF12_915MHZ : 0;
@@ -533,7 +538,7 @@ static void handleInput (char c) {
         }
 
 
-    if ('a' <= c && c <= 'z') {
+    if ('a' <= c && c <= 'z' || c == 'S') {
         showString(PSTR("> "));
         for (byte i = 0; i < top; ++i) {
             showByte(stack[i]);
@@ -654,6 +659,23 @@ static void handleInput (char c) {
             cmd = c;
             sendLen = top;
             dest = value;
+            break;
+            
+        case 'S': // send FSK packet to Salus devices
+        #define SKIP 4
+            cmd = c;
+            // Command format 16,1S
+            // 16 is the ID
+            // 1 = ON
+            // 2 = OFF
+            stack[5] = 90;
+            stack[4] = value | stack[0];
+            stack[3] = value;
+            stack[2] = stack[0];
+            stack[1] = 0;
+            stack[0] = 0;
+            sendLen = 6;
+            rf12_skip_hdr(SKIP);
             break;
             
 #if OOK
@@ -1074,6 +1096,11 @@ memset(pktCount,0,sizeof(pktCount));
 //    dumpEEprom();
 #endif
 
+            rf12_control(RF12_DATA_RATE_2); // 2.4kbps
+//            rf12_control(0xA674); // 868.260khz
+            rf12_control(0x9840); // 75khz freq shift
+
+
 } // setup
 
 #if DEBUG
@@ -1315,6 +1342,16 @@ void loop () {
               CRCbadMaxRSSI = observedRX.rssi2;   
 #endif            
             activityLed(0);
+
+            if(rf12_buf[0] == 212 && (rf12_buf[1] | rf12_buf[2]) == rf12_buf[3] && rf12_buf[4] == 90){
+                showString(PSTR("Salus "));
+                showByte(rf12_buf[1]);
+                printOneChar(',');
+                showByte(rf12_buf[2]);
+                Serial.println();
+//                return;
+            }            
+            
             if (config.quiet_mode)
                 return;
             crc = false;
@@ -1333,6 +1370,7 @@ void loop () {
         }
         printOneChar(' ');
         showByte(rf12_hdr);
+        
         if (!crc) {
             if (!(config.output & 1))
                 printOneChar(' ');
@@ -1638,8 +1676,12 @@ void loop () {
             }
 #endif
             rf12_sendStart(header, stack, sendLen);
-            rf12_sendWait(1);  //Wait for transmission complete
-
+            rf12_sendWait(1);  // Wait for transmission complete
+            for (byte i = 0; i < 10; i++) {;
+                Serial.print(rf12_data[i]);
+                Serial.print(',');
+            }
+            Serial.println();
             cmd = 0;
             activityLed(0);
         } else { // rf12_canSend
