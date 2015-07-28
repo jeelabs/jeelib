@@ -10,6 +10,11 @@
 // Add 1284p supporting over 1000 nodes 2014-08-20
 // Based on RF12Demo from RF12Demo branch 2014-11-24
 // Add RegRssiThresh to eeprom config 2015-01-08
+// Introduce shifted commands:
+// 'R' to reset configuration to eeprom values 2015-07-28
+// 'S' to interact with Salus FSK devices 2015-08-28
+// Avoid adding shifted commands 'A' through 'F'
+// as these are used by hexidecimal input code
 
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
     #define TINY 1
@@ -19,7 +24,7 @@
 //                           // The above flag must be set similarly in RF12.cpp
 //                           // and RF69_avr.h
 ///////////////////////////////////////////////////////////////////////////////
-// #define BLOCK  1
+#define BLOCK  1
 
 #define PINCHG_IRQ       0   // Best power savings: set to 1 if using pin-change interrupts in RF69_avr.h
                              // Terminal interface will sleep after 5 seconds inactivity use '.' to wake it up
@@ -33,7 +38,7 @@
 #define MESSAGING    1   // Define to include message posting code m, p - Will not fit into any Tiny image
     #define STATISTICS   1   // Define to include stats gathering - Adds ?? bytes to Tiny image
 #define NODE31ALLOC  1   // Define to include offering of spare node numbers if node 31 requests ack
-#define DEBUG        1   //
+// #define DEBUG        1   //
 #endif
 
 #define REG_SYNCCONFIG 0x2E  // RFM69 only, register containing sync length
@@ -336,15 +341,6 @@ static void saveConfig () {
     eeprom_write_byte(RF12_EEPROM_ADDR, ((byte*) &config)[0]);
     for (byte i = 0; i < sizeof config; ++i)
         eeprom_write_byte(RF12_EEPROM_ADDR + i, ((byte*) &config)[i]);
-
-    if (rf12_configSilent())
-        rf12_configDump();
-    else
-        showString(INITFAIL);
-
-            rf12_control(RF12_DATA_RATE_2); // 2.4kbps
-//            rf12_control(0xA674); // 868.260khz
-            rf12_control(0x9840); // 75khz freq shift
         
 } // saveConfig
 
@@ -538,7 +534,7 @@ static void handleInput (char c) {
         }
 
 
-    if ('a' <= c && c <= 'z' || c == 'S') {
+    if ('a' <= c && c <= 'z' || 'R' <= c && c <= 'S') {
         showString(PSTR("> "));
         for (byte i = 0; i < top; ++i) {
             showByte(stack[i]);
@@ -662,6 +658,10 @@ static void handleInput (char c) {
             break;
             
         case 'S': // send FSK packet to Salus devices
+            rf12_control(RF12_DATA_RATE_2); // 2.4kbps
+//            rf12_control(0xA674);         // 868.260khz
+            rf12_control(0x9840);           // 75khz freq shift
+            rf12_control(0xCE00 | 212);     // SYNC=2DAA. Group = 212     
         #define SKIP 4
             cmd = c;
             // Command format 16,1S
@@ -676,6 +676,15 @@ static void handleInput (char c) {
             stack[0] = 0;
             sendLen = 6;
             rf12_skip_hdr(SKIP);
+            break;
+
+        case 'R': // Reinitialise radio to defaults
+            rf12_skip_hdr(0);
+            if (rf12_configSilent())
+              rf12_configDump();
+            else
+              showString(INITFAIL);
+            showHelp();
             break;
             
 #if OOK
@@ -1095,12 +1104,6 @@ memset(pktCount,0,sizeof(pktCount));
 //    dumpRegs();
 //    dumpEEprom();
 #endif
-
-            rf12_control(RF12_DATA_RATE_2); // 2.4kbps
-//            rf12_control(0xA674); // 868.260khz
-            rf12_control(0x9840); // 75khz freq shift
-
-
 } // setup
 
 #if DEBUG
@@ -1677,11 +1680,13 @@ void loop () {
 #endif
             rf12_sendStart(header, stack, sendLen);
             rf12_sendWait(1);  // Wait for transmission complete
+#if DEBUG            
             for (byte i = 0; i < 10; i++) {;
                 Serial.print(rf12_data[i]);
                 Serial.print(',');
             }
             Serial.println();
+#endif
             cmd = 0;
             activityLed(0);
         } else { // rf12_canSend
