@@ -159,6 +159,7 @@ static long ezNextSend[2];          // when was last retry [0] or data [1] sent
 
 volatile uint16_t rf12_crc;         // running crc value
 volatile uint8_t rf12_buf[RF_MAX];  // recv/xmit buf, including hdr & crc bytes
+volatile uint8_t rf12_skip = 0;     // header bytes to skip
 long rf12_seq;                      // seq number of encrypted packet (or -1)
 static uint8_t rf12_fixed_pkt_len;  // fixed packet length reception
 
@@ -346,7 +347,7 @@ static void rf12_interrupt () {
             switch (rxstate) {
                 case TXSYN1: out = 0x2D; break;
                 case TXSYN2: out = group;
-                             rxstate = - (3 + RF12_COMPAT + rf12_len);
+            uint8_t pos = 3 + RF12_COMPAT + rf12_len + rf12_skip + rxstate++;
                              break;
 #if RF12_COMPAT
                 case TXCRC1: out = ~rf12_crc >> 8; break;
@@ -356,6 +357,7 @@ static void rf12_interrupt () {
                 case TXCRC2: out = rf12_crc >> 8; break;
 #endif
                 case TXDONE: rf12_xfer(RF_IDLE_MODE); // fall through
+                             rf12_skip = 0; // Cancel hdr skip if applicable
                 default:     out = 0xAA;
             }
 #if RF12_COMPAT
@@ -485,6 +487,10 @@ uint8_t rf12_canSend () {
         return 1;
     }
     return 0;
+}
+
+void rf12_skip_hdr (uint8_t skip) {
+    rf12_skip = skip;
 }
 
 void rf12_sendStart (uint8_t hdr) {

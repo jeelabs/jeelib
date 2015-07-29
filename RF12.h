@@ -108,6 +108,9 @@ uint8_t rf12_recvDone(void);
 /// @return true when a new transmission may be started with rf12_sendStart().
 uint8_t rf12_canSend(void);
 
+/// Call this is skip transmission of Jeelib specific header bytes
+void rf12_skip_hdr (uint8_t skip);
+
 /// Call this only when rf12_recvDone() or rf12_canSend() return true.
 void rf12_sendStart(uint8_t hdr);
 /// Call this only when rf12_recvDone() or rf12_canSend() return true.
