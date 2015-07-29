@@ -658,24 +658,19 @@ static void handleInput (char c) {
             break;
             
         case 'S': // send FSK packet to Salus devices
+            rf12_initialize (config.nodeId, RF12_868MHZ, 212, 1652);    // 868.260khz
             rf12_control(RF12_DATA_RATE_2); // 2.4kbps
-//            rf12_control(0xA674);         // 868.260khz
             rf12_control(0x9840);           // 75khz freq shift
-            rf12_control(0xCE00 | 212);     // SYNC=2DAA. Group = 212     
-        #define SKIP 4
             cmd = c;
             // Command format 16,1S
             // 16 is the ID
             // 1 = ON
             // 2 = OFF
-            stack[5] = 90;
-            stack[4] = value | stack[0];
-            stack[3] = value;
-            stack[2] = stack[0];
-            stack[1] = 0;
-            stack[0] = 0;
-            sendLen = 6;
-            rf12_skip_hdr(SKIP);
+            stack[3] = 90;
+            stack[2] = value | stack[0];
+            stack[1] = value;
+            sendLen = 4;
+            rf12_skip_hdr();                // Ommit Jeelib header 2 bytes on transmission
             break;
 
         case 'R': // Reinitialise radio to defaults
@@ -1349,10 +1344,11 @@ void loop () {
             if(rf12_buf[0] == 212 && (rf12_buf[1] | rf12_buf[2]) == rf12_buf[3] && rf12_buf[4] == 90){
                 showString(PSTR("Salus "));
                 showByte(rf12_buf[1]);
-                printOneChar(',');
+                printOneChar(':');
                 showByte(rf12_buf[2]);
                 Serial.println();
 //                return;
+                n = 2;
             }            
             
             if (config.quiet_mode)

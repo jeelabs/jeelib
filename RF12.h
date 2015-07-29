@@ -114,8 +114,9 @@ uint8_t rf12_canSend(void);
 
 /// Call this only when rf12_recvDone() or rf12_canSend() return true.
 void rf12_sendStart(uint8_t hdr);
-///
-void rf12_skip_hdr (uint8_t skip);
+/// Call this to skip transmission of specific bytes in rf12_buf
+/// Default value 2 skips the Jeelib header enabling non-Jeelib FSK packets 
+void rf12_skip_hdr (uint8_t skip=2);
 /// Call this only when rf12_recvDone() or rf12_canSend() return true.
 void rf12_sendStart(uint8_t hdr, const void* ptr, uint8_t len);
 /// This variant loops on rf12_canSend() and then calls rf12_sendStart() asap.
