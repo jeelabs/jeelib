@@ -337,7 +337,7 @@ static void rf12_interrupt () {
         uint8_t out;
 
         if (rxstate < 0) {
-            uint8_t pos = 3 + RF12_COMPAT + rf12_len + rxstate++;
+            uint8_t pos = 3 + RF12_COMPAT + rf12_len + rf12_skip + rxstate++;
             out = rf12_buf[pos];
             rf12_crc = crc_update(rf12_crc, out);
 #if RF12_COMPAT
@@ -347,7 +347,7 @@ static void rf12_interrupt () {
             switch (rxstate) {
                 case TXSYN1: out = 0x2D; break;
                 case TXSYN2: out = group;
-            uint8_t pos = 3 + RF12_COMPAT + rf12_len + rf12_skip + rxstate++;
+                             rxstate = - (3 + RF12_COMPAT + rf12_len);
                              break;
 #if RF12_COMPAT
                 case TXCRC1: out = ~rf12_crc >> 8; break;
