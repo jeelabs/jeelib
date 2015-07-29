@@ -342,6 +342,11 @@ static void saveConfig () {
     eeprom_write_byte(RF12_EEPROM_ADDR, ((byte*) &config)[0]);
     for (byte i = 0; i < sizeof config; ++i)
         eeprom_write_byte(RF12_EEPROM_ADDR + i, ((byte*) &config)[i]);
+
+    if (rf12_configSilent())
+        rf12_configDump();
+    else
+        showString(INITFAIL);
         
 } // saveConfig
 
