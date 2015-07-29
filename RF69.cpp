@@ -393,7 +393,8 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
             } else {
                 switch (rxstate) {
                     case TXCRC1: out = crc; break;
-                    case TXCRC2: out = crc >> 8; 
+                    case TXCRC2: out = crc >> 8;
+                    rf12_crc = crc; 
                     rf69_skip = 0; // Cancel frame skip if applicable
                     break;
                 }
