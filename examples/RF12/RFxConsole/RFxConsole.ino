@@ -35,7 +35,7 @@
     #define MESSAGING    1   // Define to include message posting code m, p - Will not fit into any Tiny image
     #define STATISTICS   1   // Define to include stats gathering - Adds ?? bytes to Tiny image
     #define NODE31ALLOC  1   // Define to include offering of spare node numbers if node 31 requests ack
-// #define DEBUG        1   //
+#define DEBUG        1   //
 #endif
 
 #define REG_BITRATEMSB 0x03  // RFM69 only, 0x02, // BitRateMsb, data rate = 49,261 khz
@@ -1085,10 +1085,12 @@ memset(pktCount,0,sizeof(pktCount));
         config.quiet_mode = true;   // Default flags, quiet on
         saveConfig();
 #if DEBUG
+/*
         // Clear Node Store
         for (unsigned int n = 0; n < MAX_NODES; n++) {
             eeprom_write_byte((RF12_EEPROM_NODEMAP) + (n * 4), 255);
         }
+*/
 #endif
         rf12_configSilent();
     }
@@ -1674,7 +1676,7 @@ void loop () {
 
             activityLed(0);
         }
-    }
+    } // rf12_recvDone
 
     if (cmd) {
         if (rf12_canSend()) {
@@ -1693,18 +1695,19 @@ void loop () {
             rf12_sendStart(header, stack, sendLen);
             rf12_sendWait(1);  // Wait for transmission complete
 #if DEBUG            
-            for (byte i = 0; i < 10; i++) {;
-                Serial.print(rf12_data[i]);
-                Serial.print(',');
+            for (byte i = 0; i < rf12_len + 2; i++) {;
+                showByte(rf12_buf[i]);
+                printOneChar(' ');
             }
-            Serial.println();
+            Serial.print((rf12_crc & 0x00FF), HEX);
+            Serial.println((rf12_crc >> 8), HEX);
 #endif
             cmd = 0;
             activityLed(0);
         } else { // rf12_canSend
             showString(PSTR(" Busy\n"));  // Not ready to send
             busyCount++;
-        cmd = 0;                          // Request dropped
+            cmd = 0;                      // Request dropped
         }
     } // cmd
 } // loop
