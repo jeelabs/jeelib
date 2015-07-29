@@ -12,6 +12,12 @@
 #include <WProgram.h> // Arduino 0022
 #endif
 
+///////////////////////////////////////////////////////////////////////////////
+#define PINCHG_IRQ  0    // Set this true to use pin-change interrupts
+#define RF69_COMPAT 1    // Set this true to use the RF69 driver
+                         // The above flags must be set similarly in RF69_avr.h
+///////////////////////////////////////////////////////////////////////////////                         
+
 #if RF12_COMPAT
 #define rf12_rawlen     rf12_buf[1]
 #define rf12_dest       (rf12_buf[2] & RF12_HDR_MASK)
@@ -32,14 +38,6 @@
 
 #define OPTIMIZE_SPI 1  // uncomment this to write to the RFM12B @ 8 Mhz
 
-// pin change interrupts are currently only supported on ATmega328's
-// #define PINCHG_IRQ 1    // uncomment this to use pin-change interrupts
-
-///////////////////////////////////////////////////////////////////////////////
-#define PINCHG_IRQ  0    // Set this true to use pin-change interrupts
-#define RF69_COMPAT 0    // Set this true to use the RF69 driver
-                         // The above flags must be set similarly in RF69_avr.h
-///////////////////////////////////////////////////////////////////////////////                         
 // maximum transmit / receive buffer: 3 header + data + 2 crc bytes
 #define RF_MAX   (RF12_MAXDATA + 5)
 
@@ -518,12 +516,9 @@ uint8_t rf12_canSend () {
     return 0;
 }
 
-
 void rf12_skip_hdr (uint8_t skip) {
     rf12_skip = skip;
 }
-
-
 
 void rf12_sendStart (uint8_t hdr) {
 #if RF12_COMPAT

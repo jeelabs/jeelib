@@ -37,6 +37,9 @@ namespace RF69 {
     
     void configure_compat ();
     uint16_t recvDone_compat (uint8_t* buf);
+/// Call this to skip transmission of specific bytes in rf12_buf
+/// Default value 2 skips the Jeelib header enabling non-Jeelib FSK packets 
+    void skip_hdr (uint8_t skip=2);
     void sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len);
     void interrupt_compat();
 }

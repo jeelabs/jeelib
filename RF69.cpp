@@ -13,6 +13,8 @@
 
 #define REG_FIFO            0x00
 #define REG_OPMODE          0x01
+#define REG_BITRATEMSB      0x03
+#define REG_BITRATELSB      0x04
 #define REG_FRFMSB          0x07
 #define REG_OSC1            0x0A
 #define REG_OCP             0x13
@@ -139,6 +141,7 @@ static volatile int8_t rxstate;      // current transceiver state
 static volatile uint8_t packetBytes; // Count of bytes in packet
 static volatile uint16_t discards;   // Count of packets discarded
 static volatile uint8_t reentry = false;
+volatile uint8_t rf69_skip = 0;      // header bytes to skip
 
 static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x2E, 0xA0, // SyncConfig = sync on, sync size = 5
@@ -351,6 +354,10 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
     return ~0; // keep going, not done yet
 }
 
+void RF69::skip_hdr (uint8_t skip) {
+    rf69_skip = skip;
+}
+
 void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
 
     rf12_len = len;
@@ -381,12 +388,14 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
         if ((readReg(REG_IRQFLAGS2) & IRQ2_FIFOFULL) == 0) { // FIFO is 66 bytes
             uint8_t out = 0xAA; // To be used at end of packet
             if (rxstate < 0) {
-                out = recvBuf[3 + rf12_len + rxstate];
+                out = recvBuf[3 + rf12_len + rf69_skip + rxstate];
                 crc = _crc16_update(crc, out);
             } else {
                 switch (rxstate) {
                     case TXCRC1: out = crc; break;
-                    case TXCRC2: out = crc >> 8; break;
+                    case TXCRC2: out = crc >> 8; 
+                    rf69_skip = 0; // Cancel frame skip if applicable
+                    break;
                 }
             }
             writeReg(REG_FIFO, out);

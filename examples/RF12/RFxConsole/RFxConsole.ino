@@ -14,33 +14,34 @@
 // 'R' to reset configuration to eeprom values 2015-07-28
 // 'S' to interact with Salus FSK devices 2015-08-28
 // Avoid adding shifted commands 'A' through 'F'
-// as these are used by hexidecimal input code
+// as these are used by the hexadecimal input code
 
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
     #define TINY 1
 #endif
 ///////////////////////////////////////////////////////////////////////////////
-#define RF69_COMPAT      0   // define this to use the RF69 driver i.s.o. RF12 
+#define RF69_COMPAT      1   // define this to use the RF69 driver i.s.o. RF12 
 //                           // The above flag must be set similarly in RF12.cpp
 //                           // and RF69_avr.h
 ///////////////////////////////////////////////////////////////////////////////
-#define BLOCK  1
+// #define BLOCK  1
 
-#define PINCHG_IRQ       0   // Best power savings: set to 1 if using pin-change interrupts in RF69_avr.h
-                             // Terminal interface will sleep after 5 seconds inactivity use '.' to wake it up
-#define TERMINAL_TIMEOUT 5   // If PINCHG_IRQ then 5 seconds                             
 #if TINY
     #define OOK          0   // Define this to include OOK code f, k - Adds ?? bytes to Tiny image
     #define JNuMOSFET    1   // Define to power up RFM12B on JNu2/3 - Adds 4 bytes to Tiny image
 #else
     #define configSTRING 1   // Define to include "A i1 g210 @ 868 MHz q1" - Adds ?? bytes to Tiny image
-#define HELP         1   // Define to include the help text
-#define MESSAGING    1   // Define to include message posting code m, p - Will not fit into any Tiny image
+    #define HELP         1   // Define to include the help text
+    #define MESSAGING    1   // Define to include message posting code m, p - Will not fit into any Tiny image
     #define STATISTICS   1   // Define to include stats gathering - Adds ?? bytes to Tiny image
-#define NODE31ALLOC  1   // Define to include offering of spare node numbers if node 31 requests ack
+    #define NODE31ALLOC  1   // Define to include offering of spare node numbers if node 31 requests ack
 // #define DEBUG        1   //
 #endif
 
+#define REG_BITRATEMSB 0x03  // RFM69 only, 0x02, // BitRateMsb, data rate = 49,261 khz
+#define REG_BITRATELSB 0x04  // RFM69 only, 0x8A, // BitRateLsb divider = 32 MHz / 650 == 49,230 khz
+#define REG_BITFDEVMSB 0x05  // RFM69 only, 0x02, // FdevMsb = 45 KHz
+#define REG_BITFDEVLSB 0x06  // RFM69 only, 0xE1, // FdevLsb = 45 KHz
 #define REG_SYNCCONFIG 0x2E  // RFM69 only, register containing sync length
 #define oneByteSync    0x87  // RFM69 only, value to get only one byte sync with max bit errors.
 #define REG_SYNCGROUP  0x33  // RFM69 only, register containing group number
@@ -156,7 +157,7 @@ static byte inChar () {
     #if BLOCK
         #define LED_PIN     8        // activity LED, comment out to disable
     #else
-#define LED_PIN     9        // activity LED, comment out to disable
+        #define LED_PIN     9        // activity LED, comment out to disable
     #endif
 #define messageStore  128
 #define MAX_NODES 100        // Contrained by RAM
@@ -658,9 +659,19 @@ static void handleInput (char c) {
             break;
             
         case 'S': // send FSK packet to Salus devices
-            rf12_initialize (config.nodeId, RF12_868MHZ, 212, 1652);    // 868.260khz
-            rf12_control(RF12_DATA_RATE_2); // 2.4kbps
-            rf12_control(0x9840);           // 75khz freq shift
+
+            rf12_initialize (config.nodeId, RF12_868MHZ, 212, 1652);      // 868.260khz
+            rf12_sleep(RF12_SLEEP);                                       // Sleep while we tweak things
+#if RF69_COMPAT
+            RF69::control(REG_BITRATEMSB | 0x80, 0x34);                   // 2.4kbps
+            RF69::control(REG_BITRATELSB | 0x80, 0x15);
+            RF69::control(REG_BITFDEVMSB | 0x80, 0x04);                   // 75kHz freq shift
+            RF69::control(REG_BITFDEVLSB | 0x80, 0xCE);
+#else
+            rf12_control(RF12_DATA_RATE_2);                               // 2.4kbps
+            rf12_control(0x9840);                                         // 75khz freq shift
+#endif
+            rf12_sleep(RF12_WAKEUP);                                      // All set, wake up radio
             cmd = c;
             // Command format 16,1S
             // 16 is the ID
