@@ -221,7 +221,8 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
                 switch (rxstate) {
                     case TXCRC1: out = crc; break;
                     case TXCRC2: out = crc >> 8; 
-                    rf69_skip = 0; // Cancel frame skip if applicable                    break;
+                    rf69_skip = 0; // Cancel frame skip if applicable                    
+                    break;
                 }
             }
             writeReg(REG_FIFO, out);
