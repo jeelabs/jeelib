@@ -1,4 +1,4 @@
-﻿/// @file
+/// @file
 /// RFM12B driver implementation
 // 2009-02-09 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 #include "RF12.h"
@@ -772,7 +772,7 @@ uint8_t rf12_configSilent () {
         byte e = eeprom_read_byte(RF12_EEPROM_ADDR + i);
         crc = crc_update(crc, e);
     }
-    if (crc || !(eeprom_read_byte(RF12_EEPROM_ADDR + 2) == RF12_EEPROM_VERSION))
+    if (crc || eeprom_read_byte(RF12_EEPROM_ADDR + 2) != RF12_EEPROM_VERSION)
         return 0;
 
     uint8_t nodeId = 0, group = 0;
