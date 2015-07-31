@@ -626,6 +626,16 @@ void loop () {
         if (rf12_crc == 0)
             showString(PSTR("OK"));
         else {
+
+            if(rf12_buf[0] == 212 && (rf12_buf[1] | rf12_buf[2]) == rf12_buf[3] && rf12_buf[4] == 90){
+                showString(PSTR("Salus "));
+                showByte(rf12_buf[1]);
+                printOneChar(':');
+                showByte(rf12_buf[2]);
+                Serial.println();
+//                return;
+            }            
+            
             if (config.quiet_mode)
                 return;
             showString(PSTR(" ?"));
