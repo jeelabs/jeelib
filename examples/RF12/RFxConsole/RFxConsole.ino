@@ -73,7 +73,7 @@
 #endif
 
 /// Save a few bytes of flash by declaring const if used more than once.
-const char INITFAIL[] PROGMEM = "init failed\n";
+const char INITFAIL[] PROGMEM = "\nInit failed\n";
 static unsigned int NodeMap;
 static unsigned int newNodeMap;
 static byte stickyGroup = 212;
@@ -92,6 +92,7 @@ static byte stickyGroup = 212;
 // Connect Tiny84 PA2 (D8) to USB-BUB TXD for serial input to sketch.
 // Jeenode DIO2
 // 9600 or 38400 at present.
+// http://jeelabs.net/boards/7/topics/3229?r=3268#message-3268
 
 #if SERIAL_BAUD == 9600
 #define BITDELAY 54          // 9k6 @ 8MHz, 19k2 @16MHz
@@ -208,10 +209,11 @@ typedef struct {
     byte nodeId;            // used by rf12_config, offset 0
     byte group;             // used by rf12_config, offset 1
     byte format;            // used by rf12_config, offset 2
-    byte output :2;         // 0 = dec, 1 = hex, 2 = dec+ascii, 3 = hex+ascii
+    byte output       :2;   // 0 = dec, 1 = hex, 2 = dec+ascii, 3 = hex+ascii
     byte collect_mode :1;   // 0 = ack, 1 = don't send acks
     byte quiet_mode   :1;   // 0 = show all, 1 = show only valid packets
-    byte spare_flags  :4;
+    byte spare_flags  :3;
+    byte defaulted    :1;   // 0 = config set via UI
     word frequency_offset;  // used by rf12_config, offset 4
     byte RegPaLvl;          // See datasheet RFM69x Register 0x11
     byte RegRssiThresh;     // See datasheet RFM69x Register 0x29
@@ -321,17 +323,12 @@ static word calcCrc (const void* ptr, byte len) {
     return crc;
 }
 
-static byte loadConfig () {
-    uint16_t crc = ~0;
+static void loadConfig () {
     // eeprom_read_block(&config, RF12_EEPROM_ADDR, sizeof config);
     // this uses 166 bytes less flash than eeprom_read_block(), no idea why
-    for (byte i = 0; i < sizeof config; ++i) {
-        byte e = eeprom_read_byte(RF12_EEPROM_ADDR + i);
-        ((byte*) &config)[i] = e;
-        crc = _crc16_update(crc, e);
-    }
-    if (crc) return false;
-    return true;
+    for (byte i = 0; i < sizeof config; ++ i)
+        ((byte*) &config)[i] = eeprom_read_byte(RF12_EEPROM_ADDR + i);
+    config.defaulted = false;   // Value if UI saves config
 }
 
 static void saveConfig () {
@@ -488,7 +485,8 @@ static void showHelp () {
     rf12_configDump();
   #if RF69_COMPAT
     if (!RF69::present) {
-        showString(PSTR("RFM69x Problem "));
+        dumpEEprom();
+        showString(PSTR("RFM69x Problem "));        
         Serial.print((RF69::control(REG_SYNCVALUE7,0)), HEX);
         Serial.println((RF69::control(REG_SYNCVALUE8,0)), HEX);
         unsigned int mask = 0xAA;
@@ -910,7 +908,7 @@ static void handleInput (char c) {
                 Sleepy::powerDown();
             }
             if (value == 255) {
-                 eeprom_write_byte(RF12_EEPROM_ADDR, 0);  // Should be enough to fail CRC check on next restart.
+                 eeprom_write_byte(RF12_EEPROM_ADDR + 2, 255);  // Should be enough to fail CRC check on next restart.
                  showString(PSTR("Config will default\n"));
             }
             if (value == 65535) {
@@ -1015,6 +1013,9 @@ void resetFlagsInit(void)
 #endif
 
 void setup () {
+  
+                   eeprom_write_byte(RF12_EEPROM_ADDR + 2, 255);  // Should be enough to fail CRC check on next restart.
+
 #ifndef PRR
 #define PRR PRR0
 #endif   
@@ -1074,16 +1075,20 @@ memset(pktCount,0,sizeof(pktCount));
     delay(1000);
 #endif    
 
-    if (loadConfig()) {        
-        rf12_configSilent();     
+    if (rf12_configSilent()) {
+        loadConfig();
     } else {
         showString(INITFAIL);
+        delay(2000);
         memset(&config, 0, sizeof config);
-        config.nodeId = 0x9F;       // 868 MHz, node 1
-        config.group = 0xD4;        // default group 212
+        config.nodeId = 0x9F;       // 868 MHz, node 31
+        config.group = 0xD4;        // Default group 212
         config.frequency_offset = 1600;
+        config.collect_mode = true; // Default to no-ACK
         config.quiet_mode = true;   // Default flags, quiet on
+        config.defaulted = true;    // Default config initialized
         saveConfig();
+        config.defaulted = false;   // Value if UI saves config
 #if DEBUG
 /*
         // Clear Node Store
@@ -1092,7 +1097,8 @@ memset(pktCount,0,sizeof(pktCount));
         }
 */
 #endif
-        rf12_configSilent();
+        if (!rf12_configSilent())
+          showString(INITFAIL);
     }
     
     stickyGroup = config.group;
@@ -1115,7 +1121,7 @@ memset(pktCount,0,sizeof(pktCount));
                     }
 */                   
 //    dumpRegs();
-//    dumpEEprom();
+    dumpEEprom();
 #endif
 } // setup
 
