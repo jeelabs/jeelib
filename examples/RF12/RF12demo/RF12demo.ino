@@ -8,6 +8,11 @@
 
 #define RF69_COMPAT 0 // define this to use the RF69 driver i.s.o. RF12
 
+#define REG_BITRATEMSB 0x03  // RFM69 only, 0x02, // BitRateMsb, data rate = 49,261 khz
+#define REG_BITRATELSB 0x04  // RFM69 only, 0x8A, // BitRateLsb divider = 32 MHz / 650 == 49,230 khz
+#define REG_BITFDEVMSB 0x05  // RFM69 only, 0x02, // FdevMsb = 45 KHz
+#define REG_BITFDEVLSB 0x06  // RFM69 only, 0xE1, // FdevLsb = 45 KHz
+
 #include <JeeLib.h>
 #include <util/crc16.h>
 #include <avr/eeprom.h>
@@ -16,7 +21,7 @@
 
 #define MAJOR_VERSION RF12_EEPROM_VERSION // bump when EEPROM layout changes
 #define MINOR_VERSION 2                   // bump on other non-trivial changes
-#define VERSION "[RF12demo.12]"           // keep in sync with the above
+#define VERSION "[RF12demo.13]"           // keep in sync with the above
 
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
 #define TINY        1
@@ -345,7 +350,7 @@ static void handleInput (char c) {
         return;
     }
 
-    if ('a' <= c && c <= 'z') {
+    if ('a' <= c && c <= 'z' || 'R' <= c && c <= 'S') {
         showString(PSTR("> "));
         for (byte i = 0; i < top; ++i) {
             Serial.print((word) stack[i]);
@@ -441,6 +446,41 @@ static void handleInput (char c) {
             dest = value;
             break;
 
+        case 'S': // send FSK packet to Salus devices
+
+            rf12_initialize (config.nodeId, RF12_868MHZ, 212, 1652);      // 868.260khz
+            rf12_sleep(RF12_SLEEP);                                       // Sleep while we tweak things
+#if RF69_COMPAT
+            RF69::control(REG_BITRATEMSB | 0x80, 0x34);                   // 2.4kbps
+            RF69::control(REG_BITRATELSB | 0x80, 0x15);
+            RF69::control(REG_BITFDEVMSB | 0x80, 0x04);                   // 75kHz freq shift
+            RF69::control(REG_BITFDEVLSB | 0x80, 0xCE);
+#else
+            rf12_control(RF12_DATA_RATE_2);                               // 2.4kbps
+            rf12_control(0x9840);                                         // 75khz freq shift
+#endif
+            rf12_sleep(RF12_WAKEUP);                                      // All set, wake up radio
+            cmd = c;
+            // Command format 16,1S
+            // 16 is the ID
+            // 1 = ON
+            // 2 = OFF
+            stack[3] = 90;
+            stack[2] = value | stack[0];
+            stack[1] = value;
+            sendLen = 4;
+            rf12_skip_hdr();                // Ommit Jeelib header 2 bytes on transmission
+            break;
+
+        case 'R': // Reinitialise radio to defaults
+            rf12_skip_hdr(0);
+            if (rf12_configSilent())
+              rf12_configDump();
+            else
+              showString(INITFAIL);
+            showHelp();
+            break;
+            
         case 'f': // send FS20 command: <hchi>,<hclo>,<addr>,<cmd>f
             rf12_initialize(0, RF12_868MHZ, 0);
             activityLed(1);
