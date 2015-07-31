@@ -35,7 +35,7 @@
     #define MESSAGING    1   // Define to include message posting code m, p - Will not fit into any Tiny image
     #define STATISTICS   1   // Define to include stats gathering - Adds ?? bytes to Tiny image
     #define NODE31ALLOC  1   // Define to include offering of spare node numbers if node 31 requests ack
-#define DEBUG        1   //
+#define DEBUG            0   //
 #endif
 
 #define REG_BITRATEMSB 0x03  // RFM69 only, 0x02, // BitRateMsb, data rate = 49,261 khz
@@ -55,7 +55,7 @@
 #include <util/parity.h>
 
 #define MAJOR_VERSION RF12_EEPROM_VERSION // bump when EEPROM layout changes
-#define MINOR_VERSION 4                   // bump on other non-trivial changes
+#define MINOR_VERSION 0                   // bump on other non-trivial changes
 #define VERSION "\n[RFxConsole.1]"        // keep in sync with the above
 
 #if !configSTRING
@@ -64,7 +64,7 @@
 #if TINY
 #define SERIAL_BAUD    38400   // can only be 9600 or 38400
 #define DATAFLASH      0       // do not change
-#undef  LED_PIN             // do not change
+#undef  LED_PIN                // do not change
 #define messageStore  16
 #else
 #define TINY        0
@@ -74,6 +74,10 @@
 
 /// Save a few bytes of flash by declaring const if used more than once.
 const char INITFAIL[] PROGMEM = "\nInit failed\n";
+const char RFM12x[] PROGMEM = "RFM12x ";
+const char RFM69x[] PROGMEM = "RFM69x ";
+const char BLOC[] PROGMEM = "BLOCK " ;
+
 static unsigned int NodeMap;
 static unsigned int newNodeMap;
 static byte stickyGroup = 212;
@@ -332,6 +336,7 @@ static void loadConfig () {
 }
 
 static void saveConfig () {
+    activityLed(1);
     config.format = MAJOR_VERSION;
     config.crc = calcCrc(&config, sizeof config - 2);
     // eeprom_write_block(&config, RF12_EEPROM_ADDR, sizeof config);
@@ -344,7 +349,7 @@ static void saveConfig () {
         rf12_configDump();
     else
         showString(INITFAIL);
-        
+    activityLed(0);        
 } // saveConfig
 
 static byte bandToFreq (byte band) {
@@ -481,11 +486,16 @@ static void showHelp () {
         showString(helpText2);
 #endif
 #if !TINY && configSTRING
-    showString(PSTR("Current configuration:\n"));
+  #if RF69_COMPAT
+    showString(RFM69x);
+  #else
+    showString(RFM12x);
+  #endif
+    showString(PSTR(" configuration:\n"));
     rf12_configDump();
   #if RF69_COMPAT
     if (!RF69::present) {
-        dumpEEprom();
+//        dumpEEprom();
         showString(PSTR("RFM69x Problem "));        
         Serial.print((RF69::control(REG_SYNCVALUE7,0)), HEX);
         Serial.println((RF69::control(REG_SYNCVALUE8,0)), HEX);
@@ -674,17 +684,19 @@ static void handleInput (char c) {
             rf12_control(RF12_DATA_RATE_2);                               // 2.4kbps
             rf12_control(0x9840);                                         // 75khz freq shift
 #endif
-            rf12_sleep(RF12_WAKEUP);                                      // All set, wake up radio
-            cmd = c;
-            // Command format 16,1S
-            // 16 is the ID
-            // 1 = ON
-            // 2 = OFF
-            stack[3] = 90;
-            stack[2] = value | stack[0];
-            stack[1] = value;
-            sendLen = 4;
-            rf12_skip_hdr();                // Ommit Jeelib header 2 bytes on transmission
+            rf12_sleep(RF12_WAKEUP);            // All set, wake up radio
+            if (top == 1) {
+                cmd = c;
+                // Command format 16,1S
+                // 16 is the ID
+                // 1 = ON
+                // 2 = OFF
+                stack[3] = 90;
+                stack[2] = value | stack[0];
+                stack[1] = value;
+                sendLen = 4;
+                rf12_skip_hdr();                // Ommit Jeelib header 2 bytes on transmission
+            }
             break;
 
         case 'R': // Reinitialise radio to defaults
@@ -997,7 +1009,7 @@ static void displayASCII (const byte* data, byte count) {
     }
 }
 
-static int freeRam () {    // @jcw's work
+static int freeRam () {
   extern int __heap_start, *__brkval; 
   int v; 
   return (int) &v - (__brkval == 0 ? (int) &__heap_start : (int) __brkval); 
@@ -1013,8 +1025,26 @@ void resetFlagsInit(void)
 #endif
 
 void setup () {
+#if TINY
+    PCMSK0 |= (1<<PCINT2);  // tell pin change mask to listen to PA2
+    GIMSK |= (1<<PCIE0);    // enable PCINT interrupt in general interrupt mask
+    whackDelay(BITDELAY*2); // if we were low this establishes the end
+    pinMode(_receivePin, INPUT);        // PA2 - doesn't work if before the PCMSK0 line
+    digitalWrite(_receivePin, HIGH);    // pullup!
   
-                   eeprom_write_byte(RF12_EEPROM_ADDR + 2, 255);  // Should be enough to fail CRC check on next restart.
+    delay(100); // shortened for now. Handy with JeeNode Micro V1 where ISP
+                // interaction can be upset by RF12B startup process.    
+#endif
+    Serial.begin(SERIAL_BAUD);
+    displayVersion();
+#if RF69_COMPAT
+    showString(RFM69x);
+#else
+    showString(RFM12x);
+#endif
+#if LED_PIN == 8
+    showString(BLOC);
+#endif
 
 #ifndef PRR
 #define PRR PRR0
@@ -1035,20 +1065,24 @@ void setup () {
     delay(100);    // shortened for now. Handy with JeeNode Micro V1 where ISP
                   // interaction can be upset by RF12B startup process.
 #endif
-    Serial.begin(SERIAL_BAUD);
-    displayVersion();
     byte* b = RF69::SPI_pins();  // {OPTIMIZE_SPI, PINCHG_IRQ, RF69_COMPAT, RFM_IRQ, SPI_SS, SPI_MOSI, SPI_MISO, SPI_SCK }
     static byte n[] = {1,0,1,2,2,3,4,5};     // Default ATMega328 with RFM69 settings
-    for (byte i = 0; i < 9; i++) {
-        printOneChar(' ');
-        if(b[i] != n[i]) showByte(b[i]);
+    for (byte i = 0; i < 8; i++) {
+        if(b[i] != n[i]) {
+            showByte(i);
+            printOneChar(':');
+            showByte(b[i]);
+            printOneChar(' ');
+        }
     }
     
+/*
 #if !TINY
-//    showNibble(resetFlags >> 4);
-//    showNibble(resetFlags);
+    showNibble(resetFlags >> 4);
+    showNibble(resetFlags);
 // TODO the above doesn't do what we need, results vary with Bootloader etc
 #endif
+*/
 
 #if MESSAGING && !TINY
 // messagesR = 0x05, 'T', 'e', 's', 't', '3'; // TODO    // Can be removed from RAM with "129m"
@@ -1064,15 +1098,6 @@ memset(maxLNA,0,sizeof(maxLNA));
 #endif
 #if STATISTICS
 memset(pktCount,0,sizeof(pktCount));
-#endif
-
-#if TINY
-    PCMSK0 |= (1<<PCINT2);  // tell pin change mask to listen to PA2
-    GIMSK |= (1<<PCIE0);    // enable PCINT interrupt in general interrupt mask
-    whackDelay(BITDELAY*2); // if we were low this establishes the end
-    pinMode(_receivePin, INPUT);        // PA2 - doesn't work if before the PCMSK0 line
-    digitalWrite(_receivePin, HIGH);    // pullup!
-    
 #endif
 
 #if JNuMOSFET     // Power up the wireless hardware
@@ -1095,6 +1120,10 @@ memset(pktCount,0,sizeof(pktCount));
         config.defaulted = true;    // Default config initialized
         saveConfig();
         config.defaulted = false;   // Value if UI saves config
+        if (!rf12_configSilent())
+          showString(INITFAIL);
+    }
+
 #if DEBUG
 /*
         // Clear Node Store
@@ -1103,9 +1132,6 @@ memset(pktCount,0,sizeof(pktCount));
         }
 */
 #endif
-        if (!rf12_configSilent())
-          showString(INITFAIL);
-    }
     
     stickyGroup = config.group;
 
@@ -1127,7 +1153,7 @@ memset(pktCount,0,sizeof(pktCount));
                     }
 */                   
 //    dumpRegs();
-    dumpEEprom();
+//    dumpEEprom();
 #endif
 } // setup
 
