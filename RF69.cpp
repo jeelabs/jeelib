@@ -279,6 +279,11 @@ int8_t RF69::readTemperature(int8_t userCal) {
   return ~readReg(REG_TEMP2) + COURSE_TEMP_COEF + userCal; //'complement' corrects the slope, rising temp = rising val
 }
 
+uint8_t* RF69::SPI_pins() {
+  return (SPI_Pins());  // {OPTIMIZE_SPI, PINCHG_IRQ, RF69_COMPAT, RFM_IRQ, 
+                        //  SPI_SS, SPI_MOSI, SPI_MISO, SPI_SCK }
+}
+
 // References to the RF12 driver above this line will generate compiler errors!
 #include <RF69_compat.h>
 #include <RF12.h>
