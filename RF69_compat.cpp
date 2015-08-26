@@ -48,7 +48,7 @@ uint8_t rf69_initialize (uint8_t id, uint8_t band, uint8_t group=0xD4, uint16_t 
     RF69::node = id & RF12_HDR_MASK;
     delay(20); // needed to make RFM69 work properly on power-up
     
-// I want to move the interrupt code below into RF69_avr.h routine
+// I have moved the interrupt code below into RF69_avr.h routine
 // where better decisions can be made about pin_change interrupts or elsewise
 /*
     if (RF69::node != 0)

@@ -1460,11 +1460,11 @@ void loop () {
             lastTest = rf12_data[0];
         } else {
        
-        for (byte i = 0; i < n; ++i) {
-            if (!(config.output & 1)) // Decimal output?
-                printOneChar(' ');
-            showByte(rf12_data[i]);
-        }
+            for (byte i = 0; i < n; ++i) {
+                if (!(config.output & 1)) // Decimal output?
+                   printOneChar(' ');
+                showByte(rf12_data[i]);
+           }
         }
 #if RF69_COMPAT && !TINY
         if (!config.quiet_mode) {
