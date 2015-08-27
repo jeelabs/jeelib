@@ -264,10 +264,9 @@ bool RF69::sending () {
     return rxstate < TXIDLE;
 }
 
+//  Note: RF12_WAKEUP returns with receiver mode disabled!
 void RF69::sleep (bool off) {
-    if (off) setMode(MODE_SLEEP);
-    else setMode(MODE_STANDBY);
-//    setMode(off ? MODE_SLEEP : MODE_STANDBY);
+    setMode(off ? MODE_SLEEP : MODE_STANDBY);
     rxstate = TXIDLE;
 }
 
@@ -419,7 +418,7 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
 void RF69::interrupt_compat () {
         interruptCount++;
         // Interrupt will ONLY remain asserted until FIFO empty or exit RX mode
-        // FIFO can pass through empty during reception since also draining 
+        // FIFO can pass through empty during reception since it is also draining 
         if (rxstate == TXRECV) {
             // The following line attempts to stop further interrupts
             writeReg(REG_DIOMAPPING1, DMAP1_PAYLOADREADY);   // Interrupt trigger
