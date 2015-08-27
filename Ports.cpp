@@ -1219,8 +1219,8 @@ word Sleepy::idleSomeTime (unsigned int secs) {
     if (millisAdjust == 2) break;
     --timeLeft;       
     }
+    PRR = savePRR;                // re-enable what we disabled
     TIMSK0 = saveTIMSK0;          // re-enable what we disabled
-    PRR = savePRR;                //
     return timeLeft;
 }
 
@@ -1258,8 +1258,8 @@ word Sleepy::idleTimer (byte prescale) {
     if (millisAdjust == 2) break;
     if (!(++timeIdle + 1)) break;     // Might detect just before overflow
     }
+    PRR = savePRR;                // re-enable what we disabled
     TIMSK0 = saveTIMSK0;          // re-enable what we disabled
-    PRR = savePRR;                //
     return timeIdle;              // Complete intervals
 }
 
