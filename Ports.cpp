@@ -1253,7 +1253,7 @@ word Sleepy::idleTimer (byte prescale) {
     if (millisAdjust == 2) break;
     if (!(++timeIdle + 1)) break;     // Might detect just before overflow
     }
-    PRR = savePRR;                //
+    PRR = savePRR;                // re-enable what we disabled
     TIMSK0 = saveTIMSK0;          // re-enable what we disabled
     return timeIdle;              // Complete intervals
 }
