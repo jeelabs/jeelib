@@ -359,6 +359,33 @@ public:
 
     /// This must be called from your watchdog interrupt code.
     static void watchdogEvent();
+    
+    /// enter idle state
+    static void idle();
+        
+    /// Idle a while waiting for a relevant interrupt
+    static unsigned int idleSomeTime(unsigned int secs);
+    
+    /// Idle forever waiting for an interrupt
+    static unsigned int idleTimer(byte prescale); 
+
+    /// Watchdog Timer Prescale intervals
+    ///     w w w w
+    ///     d d d d
+    ///     p p p p
+    ///     3 2 1 0
+    /// 0x0 0 0 0 0 2K (2048) cycles 16 ms
+    /// 0x1 0 0 0 1 4K (4096) cycles 32 ms
+    /// 0x2 0 0 1 0 8K (8192) cycles 64 ms
+    /// 0x3 0 0 1 1 16K (16384) cycles 0.125 s
+    /// 0x4 0 1 0 0 32K (32768) cycles 0.25 s
+    /// 0x5 0 1 0 1 64K (65536) cycles 0.5 s
+    /// 0x6 0 1 1 0 128K (131072) cycles 1.0 s
+    /// 0x7 0 1 1 1 256K (262144) cycles 2.0 s
+    /// 0x8 1 0 0 0 512K (524288) cycles 4.0 s
+    /// 0x9 1 0 0 1 1024K (1048576) cycles 8.0 s
+    /// All other values are reserved
+            
 };
 
 /// simple task scheduler for times up to 6000 seconds
