@@ -1219,8 +1219,9 @@ word Sleepy::idleSomeTime (unsigned int secs) {
     if (millisAdjust == 2) break;
     --timeLeft;       
     }
+    PRR = savePRR;                // re-enable what we disabled
     TIMSK0 = saveTIMSK0;          // re-enable what we disabled
-    PRR = savePRR;                //
+    
     return timeLeft;
 }
 
