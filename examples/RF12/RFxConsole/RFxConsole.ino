@@ -1,4 +1,10 @@
 /// @dir RFxConsole
+///////////////////////////////////////////////////////////////////////////////
+#define RF69_COMPAT      1   // define this to use the RF69 driver i.s.o. RF12 
+///                           // The above flag must be set similarly in RF12.cpp
+///                           // and RF69_avr.h
+#define BLOCK  0              // Alternate LED pin?
+///////////////////////////////////////////////////////////////////////////////
 /// Configure some values in EEPROM for easy config of the RF12 later on.
 // 2009-05-06 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 // this version adds flash memory support, 2009-11-19
@@ -11,7 +17,6 @@
 // Based on RF12Demo from RF12Demo branch 2014-11-24
 // Add RegRssiThresh to eeprom config 2015-01-08
 // Introduce shifted commands:
-// 'R' to reset configuration to eeprom values 2015-07-28
 // 'S' to interact with Salus FSK devices 2015-08-28
 // Avoid adding shifted commands 'A' through 'F'
 // as these are used by the hexadecimal input code
@@ -19,12 +24,6 @@
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
     #define TINY 1
 #endif
-///////////////////////////////////////////////////////////////////////////////
-#define RF69_COMPAT      1   // define this to use the RF69 driver i.s.o. RF12 
-//                           // The above flag must be set similarly in RF12.cpp
-//                           // and RF69_avr.h
-///////////////////////////////////////////////////////////////////////////////
-#define BLOCK  0
 
 #if TINY
     #define OOK          0   // Define this to include OOK code f, k - Adds ?? bytes to Tiny image
@@ -76,7 +75,10 @@
 const char INITFAIL[] PROGMEM = "\nInit failed\n";
 const char RFM12x[] PROGMEM = "RFM12x ";
 const char RFM69x[] PROGMEM = "RFM69x ";
-const char BLOC[] PROGMEM = "BLOCK " ;
+const char BLOC[] PROGMEM = "BLOCK ";
+
+#define SALUSFREQUENCY 1660       // Default value
+static unsigned int SalusFrequency = SALUSFREQUENCY;
 
 static unsigned int NodeMap;
 static unsigned int newNodeMap;
@@ -548,7 +550,7 @@ static void handleInput (char c) {
         }
 
 
-    if ('a' <= c && c <= 'z' || 'R' <= c && c <= 'S') {
+    if ('a' <= c && c <= 'z' || 'S' <= c && c <= 'S') {
         showString(PSTR("> "));
         for (byte i = 0; i < top; ++i) {
             showByte(stack[i]);
@@ -672,8 +674,9 @@ static void handleInput (char c) {
             break;
             
         case 'S': // send FSK packet to Salus devices
-
-            rf12_initialize (config.nodeId, RF12_868MHZ, 212, 1652);      // 868.260khz
+            if ((!top) && (value)) SalusFrequency = value;
+            
+            rf12_initialize (config.nodeId, RF12_868MHZ, 212, SalusFrequency);      // 868.30khz
             rf12_sleep(RF12_SLEEP);                                       // Sleep while we tweak things
 #if RF69_COMPAT
             RF69::control(REG_BITRATEMSB | 0x80, 0x34);                   // 2.4kbps
@@ -685,6 +688,7 @@ static void handleInput (char c) {
             rf12_control(0x9840);                                         // 75khz freq shift
 #endif
             rf12_sleep(RF12_WAKEUP);            // All set, wake up radio
+
             if (top == 1) {
                 cmd = c;
                 // Command format 16,1S
@@ -699,15 +703,6 @@ static void handleInput (char c) {
             }
             break;
 
-        case 'R': // Reinitialise radio to defaults
-            rf12_skip_hdr(0);
-            if (rf12_configSilent())
-              rf12_configDump();
-            else
-              showString(INITFAIL);
-            showHelp();
-            break;
-            
 #if OOK
         case 'f': // send FS20 command: <hchi>,<hclo>,<addr>,<cmd>f
             rf12_initialize(0, RF12_868MHZ, 0);
@@ -1070,6 +1065,9 @@ void setup () {
     delay(100);    // shortened for now. Handy with JeeNode Micro V1 where ISP
                   // interaction can be upset by RF12B startup process.
 #endif
+
+// Consider adding the following equivalents for RFM12x
+#if RF69_COMPAT
     byte* b = RF69::SPI_pins();  // {OPTIMIZE_SPI, PINCHG_IRQ, RF69_COMPAT, RFM_IRQ, SPI_SS, SPI_MOSI, SPI_MISO, SPI_SCK }
     static byte n[] = {1,0,1,2,2,3,4,5};     // Default ATMega328 with RFM69 settings
     for (byte i = 0; i < 8; i++) {
@@ -1080,7 +1078,7 @@ void setup () {
             printOneChar(' ');
         }
     }
-    
+#endif    
 /*
 #if !TINY
     showNibble(resetFlags >> 4);
@@ -1403,7 +1401,8 @@ void loop () {
             activityLed(0);
 
             if(rf12_buf[0] == 212 && (rf12_buf[1] | rf12_buf[2]) == rf12_buf[3] && rf12_buf[4] == 90){
-                showString(PSTR("Salus "));
+                Serial.print((word) SalusFrequency, DEC);  
+                showString(PSTR(" Salus "));
                 showByte(rf12_buf[1]);
                 printOneChar(':');
                 showByte(rf12_buf[2]);
