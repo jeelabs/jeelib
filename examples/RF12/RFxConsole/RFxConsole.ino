@@ -1,6 +1,6 @@
 /// @dir RFxConsole
 ///////////////////////////////////////////////////////////////////////////////
-#define RF69_COMPAT      1   // define this to use the RF69 driver i.s.o. RF12 
+#define RF69_COMPAT      0   // define this to use the RF69 driver i.s.o. RF12 
 ///                           // The above flag must be set similarly in RF12.cpp
 ///                           // and RF69_avr.h
 #define BLOCK  0              // Alternate LED pin?
@@ -55,7 +55,7 @@
 
 #define MAJOR_VERSION RF12_EEPROM_VERSION // bump when EEPROM layout changes
 #define MINOR_VERSION 0                   // bump on other non-trivial changes
-#define VERSION "\n[RFxConsole.1]"        // keep in sync with the above
+#define VERSION "\n[RFxConsole.2]"        // keep in sync with the above
 
 #if !configSTRING
 #define rf12_configDump()                 // Omit A i1 g210 @ 868 MHz q1
@@ -78,11 +78,11 @@ const char RFM69x[] PROGMEM = "RFM69x ";
 const char BLOC[] PROGMEM = "BLOCK ";
 
 #define SALUSFREQUENCY 1660       // Default value
-static unsigned int SalusFrequency = SALUSFREQUENCY;
+unsigned int SalusFrequency = SALUSFREQUENCY;
 
-static unsigned int NodeMap;
-static unsigned int newNodeMap;
-static byte stickyGroup = 212;
+unsigned int NodeMap;
+unsigned int newNodeMap;
+byte stickyGroup = 212;
 
 #if TINY
 // Serial support (output only) for Tiny supported by TinyDebugSerial
@@ -223,13 +223,14 @@ typedef struct {
     word frequency_offset;  // used by rf12_config, offset 4
     byte RegPaLvl;          // See datasheet RFM69x Register 0x11
     byte RegRssiThresh;     // See datasheet RFM69x Register 0x29
-    byte pad[RF12_EEPROM_SIZE-10];
+    signed int fixedOffset :8;// Fixed frequency offset for this hardware
+    byte pad[RF12_EEPROM_SIZE- 11];
     word crc;
 } RF12Config;
 
 static RF12Config config;
 static char cmd;
-static word value;
+static signed int value;
 static byte stack[RF12_MAXDATA+4], top, sendLen, dest;
 static byte testCounter;
 static word messageCount = 0;
@@ -549,16 +550,6 @@ static void handleInput (char c) {
             value = top = 0;      // Clear up
         }
 
-
-    if ('a' <= c && c <= 'z' || 'S' <= c && c <= 'S') {
-        showString(PSTR("> "));
-        for (byte i = 0; i < top; ++i) {
-            showByte(stack[i]);
-            printOneChar(',');
-        }
-        showWord(value);
-        Serial.println(c);
-    }
     // keeping this out of the switch reduces code size (smaller branch table)
     // TODO Using the '>' command with incorrect values hangs the hardware
     if (c == '>') {
@@ -604,11 +595,10 @@ static void handleInput (char c) {
 // Stay within your country's ISM spectrum management guidelines, i.e.
 // allowable frequencies and their use when selecting operating frequencies.
             if ((value > 95) && (value < 3904)) { // supported by RFM12B
-                config.frequency_offset = value;
+                config.frequency_offset = value + (config.fixedOffset);
                 saveConfig();
             } else {
-                printOneChar('o');
-                Serial.println(config.frequency_offset);  
+                  value = config.frequency_offset - (config.fixedOffset);
             }            
 #if !TINY
             // this code adds about 400 bytes to flash memory use
@@ -619,7 +609,7 @@ static void handleInput (char c) {
                 case RF12_868MHZ: freq = 86; break;
                 case RF12_915MHZ: freq = 90; break;
             }
-            uint32_t f1 = freq * 100000L + band * 25L * config.frequency_offset;
+            uint32_t f1 = freq * 100000L + band * 25L * (config.frequency_offset - config.fixedOffset);
             Serial.print((word) (f1 / 10000));
             printOneChar('.');
             word f2 = f1 % 10000;
@@ -633,6 +623,26 @@ static void handleInput (char c) {
             break;
         }
 
+        case '+': // Increment hardware dependant RF offset
+            if (!top) {
+                if (value) {
+                    config.fixedOffset = config.fixedOffset + value;
+                }
+            }
+            value = config.fixedOffset;
+            c = '*';           
+            break;
+            
+        case '-': // Increment hardware dependant RF offset
+            if (!top) {
+                if (value) {
+                    config.fixedOffset = config.fixedOffset - value;
+                }
+            }
+            value = config.fixedOffset;
+            c = '*';           
+            break;
+               
         case 'c': // set collect mode (off = 0, on = 1)
             config.collect_mode = value;
             saveConfig();
@@ -674,9 +684,12 @@ static void handleInput (char c) {
             break;
             
         case 'S': // send FSK packet to Salus devices
-            if ((!top) && (value)) SalusFrequency = value;
+            if (!top) {
+                if (value) SalusFrequency = value;
+                else value = SalusFrequency;
+            }
             
-            rf12_initialize (config.nodeId, RF12_868MHZ, 212, SalusFrequency);      // 868.30khz
+            rf12_initialize (config.nodeId, RF12_868MHZ, 212, SalusFrequency);      // 868.30 MHz
             rf12_sleep(RF12_SLEEP);                                       // Sleep while we tweak things
 #if RF69_COMPAT
             RF69::control(REG_BITRATEMSB | 0x80, 0x34);                   // 2.4kbps
@@ -685,7 +698,7 @@ static void handleInput (char c) {
             RF69::control(REG_BITFDEVLSB | 0x80, 0xCE);
 #else
             rf12_control(RF12_DATA_RATE_2);                               // 2.4kbps
-            rf12_control(0x9840);                                         // 75khz freq shift
+            rf12_control(0x9830);                                         // 75khz freq shift
 #endif
             rf12_sleep(RF12_WAKEUP);            // All set, wake up radio
 
@@ -934,6 +947,18 @@ static void handleInput (char c) {
         } // End case group
         
     }
+    
+    if ('a' <= c && c <= 'z' || 'S' <= c && c <= 'S' || '+' <= c && c <= '-') {
+        showString(PSTR("> "));
+        for (byte i = 0; i < top; ++i) {
+            showByte(stack[i]);
+            printOneChar(',');
+        }
+//        showWord(value);
+        Serial.print(value);
+        Serial.println(c);
+    }
+    
     value = top = 0;
 }
 #if MESSAGING
