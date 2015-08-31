@@ -34,7 +34,7 @@
     #define MESSAGING    1   // Define to include message posting code m, p - Will not fit into any Tiny image
     #define STATISTICS   1   // Define to include stats gathering - Adds ?? bytes to Tiny image
     #define NODE31ALLOC  1   // Define to include offering of spare node numbers if node 31 requests ack
-#define DEBUG            0   //
+#define DEBUG            1   //
 #endif
 
 #define REG_BITRATEMSB 0x03  // RFM69 only, 0x02, // BitRateMsb, data rate = 49,261 khz
@@ -83,6 +83,7 @@ unsigned int SalusFrequency = SALUSFREQUENCY;
 unsigned int NodeMap;
 unsigned int newNodeMap;
 byte stickyGroup = 212;
+byte eepromWrite;
 
 #if TINY
 // Serial support (output only) for Tiny supported by TinyDebugSerial
@@ -221,16 +222,16 @@ typedef struct {
     byte spare_flags  :3;
     byte defaulted    :1;   // 0 = config set via UI
     word frequency_offset;  // used by rf12_config, offset 4
-    byte RegPaLvl;          // See datasheet RFM69x Register 0x11
-    byte RegRssiThresh;     // See datasheet RFM69x Register 0x29
-    signed int fixedOffset :8;// Fixed frequency offset for this hardware
-    byte pad[RF12_EEPROM_SIZE- 11];
+    byte RegPaLvl;          // See datasheet RFM69x Register 0x11, offset 6
+    byte RegRssiThresh;     // See datasheet RFM69x Register 0x29, offset 7
+    signed int matchingRF :8;// Frequency matching for this hardware
+    byte pad[RF12_EEPROM_SIZE - 11];
     word crc;
 } RF12Config;
 
 static RF12Config config;
 static char cmd;
-static signed int value;
+static unsigned int value;
 static byte stack[RF12_MAXDATA+4], top, sendLen, dest;
 static byte testCounter;
 static word messageCount = 0;
@@ -344,14 +345,14 @@ static void saveConfig () {
     config.crc = calcCrc(&config, sizeof config - 2);
     // eeprom_write_block(&config, RF12_EEPROM_ADDR, sizeof config);
     // this uses 170 bytes less flash than eeprom_write_block(), no idea why
-    eeprom_write_byte(RF12_EEPROM_ADDR, ((byte*) &config)[0]);
-    for (byte i = 0; i < sizeof config; ++i)
-        eeprom_write_byte(RF12_EEPROM_ADDR + i, ((byte*) &config)[i]);
-
-    if (rf12_configSilent())
-        rf12_configDump();
-    else
-        showString(INITFAIL);
+    for (byte i = 0; i < sizeof config; ++i) {
+        byte* p = &config.nodeId;
+        if (eeprom_read_byte(RF12_EEPROM_ADDR + i) != p[i]) {
+            eeprom_write_byte(RF12_EEPROM_ADDR + i, p[i]);
+            eepromWrite++;
+        }
+    }
+    if (!rf12_configSilent()) showString(INITFAIL);
     activityLed(0);        
 } // saveConfig
 
@@ -594,12 +595,19 @@ static void handleInput (char c) {
         case 'o': { // Offset frequency within band
 // Stay within your country's ISM spectrum management guidelines, i.e.
 // allowable frequencies and their use when selecting operating frequencies.
-            if ((value > 95) && (value < 3904)) { // supported by RFM12B
-                config.frequency_offset = value + (config.fixedOffset);
-                saveConfig();
-            } else {
-                  value = config.frequency_offset - (config.fixedOffset);
-            }            
+            if (value) {
+                if (((value + config.matchingRF) > 95) && ((value + config.matchingRF) < 3904)) { // supported by RFM12B
+                    Serial.println(value + config.matchingRF);
+                    config.frequency_offset = value;
+                    saveConfig();
+                } else {
+                    Serial.print("Unsupported");
+                    value = config.frequency_offset + config.matchingRF;
+                    printOneChar(' ');
+                    break;
+                } 
+            }
+            value = config.frequency_offset;           
 #if !TINY
             // this code adds about 400 bytes to flash memory use
             // display the exact frequency associated with this setting
@@ -609,7 +617,7 @@ static void handleInput (char c) {
                 case RF12_868MHZ: freq = 86; break;
                 case RF12_915MHZ: freq = 90; break;
             }
-            uint32_t f1 = freq * 100000L + band * 25L * (config.frequency_offset - config.fixedOffset);
+            uint32_t f1 = freq * 100000L + band * 25L * config.frequency_offset;
             Serial.print((word) (f1 / 10000));
             printOneChar('.');
             word f2 = f1 % 10000;
@@ -624,23 +632,27 @@ static void handleInput (char c) {
         }
 
         case '+': // Increment hardware dependant RF offset
-            if (!top) {
-                if (value) {
-                    config.fixedOffset = config.fixedOffset + value;
-                }
-            }
-            value = config.fixedOffset;
-            c = '*';           
+//            printOneChar('+');
+//            Serial.println(value);
+            if ((!top) && (value)) {
+                config.matchingRF = config.matchingRF + value;
+                Serial.println(config.matchingRF);
+                value = config.frequency_offset;
+                c = 'o';
+                saveConfig();
+            } else value = config.matchingRF;
             break;
             
         case '-': // Increment hardware dependant RF offset
-            if (!top) {
-                if (value) {
-                    config.fixedOffset = config.fixedOffset - value;
-                }
-            }
-            value = config.fixedOffset;
-            c = '*';           
+//             printOneChar('-');
+//             Serial.println(value);
+            if ((!top) && (value)) {
+                config.matchingRF = config.matchingRF - value;
+                Serial.println(config.matchingRF);
+                value = config.frequency_offset;
+                c = 'o';
+                saveConfig();
+            } else value = config.matchingRF & ~128;
             break;
                
         case 'c': // set collect mode (off = 0, on = 1)
@@ -948,7 +960,7 @@ static void handleInput (char c) {
         
     }
     
-    if ('a' <= c && c <= 'z' || 'S' <= c && c <= 'S' || '+' <= c && c <= '-') {
+    if ('a' <= c && c <= 'z' || 'R' <= c && c <= 'T' || '+' <= c && c <= '-') {
         showString(PSTR("> "));
         for (byte i = 0; i < top; ++i) {
             showByte(stack[i]);
@@ -957,6 +969,12 @@ static void handleInput (char c) {
 //        showWord(value);
         Serial.print(value);
         Serial.println(c);
+        if (eepromWrite) {
+          showString(PSTR("Eeprom written:"));
+          Serial.println(eepromWrite);
+          eepromWrite = 0;
+          rf12_configDump();
+        }
     }
     
     value = top = 0;
@@ -1050,6 +1068,7 @@ void resetFlagsInit(void)
 #endif
 
 void setup () {
+  
 #if TINY
     PCMSK0 |= (1<<PCINT2);  // tell pin change mask to listen to PA2
     GIMSK |= (1<<PCIE0);    // enable PCINT interrupt in general interrupt mask
@@ -1069,6 +1088,17 @@ void setup () {
 #endif
 #if LED_PIN == 8
     showString(BLOC);
+#endif
+
+#if DEBUG
+// Debug code to fill up the eeprom node table
+/*
+                    for (unsigned int n = 0; n < MAX_NODES; n++) {
+                        eeprom_write_byte((RF12_EEPROM_NODEMAP) + (n * 4), 32);
+                    }
+*/                   
+//    dumpRegs();
+    dumpEEprom();
 #endif
 
 #ifndef PRR
@@ -1173,16 +1203,6 @@ memset(pktCount,0,sizeof(pktCount));
         Serial.println(a); 
     }
 #endif
-#if DEBUG
-// Debug code to fill up the eeprom node table
-/*
-                    for (unsigned int n = 0; n < MAX_NODES; n++) {
-                        eeprom_write_byte((RF12_EEPROM_NODEMAP) + (n * 4), 32);
-                    }
-*/                   
-//    dumpRegs();
-//    dumpEEprom();
-#endif
 } // setup
 
 #if DEBUG
@@ -1190,8 +1210,8 @@ memset(pktCount,0,sizeof(pktCount));
 static void dumpEEprom() {
     Serial.println("\n\rConfig eeProm:");
     uint16_t crc = ~0;
-    for (byte i = 0; i < (RF12_EEPROM_SIZE); ++i) {
-        byte d = eeprom_read_byte(RF12_EEPROM_ADDR+ i);
+    for (byte i = 0; i < (RF12_EEPROM_SIZE + 1); ++i) {
+        byte d = eeprom_read_byte(RF12_EEPROM_ADDR -1 + i);
         showNibble(d >> 4); showNibble(d);
         crc = _crc16_update(crc, d);
     }

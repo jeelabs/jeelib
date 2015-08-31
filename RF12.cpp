@@ -781,12 +781,15 @@ uint8_t rf12_configSilent () {
 
     uint8_t nodeId = 0, group = 0;
     uint16_t frequency = 0;
+    int8_t matchRF = 0;
 
     nodeId = eeprom_read_byte(RF12_EEPROM_ADDR + 0);
     group  = eeprom_read_byte(RF12_EEPROM_ADDR + 1);
+    matchRF = eeprom_read_byte(RF12_EEPROM_ADDR + 8);
+    
     frequency = eeprom_read_byte(RF12_EEPROM_ADDR + 5);
-    frequency = (frequency << 8) + (eeprom_read_byte(RF12_EEPROM_ADDR + 4));
-
+    frequency = (frequency << 8) + (eeprom_read_byte(RF12_EEPROM_ADDR + 4)) +
+      matchRF;
     rf12_initialize(nodeId, nodeId >> 6, group, frequency);
     return nodeId & RF12_HDR_MASK;
 }
@@ -799,6 +802,7 @@ void rf12_configDump () {
     uint8_t flags = eeprom_read_byte(RF12_EEPROM_ADDR + 3);
     frequency = eeprom_read_byte(RF12_EEPROM_ADDR + 5);
     frequency = (frequency << 8) + (eeprom_read_byte(RF12_EEPROM_ADDR + 4));
+    int8_t matchingRF = eeprom_read_byte(RF12_EEPROM_ADDR + 8);
     
     // " A i1 g178 @ 868 MHz "
     Serial.print(' ');
@@ -820,6 +824,11 @@ void rf12_configDump () {
     if (frequency != 1600) {
         Serial.print(" o");
         Serial.print(frequency);
+    }
+    if (matchingRF) {
+          Serial.print(" ");
+          if(!(matchingRF & 0x80)) Serial.print("+");           
+          Serial.print(matchingRF);
     }
     if (flags & 0x08) {
         Serial.print(" q1");
