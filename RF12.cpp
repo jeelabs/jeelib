@@ -668,7 +668,7 @@ uint8_t rf12_initialize (uint8_t id, uint8_t band, uint8_t g, uint16_t f) {
         rf12_xfer(0x0000);
 
     rf12_xfer(0x80C7 | (band << 4)); // EL (ena TX), EF (ena RX FIFO), 12.0pF
-    rf12_xfer(0xA000 + frequency); // 96-3960 freq range of values within band
+    rf12_xfer(0xA000 | (frequency & 0x0FFF)); // 96-3960 freq range
     rf12_xfer(0xC606); // approx 49.2 Kbps, i.e. 10000/29/(1+6) Kbps
     rf12_xfer(0x94A2); // VDI,FAST,134kHz,0dBm,-91dBm
     rf12_xfer(0xC2AC); // AL,!ml,DIG,DQD4
@@ -776,7 +776,7 @@ uint8_t rf12_configSilent () {
         byte e = eeprom_read_byte(RF12_EEPROM_ADDR + i);
         crc = crc_update(crc, e);
     }
-    if (crc || eeprom_read_byte(RF12_EEPROM_ADDR + 2) != RF12_EEPROM_VERSION)
+    if ((crc) || eeprom_read_byte(RF12_EEPROM_ADDR + 2) != RF12_EEPROM_VERSION)
         return 0;
 
     uint8_t nodeId = 0, group = 0;
