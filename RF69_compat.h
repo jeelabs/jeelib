@@ -18,6 +18,7 @@
 #define rf12_initialize     rf69_initialize
 #define rf12_config         rf69_config
 #define rf12_configSilent   rf69_configSilent
+#define rf12_configDump     rf69_configDump
 #define rf12_recvDone       rf69_recvDone
 #define rf12_canSend        rf69_canSend
 #define rf12_skip_hdr       rf69_skip_hdr

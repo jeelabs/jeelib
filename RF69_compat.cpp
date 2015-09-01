@@ -10,6 +10,11 @@ volatile uint16_t rf69_crc;
 volatile uint8_t rf69_buf[72];
 
 static byte nodeid; // only used in the easyPoll code
+static uint8_t group;               // network group
+static uint16_t frequency;          // Frequency within selected band
+static int8_t matchRF = 0;          // Hardware matching value
+static uint8_t txPower = 0;         // Transmitter power from eeprom
+static uint8_t rxThreshold = 0;     // Receiver threshold from eeprom
 
 // same as in RF12
 #define RETRIES     8               // stop retrying after 8 times
@@ -43,7 +48,7 @@ uint8_t rf69_initialize (uint8_t id, uint8_t band, uint8_t group=0xD4, uint16_t 
         case RF12_868MHZ: freq = 86; break;
         case RF12_915MHZ: freq = 90; break;
     }
-    RF69::setFrequency(freq * 10000000L + band * 2500L * (off & 0x0FFF));
+    RF69::setFrequency(freq * 10000000L + band * 2500L * ((off + matchRF) & 0x0FFF));
     RF69::group = group;
     RF69::node = id & RF12_HDR_MASK;
     delay(20); // needed to make RFM69 work properly on power-up
@@ -60,7 +65,73 @@ uint8_t rf69_initialize (uint8_t id, uint8_t band, uint8_t group=0xD4, uint16_t 
           
     RF69::configure_compat(); 
 
+    if (txPower) RF69::control(0x91, txPower);
+    if (rxThreshold) RF69::control(0xA9, rxThreshold);
+
     return nodeid = id;
+}
+/// @details
+/// This replaces rf12_config(0), to be called after rf12_configSilent(). Can be
+/// used to avoid pulling in the Serial port code in cases where it's not used.
+
+void rf69_configDump () {
+    uint8_t nodeId = eeprom_read_byte(RF12_EEPROM_ADDR);
+    uint8_t flags = eeprom_read_byte(RF12_EEPROM_ADDR + 3);
+    frequency = eeprom_read_byte(RF12_EEPROM_ADDR + 5);
+    frequency = (frequency << 8) + (eeprom_read_byte(RF12_EEPROM_ADDR + 4));
+    txPower = eeprom_read_byte(RF12_EEPROM_ADDR + 6);     // Store from eeprom
+    rxThreshold = eeprom_read_byte(RF12_EEPROM_ADDR + 7); // Store from eeprom
+    matchRF = eeprom_read_byte(RF12_EEPROM_ADDR + 8);     // Store from eeprom
+    
+    // " A i1 g178 @ 868 MHz "
+    Serial.print(' ');
+    Serial.print((char) ('@' + (nodeId & RF12_HDR_MASK)));
+    if (flags & 0x80) // Defaulted config
+        Serial.print('*');
+    Serial.print(" i");
+    Serial.print((word)nodeId & RF12_HDR_MASK);
+    if (flags & 0x04)
+        Serial.print('*');
+    Serial.print(" g");
+    Serial.print((word)eeprom_read_byte(RF12_EEPROM_ADDR + 1));
+    Serial.print(" @ ");
+    uint8_t band = nodeId >> 6;
+    Serial.print((word)band == RF12_433MHZ ? 434 :
+                 band == RF12_868MHZ ? 868 :
+                 band == RF12_915MHZ ? 912 : 0);
+    Serial.print(" MHz");
+    if (frequency != 1600) {
+        Serial.print(" o");
+        Serial.print(frequency);
+    }
+    if (matchRF) {
+          Serial.print(" ");
+          if (matchRF > (-1)) Serial.print("+");           
+          Serial.print(matchRF);
+    }
+    if (flags & 0x08) {
+        Serial.print(" q1");
+    }
+    if (flags & 0x04) {
+        Serial.print(" c1");
+    }
+    if (flags & 0x03) {
+        Serial.print(" x");
+        Serial.print(flags & 0x03);
+    }
+    if (txPower) {
+        if (txPower != 0x9F) {
+            Serial.print(" tx");
+            Serial.print(txPower, HEX);
+       }
+    }
+    if (rxThreshold) {
+        if (rxThreshold != 0xA0) {
+            Serial.print(" rx");
+            Serial.print(rxThreshold, HEX);
+       }
+    }
+    Serial.println();
 }
 
 // same code as rf12_config(Silent), just calling rf69_initialize() instead
@@ -78,14 +149,14 @@ uint8_t rf69_configSilent () {
      
     nodeId = eeprom_read_byte(RF12_EEPROM_ADDR + 0);
     group  = eeprom_read_byte(RF12_EEPROM_ADDR + 1);
+    txPower = eeprom_read_byte(RF12_EEPROM_ADDR + 6);     // Store from eeprom
+    rxThreshold = eeprom_read_byte(RF12_EEPROM_ADDR + 7); // Store from eeprom
+    matchRF = eeprom_read_byte(RF12_EEPROM_ADDR + 8); // Store hardware matching 
+
     frequency = eeprom_read_byte(RF12_EEPROM_ADDR + 5);// Avoid eeprom_read_word
     frequency = (frequency << 8) + (eeprom_read_byte(RF12_EEPROM_ADDR + 4));
                                                             
     rf69_initialize(nodeId, nodeId >> 6, group, frequency);
-    RegPaLvl = eeprom_read_byte(RF12_EEPROM_ADDR + 6);
-    if (RegPaLvl) RF69::control(0x91, RegPaLvl);
-    RegRssiThresh = eeprom_read_byte(RF12_EEPROM_ADDR + 7);
-    if (RegRssiThresh) RF69::control(0xA9, RegRssiThresh);
     return nodeId & RF12_HDR_MASK;
 }
 

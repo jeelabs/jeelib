@@ -1,6 +1,6 @@
 /// @dir RFxConsole
 ///////////////////////////////////////////////////////////////////////////////
-#define RF69_COMPAT      0   // define this to use the RF69 driver i.s.o. RF12 
+#define RF69_COMPAT      1   // define this to use the RF69 driver i.s.o. RF12 
 ///                           // The above flag must be set similarly in RF12.cpp
 ///                           // and RF69_avr.h
 #define BLOCK  0              // Alternate LED pin?
@@ -20,6 +20,7 @@
 // 'S' to interact with Salus FSK devices 2015-08-28
 // Avoid adding shifted commands 'A' through 'F'
 // as these are used by the hexadecimal input code
+// Added +/- to match RF frequency between different hardware
 
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
     #define TINY 1
@@ -34,7 +35,7 @@
     #define MESSAGING    1   // Define to include message posting code m, p - Will not fit into any Tiny image
     #define STATISTICS   1   // Define to include stats gathering - Adds ?? bytes to Tiny image
     #define NODE31ALLOC  1   // Define to include offering of spare node numbers if node 31 requests ack
-#define DEBUG            1   //
+#define DEBUG            0   //
 #endif
 
 #define REG_BITRATEMSB 0x03  // RFM69 only, 0x02, // BitRateMsb, data rate = 49,261 khz
@@ -464,6 +465,7 @@ const char helpText1[] PROGMEM =
     " <n>x       - set reporting format (0: decimal, 2: decimal+ascii\n"
     "            -  1: hex, 3: hex+ascii)\n"
     " v          - return firmware version and current settings\n"
+    " <n>+ or -  - RF hardware matching\n" 
 #if !TINY
     " 123z       - total power down, needs a reset to start up again\n"
 #endif
@@ -593,7 +595,7 @@ static void handleInput (char c) {
             stickyGroup = value;
             break;
 
-        case 'o': { // Offset frequency within band
+        case 'o':{ // Offset frequency within band
 // Stay within your country's ISM spectrum management guidelines, i.e.
 // allowable frequencies and their use when selecting operating frequencies.
             if (value) {
@@ -630,7 +632,7 @@ static void handleInput (char c) {
             break;
         }
 
-        case '+': { // Increment hardware dependant RF offset
+        case '+': // Increment hardware dependant RF offset
             if (value) {
                 if (((config.frequency_offset + config.matchingRF + value) > 95) 
                   && ((config.frequency_offset + config.matchingRF + value) < 3904)) { // supported by RFM12B              
@@ -646,9 +648,8 @@ static void handleInput (char c) {
                 c = ' ';
             }
             break;
-        }
             
-        case '-': { // Increment hardware dependant RF offset
+        case '-': // Increment hardware dependant RF offset
             if (value) {
                 if (((config.frequency_offset + config.matchingRF - value) > 95) 
                   && ((config.frequency_offset + config.matchingRF - value) < 3904)) { // supported by RFM12B              
@@ -664,7 +665,6 @@ static void handleInput (char c) {
                 c = ' ';
             }
             break;
-        }
                
         case 'c': // set collect mode (off = 0, on = 1)
             config.collect_mode = value;
@@ -705,7 +705,18 @@ static void handleInput (char c) {
             sendLen = top;
             dest = value;
             break;
+
+        case 'T': // Set hardware specific TX power in eeprom
+            config.RegPaLvl = value;
+            saveConfig();
+            break;
             
+        case 'R': // Set hardware specific RX threshold in eeprom
+            config.RegRssiThresh = value;
+            saveConfig();
+            break;
+            
+#if !TINY
         case 'S': // send FSK packet to Salus devices
             if (!top) {
                 if (value) SalusFrequency = value;
@@ -714,15 +725,15 @@ static void handleInput (char c) {
             
             rf12_initialize (config.nodeId, RF12_868MHZ, 212, SalusFrequency);      // 868.30 MHz
             rf12_sleep(RF12_SLEEP);                                       // Sleep while we tweak things
-#if RF69_COMPAT
+    #if RF69_COMPAT
             RF69::control(REG_BITRATEMSB | 0x80, 0x34);                   // 2.4kbps
             RF69::control(REG_BITRATELSB | 0x80, 0x15);
             RF69::control(REG_BITFDEVMSB | 0x80, 0x04);                   // 75kHz freq shift
             RF69::control(REG_BITFDEVLSB | 0x80, 0xCE);
-#else
+    #else
             rf12_control(RF12_DATA_RATE_2);                               // 2.4kbps
             rf12_control(0x9830);                                         // 75khz freq shift
-#endif
+    #endif
             rf12_sleep(RF12_WAKEUP);            // All set, wake up radio
 
             if (top == 1) {
@@ -738,6 +749,7 @@ static void handleInput (char c) {
                 rf12_skip_hdr();                // Ommit Jeelib header 2 bytes on transmission
             }
             break;
+#endif
 
 #if OOK
         case 'f': // send FS20 command: <hchi>,<hclo>,<addr>,<cmd>f
@@ -945,9 +957,6 @@ static void handleInput (char c) {
             break;
 
         case 'z': // put the ATmega in ultra-low power mode (reset needed)
-            if (value == 100) rf12_sleep(RF12_WAKEUP); // Wake up
-            if (value == 104) rf12_sleep(RF12_SLEEP);  // Sleep
-            if (value == 104) showString(PSTR(" rf12 Zzz...\n"));  // DEBUG
             if (value == 123) {
                 showString(PSTR(" Zzz...\n"));
                 Serial.flush();
@@ -956,10 +965,6 @@ static void handleInput (char c) {
                 Sleepy::powerDown();
             }
             if (value == 255) {
-                 eeprom_write_byte(RF12_EEPROM_ADDR + 2, 255);  // Should be enough to fail CRC check on next restart.
-                 showString(PSTR("Config will default\n"));
-            }
-            if (value == 65535) {
                  showString(PSTR("Watchdog enabled, restarting\n"));
                  WDTCSR |= _BV(WDE);
             }
@@ -989,6 +994,7 @@ static void handleInput (char c) {
         rf12_configDump();
     }    
 }
+
 #if MESSAGING
 static byte getMessage (byte rec) {
     if (rec < MessagesStart) return 0;
@@ -1067,6 +1073,7 @@ static int freeRam () {
   int v; 
   return (int) &v - (__brkval == 0 ? (int) &__heap_start : (int) __brkval); 
 }
+
 #if !TINY
 uint8_t resetFlags __attribute__ ((section(".noinit")));
 void resetFlagsInit(void) __attribute__ ((naked)) __attribute__ ((section (".init0")));
@@ -1174,7 +1181,6 @@ memset(pktCount,0,sizeof(pktCount));
         loadConfig();
     } else {
         showString(INITFAIL);
-        Serial.flush();
         memset(&config, 0, sizeof config);
         config.nodeId = 0x9F;       // 868 MHz, node 31
         config.group = 0xD4;        // Default group 212
@@ -1185,8 +1191,7 @@ memset(pktCount,0,sizeof(pktCount));
         saveConfig();
         config.defaulted = false;   // Value if UI saves config
         if (!rf12_configSilent())
-          showString(INITFAIL);
-        
+          showString(INITFAIL);       
     }
     
     stickyGroup = config.group;
@@ -1458,7 +1463,8 @@ void loop () {
               CRCbadMaxRSSI = observedRX.rssi2;   
 #endif            
             activityLed(0);
-
+            
+#if !TINY
             if(rf12_buf[0] == 212 && (rf12_buf[1] | rf12_buf[2]) == rf12_buf[3] && rf12_buf[4] == 90){
                 Serial.print((word) SalusFrequency, DEC);  
                 showString(PSTR(" Salus "));
@@ -1469,6 +1475,7 @@ void loop () {
 //                return;
                 n = 2;
             }            
+#endif
             
             if (config.quiet_mode)
                 return;

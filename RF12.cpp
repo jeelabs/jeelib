@@ -14,7 +14,7 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 #define PINCHG_IRQ  0    // Set this true to use pin-change interrupts
-#define RF69_COMPAT 0    // Set this true to use the RF69 driver
+#define RF69_COMPAT 1    // Set this true to use the RF69 driver
                          // The above flags must be set similarly in RF69_avr.h
 ///////////////////////////////////////////////////////////////////////////////                         
 
@@ -153,6 +153,10 @@ static uint8_t cs_pin = SS_BIT;     // chip select pin
 static uint8_t nodeid;              // address of this node
 static uint8_t group;               // network group
 static uint16_t frequency;          // Frequency within selected band
+static int8_t matchRF = 0;          // Hardware matching value
+static uint8_t txPower = 0;         // Transmitter power from eeprom
+static uint8_t rxThreshold = 0;     // Receiver threshold from eeprom
+
 static volatile uint8_t rxfill;     // number of data bytes in rf12_buf
 static volatile int8_t rxstate;     // current transceiver state
 
@@ -668,9 +672,11 @@ uint8_t rf12_initialize (uint8_t id, uint8_t band, uint8_t g, uint16_t f) {
         rf12_xfer(0x0000);
 
     rf12_xfer(0x80C7 | (band << 4)); // EL (ena TX), EF (ena RX FIFO), 12.0pF
-    rf12_xfer(0xA000 | (frequency & 0x0FFF)); // 96-3960 freq range
+    // Note hardware matching value in matchRF below.
+    rf12_xfer(0xA000 | ((frequency + matchRF) & 0x0FFF)); // 96-3960 freq range
+    //
     rf12_xfer(0xC606); // approx 49.2 Kbps, i.e. 10000/29/(1+6) Kbps
-    rf12_xfer(0x94A2); // VDI,FAST,134kHz,0dBm,-91dBm
+    rf12_xfer(0x94A0 | (rxThreshold & 0x07)); // VDI,FAST,134kHz,0dBm,-91dBm
     rf12_xfer(0xC2AC); // AL,!ml,DIG,DQD4
     if (group != 0) {
         rf12_xfer(0xCA83); // FIFO8,2-SYNC,!ff,DR
@@ -680,7 +686,9 @@ uint8_t rf12_initialize (uint8_t id, uint8_t band, uint8_t g, uint16_t f) {
         rf12_xfer(0xCE2D); // SYNC=2D；
     }
     rf12_xfer(0xC483); // @PWR,NO RSTRIC,!st,!fi,OE,EN
-    rf12_xfer(0x9850); // !mp,90kHz,MAX OUT
+    
+    rf12_xfer(0x9850 | (txPower & 0x07)); // !mp,90kHz,MAX OUT
+    
     rf12_xfer(0xCC77); // OB1，OB0, LPX,！ddy，DDIT，BW0
     rf12_xfer(0xE000); // NOT USE
     rf12_xfer(0xC800); // NOT USE
@@ -781,15 +789,16 @@ uint8_t rf12_configSilent () {
 
     uint8_t nodeId = 0, group = 0;
     uint16_t frequency = 0;
-    int8_t matchRF = 0;
 
     nodeId = eeprom_read_byte(RF12_EEPROM_ADDR + 0);
     group  = eeprom_read_byte(RF12_EEPROM_ADDR + 1);
-    matchRF = eeprom_read_byte(RF12_EEPROM_ADDR + 8);
+    txPower = eeprom_read_byte(RF12_EEPROM_ADDR + 6);     // Store from eeprom
+    rxThreshold = eeprom_read_byte(RF12_EEPROM_ADDR + 7); // Store from eeprom
+    matchRF = eeprom_read_byte(RF12_EEPROM_ADDR + 8); // Store hardware matching 
     
     frequency = eeprom_read_byte(RF12_EEPROM_ADDR + 5);
-    frequency = (frequency << 8) + (eeprom_read_byte(RF12_EEPROM_ADDR + 4)) +
-      matchRF;
+    frequency = (frequency << 8) + (eeprom_read_byte(RF12_EEPROM_ADDR + 4));
+    // the matchRF value is added in rf12_initialize from the static
     rf12_initialize(nodeId, nodeId >> 6, group, frequency);
     return nodeId & RF12_HDR_MASK;
 }
@@ -802,7 +811,9 @@ void rf12_configDump () {
     uint8_t flags = eeprom_read_byte(RF12_EEPROM_ADDR + 3);
     frequency = eeprom_read_byte(RF12_EEPROM_ADDR + 5);
     frequency = (frequency << 8) + (eeprom_read_byte(RF12_EEPROM_ADDR + 4));
-    int8_t matchingRF = eeprom_read_byte(RF12_EEPROM_ADDR + 8);
+    txPower = eeprom_read_byte(RF12_EEPROM_ADDR + 6);     // Store from eeprom
+    rxThreshold = eeprom_read_byte(RF12_EEPROM_ADDR + 7); // Store from eeprom
+    matchRF = eeprom_read_byte(RF12_EEPROM_ADDR + 8);     // Store from eeprom
     
     // " A i1 g178 @ 868 MHz "
     Serial.print(' ');
@@ -825,10 +836,10 @@ void rf12_configDump () {
         Serial.print(" o");
         Serial.print(frequency);
     }
-    if (matchingRF) {
+    if (matchRF) {
           Serial.print(" ");
-          if(!(matchingRF & 0x80)) Serial.print("+");           
-          Serial.print(matchingRF);
+          if (matchRF > (-1)) Serial.print("+");           
+          Serial.print(matchRF);
     }
     if (flags & 0x08) {
         Serial.print(" q1");
@@ -840,19 +851,16 @@ void rf12_configDump () {
         Serial.print(" x");
         Serial.print(flags & 0x03);
     }
-    // Bad reuse of flags variable
-    flags = eeprom_read_byte(RF12_EEPROM_ADDR + 6); // RegPaLvl
-    if (flags) {
-        if (flags != 0x9F) {
+    if (txPower) {
+        if (txPower != 0x00) {
             Serial.print(" tx");
-            Serial.print(flags, HEX);
+            Serial.print(txPower, HEX);
        }
     }
-    flags = eeprom_read_byte(RF12_EEPROM_ADDR + 7); // RegRssiThresh
-    if (flags) {
-        if (flags != 0xA0) {
+    if (rxThreshold) {
+        if (rxThreshold != 0x02) {
             Serial.print(" rx");
-            Serial.print(flags, HEX);
+            Serial.print(rxThreshold, HEX);
        }
     }
     Serial.println();
