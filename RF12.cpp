@@ -155,7 +155,7 @@ static uint8_t group;               // network group
 static uint16_t frequency;          // Frequency within selected band
 static int8_t matchRF = 0;          // Hardware matching value
 static uint8_t txPower = 0;         // Transmitter power from eeprom
-static uint8_t rxThreshold = 0;     // Receiver threshold from eeprom
+static uint8_t rxThreshold = 2;     // Receiver threshold from eeprom
 
 static volatile uint8_t rxfill;     // number of data bytes in rf12_buf
 static volatile int8_t rxstate;     // current transceiver state
