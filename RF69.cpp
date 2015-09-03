@@ -163,14 +163,15 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 // Mismatching PA1 below with the RFM69x module present risks blowing a hole in the LNA
 // 0x11, 0x5F, // PA1 enable, Pout = max // uncomment this for RFM69H
 */
+  0x18, 0x02, // Manual LNA = 2 = -6dB
   0x19, 0x42, // RxBw 125 KHz
   0x1A, 0x42, // AfcBw 125 KHz Channel filter BW
 
 // AFC is broken on the RFM69. However leaving factory default
 // does adjust the receiver on initial packets.
-#define AfcClear            0x02
-//#define AfcClear            (0x04|0x02)
-  0x1E, 0x02, // AFC is manually cleared on initialization & during recvDone
+//#define AfcClear            0x02
+#define AfcClear              0x11
+  0x1E, 0x00,   // 
 //  0x1E, 0x04, // AFC each time RX mode entered USELESS!
 // Radio frequency wanders off into the wilderness/ 
 //  0x25, 0x80, // DioMapping1 = RSSI threshold
@@ -190,6 +191,8 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x3D, 0x10, // PacketConfig2, interpkt = 1, autorxrestart off
   0x58, 0x2D, // High sensitivity mode
   0x6F, 0x20, // 0x30, // TestDagc ...
+  0x71, 0x01, // AFC offset set for low modulation index systems, used if
+              // AfcLowBetaOn=1. Offset = LowBetaAfcOffset x 488 Hz 
   0
 };  
 /*
@@ -332,7 +335,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         flushFifo();
         writeReg(REG_DIOMAPPING1, DMAP1_SYNCADDRESS);    // Interrupt trigger
         setMode(MODE_RECEIVER);
-        writeReg(REG_AFCFEI, AfcClear);
+//        writeReg(REG_AFCFEI, AfcClear);
         // end identical code        
         break;
     case TXRECV:
@@ -451,6 +454,7 @@ void RF69::interrupt_compat () {
             // The window for grabbing the above values is quite small
             // values available during transfer between the ether
             // and the inbound fifo buffer.
+//            writeReg(REG_AFCFEI, AfcClear); // Lock to this frequency?
             volatile uint8_t stillCollecting = true;
             rxP++;
             crc = ~0;
@@ -485,7 +489,7 @@ void RF69::interrupt_compat () {
                     packetBytes++;
                     crc = _crc16_update(crc, in);              
                     if (rxfill >= (payloadLen + 5)) {  // Trap end of payload
-                        writeReg(REG_AFCFEI, AfcClear);// Whilst in RX mode
+//                        writeReg(REG_AFCFEI, AfcClear);// Whilst in RX mode
                         setMode(MODE_STANDBY);  // Get radio out of RX mode
                         stillCollecting = false;
                         break;

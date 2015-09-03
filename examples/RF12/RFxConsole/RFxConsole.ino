@@ -1561,7 +1561,7 @@ void loop () {
             Serial.print((RF69::readTemperature(-10)));        
         }        
 #endif
-        if ((CRCbadCount + 1) || (messageCount + 1) || (nonBroadcastCount + 1)) {
+        if ((CRCbadCount + 1) && (messageCount + 1) && (nonBroadcastCount + 1)) {
             showString(PSTR(" q="));
             unsigned long v = (messageCount + nonBroadcastCount);
             byte q = ((v * 100) / (CRCbadCount + v));
