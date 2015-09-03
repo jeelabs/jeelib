@@ -21,7 +21,9 @@
 // Avoid adding shifted commands 'A' through 'F'
 // as these are used by the hexadecimal input code
 // Added +/- to match RF frequency between different hardware
-
+// Added T & R commands to set hardware specific transmit & receive parameters
+// Added rolling percentage packet quality, displayed before any RSSI value with each packet
+// Added min/max for above
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
     #define TINY 1
 #endif
@@ -86,6 +88,8 @@ unsigned int NodeMap;
 unsigned int newNodeMap;
 byte stickyGroup = 212;
 byte eepromWrite;
+byte qMin = ~0;
+byte qMax = 0;
 
 #if TINY
 // Serial support (output only) for Tiny supported by TinyDebugSerial
@@ -354,6 +358,7 @@ static void saveConfig () {
             eepromWrite++;
         }
     }
+    messageCount = nonBroadcastCount = CRCbadCount = 0; // Clear stats counters
     if (!rf12_configSilent()) showString(INITFAIL);
     activityLed(0);        
 } // saveConfig
@@ -1282,7 +1287,7 @@ static void nodeShow(byte group) {
               showString(PSTR(" post:"));      
               showByte(semaphores[index]);
 #endif
-#if RF69_COMPAT  && STATISTICS            
+#if RF69_COMPAT && STATISTICS            
               if (maxRSSI[index]) {
                   showString(PSTR(" rssi("));
                   showByte(minRSSI[index]);
@@ -1329,13 +1334,15 @@ static void nodeShow(byte group) {
     Serial.println(RF69::control(REG_SYNCCONFIG, 0));   
 #endif  
 #if STATISTICS
-    Serial.print((millis() >> 10));  // An approximation to seconds
-    printOneChar(':');
     Serial.print(messageCount);
     printOneChar('(');
     Serial.print(CRCbadCount);
     printOneChar(')');
     Serial.print(nonBroadcastCount);
+    printOneChar('@');
+    Serial.print((millis() >> 10));  // An approximation to seconds
+    printOneChar(':');
+    Serial.print(qMin); printOneChar('~'); Serial.print(qMax); printOneChar('%');
     printOneChar(' ');
 #endif
 #if RF69_COMPAT && STATISTICS
@@ -1447,7 +1454,7 @@ void loop () {
         byte crc = false;
         if (rf12_crc == 0) {
 #if STATISTICS && !TINY
-            messageCount++;
+            messageCount++;                             // Count a broadcast packet
 #endif
             showString(PSTR("OK"));
             crc = true;
@@ -1534,9 +1541,9 @@ void loop () {
 #if RF69_COMPAT && !TINY
         if (!config.quiet_mode) {
             showString(PSTR(" a="));
-            Serial.print(observedRX.afc);                        // TODO What units is this count?
+            Serial.print(observedRX.afc);                        // TODO What units has this number?
             showString(PSTR(" f="));
-            Serial.print(observedRX.fei);                        // TODO What units is this count?
+            Serial.print(observedRX.fei);                        // TODO What units has this number?
 /*
             LNA gain setting:
             000 gain set by the internal AGC loop
@@ -1552,8 +1559,24 @@ void loop () {
 
             showString(PSTR(" t="));
             Serial.print((RF69::readTemperature(-10)));        
+        }        
+#endif
+        if ((CRCbadCount + 1) || (messageCount + 1) || (nonBroadcastCount + 1)) {
+            showString(PSTR(" q="));
+            unsigned long v = (messageCount + nonBroadcastCount);
+            byte q = ((v * 100) / (CRCbadCount + v));
+            Serial.print(q);
+            if ((messageCount + nonBroadcastCount + CRCbadCount) > 100) {
+                if (q < qMin) qMin = q;
+                if (q > qMax) qMax = q;
+            }
+            printOneChar('%');
+        } else {    // If we overflow then clear them all.
+             showString(PSTR(" Reset "));
+            CRCbadCount = messageCount = nonBroadcastCount = 0;
         }
-        
+#if RF69_COMPAT && !TINY
+
         showString(PSTR(" ("));
 // display RSSI value after packet data
         if (config.output & 0x1)                  // Hex output?

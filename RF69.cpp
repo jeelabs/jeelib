@@ -87,9 +87,6 @@
 #define FeiDone             0x40
 #define RssiStart           0x01
 #define RssiDone            0x02
-
-#define AfcClear            0x02
-
 #define oneByteSync         0x80
 #define twoByteSync         0x88
 #define threeByteSync       0x90
@@ -166,11 +163,20 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 // Mismatching PA1 below with the RFM69x module present risks blowing a hole in the LNA
 // 0x11, 0x5F, // PA1 enable, Pout = max // uncomment this for RFM69H
 */
-  0x19, 0x4A, // RxBw 100 KHz
+  0x19, 0x42, // RxBw 125 KHz
   0x1A, 0x42, // AfcBw 125 KHz Channel filter BW
-  0x1E, 0x02, // AFC is manually cleared
+
+// AFC is broken on the RFM69. However leaving factory default
+// does adjust the receiver on initial packets.
+#define AfcClear            0x02
+//#define AfcClear            (0x04|0x02)
+  0x1E, 0x02, // AFC is manually cleared on initialization & during recvDone
+//  0x1E, 0x04, // AFC each time RX mode entered USELESS!
+// Radio frequency wanders off into the wilderness/ 
 //  0x25, 0x80, // DioMapping1 = RSSI threshold
-  0x29, 0xA0, // RssiThresh ... -80dB
+
+//  0x29, 0xA0, // RssiThresh ... -80dB
+  0x29, 0xFF, // RssiThresh ... -127.5dB
 
   0x2E, 0xA0, // SyncConfig = sync on, sync size = 5
   0x2F, 0xAA, // SyncValue1 = 0xAA
@@ -182,6 +188,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x38, 0x00, // PayloadLength = 0, unlimited
 //  0x3C, 0x8F, // FifoTresh, not empty, level 15 bytes
   0x3D, 0x10, // PacketConfig2, interpkt = 1, autorxrestart off
+  0x58, 0x2D, // High sensitivity mode
   0x6F, 0x20, // 0x30, // TestDagc ...
   0
 };  
@@ -348,8 +355,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
                     rxstate = TXRECV;
                     flushFifo();                    
                     writeReg(REG_DIOMAPPING1, DMAP1_SYNCADDRESS);// Interrupt trigger
-                    setMode(MODE_RECEIVER);
-                    writeReg(REG_AFCFEI, AfcClear);
+ //                   setMode(MODE_RECEIVER);
         // end identical code        
                     return ~0;
                 }
