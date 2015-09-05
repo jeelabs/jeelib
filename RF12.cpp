@@ -16,6 +16,9 @@
 #define PINCHG_IRQ  0    // Set this true to use pin-change interrupts
 #define RF69_COMPAT 1    // Set this true to use the RF69 driver
                          // The above flags must be set similarly in RF69_avr.h
+
+// NOTE: The following does not apply to the ATTiny processors which uses USI
+#define OPTIMIZE_SPI 1   // uncomment this to write to the RFM12B @ 8 Mhz
 ///////////////////////////////////////////////////////////////////////////////                         
 
 #if RF12_COMPAT
@@ -35,8 +38,6 @@
 #define crc_endVal      0
 #define crc_update      _crc16_update
 #endif
-
-#define OPTIMIZE_SPI 1  // uncomment this to write to the RFM12B @ 8 Mhz
 
 // maximum transmit / receive buffer: 3 header + data + 2 crc bytes
 #define RF_MAX   (RF12_MAXDATA + 5)
@@ -156,6 +157,8 @@ static uint16_t frequency;          // Frequency within selected band
 static int8_t matchRF = 0;          // Hardware matching value
 static uint8_t txPower = 0;         // Transmitter power from eeprom
 static uint8_t rxThreshold = 2;     // Receiver threshold from eeprom
+static volatile uint16_t status = 0;// Status word from RFM12B
+static volatile uint16_t interruptCount = 0;
 
 static volatile uint8_t rxfill;     // number of data bytes in rf12_buf
 static volatile int8_t rxstate;     // current transceiver state
@@ -270,7 +273,7 @@ static uint16_t rf12_xferSlow (uint16_t cmd) {
 }
 
 #if OPTIMIZE_SPI
-static void rf12_xfer (uint16_t cmd) {
+static uint16_t rf12_xfer (uint16_t cmd) {
     // writing can take place at full speed, even 8 MHz works
     bitClear(SS_PORT, cs_pin);
     rf12_byte(cmd >> 8) << 8;
@@ -338,8 +341,9 @@ uint16_t rf12_control(uint16_t cmd) {
 static void rf12_interrupt () {
     // a transfer of 2x 16 bits @ 2 MHz over SPI takes 2x 8 us inside this ISR
     // correction: now takes 2 + 8 µs, since sending can be done at 8 MHz
-    rf12_xfer(0x0000);
-
+    status = rf12_xfer(0x0000);
+    interruptCount++;
+    
     if (rxstate == TXRECV) {
         uint8_t in = rf12_xferSlow(RF_RX_FIFO_READ);
 
@@ -511,13 +515,24 @@ uint8_t rf12_recvDone () {
 uint8_t rf12_canSend () {
     // need interrupts off to avoid a race (and enable the RFM12B, thx Jorg!)
     // see http://openenergymonitor.org/emon/node/1051?page=3
-    if (rxstate == TXRECV && rxfill == 0 &&
-            (rf12_control(0x0000) & RF_RSSI_BIT) == 0) {
+    // also see https://github.com/jcw/jeelib/issues/33
+      
+    status = rf12_control(0x0000);
+    if (rxstate == TXRECV && rxfill == 0 && (status & RF_RSSI_BIT) == 0) {
+// What is going on - why has the above just become a problem? 1700o 2015/9/3
         rf12_control(RF_IDLE_MODE); // stop receiver
         rxstate = TXIDLE;
         return 1;
     }
     return 0;
+}
+
+uint16_t rf12_status() {
+    return status;
+}
+
+uint16_t rf12_interrupts() {
+    return interruptCount;
 }
 
 void rf12_skip_hdr (uint8_t skip) {
@@ -798,6 +813,7 @@ uint8_t rf12_configSilent () {
     
     frequency = eeprom_read_byte(RF12_EEPROM_ADDR + 5);
     frequency = (frequency << 8) + (eeprom_read_byte(RF12_EEPROM_ADDR + 4));
+        
     // the matchRF value is added in rf12_initialize from the static
     rf12_initialize(nodeId, nodeId >> 6, group, frequency);
     return nodeId & RF12_HDR_MASK;

@@ -80,6 +80,7 @@ const char RFM12x[] PROGMEM = "RFM12x ";
 const char RFM69x[] PROGMEM = "RFM69x ";
 const char BLOC[] PROGMEM = "BLOCK ";
 const char UNSUPPORTED[] PROGMEM = "Unsupported ";
+const char DONE[] PROGMEM = "Done\n";
 
 #define SALUSFREQUENCY 1660       // Default value
 unsigned int SalusFrequency = SALUSFREQUENCY;
@@ -360,7 +361,8 @@ static void saveConfig () {
     }
     messageCount = nonBroadcastCount = CRCbadCount = 0; // Clear stats counters
     if (!rf12_configSilent()) showString(INITFAIL);
-    activityLed(0);        
+    activityLed(0); 
+    showString(DONE);       
 } // saveConfig
 
 static byte bandToFreq (byte band) {
@@ -613,7 +615,7 @@ static void handleInput (char c) {
                     showString(UNSUPPORTED);
                     break;
                 } 
-            }
+            } else value = config.frequency_offset;
 #if !TINY
             // this code adds about 400 bytes to flash memory use
             // display the exact frequency associated with this setting
@@ -736,8 +738,8 @@ static void handleInput (char c) {
             RF69::control(REG_BITFDEVMSB | 0x80, 0x04);                   // 75kHz freq shift
             RF69::control(REG_BITFDEVLSB | 0x80, 0xCE);
     #else
-            rf12_control(RF12_DATA_RATE_2);                               // 2.4kbps
-            rf12_control(0x9830);                                         // 75khz freq shift
+            Serial.println(rf12_control(RF12_DATA_RATE_2));                               // 2.4kbps
+            Serial.println(rf12_control(0x9830));                                         // 75khz freq shift
     #endif
             rf12_sleep(RF12_WAKEUP);            // All set, wake up radio
 
@@ -1434,6 +1436,17 @@ void loop () {
         handleInput(Serial.read());
 #endif
     if (rf12_recvDone()) {
+        uint16_t f;
+        Serial.println((f = rf12_status()), HEX);
+        Serial.print(rf12_interrupts());
+        printOneChar(' ');
+        Serial.print(f, HEX);
+        printOneChar(' ');
+        if (f & 0x0010) printOneChar('-');
+        else printOneChar('+');
+        Serial.println(f & 0x000F); // Frequency offset
+        
+      
 #if RF69_COMPAT && !TINY
 
         observedRX.afc = (RF69::afc);                  // Grab values before next interrupt
@@ -1572,7 +1585,7 @@ void loop () {
             }
             printOneChar('%');
         } else {    // If we overflow then clear them all.
-             showString(PSTR(" Reset "));
+            showString(PSTR(" Reset "));
             CRCbadCount = messageCount = nonBroadcastCount = 0;
         }
 #if RF69_COMPAT && !TINY
@@ -1833,7 +1846,9 @@ void loop () {
             cmd = 0;
             activityLed(0);
         } else { // rf12_canSend
-            showString(PSTR(" Busy\n"));  // Not ready to send
+            uint16_t s = rf12_status();
+            showString(PSTR("Busy 0x"));  // Not ready to send
+            Serial.println(s, HEX);
             busyCount++;
             cmd = 0;                      // Request dropped
         }

@@ -112,6 +112,12 @@ uint8_t rf12_recvDone(void);
 /// @return true when a new transmission may be started with rf12_sendStart().
 uint8_t rf12_canSend(void);
 
+/// Call this to collect the status word from previous rf12_canSend()
+uint16_t  rf12_status(void);
+
+/// Call to collect the interrupt counter
+uint16_t  rf12_interrupts(void);
+
 /// Call this only when rf12_recvDone() or rf12_canSend() return true.
 void rf12_sendStart(uint8_t hdr);
 /// Call this to skip transmission of specific bytes in rf12_buf

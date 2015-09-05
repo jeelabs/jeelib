@@ -13,6 +13,7 @@
 
 #define REG_FIFO            0x00
 #define REG_OPMODE          0x01
+#define DATAMODUL           0x02 
 #define REG_BITRATEMSB      0x03
 #define REG_BITRATELSB      0x04
 #define REG_FRFMSB          0x07
@@ -148,7 +149,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x32, 0x2D, // SyncValue4 = 0x2D
   0x33, 0xD4, // SyncValue5 = 212, Group
 // 0x01, 0x04, // OpMode = standby
- // 0x02, 0x00, // DataModul = packet mode, fsk
+//  0x02, 0x03, // DataModul = packet mode, fsk, Gaussian filter, BT = 0.3
   0x03, 0x02, // BitRateMsb, data rate = 49,261 khz
   0x04, 0x8A, // BitRateLsb, divider = 32 MHz / 650 == 49,230 khz
 //  0x05, 0x02, // FdevMsb = 45 KHz
@@ -163,7 +164,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 // Mismatching PA1 below with the RFM69x module present risks blowing a hole in the LNA
 // 0x11, 0x5F, // PA1 enable, Pout = max // uncomment this for RFM69H
 */
-  0x18, 0x02, // Manual LNA = 2 = -6dB
+//  0x18, 0x02, // Manual LNA = 2 = -6dB
   0x19, 0x42, // RxBw 125 KHz
   0x1A, 0x42, // AfcBw 125 KHz Channel filter BW
 
@@ -179,7 +180,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 //  0x29, 0xA0, // RssiThresh ... -80dB
   0x29, 0xFF, // RssiThresh ... -127.5dB
 
-  0x2E, 0xA0, // SyncConfig = sync on, sync size = 5
+  0x2E, 0xA7, // SyncConfig = sync on, sync size = 5
   0x2F, 0xAA, // SyncValue1 = 0xAA
   0x30, 0xAA, // SyncValue2 = 0xAA
   0x31, 0xAA, // SyncValue3 = 0xAA
@@ -191,7 +192,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x3D, 0x10, // PacketConfig2, interpkt = 1, autorxrestart off
   0x58, 0x2D, // High sensitivity mode
   0x6F, 0x20, // 0x30, // TestDagc ...
-  0x71, 0x01, // AFC offset set for low modulation index systems, used if
+//  0x71, 0x01, // AFC offset set for low modulation index systems, used if
               // AfcLowBetaOn=1. Offset = LowBetaAfcOffset x 488 Hz 
   0
 };  
