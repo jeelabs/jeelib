@@ -8,7 +8,7 @@
 #endif
 ///////////////////////////////////////////////////////////////////////////////
 #define PINCHG_IRQ  0   // Set this true to use pin-change interrupts
-#define RF69_COMPAT 1   // Set this true to use the RF69 driver
+#define RF69_COMPAT 0   // Set this true to use the RF69 driver
                         // The above flags must be set similarly in RF12.cpp
 // NOTE: The following does not apply to the ATTiny processors which uses USI
 #define OPTIMIZE_SPI 1  // comment this out to write to the RFM69x @ 125Khz

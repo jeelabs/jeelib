@@ -14,7 +14,7 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 #define PINCHG_IRQ  0    // Set this true to use pin-change interrupts
-#define RF69_COMPAT 1    // Set this true to use the RF69 driver
+#define RF69_COMPAT 0    // Set this true to use the RF69 driver
                          // The above flags must be set similarly in RF69_avr.h
 
 // NOTE: The following does not apply to the ATTiny processors which uses USI
@@ -519,7 +519,6 @@ uint8_t rf12_canSend () {
       
     status = rf12_control(0x0000);
     if (rxstate == TXRECV && rxfill == 0 && (status & RF_RSSI_BIT) == 0) {
-// What is going on - why has the above just become a problem? 1700o 2015/9/3
         rf12_control(RF_IDLE_MODE); // stop receiver
         rxstate = TXIDLE;
         return 1;
@@ -528,7 +527,8 @@ uint8_t rf12_canSend () {
 }
 
 uint16_t rf12_status() {
-    return status;
+    uint16_t s = status; status = 0;
+    return s;
 }
 
 uint16_t rf12_interrupts() {
@@ -687,11 +687,12 @@ uint8_t rf12_initialize (uint8_t id, uint8_t band, uint8_t g, uint16_t f) {
         rf12_xfer(0x0000);
 
     rf12_xfer(0x80C7 | (band << 4)); // EL (ena TX), EF (ena RX FIFO), 12.0pF
-    // Note hardware matching value in matchRF below.
+    // Note that below hardware matching value added from matchRF
     rf12_xfer(0xA000 | ((frequency + matchRF) & 0x0FFF)); // 96-3960 freq range
     //
     rf12_xfer(0xC606); // approx 49.2 Kbps, i.e. 10000/29/(1+6) Kbps
-    rf12_xfer(0x94A0 | (rxThreshold & 0x07)); // VDI,FAST,134kHz,0dBm,-91dBm
+    // Note that below LNA(0-3)*8 + RSSI(0-5)*0 Threshold set from rxThreshold
+    rf12_xfer(0x94A0 | (rxThreshold & 0x1F)); // VDI,FAST,134kHz,(0dBm),(-91dBm)
     rf12_xfer(0xC2AC); // AL,!ml,DIG,DQD4
     if (group != 0) {
         rf12_xfer(0xCA83); // FIFO8,2-SYNC,!ff,DR

@@ -111,6 +111,9 @@ namespace RF69 {
     uint8_t  node;
     uint16_t crc;
     uint8_t  rssi;
+    uint8_t  rssiAbort;
+    uint8_t  rssiEndRX;
+    uint8_t  rssiEndTX;
     int16_t  afc;                  // I wonder how to make sure these 
     int16_t  fei;                  // are volatile
     uint8_t  lna;
@@ -152,8 +155,14 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 //  0x02, 0x03, // DataModul = packet mode, fsk, Gaussian filter, BT = 0.3
   0x03, 0x02, // BitRateMsb, data rate = 49,261 khz
   0x04, 0x8A, // BitRateLsb, divider = 32 MHz / 650 == 49,230 khz
+//  0x05, 0x00, // FdevMsb = 9.943 KHz
+//  0x06, 0xA3, // FdevLsb = 9.943 KHz
+//  0x05, 0x01, // FdevMsb = 23 KHz
+//  0x06, 0x79, // FdevLsb = 23 KHz
 //  0x05, 0x02, // FdevMsb = 45 KHz
 //  0x06, 0xE1, // FdevLsb = 45 KHz
+//  0x05, 0x05, // FdevMsb = 81 KHz
+//  0x06, 0x2F, // FdevLsb = 81 KHz
   0x05, 0x05, // FdevMsb = 90 KHz
   0x06, 0xC3, // FdevLsb = 90 KHz
   // 0x07, 0xD9, // FrfMsb, freq = 868.000 MHz
@@ -190,7 +199,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x38, 0x00, // PayloadLength = 0, unlimited
 //  0x3C, 0x8F, // FifoTresh, not empty, level 15 bytes
   0x3D, 0x10, // PacketConfig2, interpkt = 1, autorxrestart off
-  0x58, 0x2D, // High sensitivity mode
+//  0x58, 0x2D, // High sensitivity mode
   0x6F, 0x20, // 0x30, // TestDagc ...
 //  0x71, 0x01, // AFC offset set for low modulation index systems, used if
               // AfcLowBetaOn=1. Offset = LowBetaAfcOffset x 488 Hz 
@@ -506,6 +515,7 @@ void RF69::interrupt_compat () {
             packetShort++;
             rxfill = RF_MAX; // force TXRECV in RF69::recvDone_compat
         }    
+        rssiEndRX = readReg(REG_RSSIVALUE);
         setMode(MODE_STANDBY);
     } else if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
           writeReg(REG_TESTPA1, TESTPA1_NORMAL);    // Turn off high power 
@@ -513,6 +523,7 @@ void RF69::interrupt_compat () {
           // rxstate will be TXDONE at this point
           IRQ_ENABLE;       // allow nested interrupts from here on
           txP++;
+          rssiEndTX = readReg(REG_RSSIVALUE);
           setMode(MODE_STANDBY);
           rxstate = TXIDLE;
           if (group == 0) {               // Allow receiving from all groups
@@ -525,9 +536,8 @@ void RF69::interrupt_compat () {
           unexpected++;
           unexpectedFSM = rxstate; // Save Finite State Machine status
                 uint8_t f = readReg(REG_IRQFLAGS2);
-                if(f != 0) unexpectedIRQFLAGS2 = f;
-//                unexpectedIRQFLAGS2 = f;
-                if(f == 0) unexpectedIRQFLAGS2 = 0xFF;
+                if(f) unexpectedIRQFLAGS2 = f;
+                else unexpectedIRQFLAGS2 = 0xFF;
     }
     reentry = false;
 }
