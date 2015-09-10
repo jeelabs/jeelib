@@ -13,8 +13,8 @@
 #endif
 
 ///////////////////////////////////////////////////////////////////////////////
+#define RF69_COMPAT 1    // Set this true to use the RF69 driver
 #define PINCHG_IRQ  0    // Set this true to use pin-change interrupts
-#define RF69_COMPAT 0    // Set this true to use the RF69 driver
                          // The above flags must be set similarly in RF69_avr.h
 
 // NOTE: The following does not apply to the ATTiny processors which uses USI
