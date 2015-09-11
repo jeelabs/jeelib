@@ -1,6 +1,7 @@
 /// @file
 /// RFM12B driver implementation
 // 2009-02-09 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
+
 #include "RF12.h"
 #include <avr/io.h>
 #include <util/crc16.h>
@@ -149,6 +150,7 @@ enum {
     TXRECV,
     TXPRE1, TXPRE2, TXPRE3, TXSYN1, TXSYN2,
 };
+
 static uint8_t cs_pin = SS_BIT;     // chip select pin
 
 static uint8_t nodeid;              // address of this node
