@@ -1,6 +1,6 @@
 /// @dir RFxConsole
 ///////////////////////////////////////////////////////////////////////////////
-#define RF69_COMPAT      1   // define this to use the RF69 driver i.s.o. RF12 
+#define RF69_COMPAT      0   // define this to use the RF69 driver i.s.o. RF12 
 ///                           // The above flag must be set similarly in RF12.cpp
 ///                           // and RF69_avr.h
 #define BLOCK  0              // Alternate LED pin?
@@ -44,6 +44,7 @@
 #define REG_BITRATELSB 0x04  // RFM69 only, 0x8A, // BitRateLsb divider = 32 MHz / 650 == 49,230 khz
 #define REG_BITFDEVMSB 0x05  // RFM69 only, 0x02, // FdevMsb = 45 KHz
 #define REG_BITFDEVLSB 0x06  // RFM69 only, 0xE1, // FdevLsb = 45 KHz
+#define REG_RSSIVALUE  0x24
 #define REG_SYNCCONFIG 0x2E  // RFM69 only, register containing sync length
 #define oneByteSync    0x87  // RFM69 only, value to get only one byte sync with max bit errors.
 #define REG_SYNCGROUP  0x33  // RFM69 only, register containing group number
@@ -91,6 +92,10 @@ byte stickyGroup = 212;
 byte eepromWrite;
 byte qMin = ~0;
 byte qMax = 0;
+
+byte rssiAbort2 = 0;
+byte rssiEndRX2 = 0;
+byte rssiEndTX2 = 0;
 
 #if TINY
 // Serial support (output only) for Tiny supported by TinyDebugSerial
@@ -249,6 +254,9 @@ signed int afc;
 signed int fei;
 byte lna;
 byte rssi2;
+byte rssiAbort2;
+byte rssiEndRX2;
+byte rssiEndTX2;
 unsigned int offset_TX;
 byte RegPaLvl_TX;
 byte RegTestLna_TX;
@@ -359,7 +367,9 @@ static void saveConfig () {
             eepromWrite++;
         }
     }
+#if STATISTICS    
     messageCount = nonBroadcastCount = CRCbadCount = 0; // Clear stats counters
+#endif
     if (!rf12_configSilent()) showString(INITFAIL);
     activityLed(0); 
     showString(DONE);       
@@ -634,7 +644,23 @@ static void handleInput (char c) {
             printOneChar('0' + (f2 / 100) % 10);
             printOneChar('0' + (f2 / 10) % 10);
             printOneChar('0' + f2 % 10);
-            Serial.println(" MHz");
+            showString(PSTR(" MHz"));
+            
+  #if RF69_COMPAT
+      for (byte i = 0; i < 10; i++) {
+            showString(PSTR(" @"));
+// display current RSSI value in this channel
+            byte r = RF69::control(REG_RSSIVALUE, 0);
+            if (config.output & 0x1)                  // Hex output?
+                showByte(r);
+            else {
+                Serial.print(r >> 1);
+                if (r & 0x01) showString(PSTR(".5"));
+                showString(PSTR("dB "));
+            }
+      }
+  #endif
+            Serial.println();
 #endif
             break;
         }
@@ -1436,23 +1462,15 @@ void loop () {
         handleInput(Serial.read());
 #endif
     if (rf12_recvDone()) {
-        uint16_t f;
-        Serial.println((f = rf12_status()), HEX);
-        Serial.print(rf12_interrupts());
-        printOneChar(' ');
-        Serial.print(f, HEX);
-        printOneChar(' ');
-        if (f & 0x0010) printOneChar('-');
-        else printOneChar('+');
-        Serial.println(f & 0x000F); // Frequency offset
-        
       
 #if RF69_COMPAT && !TINY
-
         observedRX.afc = (RF69::afc);                  // Grab values before next interrupt
         observedRX.fei = (RF69::fei);
         observedRX.rssi2 = (RF69::rssi);
         observedRX.lna = (RF69::lna >> 3);
+        rssiAbort2 = (RF69::rssiAbort);
+        rssiEndRX2 = (RF69::rssiEndRX);
+        rssiEndTX2 = (RF69::rssiEndTX);
 
         if ((observedRX.afc) && (observedRX.afc != previousAFC)) { // Track volatility of AFC
             changedAFC++;    
@@ -1573,7 +1591,6 @@ void loop () {
             showString(PSTR(" t="));
             Serial.print((RF69::readTemperature(-10)));        
         }        
-#endif
         if ((CRCbadCount + 1) && (messageCount + 1) && (nonBroadcastCount + 1)) {
             showString(PSTR(" q="));
             unsigned long v = (messageCount + nonBroadcastCount);
@@ -1588,7 +1605,42 @@ void loop () {
             showString(PSTR(" Reset "));
             CRCbadCount = messageCount = nonBroadcastCount = 0;
         }
-#if RF69_COMPAT && !TINY
+/*
+        showString(PSTR(" A="));
+// display RSSI value Abort
+        if (config.output & 0x1)                  // Hex output?
+            showByte(rssiAbort2);
+        else {
+            Serial.print(rssiAbort2 >> 1);
+            if (rssiAbort2 & 0x01) showString(PSTR(".5"));
+            showString(PSTR("dB"));
+        }
+*/
+        
+        showString(PSTR(" R="));
+// display RSSI at the end of RX phase value
+        if (config.output & 0x1)                  // Hex output?
+            showByte(rssiEndRX2);
+        else {
+            Serial.print(rssiEndRX2 >> 1);
+            if (rssiEndRX2 & 0x01) showString(PSTR(".5"));
+            showString(PSTR("dB"));
+        }
+        
+        showString(PSTR(" T="));
+// display RSSI at the end of TX phase value
+        if (config.output & 0x1)                  // Hex output?
+            showByte(rssiEndTX2);
+        else {
+            Serial.print(rssiEndTX2 >> 1);
+            if (rssiEndTX2 & 0x01) showString(PSTR(".5"));
+            showString(PSTR("dB"));
+        }
+
+
+
+
+
 
         showString(PSTR(" ("));
 // display RSSI value after packet data
