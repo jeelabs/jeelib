@@ -368,7 +368,8 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
                     rxstate = TXRECV;
                     flushFifo();                    
                     writeReg(REG_DIOMAPPING1, DMAP1_SYNCADDRESS);// Interrupt trigger
- //                   setMode(MODE_RECEIVER);
+                    setMode(MODE_RECEIVER); // Why is this required?
+                    // if not included receiving long packets stops the flow
         // end identical code        
                     return ~0;
                 }

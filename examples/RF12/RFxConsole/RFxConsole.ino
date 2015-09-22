@@ -1,6 +1,6 @@
 /// @dir RFxConsole
 ///////////////////////////////////////////////////////////////////////////////
-#define RF69_COMPAT      0   // define this to use the RF69 driver i.s.o. RF12 
+#define RF69_COMPAT      1   // define this to use the RF69 driver i.s.o. RF12 
 ///                           // The above flag must be set similarly in RF12.cpp
 ///                           // and RF69_avr.h
 #define BLOCK  0              // Alternate LED pin?
@@ -510,6 +510,9 @@ static void showHelp () {
         showString(helpText2);
 #endif
 #if !TINY && configSTRING
+    Serial.print((__DATE__));
+    Serial.print(" ");
+    Serial.println((__TIME__));
   #if RF69_COMPAT
     showString(RFM69x);
   #else
@@ -1141,7 +1144,6 @@ void setup () {
 #if LED_PIN == 8
     showString(BLOC);
 #endif
-
 #if DEBUG
 //    dumpRegs();
     dumpEEprom();
@@ -1652,6 +1654,12 @@ void loop () {
             showString(PSTR("dB"));
         }
         printOneChar(')');
+/*
+#else
+        Serial.print(" (");
+        Serial.print(rf12_getRSSI());
+        Serial.print(")");
+*/
 #endif
         Serial.println();
         
