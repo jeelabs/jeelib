@@ -1,6 +1,5 @@
 /*
- * RFxSerial.c:
-
+  * RFxSerial.c:
  */
 
 #include <unistd.h>  // UNIX standard function definitions
@@ -57,33 +56,15 @@ int main () {
   tcgetattr(fd, &options);       // Get the current options for the port
   cfsetispeed(&options, B57600); // Set the baud rates to 57600
   cfsetospeed(&options, B57600);
-/*
-  options.c_cflag |= (CLOCAL | CREAD);    // Enable the receiver and set local mode
-  options.c_cflag &= ~PARENB;             // No parity bit
-  options.c_cflag &= ~CSTOPB;             // 1 stop bit
-  options.c_cflag &= ~CSIZE;              // Mask data size
-  options.c_cflag |=  CS8;                // Select 8 data bits
-  options.c_cflag &= ~CRTSCTS;            // Disable hardware flow control  
-  options.c_cc[VTIME] = 0;
-  options.c_cc[VMIN] = 0;
 
-  // Enable data to be processed as raw input
-  options.c_lflag &= ~(ICANON | ECHO | ECHOE | ECHOK | ECHONL | ECHOPRT | ECHOKE | ICRNL);
-
-  // Set the new attributes
-  tcsetattr(fd, TCSANOW, &options);  
-*/  
    openPipe();
    
-// Loop, getting and printing characters 
     rx_len = 14;
     for (;;) {
         while ((result = serialGetchar(fd)) != -1) {
             if (result == 13) result = '"';// Convert <cr> to string terminator           
             if (result == 10) break;
             rx_buf[rx_len++] = result;
-//            putchar(result);
-//            fflush (stdout) ;
         }
         if (rx_len > 14){
             rx_buf[rx_len++] = '\0';
@@ -102,12 +83,9 @@ int main () {
 		        fifo_length = read(our_input_fifo_filestream, (void*)fifo_buffer, 255);		
             //Filestream, buffer to store in, number of bytes to read (max)
 		        if (fifo_length < 0) printf("FIFO Read error\r");
-//			     else if (fifo_length == 0) printf ("No data\r") ;
             else if (fifo_length > 1) {
 				        // Bytes received
 				        fifo_buffer[fifo_length - 1] = '\0';  // Terminate the char
-
-//				        printf("FIFO %i bytes read : %s\n", fifo_length, fifo_buffer);
                 serialPrintf (fd, fifo_buffer); // Send string to RFxConsole
             }
 			  }
