@@ -24,7 +24,7 @@ int result;
 
 void openPipe() {
 // http://www.raspberry-projects.com/pi/programming-in-c/pipes/named-pipes-fifos
-//	printf("Making FIFO...\n");
+
 	result = mkfifo(OUR_INPUT_FIFO_NAME, 0777);		
   //(This will fail if the fifo already exists in the system from the app 
   // previously running, this is fine)
@@ -40,7 +40,6 @@ void openPipe() {
 					//											immediately with a failure status if the output can't be written immediately.
 	if (our_input_fifo_filestream == -1)
 		printf("Open failed FIFO: %i\n", our_input_fifo_filestream);
-//  return result;
 }
 
 int main () {
@@ -77,6 +76,22 @@ int main () {
             }
             rx_len = 14;
         }
+        /*
+        
+        It is possible to send commands through the serial port to
+        the attached JeeLink etc to adjust the configuration or post
+        semaphores and the like using:
+        echo "o" > /tmp/RFxSerial.input
+        to display the current frequency offset or 
+        echo "212,17,150p" > /tmp/RFxSerial.input
+        to post the value 150 for node 17 in group 212 to value to be
+        delivered the next time that node 17 requests a ACK with a packet.
+        
+        The commands so delivered may be delayed before being issued since
+        the fifi queue is only checked when the serial queue times out. This
+        timeout is 10 seconds after deliver of the last serial character.
+        
+        */
         
 		    // Read up to 255 characters from the FIFO if they are there
 		    if (our_input_fifo_filestream != -1)  {
