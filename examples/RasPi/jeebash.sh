@@ -20,10 +20,11 @@ fi
 
 # Get node number
 let node=${args[1]}
-let "node=$node&31" # strip ack/dst/ctl flags
+let "node=$node&159" # strip dst and ack flags
 #echo $@ >> args.txt
 #echo $node >> node.txt
 #
+# If ctl bit is set node will not match below - ignore ACK returns
 case $node in
 
 3) /etc/heyu/JeeRoomNodeDecoder.sh ${args[1]} ${args[2]} ${args[3]} ${args[4]} ${args[5]} ${args[6]} ${args[7]} ${args[8]} ${args[9]} ${args[10]} &
