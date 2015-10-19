@@ -50,13 +50,13 @@ uint8_t rf69_initialize (uint8_t id, uint8_t band, uint8_t group=0xD4, uint16_t 
     }
     RF69::setFrequency(freq * 10000000L + band * 2500L * ((off + matchRF) & 0x0FFF));
     RF69::group = group;
-    RF69::nodeid = id & RF12_HDR_MASK;
+    RF69::node = id & RF12_HDR_MASK;
     delay(20); // needed to make RFM69 work properly on power-up
     
 // I have moved the interrupt code below into RF69_avr.h routine
 // where better decisions can be made about pin_change interrupts or elsewise
 /*
-    if (RF69::nodeid != 0)
+    if (RF69::node != 0)
         attachInterrupt(IRQ_NUMBER, RF69::interrupt_compat, RISING);
     else
         detachInterrupt(IRQ_NUMBER);

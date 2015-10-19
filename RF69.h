@@ -4,7 +4,7 @@
 namespace RF69 {
     extern uint32_t frf;
     extern uint8_t  group;
-    extern uint8_t  nodeid;
+    extern uint8_t  node;
     extern uint8_t  rssi;
     extern uint8_t  rssiAbort;
     extern uint8_t  rssiEndRX;
