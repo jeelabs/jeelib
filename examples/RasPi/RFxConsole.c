@@ -69,10 +69,13 @@ int main () {
             rx_buf[rx_len++] = '\0';
             if ((rx_buf[14] == 'O') && (rx_buf[15] == 'K')) {
                 int ret = system(rx_buf);
-                printf("System Returned %i\n", ret);
+                if (ret)
+                  printf("System Returned %i\n", ret);
+                fflush (stdout);        
             } else {
                 rx_buf[rx_len - 2] = '\0';  // Drop trailing double quote
                 printf("%s\n", rx_buf + 14);
+                fflush (stdout);        
             }
             rx_len = 14;
         }
@@ -100,6 +103,11 @@ int main () {
 		        if (fifo_length < 0) printf("FIFO Read error\r");
             else if (fifo_length > 1) {
 				        // Bytes received
+                int ret = system("echo > /tmp/RFxConsole.txt"); // Clr log
+                if (ret)
+                  printf("System Returned %i\n", ret);
+                fflush (stdout);        
+                
 				        fifo_buffer[fifo_length - 1] = '\0';  // Terminate the char
                 serialPrintf (fd, fifo_buffer); // Send string to RFxConsole
             }

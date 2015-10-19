@@ -240,8 +240,8 @@ typedef struct {
     byte pad[RF12_EEPROM_SIZE - 11];
     word crc;
 } RF12Config;
-
 static RF12Config config;
+
 static char cmd;
 static unsigned int value;
 static byte stack[RF12_MAXDATA+4], top, sendLen, dest;
@@ -839,8 +839,9 @@ static void handleInput (char c) {
         case 'm': 
         // Message storage handliing
         // Remove a message string from RAM:
-        // messages should not be removed if queued or
+        // messages can not be removed if queued or
         // when any higher numbered messages are queued.
+        // TODO Bug removing entries with 131m
             byte *fromR;
             getMessage(255);                // Find highest message number
             if ((value >= MessagesStart) && (value <= topMessage)) {
@@ -910,6 +911,7 @@ static void handleInput (char c) {
                       semaphores[NodeMap] = value;
                       postingsIn++;
                       stickyGroup = stack[0];
+                      if (config.collect_mode) showString(PSTR("ACK's are disabled")); 
                   }
                   Serial.println();
             } else {
@@ -1521,6 +1523,7 @@ void loop () {
                 return;
             crc = false;
             showString(PSTR("   ?"));
+            n = n + 2;        // Also print the CRC
             if (n > 20) // print at most 20 bytes if crc is wrong
                 n = 20;
         }
