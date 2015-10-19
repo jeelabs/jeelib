@@ -340,7 +340,7 @@ static void InitIntPin () {
     #if PINCHG_IRQ && RF69_COMPAT
         EIMSK &= ~ (1 << INT);                // Disable INTx
         #if RFM_IRQ < 8
-            if (RF69::node != 0) {
+            if (RF69::nodeid != 0) {
                 bitClear(DDRB, RFM_IRQ);      // input
 //                bitSet(PORTB, RFM_IRQ);       // pull-up
                 bitSet(PCMSK0, RFM_IRQ);      // pin-change
@@ -349,7 +349,7 @@ static void InitIntPin () {
                 bitClear(PCMSK0, RFM_IRQ);
                 
         #elif RFM_IRQ < 16
-            if (RF69::node != 0) {
+            if (RF69::nodeid != 0) {
                 bitClear(DDRC, RFM_IRQ - 8);  // input
 //                bitSet(PORTC, RFM_IRQ - 8);   // pull-up
                 bitSet(PCMSK1, RFM_IRQ - 8);  // pin-change
@@ -359,7 +359,7 @@ static void InitIntPin () {
         // PCINT15 is not available in ATMega328
 
         #else
-            if (RF69::node != 0) {
+            if (RF69::nodeid != 0) {
                 bitClear(DDRD, RFM_IRQ - 16); // input
 //                bitSet(PORTD, RFM_IRQ - 16);  // pull-up
                 bitSet(PCMSK2, RFM_IRQ - 16); // pin-change
@@ -369,7 +369,7 @@ static void InitIntPin () {
                 bitClear(PCMSK2, RFM_IRQ - 16);
         #endif
     #elif RF69_COMPAT
-        if (RF69::node != 0)
+        if (RF69::nodeid != 0)
             attachInterrupt(INT_NUMBER, RF69::interrupt_compat, RISING);
         else
             detachInterrupt(INT_NUMBER);
@@ -380,7 +380,7 @@ static void InitIntPin () {
     #if PINCHG_IRQ && RF69_COMPAT
         GIMSK &= ~ (1 << INT);            // Disable INTx
         #if RFM_IRQ < 8   // Be aware of conflict with JNu serial input
-            if (RF69::node != 0) {
+            if (RF69::nodeid != 0) {
                 bitClear(DDRA, RFM_IRQ);      // input
 //               bitSet(PORTA, RFM_IRQ);       // pull-up
                 bitSet(PCMSK0, RFM_IRQ);      // pin-change
@@ -389,7 +389,7 @@ static void InitIntPin () {
                 bitClear(PCMSK0, RFM_IRQ);                   
 
         #elif RFM_IRQ > 7
-            if (RF69::node != 0) {
+            if (RF69::nodeid != 0) {
                 bitClear(DDRB, RFM_IRQ - 8);  // input
 //                bitSet(PORTB, RFM_IRQ - 8);   // pull-up
                 bitSet(PCMSK1, RFM_IRQ - 8);  // pin-change
@@ -398,7 +398,7 @@ static void InitIntPin () {
                 bitClear(PCMSK1, RFM_IRQ - 8);
         #endif                   
     #elif RF69_COMPAT
-        if (RF69::node != 0)
+        if (RF69::nodeid != 0)
             attachInterrupt(INT_NUMBER, RF69::interrupt_compat, RISING);
         else
             detachInterrupt(INT_NUMBER);

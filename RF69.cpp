@@ -102,13 +102,17 @@
 
 #define RF_MAX   72
 
+// bits in the node id configuration byte
+#define NODE_BAND       0xC0        // frequency band
+#define NODE_ID         RF12_HDR_MASK // id of this node, as A..Z or 1..31
+
 // transceiver states, these determine what to do with each interrupt
 enum { TXCRC1, TXCRC2, TXTAIL, TXDONE, TXIDLE, TXRECV };
 
 namespace RF69 {
     uint32_t frf;
     uint8_t  group;
-    uint8_t  node;
+    uint8_t  nodeid;
     uint16_t crc;
     uint8_t  rssi;
     uint8_t  rssiAbort;
@@ -355,8 +359,8 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
                 crc = 1;  // force bad crc for invalid packet                
             }
             if (crc == 0) {
-                if (!(rf12_hdr & RF12_HDR_DST) || node == 31 ||
-                    (rf12_hdr & RF12_HDR_MASK) == node) {
+                if (!(rf12_hdr & RF12_HDR_DST) || (nodeid & NODE_ID) == 31 ||
+                    (rf12_hdr & RF12_HDR_MASK) == (nodeid & NODE_ID)) {
                     return crc;
                 } else {
                     discards++;
@@ -389,7 +393,7 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
     rf12_len = len;
     for (int i = 0; i < len; ++i)
         rf12_data[i] = ((const uint8_t*) ptr)[i];
-    rf12_hdr = hdr & RF12_HDR_DST ? hdr : (hdr & ~RF12_HDR_MASK) + node; 
+    rf12_hdr = hdr & RF12_HDR_DST ? hdr : (hdr & ~RF12_HDR_MASK) + nodeid; 
 // TODO instruction below worries me now I have 4/5 byte sync
     rxstate = - (2 + rf12_len); // preamble and SYN1/SYN2 are sent by hardware
     flushFifo();
