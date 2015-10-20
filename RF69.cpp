@@ -168,7 +168,8 @@ uint8_t* recvBuf;
 uint16_t RF69::recvDone_compat (uint8_t* buf) {
     switch (rxstate) {
     case TXIDLE:
-        rxfill = rf12_len = 0;
+        //rxfill = rf12_len = 0;
+        rxfill = rf12_buf[2] = 0;
         crc = _crc16_update(~0, group);
         recvBuf = buf;
         rxstate = TXRECV;
