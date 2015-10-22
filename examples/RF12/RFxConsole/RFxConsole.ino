@@ -1,9 +1,10 @@
 /// @dir RFxConsole
 ///////////////////////////////////////////////////////////////////////////////
 #define RF69_COMPAT      1   // define this to use the RF69 driver i.s.o. RF12 
-///                           // The above flag must be set similarly in RF12.cpp
-///                           // and RF69_avr.h
-#define BLOCK  0              // Alternate LED pin?
+///                          // The above flag must be set similarly in RF12.cpp
+///                          // and RF69_avr.h
+#define BLOCK  0             // Alternate LED pin?
+#define INVERT_LED       0   // 0 is normal and 1 opposite
 ///////////////////////////////////////////////////////////////////////////////
 /// Configure some values in EEPROM for easy config of the RF12 later on.
 // 2009-05-06 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
@@ -60,7 +61,6 @@
 #define MAJOR_VERSION RF12_EEPROM_VERSION // bump when EEPROM layout changes
 #define MINOR_VERSION 0                   // bump on other non-trivial changes
 #define VERSION "\n[RFxConsole.2]"        // keep in sync with the above
-
 #if !configSTRING
 #define rf12_configDump()                 // Omit A i1 g210 @ 868 MHz q1
 #endif
@@ -170,6 +170,8 @@ static byte inChar () {
 #elif defined(__AVR_ATmega1284P__) // Moteino MEGA
 // http://lowpowerlab.com/moteino/#whatisitMEGA
 #define LED_PIN     15       // activity LED, comment out to disable on/off operation is reversed to a normal Jeenode
+#define LED_ON       1
+#define LED_OFF      0
 #define messageStore  255    // Contrained by byte variables
 #define MAX_NODES 1004       // Constrained by eeprom
 
@@ -193,7 +195,11 @@ static unsigned long now () {
 static void activityLed (byte on) {
 #ifdef LED_PIN
     pinMode(LED_PIN, OUTPUT);
+  #if INVERT_LED == 0
     digitalWrite(LED_PIN, !on);
+  #else
+    digitalWrite(LED_PIN, on);
+  #endif
 #endif
 }
 
@@ -911,7 +917,6 @@ static void handleInput (char c) {
                       semaphores[NodeMap] = value;
                       postingsIn++;
                       stickyGroup = stack[0];
-                      if (config.collect_mode) showString(PSTR("ACK's are disabled")); 
                   }
                   Serial.println();
             } else {
@@ -1523,9 +1528,9 @@ void loop () {
                 return;
             crc = false;
             showString(PSTR("   ?"));
-            n = n + 2;        // Also print the CRC
+//            n+2;        // Also print the CRC
             if (n > 20) // print at most 20 bytes if crc is wrong
-                n = 20;
+              n = 20;
         }
         if (config.output & 0x1)
             printOneChar('X');
@@ -1567,7 +1572,7 @@ void loop () {
             }
             lastTest = rf12_data[0];
         } else {
-       
+//            n = n + 2;  // DEBUG print the CRC field
             for (byte i = 0; i < n; ++i) {
                 if (!(config.output & 1)) // Decimal output?
                    printOneChar(' ');

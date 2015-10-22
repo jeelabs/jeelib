@@ -14,7 +14,7 @@ if [ "${yymmdd:6:2}" -ne "${date:8:2}" ]
   mv /etc/heyu/JeeRoomNodeDecoder.skipped /etc/heyu/archive/JeeRoomNodeDecoder-${date:0:4}${date:5:2}${date:8:2}.skipped
   touch /etc/heyu/JeeRoomNodeDecoder.skipped
 fi
-echo `date "+%Y/%m/%d %X"` $@ >> ./JeeRoomNodeDecoder.txt
+#echo `date "+%Y/%m/%d %X"` $@ >> ./JeeRoomNodeDecoder.txt
 	args=("$@")	# Assign to array
 #
 #     RoomNode
@@ -41,8 +41,8 @@ let "movement = ${args[2]} & 1"       # Low order bit indicates movement
 let "humidity = ${args[2]} >> 1"      # 
 #let "humidity = $humidity & 127"     # Loose low order bit if present
 #
-let "temp = ${args[4]} & 192"	        # Clear all but top 2 bits
-let "temp = temp << 2"                # Position bits 9&10
+let "temp = ${args[4]} & 3"	        # Clear all but top 2 bits
+let "temp = temp << 8"                # Position bits 9&10
 let "temp = temp + ${args[3]}"        # Add in bits 1-8
 #
 echo `date "+%Y/%m/%d %X"` $node $light $movement $humidity $temp >> /etc/heyu/JeeRoomNodeDecoder.dat

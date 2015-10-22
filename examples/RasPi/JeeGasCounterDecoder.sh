@@ -110,8 +110,8 @@ fi
 #   ]
 # }    
 # REMOVED from end of line below ,{"id":"voltage", "current_value":"'$voltage'"},{"id":"meter", "current_value":"'$newmeter'"}
-echo '{ "version":"1.0.0","datastreams":[ {"id":"temperature", "current_value":"'$temperature'"}]}' > /tmp/cosm.json
-/usr/bin/curl --request PUT --data-binary @/tmp/cosm.json --header "X-ApiKey: aykgZFSvrNzXgHpIrDVF4Zhat3OSAKx1SUJ1bDlTMU5IQT0g" http://api.cosm.com/v2/feeds/84359 >/dev/null 2>&1
+#echo '{ "version":"1.0.0","datastreams":[ {"id":"temperature", "current_value":"'$temperature'"}]}' > /tmp/cosm.json
+#/usr/bin/curl --request PUT --data-binary @/tmp/cosm.json --header "X-ApiKey: aykgZFSvrNzXgHpIrDVF4Zhat3OSAKx1SUJ1bDlTMU5IQT0g" http://api.cosm.com/v2/feeds/84359 >/dev/null 2>&1
 #echo $count $meter $jeecount >> count.txt
 #################################################################
 rm -rf "${LOCKDIR}"
