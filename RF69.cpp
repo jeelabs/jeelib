@@ -138,11 +138,13 @@ namespace RF69 {
     }
 
 static volatile uint8_t rxfill;      // number of data bytes in rf12_buf
+static volatile uint8_t rxdone;       // 
 static volatile int8_t rxstate;      // current transceiver state
 static volatile uint8_t packetBytes; // Count of bytes in packet
 static volatile uint16_t discards;   // Count of packets discarded
 static volatile uint8_t reentry = false;
-volatile uint8_t rf69_skip = 0;      // header bytes to skip
+static volatile uint8_t rf69_skip;   // header bytes to skip
+static volatile uint8_t rf69_fix;    // Maximum fixed length packet
 
 static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x2E, 0xA0, // SyncConfig = sync on, sync size = 5
@@ -271,6 +273,7 @@ void RF69::setFrequency (uint32_t freq) {
     // this is still 4 ppm, i.e. well below the radio's 32 MHz crystal accuracy
     // 868.0 MHz = 0xD90000, 868.3 MHz = 0xD91300, 915.0 MHz = 0xE4C000 
     frf = ((freq << 2) / (32000000L >> 11)) << 6;
+    rf69_skip = 0;    // Ensure default Jeenode RF12 operation
 }
 
 bool RF69::canSend () {
@@ -339,6 +342,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         // It would be nice to wrap this code up and share it with identical
         // code in case TXRECV below.
         rxfill = rf12_len = 0;
+        rxdone = false;
         crc = _crc16_update(~0, group);
         recvBuf = buf;
         rxstate = TXRECV;
@@ -349,7 +353,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         // end identical code        
         break;
     case TXRECV:
-        if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX) {
+        if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX || (rxdone)) {
             rxstate = TXIDLE;
             if (rf12_len > RF12_MAXDATA) {
                 crc = 1;  // force bad crc for invalid packet                
@@ -383,6 +387,11 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
 void RF69::skip_hdr (uint8_t skip) {
     rf69_skip = skip;
 }
+
+void RF69::fix_len (uint8_t fix) {
+    rf69_fix = fix;
+}
+
 
 void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
 
@@ -421,7 +430,6 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
                     case TXCRC1: out = crc; break;
                     case TXCRC2: out = crc >> 8;
                     rf12_crc = crc; 
-                    rf69_skip = 0; // Cancel frame skip if applicable
                     break;
                 }
             }
@@ -470,11 +478,11 @@ void RF69::interrupt_compat () {
             rxP++;
             crc = ~0;
             packetBytes = 0;
-            
+            payloadLen = rf69_fix; // Assumed maximum if no Jee header used            
             
             for (;;) { // busy loop, to get each data byte as soon as it comes in 
                 if (readReg(REG_IRQFLAGS2) & 
-                   (IRQ2_FIFONOTEMPTY|IRQ2_FIFOOVERRUN)) {
+                   (IRQ2_FIFONOTEMPTY /*| IRQ2_FIFOOVERRUN*/)) {
                     if (rxfill == 0 && group != 0) { 
                       recvBuf[rxfill++] = group;
                       packetBytes++;
@@ -482,7 +490,7 @@ void RF69::interrupt_compat () {
                     } 
                     volatile uint8_t in = readReg(REG_FIFO);
                     
-                    if (rxfill == 2) {
+                    if ((rxfill == 2) && (rf69_skip == 0)) {
                         if (in <= RF12_MAXDATA) {  // capture and
                             payloadLen = in;       // validate length byte
                         } else {
@@ -499,8 +507,7 @@ void RF69::interrupt_compat () {
                     recvBuf[rxfill++] = in;
                     packetBytes++;
                     crc = _crc16_update(crc, in);              
-                    if (rxfill >= (payloadLen + 5)) {  // Trap end of payload
-//                        writeReg(REG_AFCFEI, AfcClear);// Whilst in RX mode
+                    if (rxfill >= (payloadLen + (5 - rf69_skip))) {  // Trap end of payload
                         setMode(MODE_STANDBY);  // Get radio out of RX mode
                         stillCollecting = false;
                         break;
@@ -509,15 +516,15 @@ void RF69::interrupt_compat () {
 
         }
         byteCount = rxfill;
-        if (packetBytes < 5) underrun++;
+        if (packetBytes < (5 - rf69_skip)) underrun++;
             
         if (stillCollecting) {
             // We are exiting before a successful packet completion
             packetShort++;
-            rxfill = RF_MAX; // force TXRECV in RF69::recvDone_compat
         }    
         rssiEndRX = readReg(REG_RSSIVALUE);
         setMode(MODE_STANDBY);
+        rxdone = true;      // force TXRECV in RF69::recvDone_compat
     } else if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
           writeReg(REG_TESTPA1, TESTPA1_NORMAL);    // Turn off high power 
           writeReg(REG_TESTPA2, TESTPA2_NORMAL);    // transmit

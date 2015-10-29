@@ -184,6 +184,10 @@ void rf69_skip_hdr (uint8_t skip) {
     RF69::skip_hdr(skip);
 }
 
+void rf69_fix_len (uint8_t fix) {
+    RF69::fix_len (fix);
+}
+
 void rf69_sendStart (uint8_t hdr, const void* ptr, uint8_t len) {
     RF69::sendStart_compat(hdr, ptr, len);
 }

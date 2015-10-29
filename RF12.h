@@ -122,7 +122,10 @@ uint16_t  rf12_interrupts(void);
 void rf12_sendStart(uint8_t hdr);
 /// Call this to skip transmission of specific bytes in rf12_buf
 /// Default value 2 skips the Jeelib header enabling non-Jeelib FSK packets 
-void rf12_skip_hdr (uint8_t skip=2);
+void rf12_skip_hdr (uint8_t skip = 2);
+/// Call this to fix the receive length where rf12_len is not used
+/// Default value 16 will receive 16 bytes before forcing end of data packet
+void rf12_fix_len (uint8_t fix = 16);
 /// Call this only when rf12_recvDone() or rf12_canSend() return true.
 void rf12_sendStart(uint8_t hdr, const void* ptr, uint8_t len);
 /// This variant loops on rf12_canSend() and then calls rf12_sendStart() asap.

@@ -177,6 +177,7 @@ static long ezNextSend[2];          // when was last retry [0] or data [1] sent
 volatile uint16_t rf12_crc;         // running crc value
 volatile uint8_t rf12_buf[RF_MAX];  // recv/xmit buf, including hdr & crc bytes
 volatile uint8_t rf12_skip = 0;     // header bytes to skip
+volatile uint8_t fix_len;           // Maximum fixed length packet
 long rf12_seq;                      // seq number of encrypted packet (or -1)
 static uint8_t rf12_fixed_pkt_len;  // fixed packet length reception
 
@@ -539,6 +540,10 @@ uint16_t rf12_interrupts() {
 
 void rf12_skip_hdr (uint8_t skip) {
     rf12_skip = skip;
+}
+
+void rf12_fix_len (uint8_t fix) {
+    fix_len = fix;
 }
 
 void rf12_sendStart (uint8_t hdr) {
