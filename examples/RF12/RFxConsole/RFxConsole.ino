@@ -272,6 +272,9 @@ byte RegTestPa2_TX;
 static observed observedRX;
 //#endif
 
+byte ones = 0;
+byte other = 0;
+byte watchNode = 0;
 byte lastTest;
 byte busyCount;
 byte missedTests;
@@ -578,6 +581,8 @@ static void handleInput (char c) {
             Serial.println(freeRam());            
 //            Serial.println();
             value = top = 0;      // Clear up
+            ones = 0;
+            other = 0;
         }
 
     // keeping this out of the switch reduces code size (smaller branch table)
@@ -765,21 +770,30 @@ static void handleInput (char c) {
                 else value = SalusFrequency;
             }
             
-            rf12_initialize (config.nodeId, RF12_868MHZ, 212, SalusFrequency);      // 868.30 MHz
-            rf12_sleep(RF12_SLEEP);                                       // Sleep while we tweak things
+            rf12_initialize (config.nodeId, RF12_868MHZ, 212, SalusFrequency);  // 868.30 MHz
+            rf12_sleep(RF12_SLEEP);                                           // Sleep while we tweak things
     #if RF69_COMPAT
-            RF69::control(REG_BITRATEMSB | 0x80, 0x34);                   // 2.4kbps
+            RF69::control(REG_BITRATEMSB | 0x80, 0x34);                       // 2.4kbps
             RF69::control(REG_BITRATELSB | 0x80, 0x15);
-            RF69::control(REG_BITFDEVMSB | 0x80, 0x04);                   // 75kHz freq shift
+            RF69::control(REG_BITFDEVMSB | 0x80, 0x04);                       // 75kHz freq shift
             RF69::control(REG_BITFDEVLSB | 0x80, 0xCE);
     #else
             Serial.println(rf12_control(RF12_DATA_RATE_2));                               // 2.4kbps
             Serial.println(rf12_control(0x9830));                                         // 75khz freq shift
     #endif
+            rf12_skip_hdr(2);                   // Ommit Jeelib header 2 bytes on transmission & validating reception
+            rf12_fix_len(15);                   // Maximum fixed length packet size.
             rf12_sleep(RF12_WAKEUP);            // All set, wake up radio
 
-            if (top == 1) {
+            if (top >= 1) {
                 cmd = c;
+                // New Command format 165,8,0S == ON
+                // 165,8,17S
+//                stack[2] = value;
+//                stack[1] = OK;
+//                stack[0] = OK;  
+                sendLen = 5; //4?
+/*
                 // Command format 16,1S
                 // 16 is the ID
                 // 1 = ON
@@ -787,12 +801,13 @@ static void handleInput (char c) {
                 stack[3] = 90;
                 stack[2] = value | stack[0];
                 stack[1] = value;
-                sendLen = 4;
-                rf12_skip_hdr();                // Ommit Jeelib header 2 bytes on transmission
+                sendLen = 4; */
             }
             break;
 #endif
-
+        case 'W': // Watch specific packet type
+            watchNode = value;
+            break;
 #if OOK
         case 'f': // send FS20 command: <hchi>,<hclo>,<addr>,<cmd>f
             rf12_initialize(0, RF12_868MHZ, 0);
@@ -850,6 +865,7 @@ static void handleInput (char c) {
         // TODO Bug removing entries with 131m
             byte *fromR;
             getMessage(255);                // Find highest message number
+            Serial.println(topMessage);
             if ((value >= MessagesStart) && (value <= topMessage)) {
                 byte len = getMessage(value);
                 fromR = sourceR;                // Points to next message length byte, if RAM
@@ -865,6 +881,8 @@ static void handleInput (char c) {
                     displayString(&stack[sizeof stack - (len + 1)], len + 1);
                     Serial.println();
                     if ((valid) && (value <= topMessage)) {
+                        Serial.print("Copying memory len=");
+                        Serial.println(((sourceR - fromR) + 1));
                         memcpy((fromR - (len + 1)), fromR, ((sourceR - fromR) + 1));  
                     }                      
                 } 
@@ -1019,7 +1037,7 @@ static void handleInput (char c) {
         
     }
     
-    if ('a' <= c && c <= 'z' || 'R' <= c && c <= 'T' || '+' <= c && c <= '-') {
+    if ('a' <= c && c <= 'z' || 'R' <= c && c <= 'W' || '+' <= c && c <= '-') {
         showString(PSTR("> "));
         for (byte i = 0; i < top; ++i) {
             showByte(stack[i]);
@@ -1398,11 +1416,13 @@ static void nodeShow(byte group) {
     printOneChar(',');
     Serial.print(RF69::discards);
     printOneChar(',');
-    Serial.print(RF69::byteCount);  // Length of previous packet
+    Serial.print(RF69::byteCount);         // Length of previous packet
     printOneChar(',');
     Serial.print((RF69::payloadLen));      // Length of previous payload
     printOneChar(',');
+    printOneChar('{');
     Serial.print(RF69::badLen);            // Invalid payload lengths detected 
+    printOneChar('}');
     printOneChar(',');
     Serial.print((RF69::packetShort));     // Packet ended short
     printOneChar(',');
@@ -1470,6 +1490,7 @@ void loop () {
     if (Serial.available())
         handleInput(Serial.read());
 #endif
+//    for (byte i = 3; i < 66; i++) rf12_buf[i] = 0xEE;      // Paint the buffer
     if (rf12_recvDone()) {
       
 #if RF69_COMPAT && !TINY
@@ -1490,8 +1511,14 @@ void loop () {
             previousFEI = observedRX.fei;
         }
 #endif  
-        byte n = rf12_len;
+        byte n = rf12_len; // Also output the CRC
         byte crc = false;
+
+        
+        if (watchNode) {
+            if (rf12_buf[1] != watchNode) return;
+        }
+        
         if (rf12_crc == 0) {
 #if STATISTICS && !TINY
             messageCount++;                             // Count a broadcast packet
@@ -1512,15 +1539,48 @@ void loop () {
             activityLed(0);
             
 #if !TINY
-            if(rf12_buf[0] == 212 && (rf12_buf[1] | rf12_buf[2]) == rf12_buf[3] && rf12_buf[4] == 90){
+            if(rf12_buf[0] == 212 && (rf12_buf[1] | rf12_buf[2]) == rf12_buf[3] /*&& rf12_buf[4] == 90 */){
                 Serial.print((word) SalusFrequency, DEC);  
-                showString(PSTR(" Salus "));
+                showString(PSTR(" Salus I Channel "));
                 showByte(rf12_buf[1]);
                 printOneChar(':');
                 showByte(rf12_buf[2]);
                 Serial.println();
 //                return;
-                n = 2;
+                n = RF69::byteCount - 3;
+            }            
+            if(rf12_buf[0] == 212 && rf12_buf[1] >= 160) {
+                Serial.print((word) SalusFrequency, DEC);  
+                showString(PSTR(" Salus II Device:"));
+                Serial.print(rf12_buf[1]);
+
+                showString(PSTR(" Addr:"));
+                unsigned int addr = (rf12_buf[3] << 8) | rf12_buf[2];   // Guessing at a 16 bit address
+                Serial.print(addr);
+                showString(PSTR(" Type:"));
+                Serial.print(rf12_buf[4]);
+                switch (rf12_buf[1]) {
+                    case 165: // Thermostat
+                        printOneChar(' ');
+                        Serial.print((rf12_buf[6] << 8) | rf12_buf[5]);
+                        printOneChar(':');
+                        Serial.print((rf12_buf[8] << 8) | rf12_buf[7]);
+                        printOneChar(':');
+                        Serial.print((rf12_buf[10] << 8) | rf12_buf[9]);
+                        printOneChar(':');
+                        Serial.print(((rf12_buf[12] << 8) | rf12_buf[11]), HEX);
+                        break;
+                    case 166:   // OTO One Touch Override
+                        printOneChar(' ');
+                        Serial.print(rf12_buf[5]);
+                        break;
+                    default:
+                        showString(PSTR(" Unknown"));
+                      break;
+                }
+              
+                Serial.println();
+//                return;
             }            
 #endif
             
@@ -1528,9 +1588,9 @@ void loop () {
                 return;
             crc = false;
             showString(PSTR("   ?"));
-//            n+2;        // Also print the CRC
-            if (n > 20) // print at most 20 bytes if crc is wrong
-              n = 20;
+                n = 16;
+//            if (n > 20) // print at most 20 bytes if crc is wrong
+//              n = 20;
         }
         if (config.output & 0x1)
             printOneChar('X');
@@ -1572,7 +1632,6 @@ void loop () {
             }
             lastTest = rf12_data[0];
         } else {
-//            n = n + 2;  // DEBUG print the CRC field
             for (byte i = 0; i < n; ++i) {
                 if (!(config.output & 1)) // Decimal output?
                    printOneChar(' ');
@@ -1647,6 +1706,9 @@ void loop () {
             showString(PSTR("dB"));
         }
 
+        showString(PSTR(" L="));
+        Serial.print(RF69::byteCount);  // Length of packet
+        RF69::byteCount = 0;  // DEBUG                    
 
 
 
