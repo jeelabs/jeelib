@@ -14,7 +14,7 @@
 #endif
 
 ///////////////////////////////////////////////////////////////////////////////
-#define RF69_COMPAT 1    // Set this true to use the RF69 driver
+#define RF69_COMPAT 0    // Set this true to use the RF69 driver
 #define PINCHG_IRQ  0    // Set this true to use pin-change interrupts
                          // The above flags must be set similarly in RF69_avr.h
 
@@ -176,8 +176,8 @@ static long ezNextSend[2];          // when was last retry [0] or data [1] sent
 
 volatile uint16_t rf12_crc;         // running crc value
 volatile uint8_t rf12_buf[RF_MAX];  // recv/xmit buf, including hdr & crc bytes
-volatile uint8_t rf12_skip = 0;     // header bytes to skip
-volatile uint8_t fix_len;           // Maximum fixed length packet
+volatile uint8_t rf12_skip;         // header bytes to skip
+volatile uint8_t rf12_max_len;      // Maximum length packet accepted
 long rf12_seq;                      // seq number of encrypted packet (or -1)
 static uint8_t rf12_fixed_pkt_len;  // fixed packet length reception
 
@@ -385,7 +385,7 @@ static void rf12_interrupt () {
                 case TXCRC2: out = rf12_crc >> 8; break;
 #endif
                 case TXDONE: rf12_xfer(RF_IDLE_MODE); // fall through
-                             rf12_skip = 0; // Cancel frame skip if applicable
+//                             rf12_skip = 0; // Cancel frame skip if applicable
                 default:     out = 0xAA;
             }
 #if RF12_COMPAT
@@ -476,7 +476,7 @@ static void rf12_recvStart () {
 /// @see http://jeelabs.org/2010/12/11/rf12-acknowledgements/
 uint8_t rf12_recvDone () {
     if (rxstate == TXRECV &&
-            (rxfill >= rf12_len + 5 + RF12_COMPAT || rxfill >= RF_MAX)) {
+            (rxfill >= rf12_len + 5 + RF12_COMPAT || rxfill >= rf12_max_len)) {
         rxstate = TXIDLE;
         rf12_crc ^= crc_endVal;
         if (rf12_len > RF12_MAXDATA)
@@ -543,7 +543,8 @@ void rf12_skip_hdr (uint8_t skip) {
 }
 
 void rf12_fix_len (uint8_t fix) {
-    fix_len = fix;
+    if (!fix) rf12_max_len = RF_MAX; 
+    else rf12_max_len = fix;
 }
 
 void rf12_sendStart (uint8_t hdr) {
@@ -696,6 +697,9 @@ uint8_t rf12_initialize (uint8_t id, uint8_t band, uint8_t g, uint16_t f) {
     rf12_xfer(0x80C7 | (band << 4)); // EL (ena TX), EF (ena RX FIFO), 12.0pF
     // Note that below hardware matching value added from matchRF
     rf12_xfer(0xA000 | ((frequency + matchRF) & 0x0FFF)); // 96-3960 freq range
+    
+    rf12_skip = 0;    // Ensure default Jeenode RF12 operation
+    rf12_max_len = RF_MAX;    
     //
     rf12_xfer(0xC606); // approx 49.2 Kbps, i.e. 10000/29/(1+6) Kbps
     // Note that below LNA(0-3)*8 + RSSI(0-5)*0 Threshold set from rxThreshold

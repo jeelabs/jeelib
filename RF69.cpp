@@ -138,13 +138,13 @@ namespace RF69 {
     }
 
 static volatile uint8_t rxfill;      // number of data bytes in rf12_buf
-static volatile uint8_t rxdone;       // 
+static volatile uint8_t rxdone;      // 
 static volatile int8_t rxstate;      // current transceiver state
 static volatile uint8_t packetBytes; // Count of bytes in packet
 static volatile uint16_t discards;   // Count of packets discarded
 static volatile uint8_t reentry = false;
 static volatile uint8_t rf69_skip;   // header bytes to skip
-static volatile uint8_t rf69_fix;    // Maximum fixed length packet
+static volatile uint8_t rf69_fix;    // Maximum for fixed length packet
 
 static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x2E, 0xA0, // SyncConfig = sync on, sync size = 5
@@ -474,12 +474,11 @@ void RF69::interrupt_compat () {
             // The window for grabbing the above values is quite small
             // values available during transfer between the ether
             // and the inbound fifo buffer.
-//            writeReg(REG_AFCFEI, AfcClear); // Lock to this frequency?
             volatile uint8_t stillCollecting = true;
             rxP++;
             crc = ~0;
             packetBytes = 0;
-            payloadLen = rf69_fix; // Assumed maximum if no Jee header used            
+            payloadLen = rf69_fix; // Assumed value if no Jee header used            
             
             for (;;) { // busy loop, to get each data byte as soon as it comes in 
                 if (readReg(REG_IRQFLAGS2) & 
