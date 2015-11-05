@@ -1,5 +1,5 @@
 #!/bin/bash
-#echo "Start JeeCentralMonitor.sh" >> /tmp/JeeCentralMonitor
+#echo "Start"
 ####################################################
 ####################LOCKFILE########################
 LOCKDIR="/tmp/JeeCentralMonitor-lock"
@@ -25,11 +25,8 @@ let "command = ${args[1]}"
 #
 # Extract 2 bits of packet type
 let "type = ${args[2]} >> 6"
-# Extract 2 bit setback indicator
-let "setBack = ${args[2]} >> 4"
-let "setBack = $setBack & 3" 
 # Extract 6 bits of RX CRC error count
-let "badCRC = ${args[2]} & 15" 
+let "badCRC = ${args[2]} & 63" 
 #
 # Extract 4 bits 62 8 XX 16 2 0 0 0 0 255 255 0 0 0 0 0 0 (-70dB)
 let "attempts = ${args[3]} & 15"	# Get attempt number, strip high order 4 bits
@@ -42,31 +39,23 @@ let "sequence = ${args[3]} >> 4"	# Get sequence number, loose low order 4 bits
 # Extract battery voltage
 let "Voltage = ${args[4]}"
 # Extract Salus ID 49 145 XX 2 0 0 0 0 255 255 0 0 0 0 0 0 (-70dB)
-#let "SalusID = ${args[5]}"
-let "SalusID = (${args[6]} << 8) + ${args[5]}"
+let "SalusID = ${args[5]}"
 #echo $SalusID
 # Extract Salus command 49 145 16 X 0 0 0 0 255 255 0 0 0 0 0 0 (-70dB)
-let "SalusCommand = ${args[7]}" # 1 = ON & 2 = OFF
+let "SalusCommand = ${args[6]}" # 1 = ON & 2 = OFF
 #echo $SalusCommand
 #
 # Extract Salus noise counter
-let "SalusNoise = ${args[8]}"
+let "SalusNoise = ${args[7]}"
 #echo $SalusNoise
-# Extract current temperature
-let "currentTemp = (${args[10]} << 8) + ${args[9]}"
-# Extract lowest temperature
-let "lowestTemp = (${args[12]} << 8) + ${args[11]}"
-# Extract target temperature
-let "targetTemp = (${args[14]} << 8) + ${args[13]}"
- #
 # Extract Cold Feed Temperature
-let "ColdFeed = (${args[16]} << 8) + ${args[15]}"
+let "ColdFeed = (${args[9]} << 8) + ${args[8]}"
 # Extract Boiler Feed Temperature
-let "BoilerFeed = (${args[18]} << 8) + ${args[17]}"
+let "BoilerFeed = (${args[11]} << 8) + ${args[10]}"
 # Extract Central Heating Return Temperature
-let "CHreturn = (${args[20]} << 8) + ${args[19]}"
+let "CHreturn = (${args[13]} << 8) + ${args[12]}"
 # Extract Tank Coil Return Temperature
-let "TCreturn = (${args[22]} << 8) + ${args[21]}"
+let "TCreturn = (${args[15]} << 8) + ${args[14]}"
 
 # Collect latest temperature from RoomNode
 /usr/bin/tail -n1 /etc/heyu/JeeRoomNodeDecoder.dat > /tmp/latestRoomNode.dat # /tmp is a ram disk on RPi
@@ -76,7 +65,7 @@ read date time RoomNode light movement humidity temperature  < /tmp/latestRoomNo
 /usr/bin/tail -n1 /etc/heyu/GasMeter > /tmp/GasMeter # /tmp is a ram disk on RPi
 read date time GasMeter GasCount  < /tmp/GasMeter
 
-echo `date "+%Y/%m/%d %X"` $node $command $type $setBack $badCRC $sequence $attempts $Voltage $SalusID $SalusCommand $SalusNoise $currentTemp $lowestTemp $targetTemp $ColdFeed $BoilerFeed $CHreturn $TCreturn $temperature $GasMeter >> /etc/heyu/JeeCentralMonitor.dat
+echo `date "+%Y/%m/%d %X"` $node $command $type $badCRC $sequence $attempts $Voltage $SalusID $SalusCommand $SalusNoise $ColdFeed $BoilerFeed $CHreturn $TCreturn $temperature $GasMeter >> /etc/heyu/JeeCentralMonitor.dat
 
 #################################################################
 rm -rf "${LOCKDIR}"
@@ -86,7 +75,4 @@ echo `date "+%Y/%m/%d %X"` $@ >> /etc/heyu/JeeCentralMonitor.skipped
 fi
 #################################################################
 wget -q -O- "https://api.thingspeak.com/update?key=O64IA4X1ZIVU9DWN&field4=$Voltage&field5=$ColdFeed&field6=$BoilerFeed&field7=$CHreturn&field8=$TCreturn" > /dev/null 2>&1
-if [ $type -eq 2 ]
-then wget -q -O- "https://api.thingspeak.com/update?key=8M3XA5UWS5A1L1RN&field1=$currentTemp&field2=$lowestTemp&field3=$targetTemp" > /dev/null 2>&1
-fi
 #
