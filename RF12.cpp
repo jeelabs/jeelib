@@ -358,8 +358,9 @@ static void rf12_interrupt () {
 #endif
         rf12_buf[rxfill++] = in;
         rf12_crc = crc_update(rf12_crc, in);
-
-        if (rxfill >= rf12_len + 5 + RF12_COMPAT || rxfill >= RF_MAX)
+        // rf12_max_len has replaced RF_MAX below to permit shorter
+        // typically non Jee packets to be received sensibly.
+        if (rxfill >= rf12_len + 5 + RF12_COMPAT || rxfill >= rf12_max_len)
             rf12_xfer(RF_IDLE_MODE);
     } else {
         uint8_t out;
