@@ -187,6 +187,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 //  0x1E, 0x04, // AFC each time RX mode entered USELESS!
 // Radio frequency wanders off into the wilderness/ 
 //  0x25, 0x80, // DioMapping1 = RSSI threshold
+  0x26, 0x07, // disable clkout
 
 //  0x29, 0xA0, // RssiThresh ... -80dB
   0x29, 0xFF, // RssiThresh ... -127.5dB
