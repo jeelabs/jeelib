@@ -1,6 +1,6 @@
 /// @dir RFxConsole
 ///////////////////////////////////////////////////////////////////////////////
-#define RF69_COMPAT      1   // define this to use the RF69 driver i.s.o. RF12 
+#define RF69_COMPAT      0   // define this to use the RF69 driver i.s.o. RF12 
 ///                          // The above flag must be set similarly in RF12.cpp
 ///                          // and RF69_avr.h
 #define BLOCK  0             // Alternate LED pin?
@@ -84,6 +84,7 @@ const char UNSUPPORTED[] PROGMEM = "Unsupported ";
 const char DONE[] PROGMEM = "Done\n";
 
 #define SALUSFREQUENCY 1660       // Default value
+byte salusMode = false;
 unsigned int SalusFrequency = SALUSFREQUENCY;
 
 unsigned int NodeMap;
@@ -376,6 +377,7 @@ static void saveConfig () {
             eepromWrite++;
         }
     }
+    salusMode = false;
 #if STATISTICS    
     messageCount = nonBroadcastCount = CRCbadCount = 0; // Clear stats counters
 #endif
@@ -771,16 +773,17 @@ static void handleInput (char c) {
             }
             
             rf12_initialize (config.nodeId, RF12_868MHZ, 212, SalusFrequency);  // 868.30 MHz
-            rf12_sleep(RF12_SLEEP);                                           // Sleep while we tweak things
+            rf12_sleep(RF12_SLEEP);                                             // Sleep while we tweak things
     #if RF69_COMPAT
-            RF69::control(REG_BITRATEMSB | 0x80, 0x34);                       // 2.4kbps
+            RF69::control(REG_BITRATEMSB | 0x80, 0x34);                         // 2.4kbps
             RF69::control(REG_BITRATELSB | 0x80, 0x15);
-            RF69::control(REG_BITFDEVMSB | 0x80, 0x04);                       // 75kHz freq shift
+            RF69::control(REG_BITFDEVMSB | 0x80, 0x04);                         // 75kHz freq shift
             RF69::control(REG_BITFDEVLSB | 0x80, 0xCE);
     #else
-            Serial.println(rf12_control(RF12_DATA_RATE_2));                               // 2.4kbps
-            Serial.println(rf12_control(0x9830));                                         // 75khz freq shift
+            rf12_control(RF12_DATA_RATE_2);                                     // 2.4kbps
+            rf12_control(0x9830);                                               // 75khz freq shift
     #endif
+            salusMode = true;
             rf12_skip_hdr(2);                   // Ommit Jeelib header 2 bytes on transmission & validating reception
             rf12_fix_len(15);                   // Maximum fixed length packet size.
             rf12_sleep(RF12_WAKEUP);            // All set, wake up radio
@@ -1539,7 +1542,7 @@ void loop () {
             activityLed(0);
             
 #if !TINY
-            if(rf12_buf[0] == 212 && (rf12_buf[1] | rf12_buf[2]) == rf12_buf[3] /*&& rf12_buf[4] == 90 */){
+            if(rf12_buf[0] == 212 && (rf12_buf[1] | rf12_buf[2]) == rf12_buf[3] && (salusMode)){
                 Serial.print((word) SalusFrequency, DEC);  
                 showString(PSTR(" Salus I Channel "));
                 showByte(rf12_buf[1]);
@@ -1549,7 +1552,7 @@ void loop () {
 //                return;
                 n = RF69::byteCount - 3;
             }            
-            if(rf12_buf[0] == 212 && rf12_buf[1] >= 160) {
+            if(rf12_buf[0] == 212 && rf12_buf[1] >= 160 && (salusMode)) {
                 Serial.print((word) SalusFrequency, DEC);  
                 showString(PSTR(" Salus II Device:"));
                 Serial.print(rf12_buf[1]);

@@ -7,7 +7,7 @@
 #include <WProgram.h> // Arduino 0022
 #endif
 ///////////////////////////////////////////////////////////////////////////////
-#define RF69_COMPAT 1   // Set this true to use the RF69 driver
+#define RF69_COMPAT 0   // Set this true to use the RF69 driver
 #define PINCHG_IRQ  0   // Set this true to use pin-change interrupts
                         // The above flags must be set similarly in RF12.cpp
 // NOTE: The following does not apply to the ATTiny processors which uses USI
