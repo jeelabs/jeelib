@@ -1,6 +1,6 @@
 /// @dir RFxConsole
 ///////////////////////////////////////////////////////////////////////////////
-#define RF69_COMPAT      0   // define this to use the RF69 driver i.s.o. RF12 
+#define RF69_COMPAT      1   // define this to use the RF69 driver i.s.o. RF12 
 ///                          // The above flag must be set similarly in RF12.cpp
 ///                          // and RF69_avr.h
 #define BLOCK  0             // Alternate LED pin?
@@ -25,6 +25,8 @@
 // Added T & R commands to set hardware specific transmit & receive parameters
 // Added rolling percentage packet quality, displayed before any RSSI value with each packet
 // Added min/max for above
+// Basic verification that a Posting has been received. It should appear as rf12_data[0] in following packets
+
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
     #define TINY 1
 #endif
@@ -1915,11 +1917,13 @@ void loop () {
                         if (ackLen){
                             stack[(sizeof stack - (ackLen + 1))] = semaphores[NodeMap];
                         }
-                        ackLen++;                                                    // If 0 or message length then +1 for length byte 
-                        semaphores[NodeMap] = 0;
-                        // Assume it will be delivered and clear it.
-                        // TODO Can we respond to an ACK request and also request that the response be ACK'ed?
+                        ackLen++;                                                    // If 0 or message length then +1 for length byte
                         showString(PSTR("Posted "));
+                        if (rf12_data[0] == semaphores[NodeMap]) {  // Check if previous Post value is the first byte of this payload 
+                            semaphores[NodeMap] = 0;                // Indicating it was received
+                            showString(PSTR("and cleared "));
+                        }
+                        // TODO Can we respond to an ACK request and also request that the response be ACK'ed?
                         crlf = true;
                         displayString(&stack[sizeof stack - ackLen], ackLen);        // 1 more than Message length!                      
                         postingsOut++;
