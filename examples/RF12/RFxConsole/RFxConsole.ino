@@ -1664,21 +1664,21 @@ void loop () {
 
             showString(PSTR(" t="));
             Serial.print((RF69::readTemperature(-10)));        
-        }        
-        if ((CRCbadCount + 1) && (messageCount + 1) && (nonBroadcastCount + 1)) {
-            showString(PSTR(" q="));
-            unsigned long v = (messageCount + nonBroadcastCount);
-            byte q = ((v * 100) / (CRCbadCount + v));
-            Serial.print(q);
-            if ((messageCount + nonBroadcastCount + CRCbadCount) > 100) {
-                if (q < qMin) qMin = q;
-                if (q > qMax) qMax = q;
+
+            if ((CRCbadCount + 1) && (messageCount + 1) && (nonBroadcastCount + 1)) {
+                showString(PSTR(" q="));
+                unsigned long v = (messageCount + nonBroadcastCount);
+                byte q = ((v * 100) / (CRCbadCount + v));
+                Serial.print(q);
+                if ((messageCount + nonBroadcastCount + CRCbadCount) > 100) {
+                    if (q < qMin) qMin = q;
+                    if (q > qMax) qMax = q;
+                }
+                printOneChar('%');
+            } else {    // If we overflow then clear them all.
+                showString(PSTR(" Reset "));
+                CRCbadCount = messageCount = nonBroadcastCount = 0;
             }
-            printOneChar('%');
-        } else {    // If we overflow then clear them all.
-            showString(PSTR(" Reset "));
-            CRCbadCount = messageCount = nonBroadcastCount = 0;
-        }
 /*
         showString(PSTR(" A="));
 // display RSSI value Abort
@@ -1691,41 +1691,38 @@ void loop () {
         }
 */
         
-        showString(PSTR(" R="));
-// display RSSI at the end of RX phase value
-        if (config.output & 0x1)                  // Hex output?
-            showByte(rssiEndRX2);
-        else {
-            Serial.print(rssiEndRX2 >> 1);
-            if (rssiEndRX2 & 0x01) showString(PSTR(".5"));
-            showString(PSTR("dB"));
+            showString(PSTR(" R="));
+    // display RSSI at the end of RX phase value
+            if (config.output & 0x1)                  // Hex output?
+                showByte(rssiEndRX2);
+            else {
+                Serial.print(rssiEndRX2 >> 1);
+                if (rssiEndRX2 & 0x01) showString(PSTR(".5"));
+                showString(PSTR("dB"));
+            }
+            
+            showString(PSTR(" T="));
+    // display RSSI at the end of TX phase value
+            if (config.output & 0x1)                  // Hex output?
+                showByte(rssiEndTX2);
+            else {
+                Serial.print(rssiEndTX2 >> 1);
+                if (rssiEndTX2 & 0x01) showString(PSTR(".5"));
+                showString(PSTR("dB"));
+            }
+
+            showString(PSTR(" L="));
+            Serial.print(RF69::byteCount);  // Length of packet
+            RF69::byteCount = 0;  // DEBUG                    
         }
-        
-        showString(PSTR(" T="));
-// display RSSI at the end of TX phase value
-        if (config.output & 0x1)                  // Hex output?
-            showByte(rssiEndTX2);
-        else {
-            Serial.print(rssiEndTX2 >> 1);
-            if (rssiEndTX2 & 0x01) showString(PSTR(".5"));
-            showString(PSTR("dB"));
-        }
-
-        showString(PSTR(" L="));
-        Serial.print(RF69::byteCount);  // Length of packet
-        RF69::byteCount = 0;  // DEBUG                    
-
-
-
-
-
-        showString(PSTR(" ("));
+                
 // display RSSI value after packet data
+        showString(PSTR(" ("));
         if (config.output & 0x1)                  // Hex output?
             showByte(observedRX.rssi2);
         else {
             Serial.print(observedRX.rssi2 >> 1);
-            if (observedRX.rssi2 & 0x01) showString(PSTR(".5"));
+        if (observedRX.rssi2 & 0x01) showString(PSTR(".5"));
             showString(PSTR("dB"));
         }
         printOneChar(')');
