@@ -59,6 +59,7 @@
 #include <avr/eeprom.h>
 #include <avr/pgmspace.h>
 #include <util/parity.h>
+#include "release.h"    // Version tracking by dzach
 
 #define MAJOR_VERSION RF12_EEPROM_VERSION // bump when EEPROM layout changes
 #define MINOR_VERSION 0                   // bump on other non-trivial changes
@@ -525,7 +526,9 @@ static void showHelp () {
 #if !TINY && configSTRING
     Serial.print((__DATE__));
     Serial.print(" ");
-    Serial.println((__TIME__));
+    Serial.print((__TIME__));
+    Serial.print(" ");
+    Serial.println(VERSION_SIG);
   #if RF69_COMPAT
     showString(RFM69x);
   #else
