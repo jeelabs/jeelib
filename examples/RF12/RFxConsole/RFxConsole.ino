@@ -1,6 +1,6 @@
 /// @dir RFxConsole
 ///////////////////////////////////////////////////////////////////////////////
-#define RF69_COMPAT      1   // define this to use the RF69 driver i.s.o. RF12 
+#define RF69_COMPAT      0   // define this to use the RF69 driver i.s.o. RF12 
 ///                          // The above flag must be set similarly in RF12.cpp
 ///                          // and RF69_avr.h
 #define BLOCK  0             // Alternate LED pin?
@@ -1253,6 +1253,9 @@ memset(pktCount,0,sizeof(pktCount));
         config.collect_mode = true; // Default to no-ACK
         config.quiet_mode = true;   // Default flags, quiet on
         config.defaulted = true;    // Default config initialized
+#if RF69_COMPAT == 0
+        config.RegRssiThresh = 2;
+#endif
         saveConfig();
         config.defaulted = false;   // Value if UI saves config
         if (!rf12_configSilent())
