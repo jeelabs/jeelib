@@ -1,0 +1,14 @@
+{
+  "name": "JeeLib",
+  "keywords": "rf, radio, wireless",
+  "description": "A library for JeeNodes and for compatible devices, with drivers for its wireless radio modules",
+  "repository":
+  {
+    "type": "git",
+    "url": "https://github.com/jcw/jeelib.git"
+  },
+  "exclude": "Doxy*",
+  "examples": "examples/*/*/*.ino",
+  "frameworks": "arduino",
+  "platforms": "atmelavr"
+}
