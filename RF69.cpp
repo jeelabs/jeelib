@@ -236,6 +236,8 @@ void RF69::interrupt_compat () {
                 uint8_t in = readReg(REG_FIFO);
                 recvBuf[rxfill++] = in;
                 crc = _crc16_update(crc, in);
+                if (rf12_len > RF12_MAXDATA)
+                    rxfill = RF_MAX; // bail out now, the length is invalid
                 if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX)
                     break;
             }
