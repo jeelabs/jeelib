@@ -10,6 +10,7 @@ const uint8_t data[] PROGMEM = {
 };
 
 ParitySerial Target (RX_PIN, TX_PIN); // defaults to even parity
+uint8_t check;
 
 enum {
     ACK = 0x79,
@@ -19,26 +20,54 @@ enum {
 enum {
     GET_CMD = 0x00,
     GETID_CMD = 0x02,
+    WRITE_CMD = 0x31,
     ERASE_CMD = 0x43,
     EXTERA_CMD = 0x44,
     RDUNP_CMD = 0x92,
 };
 
+static uint8_t getData (uint16_t index) {
+    return pgm_read_byte(data + index);
+}
+
 static uint8_t getReply () {
-    for (long i = 0; i < 300000; ++i)
+    for (long i = 0; i < 200000; ++i)
         if (Target.available())
             return Target.read();
     return 0;
 }
 
 static void wantAck () {
-    uint8_t b = getReply();
-    if (b != ACK) {
-        Serial.println("FAILED - got ");
-        Serial.println(b, HEX);
-        while (true)
-            ; // halt
+    uint8_t b = 0;
+    for (int i = 0; i < 5; ++i) {
+        b = getReply();
+        if (b == 0) {
+            Serial.print('.');
+            continue;
+        }
+        if (b != ACK)
+            break;
+        check = 0;
+        return;
     }
+    Serial.print(" FAILED - got 0x");
+    Serial.println(b, HEX);
+    while (true)
+        ; // halt
+}
+
+static void sendByte (uint8_t b) {
+    check ^= b;
+    Target.write(b);
+}
+
+static void sendCmd (uint8_t cmd) {
+    //delay(100);
+    Serial.flush();
+    //Target.flush();
+    sendByte(cmd);
+    sendByte(~cmd);
+    wantAck();
 }
 
 static void connectToTarget () {
@@ -49,14 +78,8 @@ static void connectToTarget () {
         Serial.print(".");
         Target.write(0x7F);
         b = getReply();
-        Serial.print(b, HEX);
+        //Serial.print(b, HEX);
     } while (b != ACK && b != NAK);
-}
-
-static void sendCmd (uint8_t cmd) {
-    Target.write(cmd);
-    Target.write(~cmd);
-    wantAck();
 }
 
 static uint8_t getBootVersion () {
@@ -81,14 +104,14 @@ static uint16_t getChipType () {
 static void massErase () {
 #if 1
     sendCmd(ERASE_CMD);
-    Target.write((uint8_t) 0xFF);
-    Target.write((uint8_t) 0x00);
+    sendByte((uint8_t) 0xFF);
+    sendByte((uint8_t) 0x00);
     wantAck();
 #else
     sendCmd(EXTERA_CMD);
-    Target.write((uint8_t) 0xFF);
-    Target.write((uint8_t) 0xFF);
-    Target.write((uint8_t) 0xFF);
+    sendByte((uint8_t) 0xFF);
+    sendByte((uint8_t) 0xFF);
+    sendByte((uint8_t) 0xFF);
     wantAck();
 #endif
 }
@@ -98,8 +121,10 @@ void setup () {
     Serial.print("[uploadSTM32] ");
     Serial.println(BOOT_LOADER);
     Serial.println();
+    Serial.println("(When you see a question mark: RESET your TARGET board!)");
+    Serial.println();
 
-    Serial.print("  Connecting: ");
+    Serial.print("  Connecting? ");
     connectToTarget();
     Serial.println(" OK");
 
@@ -116,9 +141,37 @@ void setup () {
     wantAck();
     Serial.println("OK");
 
-    //Serial.print("     Erasing: ");
-    //massErase();
-    //Serial.println("OK");
+    Serial.print("    Resuming? ");
+    connectToTarget();
+    Serial.println(" OK");
+
+    Serial.print("     Erasing: ");
+    massErase();
+    Serial.println("OK");
+    
+    Serial.print("     Writing: ");
+    for (uint16_t offset = 0; offset < sizeof data; offset += 256) {
+        Serial.print('.');
+        sendCmd(WRITE_CMD);
+        uint32_t addr = 0x08000000 + offset;
+        sendByte(addr >> 24);
+        sendByte(addr >> 16);
+        sendByte(addr >> 8);
+        sendByte(addr);
+        sendByte(check);
+        wantAck();
+        sendByte(256-1);
+        //check = 0;
+        for (int i = 0; i < 256; ++i)
+            sendByte(getData(i));
+        sendByte(check);
+        wantAck();
+    }
+    Serial.println(" OK");
+
+    Serial.print("        Done: ");
+    Serial.print(sizeof data);
+    Serial.println(" bytes uploaded.");
 }
 
 void loop () {}
