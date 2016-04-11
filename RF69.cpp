@@ -202,7 +202,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x38, 0x00, // PayloadLength = 0, unlimited
 //  0x3C, 0x8F, // FifoTresh, not empty, level 15 bytes
   0x3D, 0x10, // PacketConfig2, interpkt = 1, autorxrestart off
-//  0x58, 0x2D, // High sensitivity mode
+  0x58, 0x2D, // High sensitivity mode
   0x6F, 0x20, // 0x30, // TestDagc ...
 //  0x71, 0x01, // AFC offset set for low modulation index systems, used if
               // AfcLowBetaOn=1. Offset = LowBetaAfcOffset x 488 Hz 
@@ -340,8 +340,6 @@ uint8_t* recvBuf;
 uint16_t RF69::recvDone_compat (uint8_t* buf) {
     switch (rxstate) {
     case TXIDLE:
-        // It would be nice to wrap this code up and share it with identical
-        // code in case TXRECV below.
         rxdone = false;
         //rxfill = rf12_len = 0;
         rxfill = rf12_buf[2] = 0;
@@ -352,32 +350,22 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         writeReg(REG_DIOMAPPING1, DMAP1_SYNCADDRESS);    // Interrupt trigger
         setMode(MODE_RECEIVER);
 //        writeReg(REG_AFCFEI, AfcClear);
-        // end identical code        
         break;
     case TXRECV:
         if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX || (rxdone)) {
             rxstate = TXIDLE;
             if (rf12_len > RF12_MAXDATA) {
-                crc = 1;  // force bad crc for invalid packet                
+                crc = 1;  // force bad crc for bad length packet                
             }
             if (crc == 0) {
                 if (!(rf12_hdr & RF12_HDR_DST) || node == 31 ||
                     (rf12_hdr & RF12_HDR_MASK) == node) {
-                    return crc;
+                    return 0; // it's for us, good packet received
                 } else {
                     discards++;
-        // It would be nice to wrap this code up and share it with identical
-        // code in case TXIDLE above.
-                    rxfill = rf12_len = 0;
-                    crc = _crc16_update(~0, group);
-                    recvBuf = buf;
-                    rxstate = TXRECV;
-                    flushFifo();                    
-                    writeReg(REG_DIOMAPPING1, DMAP1_SYNCADDRESS);// Interrupt trigger
-                    setMode(MODE_RECEIVER); // Why is this required?
-                    // if not included receiving long packets stops the flow
-        // end identical code        
-                    return ~0;
+                    // Packet wasn't for us so we want too discard it silently
+                    // This will happen on next entry to recvDone_compat
+                    // because rxstate == TXIDLE
                 }
             } else return 1;
         }
@@ -393,7 +381,6 @@ void RF69::skip_hdr (uint8_t skip) {
 void RF69::fix_len (uint8_t fix) {
     rf69_fix = fix;
 }
-
 
 void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
 
