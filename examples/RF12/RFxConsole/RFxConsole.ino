@@ -1,10 +1,10 @@
 /// @dir RFxConsole
 ///////////////////////////////////////////////////////////////////////////////
-#define RF69_COMPAT      0   // define this to use the RF69 driver i.s.o. RF12 
+#define RF69_COMPAT      1   // define this to use the RF69 driver i.s.o. RF12 
 ///                          // The above flag must be set similarly in RF12.cpp
 ///                          // and RF69_avr.h
 #define BLOCK  0             // Alternate LED pin?
-#define INVERT_LED       0   // 0 is normal and 1 opposite
+#define INVERT_LED       1   // 0 is normal and 1 opposite
 ///////////////////////////////////////////////////////////////////////////////
 /// Configure some values in EEPROM for easy config of the RF12 later on.
 // 2009-05-06 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
@@ -74,7 +74,7 @@
 #define messageStore  16
 #else
 #define TINY        0
-#define SERIAL_BAUD 57600   // adjust as needed
+#define SERIAL_BAUD 115200  // adjust as needed
 #define DATAFLASH   0       // set to 0 for non-JeeLinks, else 4/8/16 (Mbit)
 #endif
 
@@ -89,6 +89,8 @@ const char DONE[] PROGMEM = "Done\n";
 #define SALUSFREQUENCY 1660       // Default value
 byte salusMode = false;
 unsigned int SalusFrequency = SALUSFREQUENCY;
+
+byte verbosity = 0;
 
 unsigned int NodeMap;
 unsigned int newNodeMap;
@@ -857,6 +859,7 @@ static void handleInput (char c) {
             break;
 
         case 'v': // display the interpreter version
+            verbosity = value;        
             displayVersion();
             rf12_configDump();
 #if configSTRING
@@ -1732,6 +1735,19 @@ void loop () {
             showString(PSTR("dB"));
         }
         printOneChar(')');
+
+        if (verbosity) {
+            printOneChar(' ');
+            if (!(rf12_hdr & 0xA0)) showString(PSTR("Packet "));
+            else showString(PSTR("Ack "));
+            if (rf12_hdr & 0x20) showString(PSTR("Requested "));
+            if (rf12_hdr & 0x80) showString(PSTR("Reply "));
+            if (rf12_hdr & 0x40) showString(PSTR("to i"));
+            else showString(PSTR("from i"));
+            Serial.print(rf12_hdr & RF12_HDR_MASK);
+            showString(PSTR(" len "));
+            Serial.print(rf12_len);
+        }
 /*
 #else
         Serial.print(" (");
