@@ -1507,11 +1507,13 @@ void loop () {
 //    for (byte i = 3; i < 66; i++) rf12_buf[i] = 0xEE;      // Paint the buffer
     if (rf12_recvDone()) {
       
-#if RF69_COMPAT && !TINY
-        observedRX.afc = (RF69::afc);                  // Grab values before next interrupt
-        observedRX.fei = (RF69::fei);
-        observedRX.rssi2 = (RF69::rssi);
-        observedRX.lna = (RF69::lna >> 3);
+#if RF69_COMPAT && !TINY                // At this point the radio is in Standby
+//        rf12_recvDone();                // Attempt to buffer next RF packet
+                                        // At this point the receiver is active
+        observedRX.afc = rf12_afc;
+        observedRX.fei = rf12_fei;
+        observedRX.rssi2 = rf12_rssi;
+        observedRX.lna = rf12_lna >> 3;
         rssiAbort2 = (RF69::rssiAbort);
         rssiEndRX2 = (RF69::rssiEndRX);
         rssiEndTX2 = (RF69::rssiEndTX);

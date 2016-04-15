@@ -31,7 +31,6 @@ namespace RF69 {
     extern uint8_t  IRQFLAGS2;
     extern uint8_t  DIOMAPPING1;
 
-
     
     void setFrequency (uint32_t freq);
     bool canSend ();

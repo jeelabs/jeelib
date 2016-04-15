@@ -341,6 +341,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
     switch (rxstate) {
     case TXIDLE:
         rxdone = false;
+        rxfill = rf69_buf[2] = 0;
         crc = _crc16_update(~0, group);
         recvBuf = buf;
         rxstate = TXRECV;
@@ -356,7 +357,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
             rf12_lna = lna;
             rf12_afc = afc;
             rf12_fei = fei;
-            for (byte i = 0; i >= (rf69_len + 5); i++) {
+            for (byte i = 0; i <= (rf69_len + 5); i++) {
                 rf12_buf[i] = rf69_buf[i];
             }     
             rf12_crc = crc;
@@ -471,7 +472,6 @@ void RF69::interrupt_compat () {
             crc = ~0;
             packetBytes = 0;
             payloadLen = rf69_fix; // Assumed value if no Jee header used            
-            rxfill = rf69_buf[2] = 0;
 
             for (;;) { // busy loop, to get each data byte as soon as it comes in 
                 if (readReg(REG_IRQFLAGS2) & 
