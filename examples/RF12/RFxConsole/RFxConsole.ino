@@ -1737,9 +1737,8 @@ void loop () {
         printOneChar(')');
 
         if (verbosity) {
-            printOneChar(' ');
-            if (!(rf12_hdr & 0xA0)) showString(PSTR("Packet "));
-            else showString(PSTR("Ack "));
+            if (!(rf12_hdr & 0xA0)) showString(PSTR(" Packet "));
+            else showString(PSTR(" Ack "));
             if (rf12_hdr & 0x20) showString(PSTR("Requested "));
             if (rf12_hdr & 0x80) showString(PSTR("Reply "));
             if (rf12_hdr & 0x40) showString(PSTR("to i"));
