@@ -8,6 +8,8 @@
 
 volatile uint16_t rf69_crc;
 volatile uint8_t rf69_buf[72];
+#define rf69_hdr            rf69_buf[1]
+
 
 static byte nodeid; // only used in the easyPoll code
 static uint8_t group;               // network group

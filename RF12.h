@@ -81,6 +81,10 @@ extern volatile uint16_t rf12_crc;
 extern volatile uint8_t rf12_buf[];
 /// Seq number of encrypted packet (or -1).
 extern long rf12_seq;
+extern volatile uint8_t rf12_rssi;         // Only available with RFM69 hardware
+extern volatile uint8_t rf12_lna;          // Only available with RFM69 hardware
+extern volatile int16_t rf12_afc;          // Only available with RFM69 hardware
+extern volatile int16_t rf12_fei;          // Only available with RFM69 hardware
 
 //namespace RF12 { extern int16_t  intCount; }
         

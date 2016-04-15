@@ -341,25 +341,29 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
     switch (rxstate) {
     case TXIDLE:
         rxdone = false;
-        //rxfill = rf12_len = 0;
-        rxfill = rf12_buf[2] = 0;
         crc = _crc16_update(~0, group);
         recvBuf = buf;
         rxstate = TXRECV;
         flushFifo();
         writeReg(REG_DIOMAPPING1, DMAP1_SYNCADDRESS);    // Interrupt trigger
         setMode(MODE_RECEIVER);
-//        writeReg(REG_AFCFEI, AfcClear);
         break;
     case TXRECV:
-        if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX || (rxdone)) {
+        if (rxdone) {
             rxstate = TXIDLE;
-            if (rf12_len > RF12_MAXDATA) {
-                crc = 1;  // force bad crc for bad length packet                
-            }
+            // Move attributes & packet into rf12_buf
+            rf12_rssi = rssi;
+            rf12_lna = lna;
+            rf12_afc = afc;
+            rf12_fei = fei;
+            for (byte i = 0; i >= (rf69_len + 5); i++) {
+                rf12_buf[i] = rf69_buf[i];
+            }     
+            rf12_crc = crc;
+
             if (crc == 0) {
-                if (!(rf12_hdr & RF12_HDR_DST) || node == 31 ||
-                    (rf12_hdr & RF12_HDR_MASK) == node) {
+                if (!(rf69_hdr & RF12_HDR_DST) || node == 31 ||
+                    (rf69_hdr & RF12_HDR_MASK) == node) {
                     return 0; // it's for us, good packet received
                 } else {
                     discards++;
@@ -467,7 +471,8 @@ void RF69::interrupt_compat () {
             crc = ~0;
             packetBytes = 0;
             payloadLen = rf69_fix; // Assumed value if no Jee header used            
-            
+            rxfill = rf69_buf[2] = 0;
+
             for (;;) { // busy loop, to get each data byte as soon as it comes in 
                 if (readReg(REG_IRQFLAGS2) & 
                    (IRQ2_FIFONOTEMPTY /*| IRQ2_FIFOOVERRUN*/)) {
