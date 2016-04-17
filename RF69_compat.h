@@ -30,6 +30,7 @@ extern volatile uint8_t rf69_buf[72];
 #define rf12_canSend        rf69_canSend
 #define rf12_skip_hdr       rf69_skip_hdr
 #define rf12_fix_len        rf69_fix_len
+#define rf12_status         rf69_status
 #define rf12_sendStart      rf69_sendStart
 #define rf12_sendNow        rf69_sendNow
 #define rf12_sendWait       rf69_sendWait

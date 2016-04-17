@@ -8,7 +8,6 @@
 #define ROM_READ_UINT8  pgm_read_byte
 #define ROM_DATA        PROGMEM
 
-
 #define LIBRARY_VERSION     13      // Stored in REG_SYNCVALUE6 by initRadio 
 
 #define REG_FIFO            0x00
@@ -52,6 +51,7 @@
 
 #define MODE_SLEEP          0x00
 #define MODE_STANDBY        0x04
+#define MODE_FS             0x08
 #define MODE_RECEIVER       0x10
 #define MODE_LISTENABORT    0x20
 #define MODE_LISTENON       0x40
@@ -124,6 +124,9 @@ namespace RF69 {
     uint16_t unexpected;
     uint8_t  unexpectedFSM;
     uint8_t  unexpectedIRQFLAGS2;
+    uint8_t  modeChange1;
+    uint8_t  modeChange2;
+    uint8_t  modeChange3;
     uint16_t byteCount;
     uint16_t underrun;
     uint8_t  present;
@@ -240,10 +243,13 @@ static void flushFifo () {
         readReg(REG_FIFO);
 }
 
-static void setMode (uint8_t mode) {
+uint8_t setMode (uint8_t mode) {
+    byte c = 0;
     writeReg(REG_OPMODE, (readReg(REG_OPMODE) & 0xE3) | mode);
     while ((readReg(REG_IRQFLAGS1) & IRQ1_MODEREADY) == 0)
-         ;
+        c++;
+        ;
+    return c;
 }
 
 static uint8_t initRadio (ROM_UINT8* init) {
@@ -287,7 +293,7 @@ bool RF69::canSend () {
 }
 
 bool RF69::sending () {
-    return rxstate < TXIDLE;
+    return (rxstate < TXIDLE);
 }
 
 //  Note: RF12_WAKEUP returns with receiver mode disabled!
@@ -347,8 +353,10 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         rxstate = TXRECV;
         flushFifo();
         writeReg(REG_DIOMAPPING1, DMAP1_SYNCADDRESS);    // Interrupt trigger
-        setMode(MODE_RECEIVER);
+        modeChange1 = setMode(MODE_RECEIVER);// setting RX mode uses 33-36 spins
         break;
+ // We have a problem with canSend since it will no longer return true
+ // until the second buffer, if any, is requested by a call to recvDone.         
     case TXRECV:
         if (rxdone) {
             rxstate = TXIDLE;
@@ -387,6 +395,11 @@ void RF69::fix_len (uint8_t fix) {
     rf69_fix = fix;
 }
 
+uint16_t rf69_status () {
+    return (rxstate < 8) | rxfill;   
+}
+
+// Uses rf12_buf as the send buffer, rf69_buf reserved for RX
 void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
 
     rf12_len = len;
@@ -403,8 +416,8 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
     // REG_SYNCGROUP must have been set to an appropriate group before this.
     writeReg(REG_SYNCCONFIG, fiveByteSync);
     crc = _crc16_update(~0, readReg(REG_SYNCGROUP));
-
-    setMode(MODE_TRANSMITTER);
+    
+    modeChange2 = setMode(MODE_TRANSMITTER);
     writeReg(REG_DIOMAPPING1, DMAP1_PACKETSENT);     // Interrupt trigger
     
     if (rf12_len > 9)                       // Expedite short packet TX
@@ -435,7 +448,6 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
 /*  At this point packet is typically in the FIFO but not fully transmitted.
     transmission complete will be indicated by an interrupt.                   
 */
-
 
 }
 
@@ -487,7 +499,7 @@ void RF69::interrupt_compat () {
                         if (in <= RF12_MAXDATA) {  // capture and
                             payloadLen = in;       // validate length byte
                         } else {
-                            recvBuf[rxfill++] = 0; // Set rf12_len to zero!
+                            recvBuf[rxfill++] = 0; // Set rf69_len to zero!
                             payloadLen = -2;       // skip CRC in payload
                             in = ~0;               // fake CRC 
                             recvBuf[rxfill++] = in;// into buffer

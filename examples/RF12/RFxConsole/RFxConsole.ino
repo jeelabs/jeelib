@@ -188,7 +188,7 @@ static byte inChar () {
         #define LED_PIN     9        // activity LED, comment out to disable
     #endif
 #define messageStore  128
-#define MAX_NODES 100        // Contrained by RAM
+#define MAX_NODES 78        // Contrained by RAM (9 bytes RAM per node)
 #endif
 
 ISR(WDT_vect) { Sleepy::watchdogEvent(); }
@@ -1506,9 +1506,14 @@ void loop () {
 #endif
 //    for (byte i = 3; i < 66; i++) rf12_buf[i] = 0xEE;      // Paint the buffer
     if (rf12_recvDone()) {
+
+        byte modeChange1 = RF69::modeChange1;
+        byte modeChange2 = RF69::modeChange2;
+        byte modeChange3 = RF69::modeChange3;
+
       
 #if RF69_COMPAT && !TINY                // At this point the radio is in Standby
-//        rf12_recvDone();                // Attempt to buffer next RF packet
+        rf12_recvDone();                // Attempt to buffer next RF packet
                                         // At this point the receiver is active
         observedRX.afc = rf12_afc;
         observedRX.fei = rf12_fei;
@@ -1738,6 +1743,13 @@ void loop () {
         }
         printOneChar(')');
 
+        showString(PSTR(" mC1="));
+        Serial.print(modeChange1);
+        showString(PSTR(" mC2="));
+        Serial.print(modeChange2);
+        showString(PSTR(" mC3="));
+        Serial.print(modeChange3);
+        
         if (verbosity) {
             if (!(rf12_hdr & 0xA0)) showString(PSTR(" Packet "));
             else showString(PSTR(" Ack "));
@@ -1976,6 +1988,7 @@ void loop () {
         }
     } // rf12_recvDone
 
+    byte sendRetry = 3;
     if (cmd) {
         if (rf12_canSend()) {
             activityLed(1);
@@ -1989,6 +2002,7 @@ void loop () {
             if (config.group == 0) {
                 RF69::control(REG_SYNCGROUP | 0x80, stickyGroup);  // Set a group number to use for transmission
             }
+            delay(1);           // changing into TX mode is quicker than changing into RX mode for RF69.     
 #endif
             rf12_sendStart(header, stack, sendLen);
             rf12_sendWait(1);  // Wait for transmission complete
@@ -2007,7 +2021,8 @@ void loop () {
             showString(PSTR("Busy 0x"));  // Not ready to send
             Serial.println(s, HEX);
             busyCount++;
-            cmd = 0;                      // Request dropped
+            if ((sendRetry--) == 0) cmd = 0;                      // Request dropped
+            else delay(1);                                        // or try a little later
         }
     } // cmd
 } // loop
