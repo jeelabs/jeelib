@@ -1054,7 +1054,6 @@ static void handleInput (char c) {
             showByte(stack[i]);
             printOneChar(',');
         }
-//        showWord(value);
         Serial.print(value);
         Serial.println(c);
     }
@@ -1065,7 +1064,7 @@ static void handleInput (char c) {
         eepromWrite = 0;
         rf12_configDump();
     }    
-}
+} // handleInput
 
 #if MESSAGING
 static byte getMessage (byte rec) {
@@ -1105,7 +1104,7 @@ static byte getMessage (byte rec) {
     // *sourceR is pointing to the length byte of the next message
     sourceR++;  // *sourceR is now pointing to the length byte of the next message
     return len;
-}
+} // getMessage
 #endif
 
 static void displayString (const byte* data, byte count) {
@@ -1504,7 +1503,6 @@ void loop () {
     if (Serial.available())
         handleInput(Serial.read());
 #endif
-//    for (byte i = 3; i < 66; i++) rf12_buf[i] = 0xEE;      // Paint the buffer
     if (rf12_recvDone()) {
 
         byte modeChange1 = RF69::modeChange1;
@@ -1513,7 +1511,7 @@ void loop () {
 
       
 #if RF69_COMPAT && !TINY                // At this point the radio is in Standby
-        rf12_recvDone();                // Attempt to buffer next RF packet
+//        rf12_recvDone();                // Attempt to buffer next RF packet
                                         // At this point the receiver is active
         observedRX.afc = rf12_afc;
         observedRX.fei = rf12_fei;

@@ -284,7 +284,7 @@ void RF69::setFrequency (uint32_t freq) {
 }
 
 bool RF69::canSend () {
-    if (rxstate == TXRECV && rxfill == 0) {
+    if (rxstate == TXRECV && ((rxfill == 0) || (rxdone))) {
         rxstate = TXIDLE;
         setMode(MODE_STANDBY);
         return true;
@@ -396,7 +396,7 @@ void RF69::fix_len (uint8_t fix) {
 }
 
 uint16_t rf69_status () {
-    return (rxstate < 8) | rxfill;   
+    return (rxstate << 8) | rxfill;   
 }
 
 // Uses rf12_buf as the send buffer, rf69_buf reserved for RX
