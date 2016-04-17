@@ -430,7 +430,8 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
         if ((readReg(REG_IRQFLAGS2) & IRQ2_FIFOFULL) == 0) { // FIFO is 66 bytes
             uint8_t out = 0xAA; // To be used at end of packet
             if (rxstate < 0) {
-                out = recvBuf[3 + rf12_len + rf69_skip + rxstate];
+                // rf12_buf used since rf69_buf reserved for RX
+                out = rf12_buf[3 + rf12_len + rf69_skip + rxstate];
                 crc = _crc16_update(crc, out);
             } else {
                 switch (rxstate) {

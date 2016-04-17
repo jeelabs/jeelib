@@ -4,7 +4,7 @@
 ///                          // The above flag must be set similarly in RF12.cpp
 ///                          // and RF69_avr.h
 #define BLOCK  0             // Alternate LED pin?
-#define INVERT_LED       1   // 0 is normal and 1 opposite
+#define INVERT_LED       0   // 0 is normal and 1 opposite
 ///////////////////////////////////////////////////////////////////////////////
 /// Configure some values in EEPROM for easy config of the RF12 later on.
 // 2009-05-06 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
@@ -1511,7 +1511,7 @@ void loop () {
 
       
 #if RF69_COMPAT && !TINY                // At this point the radio is in Standby
-//        rf12_recvDone();                // Attempt to buffer next RF packet
+        rf12_recvDone();                // Attempt to buffer next RF packet
                                         // At this point the receiver is active
         observedRX.afc = rf12_afc;
         observedRX.fei = rf12_fei;
@@ -1968,6 +1968,7 @@ void loop () {
                     ackLen = 2;
                 }
 #if RF69_COMPAT && !TINY
+                delay(10);          // changing into TX mode is quicker than changing into RX mode for RF69.     
                 if (config.group == 0) {
                     showString(PSTR("g"));
                     showByte(rf12_grp);
@@ -2000,7 +2001,6 @@ void loop () {
             if (config.group == 0) {
                 RF69::control(REG_SYNCGROUP | 0x80, stickyGroup);  // Set a group number to use for transmission
             }
-            delay(1);           // changing into TX mode is quicker than changing into RX mode for RF69.     
 #endif
             rf12_sendStart(header, stack, sendLen);
             rf12_sendWait(1);  // Wait for transmission complete
