@@ -112,8 +112,8 @@ namespace RF69 {
     uint16_t crc;
     uint8_t  rssi;
     uint8_t  rssiAbort;
+    uint8_t  rssiStartRX;
     uint8_t  rssiEndRX;
-    uint8_t  rssiEndTX;
     int16_t  afc;                  // I wonder how to make sure these 
     int16_t  fei;                  // are volatile
     uint8_t  lna;
@@ -354,6 +354,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         flushFifo();
         writeReg(REG_DIOMAPPING1, DMAP1_SYNCADDRESS);    // Interrupt trigger
         modeChange1 = setMode(MODE_RECEIVER);// setting RX mode uses 33-36 spins
+        rssiStartRX = readReg(REG_RSSIVALUE);
         break;
  // We have a problem with canSend since it will no longer return true
  // until the second buffer, if any, is requested by a call to recvDone.         
@@ -537,7 +538,6 @@ void RF69::interrupt_compat () {
           // rxstate will be TXDONE at this point
           IRQ_ENABLE;       // allow nested interrupts from here on
           txP++;
-          rssiEndTX = readReg(REG_RSSIVALUE);
           setMode(MODE_STANDBY);
           rxstate = TXIDLE;
           if (group == 0) {               // Allow receiving from all groups

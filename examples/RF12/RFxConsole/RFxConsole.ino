@@ -4,7 +4,7 @@
 ///                          // The above flag must be set similarly in RF12.cpp
 ///                          // and RF69_avr.h
 #define BLOCK  0             // Alternate LED pin?
-#define INVERT_LED       0   // 0 is normal and 1 opposite
+#define INVERT_LED       1   // 0 is normal and 1 opposite
 ///////////////////////////////////////////////////////////////////////////////
 /// Configure some values in EEPROM for easy config of the RF12 later on.
 // 2009-05-06 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
@@ -100,8 +100,8 @@ byte qMin = ~0;
 byte qMax = 0;
 
 byte rssiAbort2 = 0;
+byte rssiStartRX2 = 0;
 byte rssiEndRX2 = 0;
-byte rssiEndTX2 = 0;
 
 #if TINY
 // Serial support (output only) for Tiny supported by TinyDebugSerial
@@ -249,7 +249,9 @@ typedef struct {
     byte RegPaLvl;          // See datasheet RFM69x Register 0x11, offset 6
     byte RegRssiThresh;     // See datasheet RFM69x Register 0x29, offset 7
     signed int matchingRF :8;// Frequency matching for this hardware, offset 8
-    byte pad[RF12_EEPROM_SIZE - 11];
+    byte ackDelay         :4;// Delay in ms added on turnaround RX to TX, RFM69
+    byte fourSpare        :4;// Unused
+    byte pad[RF12_EEPROM_SIZE - 12];
     word crc;
 } RF12Config;
 static RF12Config config;
@@ -267,8 +269,8 @@ signed int fei;
 byte lna;
 byte rssi2;
 byte rssiAbort2;
+byte rssiStartRX2;
 byte rssiEndRX2;
-byte rssiEndTX2;
 unsigned int offset_TX;
 byte RegPaLvl_TX;
 byte RegTestLna_TX;
@@ -632,7 +634,7 @@ static void handleInput (char c) {
         case 'g': // set network group
             config.group = value;
             saveConfig();
-            stickyGroup = value;
+//            stickyGroup = value;
             break;
 
         case 'o':{ // Offset frequency within band
@@ -724,6 +726,10 @@ static void handleInput (char c) {
                
         case 'c': // set collect mode (off = 0, on = 1)
             config.collect_mode = value;
+            if (top == 1) {
+                Serial.print(config.ackDelay); printOneChar(' ');
+                config.ackDelay = stack[0]; // Ack turnaround additional delay for RFM69
+            }
             saveConfig();
             break;
 
@@ -1258,6 +1264,7 @@ memset(pktCount,0,sizeof(pktCount));
         config.collect_mode = true; // Default to no-ACK
         config.quiet_mode = true;   // Default flags, quiet on
         config.defaulted = true;    // Default config initialized
+        config.ackDelay = 0;
 #if RF69_COMPAT == 0
         config.RegRssiThresh = 2;
 #endif
@@ -1504,11 +1511,12 @@ void loop () {
         handleInput(Serial.read());
 #endif
     if (rf12_recvDone()) {
-
+      
+#if DEBUG
         byte modeChange1 = RF69::modeChange1;
         byte modeChange2 = RF69::modeChange2;
         byte modeChange3 = RF69::modeChange3;
-
+#endif
       
 #if RF69_COMPAT && !TINY                // At this point the radio is in Standby
         rf12_recvDone();                // Attempt to buffer next RF packet
@@ -1518,8 +1526,8 @@ void loop () {
         observedRX.rssi2 = rf12_rssi;
         observedRX.lna = rf12_lna >> 3;
         rssiAbort2 = (RF69::rssiAbort);
+        rssiStartRX2 = (RF69::rssiStartRX);
         rssiEndRX2 = (RF69::rssiEndRX);
-        rssiEndTX2 = (RF69::rssiEndTX);
 
         if ((observedRX.afc) && (observedRX.afc != previousAFC)) { // Track volatility of AFC
             changedAFC++;    
@@ -1705,23 +1713,23 @@ void loop () {
         }
 */
         
-            showString(PSTR(" R="));
+            showString(PSTR(" Rb="));
     // display RSSI at the end of RX phase value
+            if (config.output & 0x1)                  // Hex output?
+                showByte(rssiStartRX2);
+            else {
+                Serial.print(rssiStartRX2 >> 1);
+                if (rssiStartRX2 & 0x01) showString(PSTR(".5"));
+                showString(PSTR("dB"));
+            }
+            
+            showString(PSTR(" Ra="));
+    // display RSSI at the end of TX phase value
             if (config.output & 0x1)                  // Hex output?
                 showByte(rssiEndRX2);
             else {
                 Serial.print(rssiEndRX2 >> 1);
                 if (rssiEndRX2 & 0x01) showString(PSTR(".5"));
-                showString(PSTR("dB"));
-            }
-            
-            showString(PSTR(" T="));
-    // display RSSI at the end of TX phase value
-            if (config.output & 0x1)                  // Hex output?
-                showByte(rssiEndTX2);
-            else {
-                Serial.print(rssiEndTX2 >> 1);
-                if (rssiEndTX2 & 0x01) showString(PSTR(".5"));
                 showString(PSTR("dB"));
             }
 
@@ -1740,15 +1748,16 @@ void loop () {
             showString(PSTR("dB"));
         }
         printOneChar(')');
-
-        showString(PSTR(" mC1="));
+#if DEBUG
+        showString(PSTR(" mCR1="));
         Serial.print(modeChange1);
-        showString(PSTR(" mC2="));
+        showString(PSTR(" mCT2="));
         Serial.print(modeChange2);
-        showString(PSTR(" mC3="));
+        showString(PSTR(" mCs3="));
         Serial.print(modeChange3);
-        
+#endif        
         if (verbosity) {
+//            xxx
             if (!(rf12_hdr & 0xA0)) showString(PSTR(" Packet "));
             else showString(PSTR(" Ack "));
             if (rf12_hdr & 0x20) showString(PSTR("Requested "));
@@ -1968,7 +1977,7 @@ void loop () {
                     ackLen = 2;
                 }
 #if RF69_COMPAT && !TINY
-                delay(10);          // changing into TX mode is quicker than changing into RX mode for RF69.     
+                delay(config.ackDelay);          // changing into TX mode is quicker than changing into RX mode for RF69.     
                 if (config.group == 0) {
                     showString(PSTR("g"));
                     showByte(rf12_grp);
