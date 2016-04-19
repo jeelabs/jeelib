@@ -56,6 +56,7 @@
 #define MODE_LISTENABORT    0x20
 #define MODE_LISTENON       0x40
 #define MODE_TRANSMITTER    0x0C
+#define MODE_MASK           0x1C
 #define TESTLNA_NORMAL      0x1B
 #define TESTLNA_BOOST       0x2D
 #define TESTPA1_NORMAL      0x55
@@ -86,7 +87,7 @@
 #define RcCalStart          0x81
 #define RcCalDone           0x40
 #define FeiDone             0x40
-#define RssiStart           0x01
+#define RssiStart           0x08  // Should be 0x01 according to documentation.
 #define RssiDone            0x02
 #define oneByteSync         0x80
 #define twoByteSync         0x88
@@ -111,9 +112,8 @@ namespace RF69 {
     uint8_t  node;
     uint16_t crc;
     uint8_t  rssi;
-    uint8_t  rssiAbort;
-    uint8_t  rssiStartRX;
-    uint8_t  rssiEndRX;
+    uint8_t  startRSSI;
+    uint8_t  rssiConfig;
     int16_t  afc;                  // I wonder how to make sure these 
     int16_t  fei;                  // are volatile
     uint8_t  lna;
@@ -315,6 +315,31 @@ uint8_t* RF69::SPI_pins() {
                         //  SPI_SS, SPI_MOSI, SPI_MISO, SPI_SCK }
 }
 
+uint8_t RF69::currentRSSI() {
+  if (rxstate == TXRECV && ((rxfill == 0) || (rxdone))) {
+
+      uint8_t storedMode = (readReg(REG_OPMODE) & MODE_MASK);
+      // avoid delay in changing modes unless required
+      if (storedMode != MODE_RECEIVER) {
+          setMode(MODE_RECEIVER);   // Looses contents of FIFO and 36 spins
+      }
+      uint8_t storeDIOM = readReg(REG_DIOMAPPING1); // Collect Interrupt trigger
+//      writeReg(REG_DIOMAPPING1, DMAP1_PAYLOADREADY);   // Suppres Interrupt
+
+      writeReg(REG_RSSICONFIG, 0xFF /*RssiStart*/);
+//      while (rssiConfig = readReg(REG_RSSICONFIG) & RssiStart)
+//        ;
+
+      rssiConfig = readReg(REG_RSSICONFIG);
+
+      rssiConfig = readReg(REG_RSSICONFIG);
+      uint8_t rssi = readReg(REG_RSSIVALUE);
+      if (storedMode != MODE_RECEIVER) setMode(storedMode); // Restore mode
+      return rssi;
+      
+  } else return 0;
+}
+
 // References to the RF12 driver above this line will generate compiler errors!
 #include <RF69_compat.h>
 #include <RF12.h>
@@ -352,15 +377,14 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         recvBuf = buf;
         rxstate = TXRECV;
         flushFifo();
-        writeReg(REG_DIOMAPPING1, DMAP1_SYNCADDRESS);    // Interrupt trigger
         modeChange1 = setMode(MODE_RECEIVER);// setting RX mode uses 33-36 spins
-        rssiStartRX = readReg(REG_RSSIVALUE);
+        startRSSI = currentRSSI();
+        writeReg(REG_DIOMAPPING1, DMAP1_SYNCADDRESS);    // Interrupt trigger
         break;
- // We have a problem with canSend since it will no longer return true
- // until the second buffer, if any, is requested by a call to recvDone.         
     case TXRECV:
         if (rxdone) {
             rxstate = TXIDLE;
+            
             // Move attributes & packet into rf12_buf
             rf12_rssi = rssi;
             rf12_lna = lna;
@@ -529,7 +553,6 @@ void RF69::interrupt_compat () {
             // We are exiting before a successful packet completion
             packetShort++;
         }    
-        rssiEndRX = readReg(REG_RSSIVALUE);
         setMode(MODE_STANDBY);
         rxdone = true;      // force TXRECV in RF69::recvDone_compat
     } else if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {

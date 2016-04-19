@@ -6,9 +6,8 @@ namespace RF69 {
     extern uint8_t  group;
     extern uint8_t  node;
     extern uint8_t  rssi;
-    extern uint8_t  rssiAbort;
-    extern uint8_t  rssiStartRX;
-    extern uint8_t  rssiEndRX;
+    extern uint8_t  startRSSI;
+    extern uint8_t  rssiConfig;
     extern int16_t  afc;
     extern int16_t  fei;
     extern uint8_t  lna;
@@ -43,7 +42,7 @@ namespace RF69 {
     int8_t readTemperature(int8_t);
     uint8_t* SPI_pins();  // {OPTIMIZE_SPI, PINCHG_IRQ, RF69_COMPAT, RFM_IRQ, 
                           //  SPI_SS, SPI_MOSI, SPI_MISO, SPI_SCK }
-    
+    uint8_t currentRSSI();     
     void configure_compat ();
     uint16_t recvDone_compat (uint8_t* buf);
 /// Call this to skip transmission of specific bytes in rf12_buf

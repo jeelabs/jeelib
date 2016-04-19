@@ -99,10 +99,6 @@ byte eepromWrite;
 byte qMin = ~0;
 byte qMax = 0;
 
-byte rssiAbort2 = 0;
-byte rssiStartRX2 = 0;
-byte rssiEndRX2 = 0;
-
 #if TINY
 // Serial support (output only) for Tiny supported by TinyDebugSerial
 // http://www.ernstc.dk/arduino/tinycom.html
@@ -268,9 +264,6 @@ signed int afc;
 signed int fei;
 byte lna;
 byte rssi2;
-byte rssiAbort2;
-byte rssiStartRX2;
-byte rssiEndRX2;
 unsigned int offset_TX;
 byte RegPaLvl_TX;
 byte RegTestLna_TX;
@@ -302,6 +295,7 @@ static byte lastLNA[MAX_NODES];
 static byte maxLNA[MAX_NODES];
 #endif
 #if RF69_COMPAT && !TINY
+static byte rssiStartRX2;
 static byte CRCbadMinRSSI = 255;
 static byte CRCbadMaxRSSI = 0;
 
@@ -672,10 +666,12 @@ static void handleInput (char c) {
             showString(PSTR(" MHz"));
             
   #if RF69_COMPAT
+      showString(PSTR(" Noise Floor"));
       for (byte i = 0; i < 10; i++) {
-            showString(PSTR(" @"));
+          Serial.print(RF69::rssiConfig);
+          showString(PSTR(" @"));
 // display current RSSI value in this channel
-            byte r = RF69::control(REG_RSSIVALUE, 0);
+            byte r = RF69::currentRSSI();
             if (config.output & 0x1)                  // Hex output?
                 showByte(r);
             else {
@@ -1511,7 +1507,7 @@ void loop () {
         handleInput(Serial.read());
 #endif
     if (rf12_recvDone()) {
-      
+        rssiStartRX2 = RF69::startRSSI;
 #if DEBUG
         byte modeChange1 = RF69::modeChange1;
         byte modeChange2 = RF69::modeChange2;
@@ -1525,9 +1521,6 @@ void loop () {
         observedRX.fei = rf12_fei;
         observedRX.rssi2 = rf12_rssi;
         observedRX.lna = rf12_lna >> 3;
-        rssiAbort2 = (RF69::rssiAbort);
-        rssiStartRX2 = (RF69::rssiStartRX);
-        rssiEndRX2 = (RF69::rssiEndRX);
 
         if ((observedRX.afc) && (observedRX.afc != previousAFC)) { // Track volatility of AFC
             changedAFC++;    
@@ -1712,17 +1705,20 @@ void loop () {
             showString(PSTR("dB"));
         }
 */
-        
-            showString(PSTR(" Rb="));
-    // display RSSI at the end of RX phase value
-            if (config.output & 0x1)                  // Hex output?
-                showByte(rssiStartRX2);
-            else {
-                Serial.print(rssiStartRX2 >> 1);
-                if (rssiStartRX2 & 0x01) showString(PSTR(".5"));
-                showString(PSTR("dB"));
+            showString(PSTR(" rC="));
+            Serial.print(RF69::rssiConfig);
+            if (rssiStartRX2) {
+                showString(PSTR(" Rs="));
+                // display RSSI at the start of RX phase value
+                if (config.output & 0x1)                  // Hex output?
+                    showByte(rssiStartRX2);
+                else {
+                    Serial.print(rssiStartRX2 >> 1);
+                    if (rssiStartRX2 & 0x01) showString(PSTR(".5"));
+                    showString(PSTR("dB"));
+                }
             }
-            
+/*            
             showString(PSTR(" Ra="));
     // display RSSI at the end of TX phase value
             if (config.output & 0x1)                  // Hex output?
@@ -1735,7 +1731,7 @@ void loop () {
 
             showString(PSTR(" L="));
             Serial.print(RF69::byteCount);  // Length of packet
-            RF69::byteCount = 0;  // DEBUG                    
+            RF69::byteCount = 0;  // DEBUG    */                
         }
                 
 // display RSSI value after packet data
