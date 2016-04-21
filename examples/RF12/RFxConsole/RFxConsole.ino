@@ -247,7 +247,8 @@ typedef struct {
     signed int matchingRF :8;// Frequency matching for this hardware, offset 8
     byte ackDelay         :4;// Delay in ms added on turnaround RX to TX, RFM69
     byte fourSpare        :4;// Unused
-    byte pad[RF12_EEPROM_SIZE - 12];
+    byte clearAir;           // Transmit permit threshold
+    byte pad[RF12_EEPROM_SIZE - 13];
     word crc;
 } RF12Config;
 static RF12Config config;
@@ -765,8 +766,12 @@ static void handleInput (char c) {
             dest = value;
             break;
 
-        case 'T': // Set hardware specific TX power in eeprom
-            config.RegPaLvl = value;
+        case 'T': 
+            // Set hardware specific TX power in eeprom
+            if(value) config.RegPaLvl = value;
+            // Transmit permit threshold
+            if(top = 1 && (stack[0])) config.clearAir = stack[0];
+            Serial.println(config.clearAir);
             saveConfig();
             break;
             
@@ -1967,6 +1972,10 @@ void loop () {
 #endif
                 }
                 crlf = true;
+                byte r = rf12_canSend(config.clearAir);
+#if RF69_COMPAT && !TINY
+                Serial.print(RF69::sendRSSI);
+#endif            
                 showString(PSTR(" -> ack "));
                 if (testPacket) {  // Return test packet number being ACK'ed
                     stack[(sizeof stack - 2)] = 0x80;
@@ -1984,11 +1993,11 @@ void loop () {
 #endif
                 printOneChar('i');
                 showByte(rf12_hdr & RF12_HDR_MASK);
-                if (rf12_canSend()) {
+                if (r) {
                     rf12_sendStart(RF12_ACK_REPLY, &stack[sizeof stack - ackLen], ackLen);
                     rf12_sendWait(1);
                 } else {
-                    showString(PSTR(" Dropped"));  // Airwaves busy, drop ACK and wait for retransmission.   
+                    showString(PSTR(" Aborted"));  // Airwaves busy, drop ACK and wait for retransmission.   
                 }
             }
             if (crlf) Serial.println();
@@ -1996,10 +2005,12 @@ void loop () {
             activityLed(0);
         }
     } // rf12_recvDone
-
+    byte r;
     if (cmd) {
-        if (rf12_canSend()) {
+        r = rf12_canSend(config.clearAir);
+        if (r) {
             activityLed(1);
+            Serial.print(r);
             showString(PSTR(" -> "));
             showByte(sendLen);
             showString(PSTR(" b\n"));
@@ -2024,18 +2035,20 @@ void loop () {
             cmd = 0;
             activityLed(0);
         } else { // rf12_canSend
-            uint16_t s = rf12_status();
-            showString(PSTR("Busy 0x"));       // Not ready to send
+            uint16_t s = rf12_status();            
+#if RF69_COMPAT && !TINY
+            Serial.print(RF69::sendRSSI);
+#endif            
+            showString(PSTR(" Busy 0x"));             // Not ready to send
             Serial.println(s, HEX);
             Serial.flush();
             busyCount++;
             if ((++sendRetry & 3) == 0) {
-//                printOneChar(value);
-                showString(PSTR(" Cancelled"));// Airwaves busy, drop the command
+                showString(PSTR("Command Aborted"));  // Drop the command
                 Serial.println();   
-                cmd = sendRetry = 0;           // Request dropped
+                cmd = sendRetry = 0;                  // Request dropped
             }
-            else delay(1);                     // or try a little later
+            else delay(sendRetry);                    // or try a little later
         }
     } // cmd
 } // loop
