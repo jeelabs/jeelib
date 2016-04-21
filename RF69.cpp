@@ -29,6 +29,7 @@
 #define REG_DIOMAPPING1     0x25
 #define REG_IRQFLAGS1       0x27
 #define REG_IRQFLAGS2       0x28
+#define REG_RSSITHRESHOLD   0x29
 #define REG_SYNCCONFIG      0x2E
 #define REG_SYNCVALUE1      0x2F
 #define REG_SYNCVALUE2      0x30
@@ -70,6 +71,7 @@
 
 #define IRQ1_MODEREADY      0x80
 #define IRQ1_RXREADY        0x40
+#define IRQ1_RSSI           0x08
 
 #define START_TX            0xA0  // With 125Khz SPI a minimum
 #define DELAY_TX            0x20  // 22 byte head start required, 32 to be safe 
@@ -113,6 +115,7 @@ namespace RF69 {
     uint16_t crc;
     uint8_t  rssi;
     uint8_t  startRSSI;
+    uint8_t  sendRSSI;
     uint8_t  rssiConfig;
     int16_t  afc;                  // I wonder how to make sure these 
     int16_t  fei;                  // are volatile
@@ -283,11 +286,23 @@ void RF69::setFrequency (uint32_t freq) {
     rf69_skip = 0;    // Ensure default Jeenode RF12 operation
 }
 
-bool RF69::canSend () {
-    if (rxstate == TXRECV && ((rxfill == 0) || (rxdone))) {
-        rxstate = TXIDLE;
-        setMode(MODE_STANDBY);
-        return true;
+uint8_t RF69::canSend (uint8_t clearAir) {
+    if ((rxfill == 0) || (rxdone)) {
+    /*
+        uint8_t storedMode = (readReg(REG_OPMODE) & MODE_MASK);
+        // avoid delay in changing modes unless required
+        if(storedMode != MODE_RECEIVER) setMode(MODE_RECEIVER);
+        if(readReg(REG_IRQFLAGS1) & IRQ1_RSSI) { // Is there traffic around?
+            if (storedMode != MODE_RECEIVER) setMode(storedMode);
+            return false;
+        }
+    */ 
+        sendRSSI = currentRSSI();
+        if(sendRSSI >= clearAir) {
+            rxstate = TXIDLE;
+            setMode(MODE_STANDBY);
+            return sendRSSI;
+        }
     }
     return false;
 }
@@ -316,26 +331,29 @@ uint8_t* RF69::SPI_pins() {
 }
 
 uint8_t RF69::currentRSSI() {
-  if (rxstate == TXRECV && ((rxfill == 0) || (rxdone))) {
+  if (/*rxstate == TXRECV && */((rxfill == 0) || (rxdone))) {
 
       uint8_t storedMode = (readReg(REG_OPMODE) & MODE_MASK);
+      uint8_t storeDIOM = readReg(REG_DIOMAPPING1); // Collect Interrupt trigger
       // avoid delay in changing modes unless required
       if (storedMode != MODE_RECEIVER) {
           setMode(MODE_RECEIVER);   // Looses contents of FIFO and 36 spins
       }
-      uint8_t storeDIOM = readReg(REG_DIOMAPPING1); // Collect Interrupt trigger
-//      writeReg(REG_DIOMAPPING1, DMAP1_PAYLOADREADY);   // Suppres Interrupt
+      // REG_DIOMAPPING1 is mode sensitive so can only
+      writeReg(REG_DIOMAPPING1, DMAP1_PAYLOADREADY);  // Suppress Interrupts
+      uint8_t noiseFloor = readReg(REG_RSSITHRESHOLD);// Store current threshold
+      writeReg(REG_RSSITHRESHOLD, 0xFF);              // Open up threshold
 
-      writeReg(REG_RSSICONFIG, 0xFF /*RssiStart*/);
+//      writeReg(REG_RSSICONFIG, 0x08 /*RssiStart*/);
 //      while (rssiConfig = readReg(REG_RSSICONFIG) & RssiStart)
 //        ;
-
-      rssiConfig = readReg(REG_RSSICONFIG);
-
-      rssiConfig = readReg(REG_RSSICONFIG);
-      uint8_t rssi = readReg(REG_RSSIVALUE);
+      uint8_t r = readReg(REG_RSSIVALUE);           // Collect RSSI value
+              r = readReg(REG_RSSIVALUE);           // Collect RSSI value
+      writeReg(REG_RSSITHRESHOLD, noiseFloor);      // Restore threshold
       if (storedMode != MODE_RECEIVER) setMode(storedMode); // Restore mode
-      return rssi;
+      // REG_DIOMAPPING1 is mode sensitive so can only restore to correct mode
+      writeReg(REG_DIOMAPPING1, storeDIOM);         // Restore Interrupt trigger
+      return r;
       
   } else return 0;
 }

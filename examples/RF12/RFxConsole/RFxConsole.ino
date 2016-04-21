@@ -279,6 +279,7 @@ byte watchNode = 0;
 byte lastTest;
 byte busyCount;
 byte missedTests;
+byte sendRetry = 0;
 unsigned int testTX;
 unsigned int testRX;
 
@@ -668,7 +669,7 @@ static void handleInput (char c) {
   #if RF69_COMPAT
       showString(PSTR(" Noise Floor"));
       for (byte i = 0; i < 10; i++) {
-          Serial.print(RF69::rssiConfig);
+//          Serial.print(RF69::rssiConfig);
           showString(PSTR(" @"));
 // display current RSSI value in this channel
             byte r = RF69::currentRSSI();
@@ -1659,11 +1660,11 @@ void loop () {
            }
         }
 #if RF69_COMPAT && !TINY
-        if (!config.quiet_mode) {
-            showString(PSTR(" a="));
+        if (verbosity) {
+/*            showString(PSTR(" a="));
             Serial.print(observedRX.afc);                        // TODO What units has this number?
             showString(PSTR(" f="));
-            Serial.print(observedRX.fei);                        // TODO What units has this number?
+            Serial.print(observedRX.fei);  */                      // TODO What units has this number?
 /*
             LNA gain setting:
             000 gain set by the internal AGC loop
@@ -1704,9 +1705,9 @@ void loop () {
             if (rssiAbort2 & 0x01) showString(PSTR(".5"));
             showString(PSTR("dB"));
         }
-*/
             showString(PSTR(" rC="));
             Serial.print(RF69::rssiConfig);
+*/            
             if (rssiStartRX2) {
                 showString(PSTR(" Rs="));
                 // display RSSI at the start of RX phase value
@@ -1752,8 +1753,8 @@ void loop () {
         showString(PSTR(" mCs3="));
         Serial.print(modeChange3);
 #endif        
-        if (verbosity) {
-//            xxx
+        if (verbosity > 1) {
+            if(!(crc)) showString(PSTR(" Bad"));
             if (!(rf12_hdr & 0xA0)) showString(PSTR(" Packet "));
             else showString(PSTR(" Ack "));
             if (rf12_hdr & 0x20) showString(PSTR("Requested "));
@@ -1983,8 +1984,12 @@ void loop () {
 #endif
                 printOneChar('i');
                 showByte(rf12_hdr & RF12_HDR_MASK);
-                rf12_sendStart(RF12_ACK_REPLY, &stack[sizeof stack - ackLen], ackLen);
-                rf12_sendWait(1);
+                if (rf12_canSend()) {
+                    rf12_sendStart(RF12_ACK_REPLY, &stack[sizeof stack - ackLen], ackLen);
+                    rf12_sendWait(1);
+                } else {
+                    showString(PSTR(" Dropped"));  // Airwaves busy, drop ACK and wait for retransmission.   
+                }
             }
             if (crlf) Serial.println();
 
@@ -1992,7 +1997,6 @@ void loop () {
         }
     } // rf12_recvDone
 
-    byte sendRetry = 3;
     if (cmd) {
         if (rf12_canSend()) {
             activityLed(1);
@@ -2021,11 +2025,17 @@ void loop () {
             activityLed(0);
         } else { // rf12_canSend
             uint16_t s = rf12_status();
-            showString(PSTR("Busy 0x"));  // Not ready to send
+            showString(PSTR("Busy 0x"));       // Not ready to send
             Serial.println(s, HEX);
+            Serial.flush();
             busyCount++;
-            if ((sendRetry--) == 0) cmd = 0;                      // Request dropped
-            else delay(1);                                        // or try a little later
+            if ((++sendRetry & 3) == 0) {
+//                printOneChar(value);
+                showString(PSTR(" Cancelled"));// Airwaves busy, drop the command
+                Serial.println();   
+                cmd = sendRetry = 0;           // Request dropped
+            }
+            else delay(1);                     // or try a little later
         }
     } // cmd
 } // loop

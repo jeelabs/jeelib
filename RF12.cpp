@@ -522,7 +522,7 @@ uint8_t rf12_recvDone () {
 /// Note that even if you only want to send out packets, you still have to call
 /// rf12_recvDone() periodically, because it keeps the RFM12B logic going. If
 /// you don't, rf12_canSend() will never return true.
-uint8_t rf12_canSend () {
+uint8_t rf12_canSend (uint8_t clearAir) {
     // need interrupts off to avoid a race (and enable the RFM12B, thx Jorg!)
     // see http://openenergymonitor.org/emon/node/1051?page=3
     // also see https://github.com/jcw/jeelib/issues/33

@@ -7,6 +7,7 @@ namespace RF69 {
     extern uint8_t  node;
     extern uint8_t  rssi;
     extern uint8_t  startRSSI;
+    extern uint8_t  sendRSSI;
     extern uint8_t  rssiConfig;
     extern int16_t  afc;
     extern int16_t  fei;
@@ -35,7 +36,7 @@ namespace RF69 {
 
     
     void setFrequency (uint32_t freq);
-    bool canSend ();
+    uint8_t canSend (uint8_t clearAir);
     bool sending ();
     void sleep (bool off);
     uint8_t control(uint8_t cmd, uint8_t val);

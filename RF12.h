@@ -114,7 +114,7 @@ uint8_t rf12_recvDone(void);
 
 /// Call this to check whether a new transmission can be started.
 /// @return true when a new transmission may be started with rf12_sendStart().
-uint8_t rf12_canSend(void);
+uint8_t rf12_canSend(uint8_t clearAir = 0xFF);
 
 /// Call this to collect the status word from previous rf12_canSend()
 uint16_t  rf12_status(void);
