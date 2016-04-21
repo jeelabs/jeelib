@@ -287,7 +287,8 @@ void RF69::setFrequency (uint32_t freq) {
 }
 
 uint8_t RF69::canSend (uint8_t clearAir) {
-    if ((rxfill == 0) || (rxdone)) {
+  if (/*rxstate == TXRECV && */((rxfill == 0) || (rxdone))) {
+  // Need to better understand the FSM since buffer is filled without interrupts
     /*
         uint8_t storedMode = (readReg(REG_OPMODE) & MODE_MASK);
         // avoid delay in changing modes unless required
@@ -469,6 +470,9 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
                                               
     // use busy polling until the last byte fits into the buffer
     // this makes sure it all happens on time, and that sendWait can sleep
+    //
+    // TODO This is not interrupt code, how can sendWait sleep, control isn't
+    // passed back. JohnO
     while (rxstate < TXDONE)
         if ((readReg(REG_IRQFLAGS2) & IRQ2_FIFOFULL) == 0) { // FIFO is 66 bytes
             uint8_t out = 0xAA; // To be used at end of packet

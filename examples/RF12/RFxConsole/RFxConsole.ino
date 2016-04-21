@@ -90,7 +90,6 @@ const char DONE[] PROGMEM = "Done\n";
 byte salusMode = false;
 unsigned int SalusFrequency = SALUSFREQUENCY;
 
-byte verbosity = 0;
 
 unsigned int NodeMap;
 unsigned int newNodeMap;
@@ -245,9 +244,9 @@ typedef struct {
     byte RegPaLvl;          // See datasheet RFM69x Register 0x11, offset 6
     byte RegRssiThresh;     // See datasheet RFM69x Register 0x29, offset 7
     signed int matchingRF :8;// Frequency matching for this hardware, offset 8
-    byte ackDelay         :4;// Delay in ms added on turnaround RX to TX, RFM69
-    byte fourSpare        :4;// Unused
-    byte clearAir;           // Transmit permit threshold
+    byte ackDelay         :4;// Delay in ms added on turnaround RX to TX, RFM69 offset 9
+    byte verbosity        :4;// Controls output format
+    byte clearAir;           // Transmit permit threshold, offset 10
     byte pad[RF12_EEPROM_SIZE - 13];
     word crc;
 } RF12Config;
@@ -771,7 +770,6 @@ static void handleInput (char c) {
             if(value) config.RegPaLvl = value;
             // Transmit permit threshold
             if(top = 1 && (stack[0])) config.clearAir = stack[0];
-            Serial.println(config.clearAir);
             saveConfig();
             break;
             
@@ -867,9 +865,9 @@ static void handleInput (char c) {
             break;
 
         case 'v': // display the interpreter version
-            verbosity = value;        
+            config.verbosity = value;        
             displayVersion();
-            rf12_configDump();
+            saveConfig();
 #if configSTRING
             Serial.println();
 #endif
@@ -1266,9 +1264,10 @@ memset(pktCount,0,sizeof(pktCount));
         config.collect_mode = true; // Default to no-ACK
         config.quiet_mode = true;   // Default flags, quiet on
         config.defaulted = true;    // Default config initialized
-        config.ackDelay = 0;
+        config.ackDelay = 5;        // 5ms
 #if RF69_COMPAT == 0
         config.RegRssiThresh = 2;
+        config.clearAir = 170;      // 85dB
 #endif
         saveConfig();
         config.defaulted = false;   // Value if UI saves config
@@ -1665,7 +1664,7 @@ void loop () {
            }
         }
 #if RF69_COMPAT && !TINY
-        if (verbosity) {
+        if (config.verbosity) {
 /*            showString(PSTR(" a="));
             Serial.print(observedRX.afc);                        // TODO What units has this number?
             showString(PSTR(" f="));
@@ -1758,7 +1757,7 @@ void loop () {
         showString(PSTR(" mCs3="));
         Serial.print(modeChange3);
 #endif        
-        if (verbosity > 1) {
+        if (config.verbosity > 1) {
             if(!(crc)) showString(PSTR(" Bad"));
             if (!(rf12_hdr & 0xA0)) showString(PSTR(" Packet "));
             else showString(PSTR(" Ack "));
@@ -1983,7 +1982,6 @@ void loop () {
                     ackLen = 2;
                 }
 #if RF69_COMPAT && !TINY
-                delay(config.ackDelay);          // changing into TX mode is quicker than changing into RX mode for RF69.     
                 if (config.group == 0) {
                     showString(PSTR("g"));
                     showByte(rf12_grp);
@@ -1994,10 +1992,11 @@ void loop () {
                 printOneChar('i');
                 showByte(rf12_hdr & RF12_HDR_MASK);
                 if (r) {
+                    delay(config.ackDelay);          // changing into TX mode is quicker than changing into RX mode for RF69.     
                     rf12_sendStart(RF12_ACK_REPLY, &stack[sizeof stack - ackLen], ackLen);
                     rf12_sendWait(1);
                 } else {
-                    showString(PSTR(" Aborted"));  // Airwaves busy, drop ACK and wait for retransmission.   
+                    showString(PSTR(" Aborted"));  // Airwaves busy, drop ACK and look for a retransmission.   
                 }
             }
             if (crlf) Serial.println();
