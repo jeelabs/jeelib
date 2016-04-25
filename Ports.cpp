@@ -1138,6 +1138,12 @@ void Sleepy::powerDown () {
     ADCSRA = adcsraSave;
 }
 
+/// This method waits Serial to send data via UART before powering down.
+void Sleepy::flushAndPowerDown () {
+    Serial.flush();
+    powerDown();
+}
+
 byte Sleepy::loseSomeTime (word msecs) {
     byte ok = 1;
     word msleft = msecs;
