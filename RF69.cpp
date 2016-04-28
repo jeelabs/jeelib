@@ -465,7 +465,7 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
     writeReg(REG_DIOMAPPING1, DMAP1_PACKETSENT);     // Interrupt trigger
     
 /*  We must being transmission to avoid overflowing the FIFO since
-    jeelib packet size can exceed FIFO size. We also with the avoid 
+    jeelib packet size can exceed FIFO size. We also want to avoid the
     transmissions of sync etc before payload is presented.                    */
     
 /* Page 54
@@ -490,8 +490,8 @@ condition is met to transmit the packet data.
     
     while (rxstate < TXDONE)
         if ((readReg(REG_IRQFLAGS2) & IRQ2_FIFOFULL) == 0) { // FIFO is 66 bytes
-            uint8_t out = 0x55; // To be used at end of packet
-//            uint8_t out;
+//            uint8_t out = 0xAA; // To be used at end of packet
+            uint8_t out;
             if (rxstate < 0) {
                 // rf12_buf used since rf69_buf reserved for RX
                 out = rf12_buf[3 + rf12_len + rf69_skip + rxstate];
@@ -508,7 +508,7 @@ condition is met to transmit the packet data.
             ++rxstate;
         }
 //        writeReg(REG_FIFOTHRESH, START_TX);     // if < 32 bytes, release FIFO
-                                                // for transmission
+                                                  // for transmission
 /*  At this point packet is typically in the FIFO but not fully transmitted.
     transmission complete will be indicated by an interrupt.                   
 */
