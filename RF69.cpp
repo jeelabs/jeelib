@@ -585,6 +585,7 @@ void RF69::interrupt_compat () {
           txP++;
           setMode(MODE_STANDBY);
           rxstate = TXIDLE;
+          // Restore sync bytes configuration
           if (group == 0) {               // Allow receiving from all groups
               writeReg(REG_SYNCCONFIG, fourByteSync);
           }

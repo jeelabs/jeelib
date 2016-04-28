@@ -4,7 +4,7 @@
 ///                          // The above flag must be set similarly in RF12.cpp
 ///                          // and RF69_avr.h
 #define BLOCK  0             // Alternate LED pin?
-#define INVERT_LED       1   // 0 is normal and 1 opposite
+#define INVERT_LED       0   // 0 is normal and 1 opposite
 ///////////////////////////////////////////////////////////////////////////////
 /// Configure some values in EEPROM for easy config of the RF12 later on.
 // 2009-05-06 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
@@ -1971,6 +1971,7 @@ void loop () {
 #endif
                 }
                 crlf = true;
+                delay(config.ackDelay);          // changing into TX mode is quicker than changing into RX mode for RF69.     
                 byte r = rf12_canSend(config.clearAir);
 #if RF69_COMPAT && !TINY
                 Serial.print(RF69::sendRSSI);
@@ -1992,7 +1993,6 @@ void loop () {
                 printOneChar('i');
                 showByte(rf12_hdr & RF12_HDR_MASK);
                 if (r) {
-                    delay(config.ackDelay);          // changing into TX mode is quicker than changing into RX mode for RF69.     
                     rf12_sendStart(RF12_ACK_REPLY, &stack[sizeof stack - ackLen], ackLen);
                     rf12_sendWait(1);
                 } else {
