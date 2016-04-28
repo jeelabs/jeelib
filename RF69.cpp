@@ -106,7 +106,7 @@
 #define RF_MAX   72
 
 // transceiver states, these determine what to do with each interrupt
-enum { TXCRC1, TXCRC2, TXTAIL, TXDONE, TXIDLE, TXRECV };
+enum { TXCRC1, TXCRC2,/* TXTAIL,*/ TXDONE, TXIDLE, TXRECV };
 
 namespace RF69 {
     uint32_t frf;
@@ -206,7 +206,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x33, 0xD4, // SyncValue5 = 212, Group
   0x37, 0x00, // PacketConfig1 = fixed, no crc, filt off
   0x38, 0x00, // PayloadLength = 0, unlimited
-//  0x3C, 0x8F, // FifoTresh, not empty, level 15 bytes
+  0x3C, 0x8F, // FifoTresh, not empty, level 15 bytes
   0x3D, 0x10, // PacketConfig2, interpkt = 1, autorxrestart off
   0x58, 0x2D, // High sensitivity mode
   0x6F, 0x20, // 0x30, // TestDagc ...
@@ -464,18 +464,34 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
     modeChange2 = setMode(MODE_TRANSMITTER);
     writeReg(REG_DIOMAPPING1, DMAP1_PACKETSENT);     // Interrupt trigger
     
-    if (rf12_len > 9)                       // Expedite short packet TX
-      writeReg(REG_FIFOTHRESH, DELAY_TX);   // Wait for FIFO to hit 32 bytes
-                                            // transmission will then begin  
+/*  We must being transmission to avoid overflowing the FIFO since
+    jeelib packet size can exceed FIFO size. We also with the avoid 
+    transmissions of sync etc before payload is presented.                    */
+    
+/* Page 54
+The transmission of packet data is initiated by the Packet Handler only if the 
+module is in Tx mode and the transmission condition defined by TxStartCondition 
+is fulfilled. If transmission condition is not fulfilled then the packet handler
+transmits a preamble sequence until the condition is met. This happens only if 
+the preamble length /= 0, otherwise it transmits a zero or one until the 
+condition is met to transmit the packet data.
+*/    
+    
+//    if (rf12_len > 9)                       // Expedite short packet TX
+//      writeReg(REG_FIFOTHRESH, DELAY_TX);   // Wait for FIFO to hit 32 bytes
+                                            // transmission will then begin
+// the above code was to permit slow SPI bus speeds - may not be possible.  
                                               
     // use busy polling until the last byte fits into the buffer
     // this makes sure it all happens on time, and that sendWait can sleep
     //
     // TODO This is not interrupt code, how can sendWait sleep, control isn't
     // passed back. JohnO
+    
     while (rxstate < TXDONE)
         if ((readReg(REG_IRQFLAGS2) & IRQ2_FIFOFULL) == 0) { // FIFO is 66 bytes
-            uint8_t out = 0xAA; // To be used at end of packet
+            uint8_t out = 0x55; // To be used at end of packet
+//            uint8_t out;
             if (rxstate < 0) {
                 // rf12_buf used since rf69_buf reserved for RX
                 out = rf12_buf[3 + rf12_len + rf69_skip + rxstate];
@@ -491,7 +507,7 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
             writeReg(REG_FIFO, out);
             ++rxstate;
         }
-        writeReg(REG_FIFOTHRESH, START_TX);     // if < 32 bytes, release FIFO
+//        writeReg(REG_FIFOTHRESH, START_TX);     // if < 32 bytes, release FIFO
                                                 // for transmission
 /*  At this point packet is typically in the FIFO but not fully transmitted.
     transmission complete will be indicated by an interrupt.                   
