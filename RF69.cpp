@@ -89,7 +89,7 @@
 #define RcCalStart          0x81
 #define RcCalDone           0x40
 #define FeiDone             0x40
-#define RssiStart           0x08  // Should be 0x01 according to documentation.
+#define RssiStart           0x01
 #define RssiDone            0x02
 #define oneByteSync         0x80
 #define twoByteSync         0x88
@@ -345,13 +345,13 @@ uint8_t RF69::currentRSSI() {
       uint8_t noiseFloor = readReg(REG_RSSITHRESHOLD);// Store current threshold
       writeReg(REG_RSSITHRESHOLD, 0xFF);              // Open up threshold
 
-//      writeReg(REG_RSSICONFIG, 0x08 /*RssiStart*/);
-//      while (rssiConfig = readReg(REG_RSSICONFIG) & RssiStart)
-//        ;
+      writeReg(REG_RSSICONFIG, RssiStart);
+      while (!(readReg(REG_IRQFLAGS1) & IRQ1_RSSI)) {
+          delayMicroseconds(1);
+      }
       uint8_t r = readReg(REG_RSSIVALUE);           // Collect RSSI value
-              r = readReg(REG_RSSIVALUE);           // Collect RSSI value
-      writeReg(REG_RSSITHRESHOLD, noiseFloor);      // Restore threshold
       if (storedMode != MODE_RECEIVER) setMode(storedMode); // Restore mode
+      writeReg(REG_RSSITHRESHOLD, noiseFloor);      // Restore threshold
       // REG_DIOMAPPING1 is mode sensitive so can only restore to correct mode
       writeReg(REG_DIOMAPPING1, storeDIOM);         // Restore Interrupt trigger
       return r;
