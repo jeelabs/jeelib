@@ -8,7 +8,7 @@ namespace RF69 {
     extern uint8_t  rssi;
     extern uint8_t  startRSSI;
     extern uint8_t  sendRSSI;
-    extern uint8_t  rssiConfig;
+    extern uint8_t  rssiDelay;
     extern int16_t  afc;
     extern int16_t  fei;
     extern uint8_t  lna;

@@ -116,7 +116,7 @@ namespace RF69 {
     uint8_t  rssi;
     uint8_t  startRSSI;
     uint8_t  sendRSSI;
-    uint8_t  rssiConfig;
+    uint8_t  rssiDelay;
     int16_t  afc;                  // I wonder how to make sure these 
     int16_t  fei;                  // are volatile
     uint8_t  lna;
@@ -344,10 +344,11 @@ uint8_t RF69::currentRSSI() {
       writeReg(REG_DIOMAPPING1, DMAP1_PAYLOADREADY);  // Suppress Interrupts
       uint8_t noiseFloor = readReg(REG_RSSITHRESHOLD);// Store current threshold
       writeReg(REG_RSSITHRESHOLD, 0xFF);              // Open up threshold
-
+      rssiDelay = 0;
       writeReg(REG_RSSICONFIG, RssiStart);
       while (!(readReg(REG_IRQFLAGS1) & IRQ1_RSSI)) {
-          delayMicroseconds(1);
+          rssiDelay++;
+//          delayMicroseconds(1);
       }
       uint8_t r = readReg(REG_RSSIVALUE);           // Collect RSSI value
       if (storedMode != MODE_RECEIVER) setMode(storedMode); // Restore mode
