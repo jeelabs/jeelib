@@ -117,6 +117,9 @@ namespace RF69 {
     uint8_t  startRSSI;
     uint8_t  sendRSSI;
     uint8_t  rssiDelay;
+    uint16_t rssiActive;
+    uint16_t rssiSilent;
+    uint8_t  rxThreshold;
     int16_t  afc;                  // I wonder how to make sure these 
     int16_t  fei;                  // are volatile
     uint8_t  lna;
@@ -151,6 +154,7 @@ static volatile uint16_t discards;   // Count of packets discarded
 static volatile uint8_t reentry = false;
 static volatile uint8_t rf69_skip;   // header bytes to skip
 static volatile uint8_t rf69_fix;    // Maximum for fixed length packet
+static volatile uint16_t interval;
 
 static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x2E, 0xA0, // SyncConfig = sync on, sync size = 5
@@ -346,7 +350,8 @@ uint8_t RF69::currentRSSI() {
       writeReg(REG_RSSITHRESHOLD, 0xFF);              // Open up threshold
       rssiDelay = 0;
       writeReg(REG_RSSICONFIG, RssiStart);
-      while (!(readReg(REG_IRQFLAGS1) & IRQ1_RSSI)) {
+      while (!(readReg(REG_IRQFLAGS1) & IRQ1_RSSI)) { // This flag doesn't work!
+      // However, the testing of it causes enough delay for adequate operation.
           rssiDelay++;
 //          delayMicroseconds(1);
       }
@@ -426,6 +431,14 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
                     // because rxstate == TXIDLE
                 }
             } else return 1;
+        }
+        if (interval++ == 0) {
+//            if (readReg(REG_IRQFLAGS1) & IRQ1_RSSI) {
+            if (readReg(REG_RSSIVALUE) <= rxThreshold) {
+                rssiActive++;
+//                writeReg(REG_IRQFLAGS1, IRQ1_RSSI);
+            } else rssiSilent++;
+//            writeReg(REG_RSSICONFIG, RssiStart);
         }
         break;
     }
