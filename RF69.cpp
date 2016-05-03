@@ -340,24 +340,22 @@ uint8_t RF69::currentRSSI() {
 
       uint8_t storedMode = (readReg(REG_OPMODE) & MODE_MASK);
       uint8_t storeDIOM = readReg(REG_DIOMAPPING1); // Collect Interrupt trigger
-      // avoid delay in changing modes unless required
-      if (storedMode != MODE_RECEIVER) {
-          setMode(MODE_RECEIVER);   // Looses contents of FIFO and 36 spins
-      }
-      // REG_DIOMAPPING1 is mode sensitive so can only
-      writeReg(REG_DIOMAPPING1, DMAP1_PAYLOADREADY);  // Suppress Interrupts
       uint8_t noiseFloor = readReg(REG_RSSITHRESHOLD);// Store current threshold
+
+      writeReg(REG_DIOMAPPING1, DMAP1_PAYLOADREADY);  // Suppress Interrupts
       writeReg(REG_RSSITHRESHOLD, 0xFF);              // Open up threshold
+      setMode(MODE_RECEIVER);   // Looses contents of FIFO and 36 spins
       rssiDelay = 0;
       writeReg(REG_RSSICONFIG, RssiStart);
-      while (!(readReg(REG_IRQFLAGS1) & IRQ1_RSSI)) { // This flag doesn't work!
-      // However, the testing of it causes enough delay for adequate operation.
-          rssiDelay++;
-//          delayMicroseconds(1);
-      }
+      while (!(readReg(REG_IRQFLAGS1) & IRQ1_RSSI)) rssiDelay++;
       uint8_t r = readReg(REG_RSSIVALUE);           // Collect RSSI value
-      if (storedMode != MODE_RECEIVER) setMode(storedMode); // Restore mode
+      
+      setMode(MODE_STANDBY);                        // Get out of RX mode 
       writeReg(REG_RSSITHRESHOLD, noiseFloor);      // Restore threshold
+      if (storedMode != MODE_RECEIVER) setMode(storedMode); // Restore mode
+      else setMode(MODE_RECEIVER);                  // Restart RX mode
+      // The above is required to clear RSSI threshold mechanism
+
       // REG_DIOMAPPING1 is mode sensitive so can only restore to correct mode
       writeReg(REG_DIOMAPPING1, storeDIOM);         // Restore Interrupt trigger
       return r;
@@ -402,8 +400,8 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         recvBuf = buf;
         rxstate = TXRECV;
         flushFifo();
-        modeChange1 = setMode(MODE_RECEIVER);// setting RX mode uses 33-36 spins
         startRSSI = currentRSSI();
+        modeChange1 = setMode(MODE_RECEIVER);// setting RX mode uses 33-36 spins
         writeReg(REG_DIOMAPPING1, DMAP1_SYNCADDRESS);    // Interrupt trigger
         break;
     case TXRECV:

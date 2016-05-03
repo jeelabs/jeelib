@@ -550,7 +550,10 @@ static void showHelp () {
             mask = mask >> 1;
         }
     }
-  #endif    
+  #endif
+    Serial.println(RF69::rssiActive); Serial.println(RF69::rssiSilent);
+    RF69::rssiActive = 0;
+    RF69::rssiSilent = 0;
 #endif
 }
 
