@@ -8,11 +8,15 @@
 
 volatile uint16_t rf69_crc;
 volatile uint8_t rf69_buf[72];
+#define rf69_hdr            rf69_buf[1]
+
 
 static byte nodeid; // only used in the easyPoll code
 static uint8_t group;               // network group
 static uint16_t frequency;          // Frequency within selected band
 static int8_t matchRF = 0;          // Hardware matching value
+static uint8_t txThre = 255;        // TX permit threshold
+static uint8_t ackDelay = 0;        // Additional delay before sending ACK's
 static uint8_t txPower = 0;         // Transmitter power from eeprom
 static uint8_t rxThreshold = 0;     // Receiver threshold from eeprom
 
@@ -66,8 +70,10 @@ uint8_t rf69_initialize (uint8_t id, uint8_t band, uint8_t group=0xD4, uint16_t 
     RF69::configure_compat(); 
 
     if (txPower) RF69::control(0x91, txPower);
-    if (rxThreshold) RF69::control(0xA9, rxThreshold);
-
+    if (rxThreshold) {
+        RF69::control(0xA9, rxThreshold);
+        RF69::rxThreshold = rxThreshold;
+    }
     return nodeid = id;
 }
 /// @details
@@ -79,7 +85,9 @@ void rf69_configDump () {
     uint8_t flags = eeprom_read_byte(RF12_EEPROM_ADDR + 3);
     frequency = eeprom_read_byte(RF12_EEPROM_ADDR + 5);
     frequency = (frequency << 8) + (eeprom_read_byte(RF12_EEPROM_ADDR + 4));
+    txThre = eeprom_read_byte(RF12_EEPROM_ADDR + 10);     // Store from eeprom
     txPower = eeprom_read_byte(RF12_EEPROM_ADDR + 6);     // Store from eeprom
+    ackDelay = eeprom_read_byte(RF12_EEPROM_ADDR + 9); // Store from eeprom
     rxThreshold = eeprom_read_byte(RF12_EEPROM_ADDR + 7); // Store from eeprom
     matchRF = eeprom_read_byte(RF12_EEPROM_ADDR + 8);     // Store from eeprom
     
@@ -114,6 +122,9 @@ void rf69_configDump () {
     }
     if (flags & 0x04) {
         Serial.print(" c1");
+    } else {
+        Serial.print(" "); Serial.print(ackDelay & 0x0F);
+        Serial.print("c0");    
     }
     if (flags & 0x03) {
         Serial.print(" x");
@@ -121,15 +132,21 @@ void rf69_configDump () {
     }
     if (txPower) {
         if (txPower != 0x9F) {
-            Serial.print(" tx");
-            Serial.print(txPower, HEX);
-       }
+            Serial.print(" ");
+            Serial.print(txThre);
+            Serial.print("tx");
+            Serial.print(txPower);
+        }
     }
     if (rxThreshold) {
         if (rxThreshold != 0xA0) {
             Serial.print(" rx");
-            Serial.print(rxThreshold, HEX);
+            Serial.print(rxThreshold);
        }
+    }
+    if (ackDelay >> 4) {
+            Serial.print(" v");
+            Serial.print(ackDelay >> 4);
     }
     Serial.println();
 }
@@ -173,8 +190,8 @@ uint8_t rf69_recvDone () {
     return rf69_crc != ~0;
 }
 
-uint8_t rf69_canSend () {
-    return RF69::canSend();
+uint8_t rf69_canSend (uint8_t clearAir = 0xFF) {
+    return RF69::canSend(clearAir);
 }
 
 // void rf69_sendStart (uint8_t hdr) {

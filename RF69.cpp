@@ -8,7 +8,6 @@
 #define ROM_READ_UINT8  pgm_read_byte
 #define ROM_DATA        PROGMEM
 
-
 #define LIBRARY_VERSION     13      // Stored in REG_SYNCVALUE6 by initRadio 
 
 #define REG_FIFO            0x00
@@ -30,6 +29,7 @@
 #define REG_DIOMAPPING1     0x25
 #define REG_IRQFLAGS1       0x27
 #define REG_IRQFLAGS2       0x28
+#define REG_RSSITHRESHOLD   0x29
 #define REG_SYNCCONFIG      0x2E
 #define REG_SYNCVALUE1      0x2F
 #define REG_SYNCVALUE2      0x30
@@ -52,10 +52,12 @@
 
 #define MODE_SLEEP          0x00
 #define MODE_STANDBY        0x04
+#define MODE_FS             0x08
 #define MODE_RECEIVER       0x10
 #define MODE_LISTENABORT    0x20
 #define MODE_LISTENON       0x40
 #define MODE_TRANSMITTER    0x0C
+#define MODE_MASK           0x1C
 #define TESTLNA_NORMAL      0x1B
 #define TESTLNA_BOOST       0x2D
 #define TESTPA1_NORMAL      0x55
@@ -69,6 +71,7 @@
 
 #define IRQ1_MODEREADY      0x80
 #define IRQ1_RXREADY        0x40
+#define IRQ1_RSSI           0x08
 
 #define START_TX            0xA0  // With 125Khz SPI a minimum
 #define DELAY_TX            0x20  // 22 byte head start required, 32 to be safe 
@@ -103,7 +106,7 @@
 #define RF_MAX   72
 
 // transceiver states, these determine what to do with each interrupt
-enum { TXCRC1, TXCRC2, TXTAIL, TXDONE, TXIDLE, TXRECV };
+enum { TXCRC1, TXCRC2,/* TXTAIL,*/ TXDONE, TXIDLE, TXRECV };
 
 namespace RF69 {
     uint32_t frf;
@@ -111,9 +114,12 @@ namespace RF69 {
     uint8_t  node;
     uint16_t crc;
     uint8_t  rssi;
-    uint8_t  rssiAbort;
-    uint8_t  rssiEndRX;
-    uint8_t  rssiEndTX;
+    uint8_t  startRSSI;
+    uint8_t  sendRSSI;
+    uint8_t  rssiDelay;
+    uint16_t rssiActive;
+    uint16_t rssiSilent;
+    uint8_t  rxThreshold;
     int16_t  afc;                  // I wonder how to make sure these 
     int16_t  fei;                  // are volatile
     uint8_t  lna;
@@ -124,6 +130,9 @@ namespace RF69 {
     uint16_t unexpected;
     uint8_t  unexpectedFSM;
     uint8_t  unexpectedIRQFLAGS2;
+    uint8_t  modeChange1;
+    uint8_t  modeChange2;
+    uint8_t  modeChange3;
     uint16_t byteCount;
     uint16_t underrun;
     uint8_t  present;
@@ -145,6 +154,7 @@ static volatile uint16_t discards;   // Count of packets discarded
 static volatile uint8_t reentry = false;
 static volatile uint8_t rf69_skip;   // header bytes to skip
 static volatile uint8_t rf69_fix;    // Maximum for fixed length packet
+static volatile uint16_t interval;
 
 static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x2E, 0xA0, // SyncConfig = sync on, sync size = 5
@@ -200,7 +210,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x33, 0xD4, // SyncValue5 = 212, Group
   0x37, 0x00, // PacketConfig1 = fixed, no crc, filt off
   0x38, 0x00, // PayloadLength = 0, unlimited
-//  0x3C, 0x8F, // FifoTresh, not empty, level 15 bytes
+  0x3C, 0x8F, // FifoTresh, not empty, level 15 bytes
   0x3D, 0x10, // PacketConfig2, interpkt = 1, autorxrestart off
   0x58, 0x2D, // High sensitivity mode
   0x6F, 0x20, // 0x30, // TestDagc ...
@@ -240,10 +250,13 @@ static void flushFifo () {
         readReg(REG_FIFO);
 }
 
-static void setMode (uint8_t mode) {
+uint8_t setMode (uint8_t mode) {
+    byte c = 0;
     writeReg(REG_OPMODE, (readReg(REG_OPMODE) & 0xE3) | mode);
     while ((readReg(REG_IRQFLAGS1) & IRQ1_MODEREADY) == 0)
-         ;
+        c++;
+        ;
+    return c;
 }
 
 static uint8_t initRadio (ROM_UINT8* init) {
@@ -277,17 +290,30 @@ void RF69::setFrequency (uint32_t freq) {
     rf69_skip = 0;    // Ensure default Jeenode RF12 operation
 }
 
-bool RF69::canSend () {
-    if (rxstate == TXRECV && rxfill == 0) {
-        rxstate = TXIDLE;
-        setMode(MODE_STANDBY);
-        return true;
+uint8_t RF69::canSend (uint8_t clearAir) {
+  if (/*rxstate == TXRECV && */((rxfill == 0) || (rxdone))) {
+  // Need to better understand the FSM since buffer is filled without interrupts
+    /*
+        uint8_t storedMode = (readReg(REG_OPMODE) & MODE_MASK);
+        // avoid delay in changing modes unless required
+        if(storedMode != MODE_RECEIVER) setMode(MODE_RECEIVER);
+        if(readReg(REG_IRQFLAGS1) & IRQ1_RSSI) { // Is there traffic around?
+            if (storedMode != MODE_RECEIVER) setMode(storedMode);
+            return false;
+        }
+    */ 
+        sendRSSI = currentRSSI();
+        if(sendRSSI >= clearAir) {
+            rxstate = TXIDLE;
+            setMode(MODE_STANDBY);
+            return sendRSSI;
+        }
     }
     return false;
 }
 
 bool RF69::sending () {
-    return rxstate < TXIDLE;
+    return (rxstate < TXIDLE);
 }
 
 //  Note: RF12_WAKEUP returns with receiver mode disabled!
@@ -307,6 +333,34 @@ int8_t RF69::readTemperature(int8_t userCal) {
 uint8_t* RF69::SPI_pins() {
   return (SPI_Pins());  // {OPTIMIZE_SPI, PINCHG_IRQ, RF69_COMPAT, RFM_IRQ, 
                         //  SPI_SS, SPI_MOSI, SPI_MISO, SPI_SCK }
+}
+
+uint8_t RF69::currentRSSI() {
+  if (/*rxstate == TXRECV && */((rxfill == 0) || (rxdone))) {
+
+      uint8_t storedMode = (readReg(REG_OPMODE) & MODE_MASK);
+      uint8_t storeDIOM = readReg(REG_DIOMAPPING1); // Collect Interrupt trigger
+      uint8_t noiseFloor = readReg(REG_RSSITHRESHOLD);// Store current threshold
+
+      writeReg(REG_DIOMAPPING1, DMAP1_PAYLOADREADY);  // Suppress Interrupts
+      writeReg(REG_RSSITHRESHOLD, 0xFF);              // Open up threshold
+      setMode(MODE_RECEIVER);   // Looses contents of FIFO and 36 spins
+      rssiDelay = 0;
+      writeReg(REG_RSSICONFIG, RssiStart);
+      while (!(readReg(REG_IRQFLAGS1) & IRQ1_RSSI)) rssiDelay++;
+      uint8_t r = readReg(REG_RSSIVALUE);           // Collect RSSI value
+      
+      setMode(MODE_STANDBY);                        // Get out of RX mode 
+      writeReg(REG_RSSITHRESHOLD, noiseFloor);      // Restore threshold
+      if (storedMode != MODE_RECEIVER) setMode(storedMode); // Restore mode
+      else setMode(MODE_RECEIVER);                  // Restart RX mode
+      // The above is required to clear RSSI threshold mechanism
+
+      // REG_DIOMAPPING1 is mode sensitive so can only restore to correct mode
+      writeReg(REG_DIOMAPPING1, storeDIOM);         // Restore Interrupt trigger
+      return r;
+      
+  } else return 0;
 }
 
 // References to the RF12 driver above this line will generate compiler errors!
@@ -341,25 +395,32 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
     switch (rxstate) {
     case TXIDLE:
         rxdone = false;
-        //rxfill = rf12_len = 0;
-        rxfill = rf12_buf[2] = 0;
+        rxfill = rf69_buf[2] = 0;
         crc = _crc16_update(~0, group);
         recvBuf = buf;
         rxstate = TXRECV;
         flushFifo();
+        startRSSI = currentRSSI();
+        modeChange1 = setMode(MODE_RECEIVER);// setting RX mode uses 33-36 spins
         writeReg(REG_DIOMAPPING1, DMAP1_SYNCADDRESS);    // Interrupt trigger
-        setMode(MODE_RECEIVER);
-//        writeReg(REG_AFCFEI, AfcClear);
         break;
     case TXRECV:
-        if (rxfill >= rf12_len + 5 || rxfill >= RF_MAX || (rxdone)) {
+        if (rxdone) {
             rxstate = TXIDLE;
-            if (rf12_len > RF12_MAXDATA) {
-                crc = 1;  // force bad crc for bad length packet                
-            }
+            
+            // Move attributes & packet into rf12_buf
+            rf12_rssi = rssi;
+            rf12_lna = lna;
+            rf12_afc = afc;
+            rf12_fei = fei;
+            for (byte i = 0; i <= (rf69_len + 5); i++) {
+                rf12_buf[i] = rf69_buf[i];
+            }     
+            rf12_crc = crc;
+
             if (crc == 0) {
-                if (!(rf12_hdr & RF12_HDR_DST) || node == 31 ||
-                    (rf12_hdr & RF12_HDR_MASK) == node) {
+                if (!(rf69_hdr & RF12_HDR_DST) || node == 31 ||
+                    (rf69_hdr & RF12_HDR_MASK) == node) {
                     return 0; // it's for us, good packet received
                 } else {
                     discards++;
@@ -368,6 +429,14 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
                     // because rxstate == TXIDLE
                 }
             } else return 1;
+        }
+        if (interval++ == 0) {
+//            if (readReg(REG_IRQFLAGS1) & IRQ1_RSSI) {
+            if (readReg(REG_RSSIVALUE) <= rxThreshold) {
+                rssiActive++;
+//                writeReg(REG_IRQFLAGS1, IRQ1_RSSI);
+            } else rssiSilent++;
+//            writeReg(REG_RSSICONFIG, RssiStart);
         }
         break;
     }
@@ -382,6 +451,11 @@ void RF69::fix_len (uint8_t fix) {
     rf69_fix = fix;
 }
 
+uint16_t rf69_status () {
+    return (rxstate << 8) | rxfill;   
+}
+
+// Uses rf12_buf as the send buffer, rf69_buf reserved for RX
 void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
 
     rf12_len = len;
@@ -398,21 +472,41 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
     // REG_SYNCGROUP must have been set to an appropriate group before this.
     writeReg(REG_SYNCCONFIG, fiveByteSync);
     crc = _crc16_update(~0, readReg(REG_SYNCGROUP));
-
-    setMode(MODE_TRANSMITTER);
+    
+    modeChange2 = setMode(MODE_TRANSMITTER);
     writeReg(REG_DIOMAPPING1, DMAP1_PACKETSENT);     // Interrupt trigger
     
-    if (rf12_len > 9)                       // Expedite short packet TX
-      writeReg(REG_FIFOTHRESH, DELAY_TX);   // Wait for FIFO to hit 32 bytes
-                                            // transmission will then begin  
+/*  We must being transmission to avoid overflowing the FIFO since
+    jeelib packet size can exceed FIFO size. We also want to avoid the
+    transmissions of sync etc before payload is presented.                    */
+    
+/* Page 54
+The transmission of packet data is initiated by the Packet Handler only if the 
+module is in Tx mode and the transmission condition defined by TxStartCondition 
+is fulfilled. If transmission condition is not fulfilled then the packet handler
+transmits a preamble sequence until the condition is met. This happens only if 
+the preamble length /= 0, otherwise it transmits a zero or one until the 
+condition is met to transmit the packet data.
+*/    
+    
+//    if (rf12_len > 9)                       // Expedite short packet TX
+//      writeReg(REG_FIFOTHRESH, DELAY_TX);   // Wait for FIFO to hit 32 bytes
+                                            // transmission will then begin
+// the above code was to permit slow SPI bus speeds - may not be possible.  
                                               
     // use busy polling until the last byte fits into the buffer
     // this makes sure it all happens on time, and that sendWait can sleep
+    //
+    // TODO This is not interrupt code, how can sendWait sleep, control isn't
+    // passed back. JohnO
+    
     while (rxstate < TXDONE)
         if ((readReg(REG_IRQFLAGS2) & IRQ2_FIFOFULL) == 0) { // FIFO is 66 bytes
-            uint8_t out = 0xAA; // To be used at end of packet
+//            uint8_t out = 0xAA; // To be used at end of packet
+            uint8_t out;
             if (rxstate < 0) {
-                out = recvBuf[3 + rf12_len + rf69_skip + rxstate];
+                // rf12_buf used since rf69_buf reserved for RX
+                out = rf12_buf[3 + rf12_len + rf69_skip + rxstate];
                 crc = _crc16_update(crc, out);
             } else {
                 switch (rxstate) {
@@ -425,12 +519,11 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
             writeReg(REG_FIFO, out);
             ++rxstate;
         }
-        writeReg(REG_FIFOTHRESH, START_TX);     // if < 32 bytes, release FIFO
-                                                // for transmission
+//        writeReg(REG_FIFOTHRESH, START_TX);     // if < 32 bytes, release FIFO
+                                                  // for transmission
 /*  At this point packet is typically in the FIFO but not fully transmitted.
     transmission complete will be indicated by an interrupt.                   
 */
-
 
 }
 
@@ -467,7 +560,7 @@ void RF69::interrupt_compat () {
             crc = ~0;
             packetBytes = 0;
             payloadLen = rf69_fix; // Assumed value if no Jee header used            
-            
+
             for (;;) { // busy loop, to get each data byte as soon as it comes in 
                 if (readReg(REG_IRQFLAGS2) & 
                    (IRQ2_FIFONOTEMPTY /*| IRQ2_FIFOOVERRUN*/)) {
@@ -482,7 +575,7 @@ void RF69::interrupt_compat () {
                         if (in <= RF12_MAXDATA) {  // capture and
                             payloadLen = in;       // validate length byte
                         } else {
-                            recvBuf[rxfill++] = 0; // Set rf12_len to zero!
+                            recvBuf[rxfill++] = 0; // Set rf69_len to zero!
                             payloadLen = -2;       // skip CRC in payload
                             in = ~0;               // fake CRC 
                             recvBuf[rxfill++] = in;// into buffer
@@ -510,7 +603,6 @@ void RF69::interrupt_compat () {
             // We are exiting before a successful packet completion
             packetShort++;
         }    
-        rssiEndRX = readReg(REG_RSSIVALUE);
         setMode(MODE_STANDBY);
         rxdone = true;      // force TXRECV in RF69::recvDone_compat
     } else if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
@@ -519,9 +611,9 @@ void RF69::interrupt_compat () {
           // rxstate will be TXDONE at this point
           IRQ_ENABLE;       // allow nested interrupts from here on
           txP++;
-          rssiEndTX = readReg(REG_RSSIVALUE);
           setMode(MODE_STANDBY);
           rxstate = TXIDLE;
+          // Restore sync bytes configuration
           if (group == 0) {               // Allow receiving from all groups
               writeReg(REG_SYNCCONFIG, fourByteSync);
           }

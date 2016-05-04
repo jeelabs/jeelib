@@ -9,8 +9,15 @@
 #error This file must be included BEFORE the "RF12.h" header file!
 #endif
 
-#define rf12_crc            rf69_crc
-#define rf12_buf            rf69_buf
+#include <stdint.h>
+
+//#define rf12_crc            rf69_crc
+//#define rf12_buf            rf69_buf
+extern volatile uint16_t rf69_crc;
+extern volatile uint8_t rf69_buf[72];
+
+#define rf69_hdr            rf69_buf[1]
+#define rf69_len            rf69_buf[2]
 #define rf12_seq            rf69_seq
                             
 #define rf12_set_cs         rf69_set_cs
@@ -23,6 +30,7 @@
 #define rf12_canSend        rf69_canSend
 #define rf12_skip_hdr       rf69_skip_hdr
 #define rf12_fix_len        rf69_fix_len
+#define rf12_status         rf69_status
 #define rf12_sendStart      rf69_sendStart
 #define rf12_sendNow        rf69_sendNow
 #define rf12_sendWait       rf69_sendWait

@@ -176,6 +176,12 @@ static long ezNextSend[2];          // when was last retry [0] or data [1] sent
 
 volatile uint16_t rf12_crc;         // running crc value
 volatile uint8_t rf12_buf[RF_MAX];  // recv/xmit buf, including hdr & crc bytes
+
+volatile uint8_t rf12_rssi;         // Only available with RFM69 hardware
+volatile uint8_t rf12_lna;          // Only available with RFM69 hardware
+volatile int16_t rf12_afc;          // Only available with RFM69 hardware
+volatile int16_t rf12_fei;          // Only available with RFM69 hardware
+
 volatile uint8_t rf12_skip;         // header bytes to skip
 volatile uint8_t rf12_max_len;      // Maximum length packet accepted
 long rf12_seq;                      // seq number of encrypted packet (or -1)
@@ -516,7 +522,7 @@ uint8_t rf12_recvDone () {
 /// Note that even if you only want to send out packets, you still have to call
 /// rf12_recvDone() periodically, because it keeps the RFM12B logic going. If
 /// you don't, rf12_canSend() will never return true.
-uint8_t rf12_canSend () {
+uint8_t rf12_canSend (uint8_t clearAir) {
     // need interrupts off to avoid a race (and enable the RFM12B, thx Jorg!)
     // see http://openenergymonitor.org/emon/node/1051?page=3
     // also see https://github.com/jcw/jeelib/issues/33

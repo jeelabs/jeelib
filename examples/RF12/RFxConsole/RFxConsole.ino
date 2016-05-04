@@ -4,7 +4,7 @@
 ///                          // The above flag must be set similarly in RF12.cpp
 ///                          // and RF69_avr.h
 #define BLOCK  0             // Alternate LED pin?
-#define INVERT_LED       1   // 0 is normal and 1 opposite
+#define INVERT_LED       0   // 0 is normal and 1 opposite
 ///////////////////////////////////////////////////////////////////////////////
 /// Configure some values in EEPROM for easy config of the RF12 later on.
 // 2009-05-06 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
@@ -90,7 +90,6 @@ const char DONE[] PROGMEM = "Done\n";
 byte salusMode = false;
 unsigned int SalusFrequency = SALUSFREQUENCY;
 
-byte verbosity = 0;
 
 unsigned int NodeMap;
 unsigned int newNodeMap;
@@ -98,10 +97,6 @@ byte stickyGroup = 212;
 byte eepromWrite;
 byte qMin = ~0;
 byte qMax = 0;
-
-byte rssiAbort2 = 0;
-byte rssiEndRX2 = 0;
-byte rssiEndTX2 = 0;
 
 #if TINY
 // Serial support (output only) for Tiny supported by TinyDebugSerial
@@ -188,7 +183,7 @@ static byte inChar () {
         #define LED_PIN     9        // activity LED, comment out to disable
     #endif
 #define messageStore  128
-#define MAX_NODES 100        // Contrained by RAM
+#define MAX_NODES 78        // Contrained by RAM (9 bytes RAM per node)
 #endif
 
 ISR(WDT_vect) { Sleepy::watchdogEvent(); }
@@ -249,7 +244,10 @@ typedef struct {
     byte RegPaLvl;          // See datasheet RFM69x Register 0x11, offset 6
     byte RegRssiThresh;     // See datasheet RFM69x Register 0x29, offset 7
     signed int matchingRF :8;// Frequency matching for this hardware, offset 8
-    byte pad[RF12_EEPROM_SIZE - 11];
+    byte ackDelay         :4;// Delay in ms added on turnaround RX to TX, RFM69 offset 9
+    byte verbosity        :4;// Controls output format
+    byte clearAir;           // Transmit permit threshold, offset 10
+    byte pad[RF12_EEPROM_SIZE - 13];
     word crc;
 } RF12Config;
 static RF12Config config;
@@ -266,9 +264,6 @@ signed int afc;
 signed int fei;
 byte lna;
 byte rssi2;
-byte rssiAbort2;
-byte rssiEndRX2;
-byte rssiEndTX2;
 unsigned int offset_TX;
 byte RegPaLvl_TX;
 byte RegTestLna_TX;
@@ -284,6 +279,7 @@ byte watchNode = 0;
 byte lastTest;
 byte busyCount;
 byte missedTests;
+byte sendRetry = 0;
 unsigned int testTX;
 unsigned int testRX;
 
@@ -300,6 +296,7 @@ static byte lastLNA[MAX_NODES];
 static byte maxLNA[MAX_NODES];
 #endif
 #if RF69_COMPAT && !TINY
+static byte rssiStartRX2;
 static byte CRCbadMinRSSI = 255;
 static byte CRCbadMaxRSSI = 0;
 
@@ -553,7 +550,10 @@ static void showHelp () {
             mask = mask >> 1;
         }
     }
-  #endif    
+  #endif
+    Serial.println(RF69::rssiActive); Serial.println(RF69::rssiSilent);
+    RF69::rssiActive = 0;
+    RF69::rssiSilent = 0;
 #endif
 }
 
@@ -632,7 +632,7 @@ static void handleInput (char c) {
         case 'g': // set network group
             config.group = value;
             saveConfig();
-            stickyGroup = value;
+//            stickyGroup = value;
             break;
 
         case 'o':{ // Offset frequency within band
@@ -670,10 +670,12 @@ static void handleInput (char c) {
             showString(PSTR(" MHz"));
             
   #if RF69_COMPAT
+      showString(PSTR(" Noise Floor"));
       for (byte i = 0; i < 10; i++) {
-            showString(PSTR(" @"));
+//          Serial.print(RF69::rssiConfig);
+          showString(PSTR(" @"));
 // display current RSSI value in this channel
-            byte r = RF69::control(REG_RSSIVALUE, 0);
+            byte r = RF69::currentRSSI();
             if (config.output & 0x1)                  // Hex output?
                 showByte(r);
             else {
@@ -724,6 +726,10 @@ static void handleInput (char c) {
                
         case 'c': // set collect mode (off = 0, on = 1)
             config.collect_mode = value;
+            if (top == 1) {
+                Serial.print(config.ackDelay); printOneChar(' ');
+                config.ackDelay = stack[0]; // Ack turnaround additional delay for RFM69
+            }
             saveConfig();
             break;
 
@@ -762,8 +768,11 @@ static void handleInput (char c) {
             dest = value;
             break;
 
-        case 'T': // Set hardware specific TX power in eeprom
-            config.RegPaLvl = value;
+        case 'T': 
+            // Set hardware specific TX power in eeprom
+            if(value) config.RegPaLvl = value;
+            // Transmit permit threshold
+            if(top = 1 && (stack[0])) config.clearAir = stack[0];
             saveConfig();
             break;
             
@@ -859,9 +868,9 @@ static void handleInput (char c) {
             break;
 
         case 'v': // display the interpreter version
-            verbosity = value;        
+            config.verbosity = value;        
             displayVersion();
-            rf12_configDump();
+            saveConfig();
 #if configSTRING
             Serial.println();
 #endif
@@ -1054,7 +1063,6 @@ static void handleInput (char c) {
             showByte(stack[i]);
             printOneChar(',');
         }
-//        showWord(value);
         Serial.print(value);
         Serial.println(c);
     }
@@ -1065,7 +1073,7 @@ static void handleInput (char c) {
         eepromWrite = 0;
         rf12_configDump();
     }    
-}
+} // handleInput
 
 #if MESSAGING
 static byte getMessage (byte rec) {
@@ -1105,7 +1113,7 @@ static byte getMessage (byte rec) {
     // *sourceR is pointing to the length byte of the next message
     sourceR++;  // *sourceR is now pointing to the length byte of the next message
     return len;
-}
+} // getMessage
 #endif
 
 static void displayString (const byte* data, byte count) {
@@ -1259,8 +1267,10 @@ memset(pktCount,0,sizeof(pktCount));
         config.collect_mode = true; // Default to no-ACK
         config.quiet_mode = true;   // Default flags, quiet on
         config.defaulted = true;    // Default config initialized
+        config.ackDelay = 5;        // 5ms
 #if RF69_COMPAT == 0
         config.RegRssiThresh = 2;
+        config.clearAir = 170;      // 85dB
 #endif
         saveConfig();
         config.defaulted = false;   // Value if UI saves config
@@ -1504,17 +1514,21 @@ void loop () {
     if (Serial.available())
         handleInput(Serial.read());
 #endif
-//    for (byte i = 3; i < 66; i++) rf12_buf[i] = 0xEE;      // Paint the buffer
     if (rf12_recvDone()) {
+        rssiStartRX2 = RF69::startRSSI;
+#if DEBUG
+        byte modeChange1 = RF69::modeChange1;
+        byte modeChange2 = RF69::modeChange2;
+        byte modeChange3 = RF69::modeChange3;
+#endif
       
-#if RF69_COMPAT && !TINY
-        observedRX.afc = (RF69::afc);                  // Grab values before next interrupt
-        observedRX.fei = (RF69::fei);
-        observedRX.rssi2 = (RF69::rssi);
-        observedRX.lna = (RF69::lna >> 3);
-        rssiAbort2 = (RF69::rssiAbort);
-        rssiEndRX2 = (RF69::rssiEndRX);
-        rssiEndTX2 = (RF69::rssiEndTX);
+#if RF69_COMPAT && !TINY                // At this point the radio is in Standby
+        rf12_recvDone();                // Attempt to buffer next RF packet
+                                        // At this point the receiver is active
+        observedRX.afc = rf12_afc;
+        observedRX.fei = rf12_fei;
+        observedRX.rssi2 = rf12_rssi;
+        observedRX.lna = rf12_lna >> 3;
 
         if ((observedRX.afc) && (observedRX.afc != previousAFC)) { // Track volatility of AFC
             changedAFC++;    
@@ -1653,11 +1667,11 @@ void loop () {
            }
         }
 #if RF69_COMPAT && !TINY
-        if (!config.quiet_mode) {
-            showString(PSTR(" a="));
+        if (config.verbosity) {
+/*            showString(PSTR(" a="));
             Serial.print(observedRX.afc);                        // TODO What units has this number?
             showString(PSTR(" f="));
-            Serial.print(observedRX.fei);                        // TODO What units has this number?
+            Serial.print(observedRX.fei);  */                      // TODO What units has this number?
 /*
             LNA gain setting:
             000 gain set by the internal AGC loop
@@ -1698,10 +1712,23 @@ void loop () {
             if (rssiAbort2 & 0x01) showString(PSTR(".5"));
             showString(PSTR("dB"));
         }
-*/
-        
-            showString(PSTR(" R="));
-    // display RSSI at the end of RX phase value
+            showString(PSTR(" rC="));
+            Serial.print(RF69::rssiConfig);
+*/            
+            if (rssiStartRX2) {
+                showString(PSTR(" Rs="));
+                // display RSSI at the start of RX phase value
+                if (config.output & 0x1)                  // Hex output?
+                    showByte(rssiStartRX2);
+                else {
+                    Serial.print(rssiStartRX2 >> 1);
+                    if (rssiStartRX2 & 0x01) showString(PSTR(".5"));
+                    showString(PSTR("dB"));
+                }
+            }
+/*            
+            showString(PSTR(" Ra="));
+    // display RSSI at the end of TX phase value
             if (config.output & 0x1)                  // Hex output?
                 showByte(rssiEndRX2);
             else {
@@ -1709,20 +1736,10 @@ void loop () {
                 if (rssiEndRX2 & 0x01) showString(PSTR(".5"));
                 showString(PSTR("dB"));
             }
-            
-            showString(PSTR(" T="));
-    // display RSSI at the end of TX phase value
-            if (config.output & 0x1)                  // Hex output?
-                showByte(rssiEndTX2);
-            else {
-                Serial.print(rssiEndTX2 >> 1);
-                if (rssiEndTX2 & 0x01) showString(PSTR(".5"));
-                showString(PSTR("dB"));
-            }
 
             showString(PSTR(" L="));
             Serial.print(RF69::byteCount);  // Length of packet
-            RF69::byteCount = 0;  // DEBUG                    
+            RF69::byteCount = 0;  // DEBUG    */                
         }
                 
 // display RSSI value after packet data
@@ -1735,11 +1752,18 @@ void loop () {
             showString(PSTR("dB"));
         }
         printOneChar(')');
-
-        if (verbosity) {
-            printOneChar(' ');
-            if (!(rf12_hdr & 0xA0)) showString(PSTR("Packet "));
-            else showString(PSTR("Ack "));
+#if DEBUG
+        showString(PSTR(" mCR1="));
+        Serial.print(modeChange1);
+        showString(PSTR(" mCT2="));
+        Serial.print(modeChange2);
+        showString(PSTR(" mCs3="));
+        Serial.print(modeChange3);
+#endif        
+        if (config.verbosity > 1) {
+            if(!(crc)) showString(PSTR(" Bad"));
+            if (!(rf12_hdr & 0xA0)) showString(PSTR(" Packet "));
+            else showString(PSTR(" Ack "));
             if (rf12_hdr & 0x20) showString(PSTR("Requested "));
             if (rf12_hdr & 0x80) showString(PSTR("Reply "));
             if (rf12_hdr & 0x40) showString(PSTR("to i"));
@@ -1950,6 +1974,11 @@ void loop () {
 #endif
                 }
                 crlf = true;
+                delay(config.ackDelay);          // changing into TX mode is quicker than changing into RX mode for RF69.     
+                byte r = rf12_canSend(config.clearAir);
+#if RF69_COMPAT && !TINY
+                Serial.print(RF69::sendRSSI);
+#endif            
                 showString(PSTR(" -> ack "));
                 if (testPacket) {  // Return test packet number being ACK'ed
                     stack[(sizeof stack - 2)] = 0x80;
@@ -1966,18 +1995,24 @@ void loop () {
 #endif
                 printOneChar('i');
                 showByte(rf12_hdr & RF12_HDR_MASK);
-                rf12_sendStart(RF12_ACK_REPLY, &stack[sizeof stack - ackLen], ackLen);
-                rf12_sendWait(1);
+                if (r) {
+                    rf12_sendStart(RF12_ACK_REPLY, &stack[sizeof stack - ackLen], ackLen);
+                    rf12_sendWait(1);
+                } else {
+                    showString(PSTR(" Aborted"));  // Airwaves busy, drop ACK and look for a retransmission.   
+                }
             }
             if (crlf) Serial.println();
 
             activityLed(0);
         }
     } // rf12_recvDone
-
+    byte r;
     if (cmd) {
-        if (rf12_canSend()) {
+        r = rf12_canSend(config.clearAir);
+        if (r) {
             activityLed(1);
+            Serial.print(r);
             showString(PSTR(" -> "));
             showByte(sendLen);
             showString(PSTR(" b\n"));
@@ -2002,11 +2037,20 @@ void loop () {
             cmd = 0;
             activityLed(0);
         } else { // rf12_canSend
-            uint16_t s = rf12_status();
-            showString(PSTR("Busy 0x"));  // Not ready to send
+            uint16_t s = rf12_status();            
+#if RF69_COMPAT && !TINY
+            Serial.print(RF69::sendRSSI);
+#endif            
+            showString(PSTR(" Busy 0x"));             // Not ready to send
             Serial.println(s, HEX);
+            Serial.flush();
             busyCount++;
-            cmd = 0;                      // Request dropped
+            if ((++sendRetry & 3) == 0) {
+                showString(PSTR("Command Aborted"));  // Drop the command
+                Serial.println();   
+                cmd = sendRetry = 0;                  // Request dropped
+            }
+            else delay(sendRetry);                    // or try a little later
         }
     } // cmd
 } // loop
