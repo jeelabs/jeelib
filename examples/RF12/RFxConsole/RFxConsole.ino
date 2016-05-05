@@ -194,19 +194,19 @@ static unsigned long now () {
     return millis() / 1000;
 }
 #if INVERT_LED == 0
-byte  ledStatus = 1;
-#else
 byte  ledStatus = 0;
+#else
+byte  ledStatus = 1;
 #endif
 static void activityLed (byte on) {
 #ifdef LED_PIN
     pinMode(LED_PIN, OUTPUT);
   #if INVERT_LED == 0
-    digitalWrite(LED_PIN, !on);
-    ledStatus = !on;
-  #else
-    digitalWrite(LED_PIN, on);
     ledStatus = on;
+    digitalWrite(LED_PIN, !on);
+  #else
+    ledStatus = !on;
+    digitalWrite(LED_PIN, on);
   #endif
 #endif
 }
@@ -560,6 +560,7 @@ static void showHelp () {
   #endif
             Serial.print(RF69::rssiChanged); printOneChar('/'); Serial.print(RF69::lastState);
             printOneChar('/'); Serial.print(RF69::countRSSI);
+            printOneChar('/'); Serial.print(RF69::interruptRSSI);
   
 #endif
     showString(PSTR(" Led is ")); if (ledStatus) showString(PSTR("off")); else showString(PSTR("on"));
@@ -1524,14 +1525,13 @@ void loop () {
         handleInput(Serial.read());
 #endif
     if (rf12_recvDone()) {
-
         rssiStartRX2 = RF69::startRSSI;
 #if DEBUG
         byte modeChange1 = RF69::modeChange1;
         byte modeChange2 = RF69::modeChange2;
         byte modeChange3 = RF69::modeChange3;
 #endif
-      
+        Serial.print(RF69::RSSIrestart); printOneChar(':'); Serial.println(RF69::interruptMicros);
 #if RF69_COMPAT && !TINY                // At this point the radio is in Standby
         rf12_recvDone();                // Attempt to buffer next RF packet
                                         // At this point the receiver is active
@@ -1784,6 +1784,7 @@ void loop () {
             printOneChar(' ');
             Serial.print(RF69::rssiChanged);  printOneChar('/'); Serial.print(RF69::lastState);
             printOneChar('/'); Serial.print(RF69::countRSSI);
+            printOneChar('/'); Serial.print(RF69::interruptRSSI);
         }
 /*
 #else
