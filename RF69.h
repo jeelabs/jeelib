@@ -9,9 +9,15 @@ namespace RF69 {
     extern uint8_t  startRSSI;
     extern uint8_t  sendRSSI;
     extern uint8_t  rssiDelay;
-    extern uint16_t rssiActive;
-    extern uint16_t rssiSilent;
-    extern uint8_t  rxThreshold;
+    extern uint32_t rssiActive;
+    extern uint32_t rssiSilent;
+    extern uint16_t rssiChanged;
+    extern uint8_t lastState;
+    extern uint8_t  interruptRSSI;
+    extern uint8_t  interruptLNA;
+    extern uint16_t countRSSI;
+    
+    extern uint8_t rxThreshold;
     extern int16_t  afc;
     extern int16_t  fei;
     extern uint8_t  lna;
@@ -54,6 +60,7 @@ namespace RF69 {
     void skip_hdr (uint8_t skip = 2);
     void fix_len (uint8_t skip = 16);
     void sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len);
+    void RSSIinterrupt();
     void interrupt_compat();
 }
 

@@ -369,10 +369,13 @@ static void InitIntPin () {
                 bitClear(PCMSK2, RFM_IRQ - 16);
         #endif
     #elif RF69_COMPAT
-        if (RF69::node != 0)
+        if (RF69::node != 0) {
             attachInterrupt(INT_NUMBER, RF69::interrupt_compat, RISING);
-        else
+            attachInterrupt(1, RF69::RSSIinterrupt, RISING);
+        } else {
             detachInterrupt(INT_NUMBER);
+            detachInterrupt(1);
+        }
     #endif
 #endif
 
@@ -398,10 +401,11 @@ static void InitIntPin () {
                 bitClear(PCMSK1, RFM_IRQ - 8);
         #endif                   
     #elif RF69_COMPAT
-        if (RF69::node != 0)
+        if (RF69::node != 0) {}
             attachInterrupt(INT_NUMBER, RF69::interrupt_compat, RISING);
-        else
+        } else {
             detachInterrupt(INT_NUMBER);
+        }
     #endif
 #endif
 }

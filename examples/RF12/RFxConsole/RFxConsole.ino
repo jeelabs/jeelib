@@ -4,7 +4,7 @@
 ///                          // The above flag must be set similarly in RF12.cpp
 ///                          // and RF69_avr.h
 #define BLOCK  0             // Alternate LED pin?
-#define INVERT_LED       0   // 0 is normal and 1 opposite
+#define INVERT_LED       1   // 0 is normal and 1 opposite
 ///////////////////////////////////////////////////////////////////////////////
 /// Configure some values in EEPROM for easy config of the RF12 later on.
 // 2009-05-06 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
@@ -97,6 +97,7 @@ byte stickyGroup = 212;
 byte eepromWrite;
 byte qMin = ~0;
 byte qMax = 0;
+unsigned int lastRSSIcount;
 
 #if TINY
 // Serial support (output only) for Tiny supported by TinyDebugSerial
@@ -192,14 +193,20 @@ static unsigned long now () {
     // FIXME 49-day overflow
     return millis() / 1000;
 }
-
+#if INVERT_LED == 0
+byte  ledStatus = 1;
+#else
+byte  ledStatus = 0;
+#endif
 static void activityLed (byte on) {
 #ifdef LED_PIN
     pinMode(LED_PIN, OUTPUT);
   #if INVERT_LED == 0
     digitalWrite(LED_PIN, !on);
+    ledStatus = !on;
   #else
     digitalWrite(LED_PIN, on);
+    ledStatus = on;
   #endif
 #endif
 }
@@ -551,10 +558,12 @@ static void showHelp () {
         }
     }
   #endif
-    Serial.println(RF69::rssiActive); Serial.println(RF69::rssiSilent);
-    RF69::rssiActive = 0;
-    RF69::rssiSilent = 0;
+            Serial.print(RF69::rssiChanged); printOneChar('/'); Serial.print(RF69::lastState);
+            printOneChar('/'); Serial.print(RF69::countRSSI);
+  
 #endif
+    showString(PSTR(" Led is ")); if (ledStatus) showString(PSTR("off")); else showString(PSTR("on"));
+    Serial.println();             
 }
 
 static void handleInput (char c) {
@@ -1515,6 +1524,7 @@ void loop () {
         handleInput(Serial.read());
 #endif
     if (rf12_recvDone()) {
+
         rssiStartRX2 = RF69::startRSSI;
 #if DEBUG
         byte modeChange1 = RF69::modeChange1;
@@ -1668,10 +1678,10 @@ void loop () {
         }
 #if RF69_COMPAT && !TINY
         if (config.verbosity) {
-/*            showString(PSTR(" a="));
+            showString(PSTR(" a="));
             Serial.print(observedRX.afc);                        // TODO What units has this number?
             showString(PSTR(" f="));
-            Serial.print(observedRX.fei);  */                      // TODO What units has this number?
+            Serial.print(observedRX.fei);                      // TODO What units has this number?
 /*
             LNA gain setting:
             000 gain set by the internal AGC loop
@@ -1771,6 +1781,9 @@ void loop () {
             Serial.print(rf12_hdr & RF12_HDR_MASK);
             showString(PSTR(" len "));
             Serial.print(rf12_len);
+            printOneChar(' ');
+            Serial.print(RF69::rssiChanged);  printOneChar('/'); Serial.print(RF69::lastState);
+            printOneChar('/'); Serial.print(RF69::countRSSI);
         }
 /*
 #else
@@ -2006,7 +2019,15 @@ void loop () {
 
             activityLed(0);
         }
+    } // rf12_recvDone 
+#if RF69_COMPAT && !TINY    
+      else { 
+        if (RF69::countRSSI != lastRSSIcount) {
+              activityLed(1);
+              lastRSSIcount = RF69::countRSSI;
+        }
     } // rf12_recvDone
+#endif    
     byte r;
     if (cmd) {
         r = rf12_canSend(config.clearAir);

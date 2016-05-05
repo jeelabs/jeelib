@@ -82,9 +82,12 @@
 #define IRQ2_FIFOOVERRUN    0x10
 #define IRQ2_PACKETSENT     0x08
 #define IRQ2_PAYLOADREADY   0x04
-#define DMAP1_PACKETSENT    0x00
-#define DMAP1_PAYLOADREADY  0x40
-#define DMAP1_SYNCADDRESS   0x80
+#define DIO0_PACKETSENT     0x00
+#define DIO0_PAYLOADREADY   0x40
+#define DIO0_SYNCADDRESS    0x80
+
+#define DIO3_FIFOFULL       0x00
+#define DIO3_RSSI           0x01
 
 #define RcCalStart          0x81
 #define RcCalDone           0x40
@@ -96,10 +99,6 @@
 #define threeByteSync       0x90
 #define fourByteSync        0x98
 #define fiveByteSync        0xA0
-
-#define DMAP1_PACKETSENT    0x00
-#define DMAP1_PAYLOADREADY  0x40
-#define DMAP1_SYNCADDRESS   0x80
 
 #define AFC_CLEAR           0x02
 
@@ -117,8 +116,14 @@ namespace RF69 {
     uint8_t  startRSSI;
     uint8_t  sendRSSI;
     uint8_t  rssiDelay;
-    uint16_t rssiActive;
-    uint16_t rssiSilent;
+    uint32_t rssiActive;
+    uint32_t rssiSilent;
+    uint16_t rssiChanged;
+    uint8_t  lastState;
+    uint8_t  interruptRSSI;
+    uint8_t  interruptLNA;
+    uint16_t countRSSI;
+
     uint8_t  rxThreshold;
     int16_t  afc;                  // I wonder how to make sure these 
     int16_t  fei;                  // are volatile
@@ -194,7 +199,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 //#define AfcClear            0x02
 #define AfcClear              0x11
   0x1E, 0x00,   // 
-//  0x1E, 0x04, // AFC each time RX mode entered USELESS!
+//  0x1E, 0x0C, // AFC each time RX mode entered USELESS!
 // Radio frequency wanders off into the wilderness/ 
 //  0x25, 0x80, // DioMapping1 = RSSI threshold
   0x26, 0x07, // disable clkout
@@ -342,7 +347,7 @@ uint8_t RF69::currentRSSI() {
       uint8_t storeDIOM = readReg(REG_DIOMAPPING1); // Collect Interrupt trigger
       uint8_t noiseFloor = readReg(REG_RSSITHRESHOLD);// Store current threshold
 
-      writeReg(REG_DIOMAPPING1, DMAP1_PAYLOADREADY);  // Suppress Interrupts
+      writeReg(REG_DIOMAPPING1, (DIO0_PAYLOADREADY | DIO3_FIFOFULL));// Suppress Interrupts
       writeReg(REG_RSSITHRESHOLD, 0xFF);              // Open up threshold
       setMode(MODE_RECEIVER);   // Looses contents of FIFO and 36 spins
       rssiDelay = 0;
@@ -402,7 +407,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         flushFifo();
         startRSSI = currentRSSI();
         modeChange1 = setMode(MODE_RECEIVER);// setting RX mode uses 33-36 spins
-        writeReg(REG_DIOMAPPING1, DMAP1_SYNCADDRESS);    // Interrupt trigger
+        writeReg(REG_DIOMAPPING1, (DIO0_SYNCADDRESS | DIO3_RSSI));    // Interrupt trigger
         break;
     case TXRECV:
         if (rxdone) {
@@ -429,15 +434,13 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
                     // because rxstate == TXIDLE
                 }
             } else return 1;
-        }
-        if (interval++ == 0) {
-//            if (readReg(REG_IRQFLAGS1) & IRQ1_RSSI) {
-            if (readReg(REG_RSSIVALUE) <= rxThreshold) {
-                rssiActive++;
-//                writeReg(REG_IRQFLAGS1, IRQ1_RSSI);
-            } else rssiSilent++;
-//            writeReg(REG_RSSICONFIG, RssiStart);
-        }
+        } /*else if (rxfill == 0) {
+            uint8_t r = readReg(REG_IRQFLAGS1) & IRQ1_RSSI;
+            if (r != lastState) {
+                rssiChanged++;
+                lastState = r;
+            }
+        } */
         break;
     }
     return ~0; // keep going, not done yet
@@ -474,7 +477,7 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
     crc = _crc16_update(~0, readReg(REG_SYNCGROUP));
     
     modeChange2 = setMode(MODE_TRANSMITTER);
-    writeReg(REG_DIOMAPPING1, DMAP1_PACKETSENT);     // Interrupt trigger
+    writeReg(REG_DIOMAPPING1, (DIO0_PACKETSENT | DIO3_FIFOFULL));     // Interrupt trigger
     
 /*  We must being transmission to avoid overflowing the FIFO since
     jeelib packet size can exceed FIFO size. We also want to avoid the
@@ -526,6 +529,12 @@ condition is met to transmit the packet data.
 */
 
 }
+void RF69::RSSIinterrupt() {
+//        interruptRSSI = readReg(REG_RSSIVALUE);
+//        interruptLNA  = readReg(REG_LNA);
+        countRSSI++;
+        return;
+}
 
 void RF69::interrupt_compat () {
         interruptCount++;
@@ -533,7 +542,7 @@ void RF69::interrupt_compat () {
         // FIFO can pass through empty during reception since it is also draining 
         if (rxstate == TXRECV) {
             // The following line attempts to stop further interrupts
-            writeReg(REG_DIOMAPPING1, DMAP1_PAYLOADREADY);   // Interrupt trigger
+            writeReg(REG_DIOMAPPING1, (DIO0_PAYLOADREADY | DIO3_RSSI));   // Interrupt trigger
             if (reentry) {
                 nestedInterrupts++;
                 uint8_t f = readReg(REG_IRQFLAGS2);
