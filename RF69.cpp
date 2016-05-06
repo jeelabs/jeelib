@@ -162,6 +162,8 @@ static volatile uint8_t rf69_skip;   // header bytes to skip
 static volatile uint8_t rf69_fix;    // Maximum for fixed length packet
 static volatile uint16_t interval;
 static volatile uint32_t RSSIinterruptMicros;
+static volatile uint16_t rtp;
+static volatile uint16_t rst;
 
 static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x2E, 0xA0, // SyncConfig = sync on, sync size = 5
@@ -422,8 +424,8 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
             rf12_lna = lna;
             rf12_afc = afc;
             rf12_fei = fei;
-            rf12_rtp = interruptMicros; // Delay between RSSI & Data Packet
-            rf12_rst = RSSIrestart; RSSIrestart = 0;
+            rf12_rtp = rtp; // Delay between RSSI & Data Packet
+            rf12_rst = rst; // Count of resets used to capture packet
             for (byte i = 0; i <= (rf69_len + 5); i++) {
                 rf12_buf[i] = rf69_buf[i];
             }     
@@ -574,6 +576,8 @@ void RF69::interrupt_compat () {
             // The window for grabbing the above values is quite small
             // values available during transfer between the ether
             // and the inbound fifo buffer.
+            rtp = interruptMicros;
+            rst = RSSIrestart;
             volatile uint8_t stillCollecting = true;
             rxP++;
             crc = ~0;
