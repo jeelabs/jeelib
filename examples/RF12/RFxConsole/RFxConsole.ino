@@ -1738,10 +1738,10 @@ void loop () {
 
             showString(PSTR(" r="));
             Serial.print(rf12_rst);
-
+/*
             showString(PSTR(" M="));
             Serial.print(RF69::REGIRQFLAGS1, HEX);
-            
+*/            
 /*
             showString(PSTR(" Ra="));
     // display RSSI at the end of TX phase value
@@ -2030,9 +2030,9 @@ void loop () {
     } // rf12_recvDone 
 #if RF69_COMPAT && !TINY    
       else { 
-        if (rf12_rst != lastRSSIrestart) {
-              if (rf12_rst) activityLed(1);
-              lastRSSIrestart = rf12_rst;
+        if (RF69::RSSIrestart != lastRSSIrestart) {
+              if (RF69::RSSIrestart) activityLed(1);
+              lastRSSIrestart = RF69::RSSIrestart;
         }
     } // rf12_recvDone
 #endif    

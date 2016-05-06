@@ -211,7 +211,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 
 //  0x29, 0xA0, // RssiThresh ... -80dB
   0x29, 0xFF, // RssiThresh ... -127.5dB
-
+  0x2B, 0x05,
   0x2E, 0xA7, // SyncConfig = sync on, sync size = 5
   0x2F, 0xAA, // SyncValue1 = 0xAA
   0x30, 0xAA, // SyncValue2 = 0xAA
@@ -443,15 +443,15 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
                     // because rxstate == TXIDLE
                 }
             } else return 1;
-        } else if (RSSIinterruptMicros) {
-            if ((micros() - RSSIinterruptMicros) > 2000ul) {
-                REGIRQFLAGS1 = readReg(REG_IRQFLAGS1) & IRQ1_TIMEOUT;// Timeout?                
+        } else if (readReg(REG_IRQFLAGS1) & IRQ1_TIMEOUT) {
+//            if ((micros() - RSSIinterruptMicros) > 2000ul) {
+//                REGIRQFLAGS1 = IRQ1_TIMEOUT;// Timeout?                
                 RSSIrestart++;
                 setMode(MODE_STANDBY);
                 rxstate = TXIDLE;   // Looses contents of FIFO and 36 spins
                 // Noise interrupt, abort RX cycle and restart
-            }
-        } 
+//            }
+        }
         break;
     }
     return ~0; // keep going, not done yet
