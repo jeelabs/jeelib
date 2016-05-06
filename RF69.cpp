@@ -120,10 +120,11 @@ namespace RF69 {
     uint32_t rssiSilent;
     uint16_t rssiChanged;
     uint8_t  lastState;
+    uint32_t interruptMicros;
     uint8_t  interruptRSSI;
     uint8_t  interruptLNA;
     uint16_t countRSSI;
-
+    uint16_t RSSIrestart;
     uint8_t  rxThreshold;
     int16_t  afc;                  // I wonder how to make sure these 
     int16_t  fei;                  // are volatile
@@ -160,6 +161,7 @@ static volatile uint8_t reentry = false;
 static volatile uint8_t rf69_skip;   // header bytes to skip
 static volatile uint8_t rf69_fix;    // Maximum for fixed length packet
 static volatile uint16_t interval;
+static volatile uint32_t RSSIinterruptMicros;
 
 static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x2E, 0xA0, // SyncConfig = sync on, sync size = 5
@@ -406,6 +408,8 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         rxstate = TXRECV;
         flushFifo();
         startRSSI = currentRSSI();
+        RSSIinterruptMicros = 0;
+        
         modeChange1 = setMode(MODE_RECEIVER);// setting RX mode uses 33-36 spins
         writeReg(REG_DIOMAPPING1, (DIO0_SYNCADDRESS | DIO3_RSSI));    // Interrupt trigger
         break;
@@ -418,6 +422,8 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
             rf12_lna = lna;
             rf12_afc = afc;
             rf12_fei = fei;
+            rf12_rtp = interruptMicros; // Delay between RSSI & Data Packet
+            rf12_rst = RSSIrestart; RSSIrestart = 0;
             for (byte i = 0; i <= (rf69_len + 5); i++) {
                 rf12_buf[i] = rf69_buf[i];
             }     
@@ -434,13 +440,14 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
                     // because rxstate == TXIDLE
                 }
             } else return 1;
-        } /*else if (rxfill == 0) {
-            uint8_t r = readReg(REG_IRQFLAGS1) & IRQ1_RSSI;
-            if (r != lastState) {
-                rssiChanged++;
-                lastState = r;
+        } else if (RSSIinterruptMicros) {
+            if ((micros() - RSSIinterruptMicros) > 2000ul) { 
+                RSSIrestart++;
+                setMode(MODE_STANDBY);
+                rxstate = TXIDLE;   // Looses contents of FIFO and 36 spins
+                // Noise interrupt, abort RX cycle and restart
             }
-        } */
+        } 
         break;
     }
     return ~0; // keep going, not done yet
@@ -530,13 +537,16 @@ condition is met to transmit the packet data.
 
 }
 void RF69::RSSIinterrupt() {
+        RSSIinterruptMicros = micros();
 //        interruptRSSI = readReg(REG_RSSIVALUE);
 //        interruptLNA  = readReg(REG_LNA);
-        countRSSI++;
+//        countRSSI++;
         return;
 }
 
 void RF69::interrupt_compat () {
+        interruptMicros = micros() - RSSIinterruptMicros;
+        RSSIinterruptMicros = 0;
         interruptCount++;
         // Interrupt will ONLY remain asserted until FIFO empty or exit RX mode
         // FIFO can pass through empty during reception since it is also draining 

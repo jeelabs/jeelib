@@ -85,6 +85,8 @@ extern volatile uint8_t rf12_rssi;         // Only available with RFM69 hardware
 extern volatile uint8_t rf12_lna;          // Only available with RFM69 hardware
 extern volatile int16_t rf12_afc;          // Only available with RFM69 hardware
 extern volatile int16_t rf12_fei;          // Only available with RFM69 hardware
+extern volatile uint16_t rf12_rtp;          // Only available with RFM69 hardware
+extern volatile uint16_t rf12_rst;          // Only available with RFM69 hardware
 
 //namespace RF12 { extern int16_t  intCount; }
         

@@ -97,7 +97,7 @@ byte stickyGroup = 212;
 byte eepromWrite;
 byte qMin = ~0;
 byte qMax = 0;
-unsigned int lastRSSIcount;
+unsigned int lastRSSIrestart;
 
 #if TINY
 // Serial support (output only) for Tiny supported by TinyDebugSerial
@@ -1531,7 +1531,7 @@ void loop () {
         byte modeChange2 = RF69::modeChange2;
         byte modeChange3 = RF69::modeChange3;
 #endif
-        Serial.print(RF69::RSSIrestart); printOneChar(':'); Serial.println(RF69::interruptMicros);
+        Serial.print(rf12_rst); printOneChar(':'); Serial.println(rf12_rtp);
 #if RF69_COMPAT && !TINY                // At this point the radio is in Standby
         rf12_recvDone();                // Attempt to buffer next RF packet
                                         // At this point the receiver is active
@@ -1781,10 +1781,11 @@ void loop () {
             Serial.print(rf12_hdr & RF12_HDR_MASK);
             showString(PSTR(" len "));
             Serial.print(rf12_len);
-            printOneChar(' ');
+/*            printOneChar(' ');
             Serial.print(RF69::rssiChanged);  printOneChar('/'); Serial.print(RF69::lastState);
             printOneChar('/'); Serial.print(RF69::countRSSI);
             printOneChar('/'); Serial.print(RF69::interruptRSSI);
+*/
         }
 /*
 #else
@@ -2023,9 +2024,9 @@ void loop () {
     } // rf12_recvDone 
 #if RF69_COMPAT && !TINY    
       else { 
-        if (RF69::countRSSI != lastRSSIcount) {
-              activityLed(1);
-              lastRSSIcount = RF69::countRSSI;
+        if (rf12_rst != lastRSSIrestart) {
+              if (rf12_rst) activityLed(1);
+              lastRSSIrestart = rf12_rst;
         }
     } // rf12_recvDone
 #endif    
