@@ -72,6 +72,7 @@
 #define IRQ1_MODEREADY      0x80
 #define IRQ1_RXREADY        0x40
 #define IRQ1_RSSI           0x08
+#define IRQ1_TIMEOUT        0x04
 
 #define START_TX            0xA0  // With 125Khz SPI a minimum
 #define DELAY_TX            0x20  // 22 byte head start required, 32 to be safe 
@@ -125,7 +126,7 @@ namespace RF69 {
     uint8_t  interruptLNA;
     uint16_t countRSSI;
     uint16_t RSSIrestart;
-    uint8_t  rxThreshold;
+    uint8_t  REGIRQFLAGS1;
     int16_t  afc;                  // I wonder how to make sure these 
     int16_t  fei;                  // are volatile
     uint8_t  lna;
@@ -160,7 +161,7 @@ static volatile uint16_t discards;   // Count of packets discarded
 static volatile uint8_t reentry = false;
 static volatile uint8_t rf69_skip;   // header bytes to skip
 static volatile uint8_t rf69_fix;    // Maximum for fixed length packet
-static volatile uint16_t interval;
+//static volatile uint16_t interval;
 static volatile uint32_t RSSIinterruptMicros;
 static volatile uint16_t rtp;
 static volatile uint16_t rst;
@@ -202,7 +203,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 // does adjust the receiver on initial packets.
 //#define AfcClear            0x02
 #define AfcClear              0x11
-  0x1E, 0x00,   // 
+//  0x1E, 0x00,   // 
 //  0x1E, 0x0C, // AFC each time RX mode entered USELESS!
 // Radio frequency wanders off into the wilderness/ 
 //  0x25, 0x80, // DioMapping1 = RSSI threshold
@@ -413,7 +414,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         RSSIinterruptMicros = 0;
         
         modeChange1 = setMode(MODE_RECEIVER);// setting RX mode uses 33-36 spins
-        writeReg(REG_DIOMAPPING1, (DIO0_SYNCADDRESS | DIO3_RSSI));    // Interrupt trigger
+        writeReg(REG_DIOMAPPING1, (DIO0_SYNCADDRESS | DIO3_RSSI));// Interrupt trigger
         break;
     case TXRECV:
         if (rxdone) {
@@ -443,7 +444,8 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
                 }
             } else return 1;
         } else if (RSSIinterruptMicros) {
-            if ((micros() - RSSIinterruptMicros) > 2000ul) { 
+            if ((micros() - RSSIinterruptMicros) > 2000ul) {
+                REGIRQFLAGS1 = readReg(REG_IRQFLAGS1) & IRQ1_TIMEOUT;// Timeout?                
                 RSSIrestart++;
                 setMode(MODE_STANDBY);
                 rxstate = TXIDLE;   // Looses contents of FIFO and 36 spins

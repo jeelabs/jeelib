@@ -392,7 +392,8 @@ static void saveConfig () {
 #endif
     if (!rf12_configSilent()) showString(INITFAIL);
     activityLed(0); 
-    showString(DONE);       
+    showString(DONE);
+    RF69::RSSIrestart = 0;       
 } // saveConfig
 
 static byte bandToFreq (byte band) {
@@ -540,8 +541,7 @@ static void showHelp () {
   #else
     showString(RFM12x);
   #endif
-    showString(PSTR("configuration:\n"));
-    rf12_configDump();
+    showStatus();
   #if RF69_COMPAT
     if (!RF69::present) {
 //        dumpEEprom();
@@ -558,13 +558,21 @@ static void showHelp () {
         }
     }
   #endif
-            Serial.print(RF69::rssiChanged); printOneChar('/'); Serial.print(RF69::lastState);
+/*            Serial.print(RF69::rssiChanged); printOneChar('/'); Serial.print(RF69::lastState);
             printOneChar('/'); Serial.print(RF69::countRSSI);
             printOneChar('/'); Serial.print(RF69::interruptRSSI);
-  
+*/  
 #endif
+}
+
+static void showStatus() {
     showString(PSTR(" Led is ")); if (ledStatus) showString(PSTR("off")); else showString(PSTR("on"));
-    Serial.println();             
+    showString(PSTR(", Free Ram "));
+    Serial.print(freeRam());     
+    showString(PSTR("b, Restarts "));
+    Serial.print(RF69::RSSIrestart);
+    showString(PSTR(", Eeprom"));
+    rf12_configDump();
 }
 
 static void handleInput (char c) {
@@ -596,8 +604,9 @@ static void handleInput (char c) {
             showWord(value);
             showString(PSTR(",Key="));
             showByte(c);          // Highlight Tiny serial framing errors.  
-            printOneChar(' ');
-            Serial.println(freeRam());            
+            printOneChar(',');
+            showStatus();
+
 //            Serial.println();
             value = top = 0;      // Clear up
             ones = 0;
@@ -1081,7 +1090,7 @@ static void handleInput (char c) {
         showString(PSTR("Eeprom written:"));
         Serial.println(eepromWrite);
         eepromWrite = 0;
-        rf12_configDump();
+        showStatus();
     }    
 } // handleInput
 
@@ -1531,7 +1540,6 @@ void loop () {
         byte modeChange2 = RF69::modeChange2;
         byte modeChange3 = RF69::modeChange3;
 #endif
-        Serial.print(rf12_rst); printOneChar(':'); Serial.println(rf12_rtp);
 #if RF69_COMPAT && !TINY                // At this point the radio is in Standby
         rf12_recvDone();                // Attempt to buffer next RF packet
                                         // At this point the receiver is active
@@ -1712,19 +1720,7 @@ void loop () {
                 showString(PSTR(" Reset "));
                 CRCbadCount = messageCount = nonBroadcastCount = 0;
             }
-/*
-        showString(PSTR(" A="));
-// display RSSI value Abort
-        if (config.output & 0x1)                  // Hex output?
-            showByte(rssiAbort2);
-        else {
-            Serial.print(rssiAbort2 >> 1);
-            if (rssiAbort2 & 0x01) showString(PSTR(".5"));
-            showString(PSTR("dB"));
-        }
-            showString(PSTR(" rC="));
-            Serial.print(RF69::rssiConfig);
-*/            
+
             if (rssiStartRX2) {
                 showString(PSTR(" Rs="));
                 // display RSSI at the start of RX phase value
@@ -1736,7 +1732,17 @@ void loop () {
                     showString(PSTR("dB"));
                 }
             }
-/*            
+            
+            showString(PSTR(" d="));
+            Serial.print(rf12_rtp);
+
+            showString(PSTR(" r="));
+            Serial.print(rf12_rst);
+
+            showString(PSTR(" M="));
+            Serial.print(RF69::REGIRQFLAGS1, HEX);
+            
+/*
             showString(PSTR(" Ra="));
     // display RSSI at the end of TX phase value
             if (config.output & 0x1)                  // Hex output?

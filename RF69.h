@@ -18,7 +18,7 @@ namespace RF69 {
     extern uint8_t  interruptLNA;
     extern uint16_t countRSSI;
     extern uint16_t RSSIrestart;
-    extern uint8_t rxThreshold;
+    extern uint8_t REGIRQFLAGS1;
     extern int16_t  afc;
     extern int16_t  fei;
     extern uint8_t  lna;
