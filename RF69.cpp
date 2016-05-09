@@ -449,15 +449,15 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
                     // because rxstate == TXIDLE
                 }
             } else return 1;
-        } else if (readReg(REG_IRQFLAGS1) & IRQ1_TIMEOUT) {
+        }/* else if (readReg(REG_IRQFLAGS1) & IRQ1_TIMEOUT) {
 //            if ((micros() - RSSIinterruptMicros) > 2000ul) {
 //                REGIRQFLAGS1 = IRQ1_TIMEOUT;// Timeout?                
                 RSSIrestart++;
-                setMode(MODE_STANDBY);
+//                setMode(MODE_STANDBY);
                 rxstate = TXIDLE;   // Looses contents of FIFO and 36 spins
                 // Noise interrupt, abort RX cycle and restart
 //            }
-        }
+        }*/
         break;
     }
     return ~0; // keep going, not done yet
@@ -548,9 +548,17 @@ condition is met to transmit the packet data.
 }
 void RF69::RSSIinterrupt() {
         RSSIinterruptMicros = micros();
-//        interruptRSSI = readReg(REG_RSSIVALUE);
-//        interruptLNA  = readReg(REG_LNA);
-//        countRSSI++;
+//        delayMicroseconds(32);  // Seems as small as will work at all
+        delayMicroseconds(48);
+        writeReg(REG_AFCFEI, FeiStart);
+        delayMicroseconds(1592);
+        interruptRSSI = readReg(REG_RSSIVALUE);
+        interruptLNA  = readReg(REG_LNA);
+        if (readReg(REG_IRQFLAGS1) & IRQ1_TIMEOUT) {
+            RSSIrestart++;
+            rxstate = TXIDLE;   // Trigger a RX restart by FSM           
+            writeReg(REG_AFCFEI, AFC_CLEAR);  // Clear the AFC
+        }
 }
 
 void RF69::interrupt_compat () {
@@ -579,7 +587,7 @@ void RF69::interrupt_compat () {
             lna = readReg(REG_LNA);
             afc  = readReg(REG_AFCMSB);
             afc  = (afc << 8) | readReg(REG_AFCLSB);
-            writeReg(REG_AFCFEI, FeiStart);
+//            writeReg(REG_AFCFEI, FeiStart);
             while (!readReg(REG_AFCFEI) & FeiDone)
                 ;
             fei  = readReg(REG_FEIMSB);
