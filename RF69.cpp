@@ -52,7 +52,7 @@
 
 #define MODE_SLEEP          0x00
 #define MODE_STANDBY        0x04
-#define MODE_FS             0x08
+#define MODE_FS             0x08    // Unpredictable results with this value
 #define MODE_RECEIVER       0x10
 #define MODE_LISTENABORT    0x20
 #define MODE_LISTENON       0x40
@@ -89,6 +89,8 @@
 
 #define DIO3_FIFOFULL       0x00
 #define DIO3_RSSI           0x01
+#define DIO3_FIFOFULL_TX    0x00
+#define DIO3_NOTHING_IN_TX  0x02
 
 #define RcCalStart          0x81
 #define RcCalDone           0x40
@@ -354,8 +356,10 @@ uint8_t RF69::currentRSSI() {
       uint8_t storeDIOM = readReg(REG_DIOMAPPING1); // Collect Interrupt trigger
       uint8_t noiseFloor = readReg(REG_RSSITHRESHOLD);// Store current threshold
 
+      setMode(MODE_STANDBY); 
       writeReg(REG_DIOMAPPING1, (DIO0_PAYLOADREADY | DIO3_FIFOFULL));// Suppress Interrupts
       writeReg(REG_RSSITHRESHOLD, 0xFF);              // Open up threshold
+
       setMode(MODE_RECEIVER);   // Looses contents of FIFO and 36 spins
       rssiDelay = 0;
       writeReg(REG_RSSICONFIG, RssiStart);
@@ -490,7 +494,7 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
     crc = _crc16_update(~0, readReg(REG_SYNCGROUP));
     
     modeChange2 = setMode(MODE_TRANSMITTER);
-    writeReg(REG_DIOMAPPING1, (DIO0_PACKETSENT | DIO3_FIFOFULL));     // Interrupt trigger
+    writeReg(REG_DIOMAPPING1, (DIO0_PACKETSENT | DIO3_NOTHING_IN_TX));     // Interrupt trigger
     
 /*  We must being transmission to avoid overflowing the FIFO since
     jeelib packet size can exceed FIFO size. We also want to avoid the
@@ -547,7 +551,6 @@ void RF69::RSSIinterrupt() {
 //        interruptRSSI = readReg(REG_RSSIVALUE);
 //        interruptLNA  = readReg(REG_LNA);
 //        countRSSI++;
-        return;
 }
 
 void RF69::interrupt_compat () {
@@ -558,7 +561,8 @@ void RF69::interrupt_compat () {
         // FIFO can pass through empty during reception since it is also draining 
         if (rxstate == TXRECV) {
             // The following line attempts to stop further interrupts
-            writeReg(REG_DIOMAPPING1, (DIO0_PAYLOADREADY | DIO3_RSSI));   // Interrupt trigger
+            writeReg(REG_DIOMAPPING1, (DIO0_PAYLOADREADY | DIO3_FIFOFULL));
+                                                        // Turns off RSSI DIO3
             if (reentry) {
                 nestedInterrupts++;
                 uint8_t f = readReg(REG_IRQFLAGS2);
