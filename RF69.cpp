@@ -92,6 +92,7 @@
 
 #define RcCalStart          0x81
 #define RcCalDone           0x40
+#define FeiStart            0x20
 #define FeiDone             0x40
 #define RssiStart           0x01
 #define RssiDone            0x02
@@ -190,7 +191,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   // 0x07, 0xD9, // FrfMsb, freq = 868.000 MHz
   // 0x08, 0x00, // FrfMib, divider = 14221312
   // 0x09, 0x00, // FrfLsb, step = 61.03515625
-  0x0B, 0x20, // AfcCtrl, afclowbetaon
+//  0x0B, 0x20, // AfcCtrl, afclowbetaon
 /*
 // Mismatching PA1 below with the RFM69x module present risks blowing a hole in the LNA
 // 0x11, 0x5F, // PA1 enable, Pout = max // uncomment this for RFM69H
@@ -212,6 +213,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 //  0x29, 0xA0, // RssiThresh ... -80dB
   0x29, 0xFF, // RssiThresh ... -127.5dB
   0x2B, 0x05,
+//  0x2D, 0x01, // Only 1 preamble byte
   0x2E, 0xA7, // SyncConfig = sync on, sync size = 5
   0x2F, 0xAA, // SyncValue1 = 0xAA
   0x30, 0xAA, // SyncValue2 = 0xAA
@@ -223,7 +225,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x3C, 0x8F, // FifoTresh, not empty, level 15 bytes
   0x3D, 0x10, // PacketConfig2, interpkt = 1, autorxrestart off
   0x58, 0x2D, // High sensitivity mode
-  0x6F, 0x20, // 0x30, // TestDagc ...
+//  0x6F, 0x20, // 0x30, // TestDagc ...
 //  0x71, 0x01, // AFC offset set for low modulation index systems, used if
               // AfcLowBetaOn=1. Offset = LowBetaAfcOffset x 488 Hz 
   0
@@ -263,9 +265,9 @@ static void flushFifo () {
 uint8_t setMode (uint8_t mode) {
     byte c = 0;
     writeReg(REG_OPMODE, (readReg(REG_OPMODE) & 0xE3) | mode);
-    while ((readReg(REG_IRQFLAGS1) & IRQ1_MODEREADY) == 0)
-        c++;
-        ;
+    while ((readReg(REG_IRQFLAGS1) & IRQ1_MODEREADY) == 0) {
+        c++; if (c == 255) break;
+    }
     return c;
 }
 
@@ -296,7 +298,7 @@ void RF69::setFrequency (uint32_t freq) {
     // due to this, the lower 6 bits of the calculated factor will always be 0
     // this is still 4 ppm, i.e. well below the radio's 32 MHz crystal accuracy
     // 868.0 MHz = 0xD90000, 868.3 MHz = 0xD91300, 915.0 MHz = 0xE4C000 
-    frf = ((freq << 2) / (32000000L >> 11)) << 6;
+    frf = (((freq << 2) / (32000000L >> 11)) << 6) + 31;  // middle of 'o' band
     rf69_skip = 0;    // Ensure default Jeenode RF12 operation
 }
 
@@ -573,8 +575,14 @@ void RF69::interrupt_compat () {
             lna = readReg(REG_LNA);
             afc  = readReg(REG_AFCMSB);
             afc  = (afc << 8) | readReg(REG_AFCLSB);
+            writeReg(REG_AFCFEI, FeiStart);
+            while (!readReg(REG_AFCFEI) & FeiDone)
+                ;
             fei  = readReg(REG_FEIMSB);
             fei  = (fei << 8) | readReg(REG_FEILSB);
+            
+            writeReg(REG_AFCFEI, AFC_CLEAR);  // Clear the AFC
+            
             // The window for grabbing the above values is quite small
             // values available during transfer between the ether
             // and the inbound fifo buffer.

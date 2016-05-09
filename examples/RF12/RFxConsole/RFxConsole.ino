@@ -1006,14 +1006,14 @@ static void handleInput (char c) {
 
             
             // Show and set RFMxx registers
-            if ((top == 2) & (stack[0] == 1)) {
+            if ((top == 2) & ((stack[0] == 128) || (stack[0] == 0))) {
 #if RF69_COMPAT
 /* Example usage: 1x        // Switch into hex input mode (optional, adjust values below accordingly)
-//                1,A9,E4n  // 0x80 (write bit) + 0x29 (RSSI Threshold) == 0xA9; E4 (default RSSI threshold); n = node command
-//                1,91,80n  // 0x80 (write bit) + 0x11 (Output power) == 0x91; 80 (PA0 transmit power minimum); n = node command
+//                80,A9,E4n  // 0x80 (write bit) + 0x29 (RSSI Threshold) == 0xA9; E4 (default RSSI threshold); n = node command
+//                80,91,80n  // 0x80 (write bit) + 0x11 (Output power) == 0x91; 80 (PA0 transmit power minimum); n = node command
 //                x         // Save certain registers in eeprom and revert to decimal mode
 */
-                showByte(RF69::control(stack[1], value)); // Prints out Register value before any change requested.
+                showByte(RF69::control((stack[1] | stack[0]), value)); // Prints out Register value before any change requested.
 #else
                 Serial.print((word)(rf12_control(value)));
 #endif
