@@ -129,7 +129,7 @@ namespace RF69 {
     uint32_t rssiSilent;
     uint16_t rssiChanged;
     uint8_t  lastState;
-    uint16_t interruptMicros;
+    uint32_t interruptMicros;
     uint16_t RSSIrestart;
     uint8_t  REGIRQFLAGS1;
     int16_t  afc;                  // I wonder how to make sure these 
@@ -218,7 +218,8 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x29, 0xFF, // RssiThresh ... -127.5dB
   0x2B, 0x05,
 //  0x2D, 0x01, // Only 1 preamble byte
-  0x2E, 0xA7, // SyncConfig = sync on, sync size = 5
+//  0x2E, 0xA7, // SyncConfig = sync on, sync size = 5
+  0x2E, 0xE7, // SyncConfig = sync on, sync size = 5
   0x2F, 0xAA, // SyncValue1 = 0xAA
   0x30, 0xAA, // SyncValue2 = 0xAA
   0x31, 0xAA, // SyncValue3 = 0xAA
@@ -422,10 +423,10 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         crc = _crc16_update(~0, group);
         recvBuf = buf;
         rxstate = TXRECV;
-        flushFifo();
+//        flushFifo();
         setMode(MODE_STANDBY);
-        startRSSI = currentRSSI();
         writeReg(REG_DIOMAPPING1, (DIO0_RSSI));// Interrupt trigger
+        startRSSI = currentRSSI();
         modeChange1 = setMode(MODE_RECEIVER); // setting RX mode uses 33-36 spins
         writeReg(REG_AFCFEI, AFC_CLEAR);      // Clear the AFC
         startRX = micros();
