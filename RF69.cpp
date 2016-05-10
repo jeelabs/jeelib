@@ -575,7 +575,7 @@ void RF69::RSSIinterrupt() {
             } else if (i & IRQ1_TIMEOUT) {
                 RSSIrestart++;
                 rxstate = TXIDLE;   // Trigger a RX restart by FSM           
-                setMode(MODE_STANDBY);
+ //               setMode(MODE_STANDBY);
                 writeReg(REG_AFCFEI, AFC_CLEAR);  // Clear the AFC
                 break;
             }
