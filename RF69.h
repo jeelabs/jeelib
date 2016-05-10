@@ -13,10 +13,10 @@ namespace RF69 {
     extern uint32_t rssiSilent;
     extern uint16_t rssiChanged;
     extern uint8_t lastState;
-    extern uint32_t interruptMicros;
-    extern uint8_t  interruptRSSI;
-    extern uint8_t  interruptLNA;
-    extern uint16_t countRSSI;
+    extern uint16_t interruptMicros;
+//    extern uint8_t  interruptRSSI;
+//    extern uint8_t  interruptLNA;
+//    extern uint16_t countRSSI;
     extern uint16_t RSSIrestart;
     extern uint8_t REGIRQFLAGS1;
     extern int16_t  afc;

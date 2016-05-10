@@ -125,10 +125,10 @@ namespace RF69 {
     uint32_t rssiSilent;
     uint16_t rssiChanged;
     uint8_t  lastState;
-    uint32_t interruptMicros;
-    uint8_t  interruptRSSI;
-    uint8_t  interruptLNA;
-    uint16_t countRSSI;
+    uint16_t interruptMicros;
+//    uint8_t  interruptRSSI;
+//    uint8_t  interruptLNA;
+//    uint16_t countRSSI;
     uint16_t RSSIrestart;
     uint8_t  REGIRQFLAGS1;
     int16_t  afc;                  // I wonder how to make sure these 
@@ -166,7 +166,6 @@ static volatile uint8_t reentry = false;
 static volatile uint8_t rf69_skip;   // header bytes to skip
 static volatile uint8_t rf69_fix;    // Maximum for fixed length packet
 //static volatile uint16_t interval;
-static volatile uint32_t RSSIinterruptMicros;
 static volatile uint16_t rtp;
 static volatile uint16_t rst;
 
@@ -364,7 +363,10 @@ uint8_t RF69::currentRSSI() {
       setMode(MODE_RECEIVER);   // Looses contents of FIFO and 36 spins
       rssiDelay = 0;
       writeReg(REG_RSSICONFIG, RssiStart);
-      while (!(readReg(REG_IRQFLAGS1) & IRQ1_RSSI)) rssiDelay++;
+      while (!(readReg(REG_IRQFLAGS1) & IRQ1_RSSI)) {
+          rssiDelay++;
+          delayMicroseconds(4); // Waiting for completion
+      }
       uint8_t r = readReg(REG_RSSIVALUE);           // Collect RSSI value
       
       setMode(MODE_STANDBY);                        // Get out of RX mode 
@@ -418,7 +420,6 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         rxstate = TXRECV;
         flushFifo();
         startRSSI = currentRSSI();
-        RSSIinterruptMicros = 0;
         
         modeChange1 = setMode(MODE_RECEIVER);// setting RX mode uses 33-36 spins
         writeReg(REG_DIOMAPPING1, (DIO0_SYNCADDRESS | DIO3_RSSI));// Interrupt trigger
@@ -548,7 +549,7 @@ condition is met to transmit the packet data.
 
 }
 void RF69::RSSIinterrupt() {
-        RSSIinterruptMicros = micros();
+        volatile uint32_t RSSIinterruptMicros = micros();
 //        delayMicroseconds(8);  // Appears as small as will work at all
 //        delayMicroseconds(48);   // Wait for RFM69
         writeReg(REG_AFCFEI, FeiStart);
@@ -570,7 +571,6 @@ void RF69::RSSIinterrupt() {
             volatile uint8_t i = readReg(REG_IRQFLAGS1); 
             if (i & IRQ1_SYNCMATCH) {
                 interruptMicros = micros() - RSSIinterruptMicros;
-                RSSIinterruptMicros = 0;
                 break;
             } else if (i & IRQ1_TIMEOUT) {
                 RSSIrestart++;
