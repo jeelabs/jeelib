@@ -581,12 +581,13 @@ second rollover and then will be 1.024 mS out.
             // values available during transfer between the ether
             // and the inbound fifo buffer.
             
+            volatile uint8_t i;
             while (true) {  // Loop for SyncMatch or Timeout
-                volatile uint8_t i = readReg(REG_IRQFLAGS1); 
-                if (i & IRQ1_SYNCMATCH) {
+
+                if (readReg(REG_IRQFLAGS2) & IRQ2_FIFONOTEMPTY) {
                     interruptMicros = micros() - RSSIinterruptMicros;
                     break;
-                } else if (i & IRQ1_TIMEOUT) {
+                } else if (readReg(REG_IRQFLAGS1) & IRQ1_TIMEOUT) {
                     RSSIrestart++;
                     rxstate = TXIDLE;   // Trigger a RX restart by FSM           
                     return;
