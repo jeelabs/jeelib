@@ -368,7 +368,7 @@ uint8_t RF69::currentRSSI() {
       writeReg(REG_RSSICONFIG, RssiStart);
       while (!(readReg(REG_IRQFLAGS1) & IRQ1_RSSI)) {
           rssiDelay++;
-          delayMicroseconds(4); // Waiting for completion
+//          delayMicroseconds(4); // Waiting for completion
       }
       uint8_t r = readReg(REG_RSSIVALUE);           // Collect RSSI value
       
@@ -423,8 +423,8 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         recvBuf = buf;
         rxstate = TXRECV;
         flushFifo();
+        setMode(MODE_STANDBY);
         startRSSI = currentRSSI();
-        
         writeReg(REG_DIOMAPPING1, (DIO0_RSSI));// Interrupt trigger
         modeChange1 = setMode(MODE_RECEIVER); // setting RX mode uses 33-36 spins
         writeReg(REG_AFCFEI, AFC_CLEAR);      // Clear the AFC
@@ -598,7 +598,6 @@ second rollover and then will be 1.024 mS out.
             }
 
             interruptCount++;
-            // The following line attempts to stop further interrupts
             if (reentry) {
                 nestedInterrupts++;
                 uint8_t f = readReg(REG_IRQFLAGS2);
