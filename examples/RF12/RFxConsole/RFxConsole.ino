@@ -379,6 +379,7 @@ static void saveConfig () {
     config.crc = calcCrc(&config, sizeof config - 2);
     // eeprom_write_block(&config, RF12_EEPROM_ADDR, sizeof config);
     // this uses 170 bytes less flash than eeprom_write_block(), no idea why
+
     for (byte i = 0; i < sizeof config; ++i) {
         byte* p = &config.nodeId;
         if (eeprom_read_byte(RF12_EEPROM_ADDR + i) != p[i]) {
@@ -386,6 +387,7 @@ static void saveConfig () {
             eepromWrite++;
         }
     }
+    
     salusMode = false;
 #if STATISTICS    
     messageCount = nonBroadcastCount = CRCbadCount = 0; // Clear stats counters

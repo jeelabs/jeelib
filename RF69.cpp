@@ -550,12 +550,11 @@ condition is met to transmit the packet data.
 }
 void RF69::RSSIinterrupt() {
         volatile uint32_t RSSIinterruptMicros = micros();
-//        delayMicroseconds(8);  // Appears as small as will work at all
-//        delayMicroseconds(48);   // Wait for RFM69
+        delayMicroseconds(48);   // Wait for RFM69
         writeReg(REG_AFCFEI, FeiStart);
-        delayMicroseconds(800);   // Almost the time required to calculate FEI
+//        delayMicroseconds(800);   // Almost the time required to calculate FEI
         while (!readReg(REG_AFCFEI) & FeiDone) {
-            delayMicroseconds(4); // Waiting for Timeout or Sync
+//            delayMicroseconds(4); // Waiting for Timeout or Sync
         }  // Complete the delay
         fei  = readReg(REG_FEIMSB);
         fei  = (fei << 8) | readReg(REG_FEILSB);
@@ -563,10 +562,11 @@ void RF69::RSSIinterrupt() {
         lna = readReg(REG_LNA);
         afc  = readReg(REG_AFCMSB);
         afc  = (afc << 8) | readReg(REG_AFCLSB);
-//        interruptRSSI = readReg(REG_RSSIVALUE);
-//        interruptLNA  = readReg(REG_LNA);
-        delayMicroseconds(792);   // Waiting for Timeout or Sync
-//        if (readReg(REG_IRQFLAGS1) & IRQ1_TIMEOUT) {
+        // The window for grabbing the above values is quite small
+        // values available during transfer between the ether
+        // and the inbound fifo buffer.
+
+//        delayMicroseconds(792);   // Waiting for Timeout or Sync
         while (true) {
             volatile uint8_t i = readReg(REG_IRQFLAGS1); 
             if (i & IRQ1_SYNCMATCH) {
@@ -579,7 +579,7 @@ void RF69::RSSIinterrupt() {
                 writeReg(REG_AFCFEI, AFC_CLEAR);  // Clear the AFC
                 break;
             }
-            delayMicroseconds(8);
+//            delayMicroseconds(4);
         }
 }
 
@@ -617,9 +617,6 @@ void RF69::interrupt_compat () {
             
             writeReg(REG_AFCFEI, AFC_CLEAR);  // Clear the AFC
             
-            // The window for grabbing the above values is quite small
-            // values available during transfer between the ether
-            // and the inbound fifo buffer.
             rtp = interruptMicros;
             rst = RSSIrestart;
             volatile uint8_t stillCollecting = true;
