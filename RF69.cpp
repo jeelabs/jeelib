@@ -73,6 +73,7 @@
 #define IRQ1_RXREADY        0x40
 #define IRQ1_RSSI           0x08
 #define IRQ1_TIMEOUT        0x04
+#define IRQ1_SYNCMATCH      0x01
 
 #define START_TX            0xA0  // With 125Khz SPI a minimum
 #define DELAY_TX            0x20  // 22 byte head start required, 32 to be safe 
@@ -548,29 +549,43 @@ condition is met to transmit the packet data.
 }
 void RF69::RSSIinterrupt() {
         RSSIinterruptMicros = micros();
-//        delayMicroseconds(32);  // Seems as small as will work at all
-        delayMicroseconds(48);    // Wait for RFM69
+//        delayMicroseconds(8);  // Appears as small as will work at all
+//        delayMicroseconds(48);   // Wait for RFM69
         writeReg(REG_AFCFEI, FeiStart);
         delayMicroseconds(800);   // Almost the time required to calculate FEI
-        while (!readReg(REG_AFCFEI) & FeiDone)  // Complete the delay
-            ;
+        while (!readReg(REG_AFCFEI) & FeiDone) {
+            delayMicroseconds(4); // Waiting for Timeout or Sync
+        }  // Complete the delay
         fei  = readReg(REG_FEIMSB);
         fei  = (fei << 8) | readReg(REG_FEILSB);
-        interruptRSSI = readReg(REG_RSSIVALUE);
-        interruptLNA  = readReg(REG_LNA);
+        rssi = readReg(REG_RSSIVALUE);
+        lna = readReg(REG_LNA);
+        afc  = readReg(REG_AFCMSB);
+        afc  = (afc << 8) | readReg(REG_AFCLSB);
+//        interruptRSSI = readReg(REG_RSSIVALUE);
+//        interruptLNA  = readReg(REG_LNA);
         delayMicroseconds(792);   // Waiting for Timeout or Sync
 //        if (readReg(REG_IRQFLAGS1) & IRQ1_TIMEOUT) {
-        volatile uint8_t i = readReg(REG_IRQFLAGS1); 
-        if (i & IRQ1_TIMEOUT) {
-            RSSIrestart++;
-            rxstate = TXIDLE;   // Trigger a RX restart by FSM           
-            writeReg(REG_AFCFEI, AFC_CLEAR);  // Clear the AFC
+        while (true) {
+            volatile uint8_t i = readReg(REG_IRQFLAGS1); 
+            if (i & IRQ1_SYNCMATCH) {
+                interruptMicros = micros() - RSSIinterruptMicros;
+                RSSIinterruptMicros = 0;
+                break;
+            } else if (i & IRQ1_TIMEOUT) {
+                RSSIrestart++;
+                rxstate = TXIDLE;   // Trigger a RX restart by FSM           
+                setMode(MODE_STANDBY);
+                writeReg(REG_AFCFEI, AFC_CLEAR);  // Clear the AFC
+                break;
+            }
+            delayMicroseconds(8);
         }
 }
 
 void RF69::interrupt_compat () {
-        interruptMicros = micros() - RSSIinterruptMicros;
-        RSSIinterruptMicros = 0;
+//        interruptMicros = micros() - RSSIinterruptMicros;
+//        RSSIinterruptMicros = 0;
         interruptCount++;
         // Interrupt will ONLY remain asserted until FIFO empty or exit RX mode
         // FIFO can pass through empty during reception since it is also draining 
@@ -588,12 +603,12 @@ void RF69::interrupt_compat () {
             }   
             reentry = true;
             IRQ_ENABLE;       // allow nested interrupts from here on
-            while (!readReg(REG_IRQFLAGS1) & IRQ1_RXREADY)
-                ;
-            rssi = readReg(REG_RSSIVALUE);
-            lna = readReg(REG_LNA);
-            afc  = readReg(REG_AFCMSB);
-            afc  = (afc << 8) | readReg(REG_AFCLSB);
+//            while (!readReg(REG_IRQFLAGS1) & IRQ1_RXREADY)
+//                ;
+//            rssi = readReg(REG_RSSIVALUE);
+//            lna = readReg(REG_LNA);
+//            afc  = readReg(REG_AFCMSB);
+//            afc  = (afc << 8) | readReg(REG_AFCLSB);
 //            writeReg(REG_AFCFEI, FeiStart);
 //            while (!readReg(REG_AFCFEI) & FeiDone)
 //                ;
