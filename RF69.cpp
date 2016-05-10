@@ -84,9 +84,13 @@
 #define IRQ2_FIFOOVERRUN    0x10
 #define IRQ2_PACKETSENT     0x08
 #define IRQ2_PAYLOADREADY   0x04
+
 #define DIO0_PACKETSENT     0x00
+
+#define DIO0_CRCOK          0x00
 #define DIO0_PAYLOADREADY   0x40
 #define DIO0_SYNCADDRESS    0x80
+#define DIO0_RSSI           0xC0
 
 #define DIO3_FIFOFULL       0x00
 #define DIO3_RSSI           0x01
@@ -421,9 +425,9 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         flushFifo();
         startRSSI = currentRSSI();
         
+        writeReg(REG_DIOMAPPING1, (DIO0_RSSI));// Interrupt trigger
         modeChange1 = setMode(MODE_RECEIVER); // setting RX mode uses 33-36 spins
         writeReg(REG_AFCFEI, AFC_CLEAR);      // Clear the AFC
-        writeReg(REG_DIOMAPPING1, (DIO0_SYNCADDRESS));// Interrupt trigger
         startRX = micros();
         break;
     case TXRECV:
@@ -561,11 +565,12 @@ second rollover and then will be 1.024 mS out.
 */
         if (rxstate == TXRECV) {
             volatile uint32_t RSSIinterruptMicros = micros();
+            
+            writeReg(REG_DIOMAPPING1, (DIO0_CRCOK));
+            
             delayMicroseconds(48);   // Wait for RFM69
             writeReg(REG_AFCFEI, FeiStart);
-//            delayMicroseconds(800);   // Almost the time required to calculate FEI
             while (!readReg(REG_AFCFEI) & FeiDone) {
-//                delayMicroseconds(4); // Waiting for Timeout or Sync
             }  // Complete the delay
             fei  = readReg(REG_FEIMSB);
             fei  = (fei << 8) | readReg(REG_FEILSB);
@@ -577,25 +582,23 @@ second rollover and then will be 1.024 mS out.
             // The window for grabbing the above values is quite small
             // values available during transfer between the ether
             // and the inbound fifo buffer.
-
-//            delayMicroseconds(792);   // Waiting for Timeout or Sync
+            
+//            writeReg(REG_DIOMAPPING1, (DIO0_CRCOK));
+            
             while (true) {
                 volatile uint8_t i = readReg(REG_IRQFLAGS1); 
                 if (i & IRQ1_SYNCMATCH) {
                     interruptMicros = micros() - RSSIinterruptMicros;
                     break;
                 } else if (i & IRQ1_TIMEOUT) {
-                RSSIrestart++;
+                    RSSIrestart++;
                     rxstate = TXIDLE;   // Trigger a RX restart by FSM           
- //                   setMode(MODE_STANDBY);
-                    break;
+                    return;
                 }
             }
-// 
+
             interruptCount++;
             // The following line attempts to stop further interrupts
-            writeReg(REG_DIOMAPPING1, (DIO0_PAYLOADREADY));
-                                                        // Turns off RSSI DIO3
             if (reentry) {
                 nestedInterrupts++;
                 uint8_t f = readReg(REG_IRQFLAGS2);
@@ -649,7 +652,6 @@ second rollover and then will be 1.024 mS out.
                         break;
                     }
             } 
-
         }
         byteCount = rxfill;
         if (packetBytes < (5 - rf69_skip)) underrun++;
