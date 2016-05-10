@@ -1737,7 +1737,9 @@ void loop () {
                 }
             }
             
-            showString(PSTR(" d="));
+            showString(PSTR(" d=("));
+            Serial.print(rf12_tfr);
+            printOneChar(')');
             Serial.print(rf12_rtp);
 
             showString(PSTR(" r="));

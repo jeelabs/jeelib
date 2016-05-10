@@ -87,9 +87,7 @@ extern volatile int16_t rf12_afc;          // Only available with RFM69 hardware
 extern volatile int16_t rf12_fei;          // Only available with RFM69 hardware
 extern volatile uint16_t rf12_rtp;          // Only available with RFM69 hardware
 extern volatile uint16_t rf12_rst;          // Only available with RFM69 hardware
-
-//namespace RF12 { extern int16_t  intCount; }
-        
+extern volatile uint32_t rf12_tfr;          // Only available with RFM69 hardware
 
 /// Option to set RFM12 CS (or SS) pin for use on different hardware setups.
 /// Set to Dig10 by default for JeeNode. Can be Dig10, Dig9 or Dig8

@@ -126,9 +126,6 @@ namespace RF69 {
     uint16_t rssiChanged;
     uint8_t  lastState;
     uint16_t interruptMicros;
-//    uint8_t  interruptRSSI;
-//    uint8_t  interruptLNA;
-//    uint16_t countRSSI;
     uint16_t RSSIrestart;
     uint8_t  REGIRQFLAGS1;
     int16_t  afc;                  // I wonder how to make sure these 
@@ -168,6 +165,7 @@ static volatile uint8_t rf69_fix;    // Maximum for fixed length packet
 //static volatile uint16_t interval;
 static volatile uint16_t rtp;
 static volatile uint16_t rst;
+static volatile uint32_t tfr;
 
 static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x2E, 0xA0, // SyncConfig = sync on, sync size = 5
@@ -265,6 +263,7 @@ static void flushFifo () {
 }
 
 uint8_t setMode (uint8_t mode) {
+    // Settin OPMODE = STANDBY in an ISR has caused me problems - JohnO.
     byte c = 0;
     writeReg(REG_OPMODE, (readReg(REG_OPMODE) & 0xE3) | mode);
     while ((readReg(REG_IRQFLAGS1) & IRQ1_MODEREADY) == 0) {
@@ -410,6 +409,7 @@ void RF69::configure_compat () {
 
 uint8_t* recvBuf;
 
+uint32_t startRX;
 uint16_t RF69::recvDone_compat (uint8_t* buf) {
     switch (rxstate) {
     case TXIDLE:
@@ -421,8 +421,10 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         flushFifo();
         startRSSI = currentRSSI();
         
-        modeChange1 = setMode(MODE_RECEIVER);// setting RX mode uses 33-36 spins
+        modeChange1 = setMode(MODE_RECEIVER); // setting RX mode uses 33-36 spins
+        writeReg(REG_AFCFEI, AFC_CLEAR);      // Clear the AFC
         writeReg(REG_DIOMAPPING1, (DIO0_SYNCADDRESS | DIO3_RSSI));// Interrupt trigger
+        startRX = micros();
         break;
     case TXRECV:
         if (rxdone) {
@@ -435,6 +437,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
             rf12_fei = fei;
             rf12_rtp = rtp; // Delay between RSSI & Data Packet
             rf12_rst = rst; // Count of resets used to capture packet
+            rf12_tfr = tfr; // Time to receive in microseconds
             for (byte i = 0; i <= (rf69_len + 5); i++) {
                 rf12_buf[i] = rf69_buf[i];
             }     
@@ -562,6 +565,7 @@ void RF69::RSSIinterrupt() {
         lna = readReg(REG_LNA);
         afc  = readReg(REG_AFCMSB);
         afc  = (afc << 8) | readReg(REG_AFCLSB);
+        writeReg(REG_AFCFEI, AFC_CLEAR);  // Clear the AFC
         // The window for grabbing the above values is quite small
         // values available during transfer between the ether
         // and the inbound fifo buffer.
@@ -576,10 +580,8 @@ void RF69::RSSIinterrupt() {
                 RSSIrestart++;
                 rxstate = TXIDLE;   // Trigger a RX restart by FSM           
  //               setMode(MODE_STANDBY);
-                writeReg(REG_AFCFEI, AFC_CLEAR);  // Clear the AFC
                 break;
             }
-//            delayMicroseconds(4);
         }
 }
 
@@ -667,6 +669,8 @@ void RF69::interrupt_compat () {
             // We are exiting before a successful packet completion
             packetShort++;
         }    
+        tfr =  (micros() - startRX);
+        writeReg(REG_AFCFEI, AFC_CLEAR);  // Clear the AFC
         setMode(MODE_STANDBY);
         rxdone = true;      // force TXRECV in RF69::recvDone_compat
     } else if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {

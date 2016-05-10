@@ -183,6 +183,7 @@ volatile int16_t rf12_afc;          // Only available with RFM69 hardware
 volatile int16_t rf12_fei;          // Only available with RFM69 hardware
 volatile uint16_t rf12_rtp;         // Only available with RFM69 hardware
 volatile uint16_t rf12_rst;         // Only available with RFM69 hardware
+volatile uint32_t rf12_tfr;         // Only available with RFM69 hardware
 
 volatile uint8_t rf12_skip;         // header bytes to skip
 volatile uint8_t rf12_max_len;      // Maximum length packet accepted
