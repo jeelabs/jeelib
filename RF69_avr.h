@@ -371,10 +371,8 @@ static void InitIntPin () {
     #elif RF69_COMPAT
         if (RF69::node != 0) {
             attachInterrupt(INT_NUMBER, RF69::interrupt_compat, RISING);
-            attachInterrupt(1, RF69::RSSIinterrupt, RISING);
         } else {
             detachInterrupt(INT_NUMBER);
-            detachInterrupt(1);
         }
     #endif
 #endif

@@ -356,7 +356,7 @@ uint8_t RF69::currentRSSI() {
       uint8_t noiseFloor = readReg(REG_RSSITHRESHOLD);// Store current threshold
 
       setMode(MODE_STANDBY); 
-      writeReg(REG_DIOMAPPING1, (DIO0_PAYLOADREADY | DIO3_FIFOFULL));// Suppress Interrupts
+      writeReg(REG_DIOMAPPING1, (DIO0_PAYLOADREADY));// Suppress Interrupts
       writeReg(REG_RSSITHRESHOLD, 0xFF);              // Open up threshold
 
       setMode(MODE_RECEIVER);   // Looses contents of FIFO and 36 spins
@@ -423,7 +423,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         
         modeChange1 = setMode(MODE_RECEIVER); // setting RX mode uses 33-36 spins
         writeReg(REG_AFCFEI, AFC_CLEAR);      // Clear the AFC
-        writeReg(REG_DIOMAPPING1, (DIO0_SYNCADDRESS | DIO3_RSSI));// Interrupt trigger
+        writeReg(REG_DIOMAPPING1, (DIO0_SYNCADDRESS));// Interrupt trigger
         startRX = micros();
         break;
     case TXRECV:
@@ -499,7 +499,7 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
     crc = _crc16_update(~0, readReg(REG_SYNCGROUP));
     
     modeChange2 = setMode(MODE_TRANSMITTER);
-    writeReg(REG_DIOMAPPING1, (DIO0_PACKETSENT | DIO3_NOTHING_IN_TX));     // Interrupt trigger
+    writeReg(REG_DIOMAPPING1, (DIO0_PACKETSENT));     // Interrupt trigger
     
 /*  We must being transmission to avoid overflowing the FIFO since
     jeelib packet size can exceed FIFO size. We also want to avoid the
@@ -551,71 +551,60 @@ condition is met to transmit the packet data.
 */
 
 }
-void RF69::RSSIinterrupt() {
-        volatile uint32_t RSSIinterruptMicros = micros();
-        delayMicroseconds(48);   // Wait for RFM69
-        writeReg(REG_AFCFEI, FeiStart);
-//        delayMicroseconds(800);   // Almost the time required to calculate FEI
-        while (!readReg(REG_AFCFEI) & FeiDone) {
-//            delayMicroseconds(4); // Waiting for Timeout or Sync
-        }  // Complete the delay
-        fei  = readReg(REG_FEIMSB);
-        fei  = (fei << 8) | readReg(REG_FEILSB);
-        rssi = readReg(REG_RSSIVALUE);
-        lna = readReg(REG_LNA);
-        afc  = readReg(REG_AFCMSB);
-        afc  = (afc << 8) | readReg(REG_AFCLSB);
-        writeReg(REG_AFCFEI, AFC_CLEAR);  // Clear the AFC
-        // The window for grabbing the above values is quite small
-        // values available during transfer between the ether
-        // and the inbound fifo buffer.
-
-//        delayMicroseconds(792);   // Waiting for Timeout or Sync
-        while (true) {
-            volatile uint8_t i = readReg(REG_IRQFLAGS1); 
-            if (i & IRQ1_SYNCMATCH) {
-                interruptMicros = micros() - RSSIinterruptMicros;
-                break;
-            } else if (i & IRQ1_TIMEOUT) {
-                RSSIrestart++;
-                rxstate = TXIDLE;   // Trigger a RX restart by FSM           
- //               setMode(MODE_STANDBY);
-                break;
-            }
-        }
-}
-
 void RF69::interrupt_compat () {
-//        interruptMicros = micros() - RSSIinterruptMicros;
-//        RSSIinterruptMicros = 0;
-        interruptCount++;
-        // Interrupt will ONLY remain asserted until FIFO empty or exit RX mode
-        // FIFO can pass through empty during reception since it is also draining 
+/*
+micros() returns the hardware timer contents (which updates continuously), 
+plus a count of rollovers (ie. one rollover ever 1.024 mS). 
+It can handle one rollover (the hardware remembers that) so it doesn't matter 
+if you cross a rollover point, however after 1.024 mS it will not know about the 
+second rollover and then will be 1.024 mS out.
+*/
         if (rxstate == TXRECV) {
+            volatile uint32_t RSSIinterruptMicros = micros();
+            delayMicroseconds(48);   // Wait for RFM69
+            writeReg(REG_AFCFEI, FeiStart);
+//            delayMicroseconds(800);   // Almost the time required to calculate FEI
+            while (!readReg(REG_AFCFEI) & FeiDone) {
+//                delayMicroseconds(4); // Waiting for Timeout or Sync
+            }  // Complete the delay
+            fei  = readReg(REG_FEIMSB);
+            fei  = (fei << 8) | readReg(REG_FEILSB);
+            rssi = readReg(REG_RSSIVALUE);
+            lna = readReg(REG_LNA);
+            afc  = readReg(REG_AFCMSB);
+            afc  = (afc << 8) | readReg(REG_AFCLSB);
+            writeReg(REG_AFCFEI, AFC_CLEAR);  // Clear the AFC
+            // The window for grabbing the above values is quite small
+            // values available during transfer between the ether
+            // and the inbound fifo buffer.
+
+//            delayMicroseconds(792);   // Waiting for Timeout or Sync
+            while (true) {
+                volatile uint8_t i = readReg(REG_IRQFLAGS1); 
+                if (i & IRQ1_SYNCMATCH) {
+                    interruptMicros = micros() - RSSIinterruptMicros;
+                    break;
+                } else if (i & IRQ1_TIMEOUT) {
+                RSSIrestart++;
+                    rxstate = TXIDLE;   // Trigger a RX restart by FSM           
+ //                   setMode(MODE_STANDBY);
+                    break;
+                }
+            }
+// 
+            interruptCount++;
             // The following line attempts to stop further interrupts
-            writeReg(REG_DIOMAPPING1, (DIO0_PAYLOADREADY | DIO3_FIFOFULL));
+            writeReg(REG_DIOMAPPING1, (DIO0_PAYLOADREADY));
                                                         // Turns off RSSI DIO3
             if (reentry) {
                 nestedInterrupts++;
                 uint8_t f = readReg(REG_IRQFLAGS2);
                 if(f != 64) IRQFLAGS2 = f;
-//                if(f == 0) IRQFLAGS2 = 0xFF;
                 DIOMAPPING1 = readReg(REG_DIOMAPPING1);
                 return;
             }   
             reentry = true;
             IRQ_ENABLE;       // allow nested interrupts from here on
-//            while (!readReg(REG_IRQFLAGS1) & IRQ1_RXREADY)
-//                ;
-//            rssi = readReg(REG_RSSIVALUE);
-//            lna = readReg(REG_LNA);
-//            afc  = readReg(REG_AFCMSB);
-//            afc  = (afc << 8) | readReg(REG_AFCLSB);
-//            writeReg(REG_AFCFEI, FeiStart);
-//            while (!readReg(REG_AFCFEI) & FeiDone)
-//                ;
-//            fei  = readReg(REG_FEIMSB);
-//            fei  = (fei << 8) | readReg(REG_FEILSB);
             
             writeReg(REG_AFCFEI, AFC_CLEAR);  // Clear the AFC
             
