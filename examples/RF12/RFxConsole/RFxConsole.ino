@@ -662,6 +662,7 @@ static void handleInput (char c) {
                   && ((value + config.matchingRF + config.matchingRF) < 3904)) { // supported by RFM12B
                     Serial.println(value + config.matchingRF);
                     config.frequency_offset = value;
+                    Serial.flush();
                     saveConfig();
                 } else {
                     showString(UNSUPPORTED);
@@ -693,6 +694,7 @@ static void handleInput (char c) {
       for (byte i = 0; i < 10; i++) {
 //          Serial.print(RF69::rssiConfig);
           showString(PSTR(" @"));
+          Serial.flush();
 // display current RSSI value in this channel
             byte r = RF69::currentRSSI();
             if (config.output & 0x1)                  // Hex output?
