@@ -564,14 +564,12 @@ if you cross a rollover point, however after 1.024 mS it will not know about the
 second rollover and then will be 1.024 mS out.
 */
         if (rxstate == TXRECV) {
-            volatile uint32_t RSSIinterruptMicros = micros();
-            
-            writeReg(REG_DIOMAPPING1, (DIO0_CRCOK));
-            
+            volatile uint32_t RSSIinterruptMicros = micros();            
             delayMicroseconds(48);   // Wait for RFM69
             writeReg(REG_AFCFEI, FeiStart);
-            while (!readReg(REG_AFCFEI) & FeiDone) {
-            }  // Complete the delay
+            while (!readReg(REG_AFCFEI) & FeiDone)
+                delayMicroseconds(4);   // Wait for RFM69
+//              ;
             fei  = readReg(REG_FEIMSB);
             fei  = (fei << 8) | readReg(REG_FEILSB);
             rssi = readReg(REG_RSSIVALUE);
@@ -583,9 +581,7 @@ second rollover and then will be 1.024 mS out.
             // values available during transfer between the ether
             // and the inbound fifo buffer.
             
-//            writeReg(REG_DIOMAPPING1, (DIO0_CRCOK));
-            
-            while (true) {
+            while (true) {  // Loop for SyncMatch or Timeout
                 volatile uint8_t i = readReg(REG_IRQFLAGS1); 
                 if (i & IRQ1_SYNCMATCH) {
                     interruptMicros = micros() - RSSIinterruptMicros;
@@ -595,6 +591,7 @@ second rollover and then will be 1.024 mS out.
                     rxstate = TXIDLE;   // Trigger a RX restart by FSM           
                     return;
                 }
+            delayMicroseconds(4);   // Wait for RFM69
             }
 
             interruptCount++;
@@ -608,7 +605,7 @@ second rollover and then will be 1.024 mS out.
             reentry = true;
             IRQ_ENABLE;       // allow nested interrupts from here on
             
-            writeReg(REG_AFCFEI, AFC_CLEAR);  // Clear the AFC
+//            writeReg(REG_AFCFEI, AFC_CLEAR);  // Clear the AFC
             
             rtp = interruptMicros;
             rst = RSSIrestart;
