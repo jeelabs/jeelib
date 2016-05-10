@@ -549,12 +549,19 @@ condition is met to transmit the packet data.
 void RF69::RSSIinterrupt() {
         RSSIinterruptMicros = micros();
 //        delayMicroseconds(32);  // Seems as small as will work at all
-        delayMicroseconds(48);
+        delayMicroseconds(48);    // Wait for RFM69
         writeReg(REG_AFCFEI, FeiStart);
-        delayMicroseconds(1592);
+        delayMicroseconds(800);   // Almost the time required to calculate FEI
+        while (!readReg(REG_AFCFEI) & FeiDone)  // Complete the delay
+            ;
+        fei  = readReg(REG_FEIMSB);
+        fei  = (fei << 8) | readReg(REG_FEILSB);
         interruptRSSI = readReg(REG_RSSIVALUE);
         interruptLNA  = readReg(REG_LNA);
-        if (readReg(REG_IRQFLAGS1) & IRQ1_TIMEOUT) {
+        delayMicroseconds(792);   // Waiting for Timeout or Sync
+//        if (readReg(REG_IRQFLAGS1) & IRQ1_TIMEOUT) {
+        volatile uint8_t i = readReg(REG_IRQFLAGS1); 
+        if (i & IRQ1_TIMEOUT) {
             RSSIrestart++;
             rxstate = TXIDLE;   // Trigger a RX restart by FSM           
             writeReg(REG_AFCFEI, AFC_CLEAR);  // Clear the AFC
@@ -588,10 +595,10 @@ void RF69::interrupt_compat () {
             afc  = readReg(REG_AFCMSB);
             afc  = (afc << 8) | readReg(REG_AFCLSB);
 //            writeReg(REG_AFCFEI, FeiStart);
-            while (!readReg(REG_AFCFEI) & FeiDone)
-                ;
-            fei  = readReg(REG_FEIMSB);
-            fei  = (fei << 8) | readReg(REG_FEILSB);
+//            while (!readReg(REG_AFCFEI) & FeiDone)
+//                ;
+//            fei  = readReg(REG_FEIMSB);
+//            fei  = (fei << 8) | readReg(REG_FEILSB);
             
             writeReg(REG_AFCFEI, AFC_CLEAR);  // Clear the AFC
             
