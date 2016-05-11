@@ -94,6 +94,7 @@
 
 #define DIO3_FIFOFULL       0x00
 #define DIO3_RSSI           0x01
+#define DIO3_SYNCADDRESS    0x02
 #define DIO3_FIFOFULL_TX    0x00
 #define DIO3_NOTHING_IN_TX  0x02
 
@@ -218,8 +219,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x29, 0xFF, // RssiThresh ... -127.5dB
   0x2B, 0x05,
 //  0x2D, 0x01, // Only 1 preamble byte
-//  0x2E, 0xA7, // SyncConfig = sync on, sync size = 5
-  0x2E, 0xE7, // SyncConfig = sync on, sync size = 5
+  0x2E, 0xA7, // SyncConfig = sync on, sync size = 5
   0x2F, 0xAA, // SyncValue1 = 0xAA
   0x30, 0xAA, // SyncValue2 = 0xAA
   0x31, 0xAA, // SyncValue3 = 0xAA
@@ -361,7 +361,7 @@ uint8_t RF69::currentRSSI() {
       uint8_t noiseFloor = readReg(REG_RSSITHRESHOLD);// Store current threshold
 
       setMode(MODE_STANDBY); 
-      writeReg(REG_DIOMAPPING1, (DIO0_PAYLOADREADY));// Suppress Interrupts
+      writeReg(REG_DIOMAPPING1, (DIO0_CRCOK));// Suppress Interrupts
       writeReg(REG_RSSITHRESHOLD, 0xFF);              // Open up threshold
 
       setMode(MODE_RECEIVER);   // Looses contents of FIFO and 36 spins
@@ -425,9 +425,9 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         rxstate = TXRECV;
 //        flushFifo();
         setMode(MODE_STANDBY);
-        writeReg(REG_DIOMAPPING1, (DIO0_RSSI));// Interrupt trigger
         startRSSI = currentRSSI();
         modeChange1 = setMode(MODE_RECEIVER); // setting RX mode uses 33-36 spins
+        writeReg(REG_DIOMAPPING1, (DIO0_RSSI | DIO3_SYNCADDRESS));// Interrupt trigger
         writeReg(REG_AFCFEI, AFC_CLEAR);      // Clear the AFC
         startRX = micros();
         break;
@@ -566,6 +566,7 @@ second rollover and then will be 1.024 mS out.
 */
         if (rxstate == TXRECV) {
             volatile uint32_t RSSIinterruptMicros = micros();            
+            writeReg(REG_DIOMAPPING1, (DIO0_CRCOK));// Suppress Interrupts
             delayMicroseconds(48);   // Wait for RFM69
             writeReg(REG_AFCFEI, FeiStart);
             while (!readReg(REG_AFCFEI) & FeiDone)
@@ -584,11 +585,11 @@ second rollover and then will be 1.024 mS out.
             
             volatile uint8_t i;
             while (true) {  // Loop for SyncMatch or Timeout
-
-                if (readReg(REG_IRQFLAGS2) & IRQ2_FIFONOTEMPTY) {
+                i = readReg(REG_IRQFLAGS1); 
+                if (i & IRQ1_SYNCMATCH) {
                     interruptMicros = micros() - RSSIinterruptMicros;
                     break;
-                } else if (readReg(REG_IRQFLAGS1) & IRQ1_TIMEOUT) {
+                } else if (i & IRQ1_TIMEOUT) {
                     RSSIrestart++;
                     rxstate = TXIDLE;   // Trigger a RX restart by FSM           
                     return;
