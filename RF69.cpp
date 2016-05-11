@@ -427,7 +427,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         setMode(MODE_STANDBY);
         startRSSI = currentRSSI();
         modeChange1 = setMode(MODE_RECEIVER); // setting RX mode uses 33-36 spins
-        writeReg(REG_DIOMAPPING1, (DIO0_RSSI | DIO3_SYNCADDRESS));// Interrupt trigger
+        writeReg(REG_DIOMAPPING1, (DIO3_RSSI/* | DIO0_SYNCADDRESS*/));// Interrupt trigger
         writeReg(REG_AFCFEI, AFC_CLEAR);      // Clear the AFC
         startRX = micros();
         break;
@@ -552,9 +552,22 @@ condition is met to transmit the packet data.
 //        writeReg(REG_FIFOTHRESH, START_TX);     // if < 32 bytes, release FIFO
                                                   // for transmission
 /*  At this point packet is typically in the FIFO but not fully transmitted.
-    transmission complete will be indicated by an interrupt.                   
+    transmission complete will be indicated by an interrupt. 
+    
+    Not on DIO3 it won't                  
 */
-
+    while (!(readReg(REG_IRQFLAGS2) & (IRQ2_PACKETSENT)))
+        ;
+    writeReg(REG_TESTPA1, TESTPA1_NORMAL);    // Turn off high power 
+    writeReg(REG_TESTPA2, TESTPA2_NORMAL);    // transmit
+    // rxstate will be TXDONE at this point
+    txP++;
+    setMode(MODE_STANDBY);
+    rxstate = TXIDLE;
+    // Restore sync bytes configuration
+    if (group == 0) {               // Allow receiving from all groups
+          writeReg(REG_SYNCCONFIG, fourByteSync);
+    }
 }
 void RF69::interrupt_compat () {
 /*
@@ -663,7 +676,7 @@ second rollover and then will be 1.024 mS out.
         writeReg(REG_AFCFEI, AFC_CLEAR);  // Clear the AFC
         setMode(MODE_STANDBY);
         rxdone = true;      // force TXRECV in RF69::recvDone_compat
-    } else if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
+/*    } else if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
           writeReg(REG_TESTPA1, TESTPA1_NORMAL);    // Turn off high power 
           writeReg(REG_TESTPA2, TESTPA2_NORMAL);    // transmit
           // rxstate will be TXDONE at this point
@@ -674,7 +687,7 @@ second rollover and then will be 1.024 mS out.
           // Restore sync bytes configuration
           if (group == 0) {               // Allow receiving from all groups
               writeReg(REG_SYNCCONFIG, fourByteSync);
-          }
+          } */
     } else {
           // We get here when a interrupt that is neither for RX or as a TX
           // completion. Appears related to receiving noise when the bad CRC

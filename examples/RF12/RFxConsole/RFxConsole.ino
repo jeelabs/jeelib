@@ -184,7 +184,7 @@ static byte inChar () {
         #define LED_PIN     9        // activity LED, comment out to disable
     #endif
 #define messageStore  128
-#define MAX_NODES 78        // Contrained by RAM (9 bytes RAM per node)
+#define MAX_NODES 25        // Contrained by RAM (9 bytes RAM per node)
 #endif
 
 ISR(WDT_vect) { Sleepy::watchdogEvent(); }
@@ -565,6 +565,7 @@ static void showHelp () {
             printOneChar('/'); Serial.print(RF69::interruptRSSI);
 */  
 #endif
+//Serial.flush();
 }
 
 static void showStatus() {
@@ -575,6 +576,7 @@ static void showStatus() {
     Serial.print(RF69::RSSIrestart);
     showString(PSTR(", Eeprom"));
     rf12_configDump();
+//    Serial.flush();
 }
 
 static void handleInput (char c) {
@@ -664,7 +666,7 @@ static void handleInput (char c) {
                   && ((value + config.matchingRF + config.matchingRF) < 3904)) { // supported by RFM12B
                     Serial.println(value + config.matchingRF);
                     config.frequency_offset = value;
-                    Serial.flush();
+//                    Serial.flush();
                     saveConfig();
                 } else {
                     showString(UNSUPPORTED);
@@ -696,7 +698,7 @@ static void handleInput (char c) {
       for (byte i = 0; i < 10; i++) {
 //          Serial.print(RF69::rssiConfig);
           showString(PSTR(" @"));
-          Serial.flush();
+//          Serial.flush();
 // display current RSSI value in this channel
             byte r = RF69::currentRSSI();
             if (config.output & 0x1)                  // Hex output?
@@ -1063,7 +1065,7 @@ static void handleInput (char c) {
         case 'z': // put the ATmega in ultra-low power mode (reset needed)
             if (value == 123) {
                 showString(PSTR(" Zzz...\n"));
-                Serial.flush();
+//                Serial.flush();
                 rf12_sleep(RF12_SLEEP);
                 cli();
                 Sleepy::powerDown();
@@ -1306,13 +1308,15 @@ memset(pktCount,0,sizeof(pktCount));
     df_initialize();
 
 #if !TINY
-    showHelp();
+//    showHelp();
+    showStatus();
     unsigned int a = ((SPCR | (SPSR << 2)) & 7);    
     if (a != 4) {    // Table 18.5 Relationship Between SCK and the Oscillator Frequency
         showString(PSTR(" SPI="));
         Serial.println(a); 
     }
 #endif
+    Serial.flush();
 } // setup
 
 #if DEBUG
@@ -1344,7 +1348,7 @@ static void dumpEEprom() {
         Serial.println(crc, HEX);
     }
     else Serial.print(" GOOD CRC ");
-    Serial.flush();
+//    Serial.flush();
 }
 #endif
 
@@ -1545,7 +1549,7 @@ void loop () {
         byte modeChange3 = RF69::modeChange3;
 #endif
 #if RF69_COMPAT && !TINY                // At this point the radio is in Standby
-        rf12_recvDone();                // Attempt to buffer next RF packet
+//        rf12_recvDone();                // Attempt to buffer next RF packet
                                         // At this point the receiver is active
         observedRX.afc = rf12_afc;
         observedRX.fei = rf12_fei;
@@ -2078,7 +2082,7 @@ void loop () {
 #endif            
             showString(PSTR(" Busy 0x"));             // Not ready to send
             Serial.println(s, HEX);
-            Serial.flush();
+//            Serial.flush();
             busyCount++;
             if ((++sendRetry & 3) == 0) {
                 showString(PSTR("Command Aborted"));  // Drop the command

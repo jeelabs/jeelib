@@ -147,8 +147,8 @@ static void spiConfigPins () {
 
 #else // ATmega168, ATmega328, etc.
 
-#define INT         INT0
-#define INT_NUMBER  0
+#define INT         INT1
+#define INT_NUMBER  1
 #if PINCHG_IRQ
     #define RFM_IRQ     18  // 18 for pin change on PB2
 #else
