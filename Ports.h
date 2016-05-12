@@ -345,6 +345,10 @@ public:
     
     /// enter low-power mode, wake up with watchdog, INT0/1, or pin-change
     static void powerDown ();
+
+    /// flushes pending data in Serial and then enter low-power mode, wake up
+    /// with watchdog, INT0/1, or pin-change
+    static void flushAndPowerDown ();
     
     /// Spend some time in low-power mode, the timing is only approximate.
     /// @param msecs Number of milliseconds to sleep, in range 0..65535.
