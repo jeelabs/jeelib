@@ -201,11 +201,15 @@ byte  ledStatus = 1;
 static void activityLed (byte on) {
 #ifdef LED_PIN
     pinMode(LED_PIN, OUTPUT);
-  #if INVERT_LED == 0
+#endif
+#if INVERT_LED == 0
     ledStatus = on;
+  #ifdef LED_PIN
     digitalWrite(LED_PIN, !on);
-  #else
+  #endif
+#else
     ledStatus = !on;
+  #ifdef LED_PIN
     digitalWrite(LED_PIN, on);
   #endif
 #endif
