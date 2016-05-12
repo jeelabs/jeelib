@@ -543,9 +543,23 @@ static void showHelp () {
     showString(RFM12x);
   #endif
     showStatus();
-  #if RF69_COMPAT
+#endif
+}
+
+static void showStatus() {
+    showString(PSTR(" Led is ")); if (ledStatus) showString(PSTR("off")); else showString(PSTR("on"));
+    showString(PSTR(", Free Ram "));
+    Serial.print(freeRam());     
+
+#if RF69_COMPAT
+    showString(PSTR("b, Restarts "));
+    Serial.print(RF69::RSSIrestart);
+#else
+    showString(PSTR(", Eeprom"));
+#endif
+    rf12_configDump();
+#if RF69_COMPAT
     if (!RF69::present) {
-//        dumpEEprom();
         showString(PSTR("RFM69x Problem "));        
         Serial.print((RF69::control(REG_SYNCVALUE7,0)), HEX);
         Serial.println((RF69::control(REG_SYNCVALUE8,0)), HEX);
@@ -558,24 +572,22 @@ static void showHelp () {
             mask = mask >> 1;
         }
     }
-  #endif
-/*            Serial.print(RF69::rssiChanged); printOneChar('/'); Serial.print(RF69::lastState);
-            printOneChar('/'); Serial.print(RF69::countRSSI);
-            printOneChar('/'); Serial.print(RF69::interruptRSSI);
-*/  
-#endif
-//Serial.flush();
-}
 
-static void showStatus() {
-    showString(PSTR(" Led is ")); if (ledStatus) showString(PSTR("off")); else showString(PSTR("on"));
-    showString(PSTR(", Free Ram "));
-    Serial.print(freeRam());     
-    showString(PSTR("b, Restarts "));
-    Serial.print(RF69::RSSIrestart);
-    showString(PSTR(", Eeprom"));
-    rf12_configDump();
-//    Serial.flush();
+    byte* b = RF69::SPI_pins();  // {OPTIMIZE_SPI, PINCHG_IRQ, RF69_COMPAT, RFM_IRQ, SPI_SS, SPI_MOSI, SPI_MISO, SPI_SCK }
+    static byte n[] = {1,0,1,2,2,3,4,5,1};     // Default ATMega328 with RFM69 settings
+    byte mismatch = false;
+    for (byte i = 0; i < 9; i++) {
+        if (b[i] != n[i]) {
+            mismatch = true;
+            showByte(i);
+            printOneChar(':');
+            showByte(b[i]);
+            printOneChar(' ');
+        }
+    }
+    if (mismatch) showString(PSTR("Mismatch\r\n"));
+#endif    
+    Serial.flush();
 }
 
 static void handleInput (char c) {
@@ -1238,18 +1250,6 @@ void setup () {
 #endif
 
 // Consider adding the following equivalents for RFM12x
-#if RF69_COMPAT
-    byte* b = RF69::SPI_pins();  // {OPTIMIZE_SPI, PINCHG_IRQ, RF69_COMPAT, RFM_IRQ, SPI_SS, SPI_MOSI, SPI_MISO, SPI_SCK }
-    static byte n[] = {1,0,1,2,2,3,4,5};     // Default ATMega328 with RFM69 settings
-    for (byte i = 0; i < 8; i++) {
-        if(b[i] != n[i]) {
-            showByte(i);
-            printOneChar(':');
-            showByte(b[i]);
-            printOneChar(' ');
-        }
-    }
-#endif    
 /*
 #if !TINY
     showNibble(resetFlags >> 4);

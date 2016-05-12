@@ -409,6 +409,6 @@ static void InitIntPin () {
 }
 static byte* SPI_Pins(void) {
     static byte pins[] = {OPTIMIZE_SPI, PINCHG_IRQ, RF69_COMPAT, RFM_IRQ, 
-                          SPI_SS, SPI_MOSI,SPI_MISO, SPI_SCK };                              
+                          SPI_SS, SPI_MOSI,SPI_MISO, SPI_SCK, INT_NUMBER };                              
     return &pins[0];
 }
