@@ -303,7 +303,6 @@ static byte lastLNA[MAX_NODES];
 static byte maxLNA[MAX_NODES];
 #endif
 #if RF69_COMPAT && !TINY
-static byte rssiStartRX2;
 static byte CRCbadMinRSSI = 255;
 static byte CRCbadMaxRSSI = 0;
 
@@ -1542,14 +1541,13 @@ void loop () {
         handleInput(Serial.read());
 #endif
     if (rf12_recvDone()) {
-        rssiStartRX2 = RF69::startRSSI;
 #if DEBUG
         byte modeChange1 = RF69::modeChange1;
         byte modeChange2 = RF69::modeChange2;
         byte modeChange3 = RF69::modeChange3;
 #endif
 #if RF69_COMPAT && !TINY                // At this point the radio is in Standby
-//        rf12_recvDone();                // Attempt to buffer next RF packet
+        rf12_recvDone();                // Attempt to buffer next RF packet
                                         // At this point the receiver is active
         observedRX.afc = rf12_afc;
         observedRX.fei = rf12_fei;
@@ -1729,14 +1727,14 @@ void loop () {
                 CRCbadCount = messageCount = nonBroadcastCount = 0;
             }
 
-            if (rssiStartRX2) {
+            if (rf12_sri) {
                 showString(PSTR(" Rs="));
                 // display RSSI at the start of RX phase value
                 if (config.output & 0x1)                  // Hex output?
-                    showByte(rssiStartRX2);
+                    showByte(rf12_sri);
                 else {
-                    Serial.print(rssiStartRX2 >> 1);
-                    if (rssiStartRX2 & 0x01) showString(PSTR(".5"));
+                    Serial.print(rf12_sri >> 1);
+                    if (rf12_sri & 0x01) showString(PSTR(".5"));
                     showString(PSTR("dB"));
                 }
             }
