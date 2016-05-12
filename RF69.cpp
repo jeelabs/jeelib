@@ -8,7 +8,7 @@
 #define ROM_READ_UINT8  pgm_read_byte
 #define ROM_DATA        PROGMEM
 
-#define LIBRARY_VERSION     13      // Stored in REG_SYNCVALUE6 by initRadio 
+#define LIBRARY_VERSION     14      // Stored in REG_SYNCVALUE6 by initRadio 
 
 #define REG_FIFO            0x00
 #define REG_OPMODE          0x01
@@ -123,12 +123,8 @@ namespace RF69 {
     uint8_t  node;
     uint16_t crc;
     uint8_t  rssi;
-    uint8_t  startRSSI;
     uint8_t  sendRSSI;
     uint8_t  rssiDelay;
-    uint32_t rssiActive;
-    uint32_t rssiSilent;
-    uint16_t rssiChanged;
     uint8_t  lastState;
     uint32_t interruptMicros;
     uint16_t RSSIrestart;
@@ -167,10 +163,10 @@ static volatile uint16_t discards;   // Count of packets discarded
 static volatile uint8_t reentry = false;
 static volatile uint8_t rf69_skip;   // header bytes to skip
 static volatile uint8_t rf69_fix;    // Maximum for fixed length packet
-//static volatile uint16_t interval;
 static volatile uint16_t rtp;
 static volatile uint16_t rst;
 static volatile uint32_t tfr;
+static volatile uint8_t startRSSI;
 
 static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x2E, 0xA0, // SyncConfig = sync on, sync size = 5
@@ -204,21 +200,11 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 //  0x18, 0x02, // Manual LNA = 2 = -6dB
   0x19, 0x42, // RxBw 125 KHz
   0x1A, 0x42, // AfcBw 125 KHz Channel filter BW
-
-// AFC is broken on the RFM69. However leaving factory default
-// does adjust the receiver on initial packets.
-//#define AfcClear            0x02
-#define AfcClear              0x11
-//  0x1E, 0x00,   // 
-//  0x1E, 0x0C, // AFC each time RX mode entered USELESS!
-// Radio frequency wanders off into the wilderness/ 
-//  0x25, 0x80, // DioMapping1 = RSSI threshold
   0x26, 0x07, // disable clkout
 
-//  0x29, 0xA0, // RssiThresh ... -80dB
-  0x29, 0xFF, // RssiThresh ... -127.5dB
-  0x2B, 0x05,
-//  0x2D, 0x01, // Only 1 preamble byte
+  0x29, 0xA0, // RssiThresh ... -80dB
+  0x2B, 0x05, // TimeoutRssiThresh
+//  0x2B, 0x04, // TimeoutRssiThresh // Can't see response to own 't'
   0x2E, 0xA7, // SyncConfig = sync on, sync size = 5
   0x2F, 0xAA, // SyncValue1 = 0xAA
   0x30, 0xAA, // SyncValue2 = 0xAA
@@ -309,17 +295,7 @@ void RF69::setFrequency (uint32_t freq) {
 }
 
 uint8_t RF69::canSend (uint8_t clearAir) {
-  if (/*rxstate == TXRECV && */((rxfill == 0) || (rxdone))) {
-  // Need to better understand the FSM since buffer is filled without interrupts
-    /*
-        uint8_t storedMode = (readReg(REG_OPMODE) & MODE_MASK);
-        // avoid delay in changing modes unless required
-        if(storedMode != MODE_RECEIVER) setMode(MODE_RECEIVER);
-        if(readReg(REG_IRQFLAGS1) & IRQ1_RSSI) { // Is there traffic around?
-            if (storedMode != MODE_RECEIVER) setMode(storedMode);
-            return false;
-        }
-    */ 
+  if (((rxfill == 0) || (rxdone))) {
         sendRSSI = currentRSSI();
         if(sendRSSI >= clearAir) {
             rxstate = TXIDLE;
@@ -354,7 +330,7 @@ uint8_t* RF69::SPI_pins() {
 }
 
 uint8_t RF69::currentRSSI() {
-  if (/*rxstate == TXRECV && */((rxfill == 0) || (rxdone))) {
+  if (((rxfill == 0) || (rxdone))) {
 
       uint8_t storedMode = (readReg(REG_OPMODE) & MODE_MASK);
       uint8_t storeDIOM = readReg(REG_DIOMAPPING1); // Collect Interrupt trigger
@@ -369,7 +345,6 @@ uint8_t RF69::currentRSSI() {
       writeReg(REG_RSSICONFIG, RssiStart);
       while (!(readReg(REG_IRQFLAGS1) & IRQ1_RSSI)) {
           rssiDelay++;
-//          delayMicroseconds(4); // Waiting for completion
       }
       uint8_t r = readReg(REG_RSSIVALUE);           // Collect RSSI value
       
@@ -440,6 +415,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
             rf12_lna = lna;
             rf12_afc = afc;
             rf12_fei = fei;
+            rf12_sri = currentRSSI();
             rf12_rtp = rtp; // Delay between RSSI & Data Packet
             rf12_rst = rst; // Count of resets used to capture packet
             rf12_tfr = tfr; // Time to receive in microseconds
@@ -459,15 +435,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
                     // because rxstate == TXIDLE
                 }
             } else return 1;
-        }/* else if (readReg(REG_IRQFLAGS1) & IRQ1_TIMEOUT) {
-//            if ((micros() - RSSIinterruptMicros) > 2000ul) {
-//                REGIRQFLAGS1 = IRQ1_TIMEOUT;// Timeout?                
-                RSSIrestart++;
-//                setMode(MODE_STANDBY);
-                rxstate = TXIDLE;   // Looses contents of FIFO and 36 spins
-                // Noise interrupt, abort RX cycle and restart
-//            }
-        }*/
+        }
         break;
     }
     return ~0; // keep going, not done yet
@@ -519,23 +487,16 @@ the preamble length /= 0, otherwise it transmits a zero or one until the
 condition is met to transmit the packet data.
 */    
     
-//    if (rf12_len > 9)                       // Expedite short packet TX
-//      writeReg(REG_FIFOTHRESH, DELAY_TX);   // Wait for FIFO to hit 32 bytes
+    if (rf12_len > 9)                       // Expedite short packet TX
+      writeReg(REG_FIFOTHRESH, DELAY_TX);   // Wait for FIFO to hit 32 bytes
                                             // transmission will then begin
-// the above code was to permit slow SPI bus speeds - may not be possible.  
-                                              
-    // use busy polling until the last byte fits into the buffer
-    // this makes sure it all happens on time, and that sendWait can sleep
-    //
-    // TODO This is not interrupt code, how can sendWait sleep, control isn't
-    // passed back. JohnO
+// the above code is to facilitate slow SPI bus speeds.  
     
     while (rxstate < TXDONE)
         if ((readReg(REG_IRQFLAGS2) & IRQ2_FIFOFULL) == 0) { // FIFO is 66 bytes
-//            uint8_t out = 0xAA; // To be used at end of packet
             uint8_t out;
             if (rxstate < 0) {
-                // rf12_buf used since rf69_buf reserved for RX
+                // rf12_buf used since rf69_buf is now reserved for RX
                 out = rf12_buf[3 + rf12_len + rf69_skip + rxstate];
                 crc = _crc16_update(crc, out);
             } else {
@@ -549,12 +510,10 @@ condition is met to transmit the packet data.
             writeReg(REG_FIFO, out);
             ++rxstate;
         }
-//        writeReg(REG_FIFOTHRESH, START_TX);     // if < 32 bytes, release FIFO
+        writeReg(REG_FIFOTHRESH, START_TX);     // if < 32 bytes, release FIFO
                                                   // for transmission
 /*  At this point packet is typically in the FIFO but not fully transmitted.
-    transmission complete will be indicated by an interrupt. 
-    
-    Not on DIO3 it won't                  
+    transmission complete will be detected by scanning. 
 */
     while (!(readReg(REG_IRQFLAGS2) & (IRQ2_PACKETSENT)))
         ;
@@ -569,6 +528,7 @@ condition is met to transmit the packet data.
           writeReg(REG_SYNCCONFIG, fourByteSync);
     }
 }
+
 void RF69::interrupt_compat () {
 /*
 micros() returns the hardware timer contents (which updates continuously), 
@@ -579,12 +539,14 @@ second rollover and then will be 1.024 mS out.
 */
         if (rxstate == TXRECV) {
             volatile uint32_t RSSIinterruptMicros = micros();            
-            writeReg(REG_DIOMAPPING1, (DIO0_CRCOK));// Suppress Interrupts
+// Timer start on 16MHz Processor
             delayMicroseconds(48);   // Wait for RFM69
-            writeReg(REG_AFCFEI, FeiStart);
+            // Perceived quality of returned FEI value varies with the above.
+            writeReg(REG_AFCFEI, FeiStart); 
             while (!readReg(REG_AFCFEI) & FeiDone)
-                delayMicroseconds(4);   // Wait for RFM69
-//              ;
+                ;
+// Timer elapsed is 60탎, 4탎 appears optional, by ommitting the test above. 
+// /* Testing */ interruptMicros = micros() - RSSIinterruptMicros; // Debug Code
             fei  = readReg(REG_FEIMSB);
             fei  = (fei << 8) | readReg(REG_FEILSB);
             rssi = readReg(REG_RSSIVALUE);
@@ -600,14 +562,17 @@ second rollover and then will be 1.024 mS out.
             while (true) {  // Loop for SyncMatch or Timeout
                 i = readReg(REG_IRQFLAGS1); 
                 if (i & IRQ1_SYNCMATCH) {
-                    interruptMicros = micros() - RSSIinterruptMicros;
+/* Production */    interruptMicros = micros() - RSSIinterruptMicros;
                     break;
-                } else if (i & IRQ1_TIMEOUT) {
-                    RSSIrestart++;
+                } else if (i & IRQ1_TIMEOUT) {// Timeout set in TimeoutRssiThresh
+                    // TODO the timeout above is very variable
+// Timer elapsed is xxx탎 with value 4 in TimeoutRssiThresh 268-1296
+// Timer elapsed is 596탎 with value 5 in TimeoutRssiThresh 584-1624탎
+//* Testing */interruptMicros = micros() - RSSIinterruptMicros; // Debug Code
+                       RSSIrestart++;
                     rxstate = TXIDLE;   // Trigger a RX restart by FSM           
                     return;
                 }
-            delayMicroseconds(4);   // Wait for RFM69
             }
 
             interruptCount++;
@@ -620,8 +585,6 @@ second rollover and then will be 1.024 mS out.
             }   
             reentry = true;
             IRQ_ENABLE;       // allow nested interrupts from here on
-            
-//            writeReg(REG_AFCFEI, AFC_CLEAR);  // Clear the AFC
             
             rtp = interruptMicros;
             rst = RSSIrestart;
@@ -676,7 +639,12 @@ second rollover and then will be 1.024 mS out.
         writeReg(REG_AFCFEI, AFC_CLEAR);  // Clear the AFC
         setMode(MODE_STANDBY);
         rxdone = true;      // force TXRECV in RF69::recvDone_compat
-/*    } else if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
+//* Testing */interruptMicros = micros() - RSSIinterruptMicros;
+
+/* This code can't trigger if using DIO3 as IRQ, see scanning code at the 
+   end of RF69::sendStart_compat
+   
+    } else if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
           writeReg(REG_TESTPA1, TESTPA1_NORMAL);    // Turn off high power 
           writeReg(REG_TESTPA2, TESTPA2_NORMAL);    // transmit
           // rxstate will be TXDONE at this point
@@ -687,7 +655,8 @@ second rollover and then will be 1.024 mS out.
           // Restore sync bytes configuration
           if (group == 0) {               // Allow receiving from all groups
               writeReg(REG_SYNCCONFIG, fourByteSync);
-          } */
+          }
+*/
     } else {
           // We get here when a interrupt that is neither for RX or as a TX
           // completion. Appears related to receiving noise when the bad CRC

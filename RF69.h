@@ -6,12 +6,8 @@ namespace RF69 {
     extern uint8_t  group;
     extern uint8_t  node;
     extern uint8_t  rssi;
-    extern uint8_t  startRSSI;
     extern uint8_t  sendRSSI;
     extern uint8_t  rssiDelay;
-    extern uint32_t rssiActive;
-    extern uint32_t rssiSilent;
-    extern uint16_t rssiChanged;
     extern uint8_t lastState;
     extern uint32_t interruptMicros;
     extern uint16_t RSSIrestart;
