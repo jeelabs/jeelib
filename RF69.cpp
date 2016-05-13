@@ -75,8 +75,8 @@
 #define IRQ1_TIMEOUT        0x04
 #define IRQ1_SYNCMATCH      0x01
 
-#define START_TX            0xA0  // With 125Khz SPI a minimum
-#define DELAY_TX            0x20  // 22 byte head start required, 32 to be safe 
+#define START_TX            0x80  // With 125Khz SPI a minimum
+#define DELAY_TX            0x18  // 22 byte head start required, 24 to be safer 
 
 
 #define IRQ2_FIFOFULL       0x80
@@ -213,7 +213,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x33, 0xD4, // SyncValue5 = 212, Group
   0x37, 0x00, // PacketConfig1 = fixed, no crc, filt off
   0x38, 0x00, // PayloadLength = 0, unlimited
-  0x3C, 0x8F, // FifoTresh, not empty, level 15 bytes
+  0x3C, 0x80, // FifoTresh, not empty, level unused here
   0x3D, 0x10, // PacketConfig2, interpkt = 1, autorxrestart off
   0x58, 0x2D, // High sensitivity mode
 //  0x6F, 0x20, // 0x30, // TestDagc ...
@@ -470,6 +470,10 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
     // REG_SYNCGROUP must have been set to an appropriate group before this.
     writeReg(REG_SYNCCONFIG, fiveByteSync);
     crc = _crc16_update(~0, readReg(REG_SYNCGROUP));
+
+//    if (rf12_len > 9)                       // Expedite short packet TX
+//      writeReg(REG_FIFOTHRESH, DELAY_TX);   // Wait for FIFO to hit 32 bytes
+//    the above code is to facilitate slow SPI bus speeds.  
     
     modeChange2 = setMode(MODE_TRANSMITTER);
     writeReg(REG_DIOMAPPING1, (DIO0_PACKETSENT));     // Interrupt trigger
@@ -486,11 +490,6 @@ transmits a preamble sequence until the condition is met. This happens only if
 the preamble length /= 0, otherwise it transmits a zero or one until the 
 condition is met to transmit the packet data.
 */    
-    
-    if (rf12_len > 9)                       // Expedite short packet TX
-      writeReg(REG_FIFOTHRESH, DELAY_TX);   // Wait for FIFO to hit 32 bytes
-                                            // transmission will then begin
-// the above code is to facilitate slow SPI bus speeds.  
     
     while (rxstate < TXDONE)
         if ((readReg(REG_IRQFLAGS2) & IRQ2_FIFOFULL) == 0) { // FIFO is 66 bytes
@@ -510,7 +509,7 @@ condition is met to transmit the packet data.
             writeReg(REG_FIFO, out);
             ++rxstate;
         }
-        writeReg(REG_FIFOTHRESH, START_TX);     // if < 32 bytes, release FIFO
+//        writeReg(REG_FIFOTHRESH, START_TX);     // if < 32 bytes, release FIFO
                                                   // for transmission
 /*  At this point packet is typically in the FIFO but not fully transmitted.
     transmission complete will be detected by scanning. 

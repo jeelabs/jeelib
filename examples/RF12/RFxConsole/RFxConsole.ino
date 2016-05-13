@@ -4,7 +4,7 @@
 ///                          // The above flag must be set similarly in RF12.cpp
 ///                          // and RF69_avr.h
 #define BLOCK  0             // Alternate LED pin?
-#define INVERT_LED       1   // 0 is normal and 1 opposite
+#define INVERT_LED       0   // 0 is normal and 1 opposite
 ///////////////////////////////////////////////////////////////////////////////
 /// Configure some values in EEPROM for easy config of the RF12 later on.
 // 2009-05-06 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
@@ -299,6 +299,8 @@ static byte semaphores[MAX_NODES];
 #endif
 
 #if RF69_COMPAT && STATISTICS
+static signed int minFEI[MAX_NODES];
+static signed int maxFEI[MAX_NODES];
 static byte minRSSI[MAX_NODES];
 static byte lastRSSI[MAX_NODES];
 static byte maxRSSI[MAX_NODES];
@@ -554,13 +556,11 @@ static void showStatus() {
     showString(PSTR(" Led is ")); if (ledStatus) showString(PSTR("off")); else showString(PSTR("on"));
     showString(PSTR(", Free Ram "));
     Serial.print(freeRam());     
-
 #if RF69_COMPAT
     showString(PSTR("b, Restarts "));
     Serial.print(RF69::RSSIrestart);
-#else
-    showString(PSTR(", Eeprom"));
 #endif
+    showString(PSTR(", Eeprom"));
     rf12_configDump();
 #if RF69_COMPAT
     if (!RF69::present) {
@@ -1086,8 +1086,11 @@ static void handleInput (char c) {
                 Sleepy::powerDown();
             }
             if (value == 255) {
-                 showString(PSTR("Watchdog enabled, restarting\n"));
-                 WDTCSR |= _BV(WDE);
+#if DEBUG              
+                clrNodeStore;
+#endif
+                showString(PSTR("Watchdog enabled, restarting\n"));
+                WDTCSR |= _BV(WDE);
             }
             break;
 
@@ -1269,6 +1272,8 @@ messagesR[messageStore] = 0;                             // Save flash, init her
     
 #if RF69_COMPAT && STATISTICS
 // Initialise min/max/count arrays
+memset(minFEI,32767,sizeof(minFEI));
+memset(maxFEI,-32769,sizeof(maxFEI));
 memset(minRSSI,255,sizeof(minRSSI));
 memset(maxRSSI,0,sizeof(maxRSSI));
 memset(minLNA,255,sizeof(minLNA));
@@ -1398,7 +1403,11 @@ static void nodeShow(byte group) {
 #endif
 #if RF69_COMPAT && STATISTICS            
               if (maxRSSI[index]) {
-                  showString(PSTR(" rssi("));
+                  showString(PSTR(" fei("));
+                  Serial.print(minFEI[index]);
+                  printOneChar('/');
+                  Serial.print(maxFEI[index]);
+                  showString(PSTR(") rssi("));
                   showByte(minRSSI[index]);
                   printOneChar('/');
                   showByte(eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4) + 2)); // Show original RSSI value
@@ -1908,6 +1917,12 @@ void loop () {
                 lastLNA[NodeMap] = observedRX.lna;   
                 if (observedRX.lna > (maxLNA[NodeMap]))
                   maxLNA[NodeMap] = observedRX.lna;   
+
+                if (rf12_fei < (minFEI[NodeMap]))       
+                  minFEI[NodeMap] = rf12_fei;
+//                lastLNA[NodeMap] = observedRX.lna;   
+                if (rf12_fei > (maxFEI[NodeMap]))
+                  maxFEI[NodeMap] = rf12_fei;   
 
                 if (observedRX.rssi2 < (minRSSI[NodeMap]))
                   minRSSI[NodeMap] = observedRX.rssi2;
