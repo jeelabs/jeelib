@@ -5,6 +5,13 @@
 ///                          // and RF69_avr.h
 #define BLOCK  0             // Alternate LED pin?
 #define INVERT_LED       0   // 0 is normal and 1 opposite
+//
+/* TODO AutoRxRestartOn = 1, page 24:
+after the controller has emptied the FIFO the receiver will re-enter the WAIT mode described
+above, after a delay of InterPacketRxDelay, allowing for the distant transmitter to ramp down, hence avoiding a false
+RSSI detection. In both cases (AutoRxRestartOn=0 or AutoRxRestartOn=1), the receiver can also re-enter the WAIT
+mode by setting RestartRx bit to 1. 
+*/
 ///////////////////////////////////////////////////////////////////////////////
 /// Configure some values in EEPROM for easy config of the RF12 later on.
 // 2009-05-06 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
@@ -26,6 +33,7 @@
 // Added rolling percentage packet quality, displayed before any RSSI value with each packet
 // Added min/max for above
 // Basic verification that a Posting has been received. It should appear as rf12_data[0] in following packets
+// Added min/max FEI levels per node 2016-05-13
 
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
     #define TINY 1
@@ -688,6 +696,9 @@ static void handleInput (char c) {
                     break;
                 } 
             } else value = config.frequency_offset;
+#if RF69_COMPAT
+            if (stack[0]) RF69::microOffset = (stack[0] & 63);
+#endif
 #if !TINY
             // this code adds about 400 bytes to flash memory use
             // display the exact frequency associated with this setting
@@ -697,7 +708,7 @@ static void handleInput (char c) {
                 case RF12_868MHZ: freq = 86; break;
                 case RF12_915MHZ: freq = 90; break;
             }
-            uint32_t f1 = freq * 100000L + band * 25L * config.frequency_offset;
+            uint32_t f1 = (freq * 100000L + band * 25L * config.frequency_offset) + RF69::microOffset;
             Serial.print((word) (f1 / 10000));
             printOneChar('.');
             word f2 = f1 % 10000;
@@ -1272,8 +1283,13 @@ messagesR[messageStore] = 0;                             // Save flash, init her
     
 #if RF69_COMPAT && STATISTICS
 // Initialise min/max/count arrays
-memset(minFEI,32767,sizeof(minFEI));
-memset(maxFEI,-32769,sizeof(maxFEI));
+for (int i = 0; i < MAX_NODES; i++) {
+    minFEI[i] = 32767;
+    maxFEI[i] = -32767;
+}
+//memset(minFEI,32767,sizeof(minFEI));
+//
+//memset(maxFEI,-32767,sizeof(maxFEI));
 memset(minRSSI,255,sizeof(minRSSI));
 memset(maxRSSI,0,sizeof(maxRSSI));
 memset(minLNA,255,sizeof(minLNA));
@@ -1288,7 +1304,6 @@ memset(pktCount,0,sizeof(pktCount));
     bitClear(PORTB, 0);
     delay(1000);
 #endif    
-
     if (rf12_configSilent()) {
         loadConfig();
     } else {
@@ -1402,11 +1417,13 @@ static void nodeShow(byte group) {
               showByte(semaphores[index]);
 #endif
 #if RF69_COMPAT && STATISTICS            
-              if (maxRSSI[index]) {
+              if (pktCount[index]) {
                   showString(PSTR(" fei("));
                   Serial.print(minFEI[index]);
                   printOneChar('/');
                   Serial.print(maxFEI[index]);
+                  printOneChar('/');
+                  Serial.print(-((minFEI[index] + maxFEI[index]) / 2));
                   showString(PSTR(") rssi("));
                   showByte(minRSSI[index]);
                   printOneChar('/');
@@ -1920,7 +1937,6 @@ void loop () {
 
                 if (rf12_fei < (minFEI[NodeMap]))       
                   minFEI[NodeMap] = rf12_fei;
-//                lastLNA[NodeMap] = observedRX.lna;   
                 if (rf12_fei > (maxFEI[NodeMap]))
                   maxFEI[NodeMap] = rf12_fei;   
 

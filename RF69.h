@@ -5,6 +5,7 @@ namespace RF69 {
     extern uint32_t frf;
     extern uint8_t  group;
     extern uint8_t  node;
+    extern uint8_t microOffset;
     extern uint8_t  rssi;
     extern uint8_t  sendRSSI;
     extern uint8_t  rssiDelay;

@@ -52,7 +52,8 @@ uint8_t rf69_initialize (uint8_t id, uint8_t band, uint8_t group=0xD4, uint16_t 
         case RF12_868MHZ: freq = 86; break;
         case RF12_915MHZ: freq = 90; break;
     }
-    RF69::setFrequency(freq * 10000000L + band * 2500L * ((off + matchRF) & 0x0FFF));
+    RF69::setFrequency(freq * 10000000L + band * 2500L
+       * ((off + matchRF) & 0x0FFF));
     RF69::group = group;
     RF69::node = id & RF12_HDR_MASK;
     delay(20); // needed to make RFM69 work properly on power-up
@@ -170,7 +171,8 @@ uint8_t rf69_configSilent () {
     matchRF = eeprom_read_byte(RF12_EEPROM_ADDR + 8); // Store hardware matching 
 
     frequency = eeprom_read_byte(RF12_EEPROM_ADDR + 5);// Avoid eeprom_read_word
-    frequency = (frequency << 8) + (eeprom_read_byte(RF12_EEPROM_ADDR + 4));
+    frequency = (frequency << 8) + (eeprom_read_byte(RF12_EEPROM_ADDR + 4)
+       + rf12_microOffset);
                                                             
     rf69_initialize(nodeId, nodeId >> 6, group, frequency);
     return nodeId & RF12_HDR_MASK;

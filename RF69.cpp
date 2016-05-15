@@ -121,6 +121,7 @@ namespace RF69 {
     uint32_t frf;
     uint8_t  group;
     uint8_t  node;
+    uint8_t microOffset;
     uint16_t crc;
     uint8_t  rssi;
     uint8_t  sendRSSI;
@@ -290,7 +291,7 @@ void RF69::setFrequency (uint32_t freq) {
     // due to this, the lower 6 bits of the calculated factor will always be 0
     // this is still 4 ppm, i.e. well below the radio's 32 MHz crystal accuracy
     // 868.0 MHz = 0xD90000, 868.3 MHz = 0xD91300, 915.0 MHz = 0xE4C000 
-    frf = (((freq << 2) / (32000000L >> 11)) << 6) + 31;  // middle of 'o' band
+    frf = (((freq << 2) / (32000000L >> 11)) << 6) + microOffset;
     rf69_skip = 0;    // Ensure default Jeenode RF12 operation
 }
 
@@ -539,9 +540,12 @@ second rollover and then will be 1.024 mS out.
         if (rxstate == TXRECV) {
             volatile uint32_t RSSIinterruptMicros = micros();            
 // Timer start on 16MHz Processor
-            delayMicroseconds(48);   // Wait for RFM69
+//            delayMicroseconds(32);   // Wait for RFM69, produces results
+            delayMicroseconds(36);   // Wait for RFM69
             // Perceived quality of returned FEI value varies with the above.
+
             writeReg(REG_AFCFEI, FeiStart); 
+            delayMicroseconds(12);   // Wait for RFM69 no f value produced
             while (!readReg(REG_AFCFEI) & FeiDone)
                 ;
 // Timer elapsed is 60µs, 4µs appears optional, by ommitting the test above. 
