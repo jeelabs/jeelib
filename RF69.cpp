@@ -3,6 +3,7 @@
 #include <RF69_avr.h>
 #define __PROG_TYPES_COMPAT__
 #include <avr/pgmspace.h>
+#include <util/delay_basic.h>
 
 #define ROM_UINT8       const uint8_t // Does this change storage to RAM?
 #define ROM_READ_UINT8  pgm_read_byte
@@ -200,7 +201,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 */
 //  0x18, 0x02, // Manual LNA = 2 = -6dB
   0x19, 0x42, // RxBw 125 KHz
-  0x1A, 0x42, // AfcBw 125 KHz Channel filter BW
+  0x1A, 0x42, // AfcBw 125 KHz Channel filter BW 
   0x26, 0x07, // disable clkout
 
   0x29, 0xA0, // RssiThresh ... -80dB
@@ -540,12 +541,12 @@ second rollover and then will be 1.024 mS out.
         if (rxstate == TXRECV) {
             volatile uint32_t RSSIinterruptMicros = micros();            
 // Timer start on 16MHz Processor
+            _delay_loop_1(163);
 //            delayMicroseconds(32);   // Wait for RFM69, produces results
-            delayMicroseconds(36);   // Wait for RFM69
+//            delayMicroseconds(48);   // Wait for RFM69
             // Perceived quality of returned FEI value varies with the above.
 
             writeReg(REG_AFCFEI, FeiStart); 
-            delayMicroseconds(12);   // Wait for RFM69 no f value produced
             while (!readReg(REG_AFCFEI) & FeiDone)
                 ;
 // Timer elapsed is 60µs, 4µs appears optional, by ommitting the test above. 

@@ -399,7 +399,7 @@ static void InitIntPin () {
                 bitClear(PCMSK1, RFM_IRQ - 8);
         #endif                   
     #elif RF69_COMPAT
-        if (RF69::node != 0) {}
+        if (RF69::node != 0) {
             attachInterrupt(INT_NUMBER, RF69::interrupt_compat, RISING);
         } else {
             detachInterrupt(INT_NUMBER);
