@@ -126,6 +126,8 @@ namespace RF69 {
     uint16_t crc;
     uint8_t  rssi;
     uint8_t  sendRSSI;
+    uint8_t  noiseFloorMin;
+    uint8_t  noiseFloorMax;
     uint8_t  rssiDelay;
     uint8_t  lastState;
     uint32_t interruptMicros;
@@ -294,6 +296,8 @@ void RF69::setFrequency (uint32_t freq) {
     // 868.0 MHz = 0xD90000, 868.3 MHz = 0xD91300, 915.0 MHz = 0xE4C000 
     frf = (((freq << 2) / (32000000L >> 11)) << 6) + microOffset;
     rf69_skip = 0;    // Ensure default Jeenode RF12 operation
+    noiseFloorMin = 255;
+    noiseFloorMax = 0;
 }
 
 uint8_t RF69::canSend (uint8_t clearAir) {
@@ -355,9 +359,12 @@ uint8_t RF69::currentRSSI() {
       if (storedMode != MODE_RECEIVER) setMode(storedMode); // Restore mode
       else setMode(MODE_RECEIVER);                  // Restart RX mode
       // The above is required to clear RSSI threshold mechanism
-
       // REG_DIOMAPPING1 is mode sensitive so can only restore to correct mode
       writeReg(REG_DIOMAPPING1, storeDIOM);         // Restore Interrupt trigger
+      if (r > noiseFloor) {
+          if (r < noiseFloorMin) noiseFloorMin = r;
+          if (r > noiseFloorMax) noiseFloorMax = r;
+      }
       return r;
       
   } else return 0;

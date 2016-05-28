@@ -8,6 +8,8 @@ namespace RF69 {
     extern uint8_t microOffset;
     extern uint8_t  rssi;
     extern uint8_t  sendRSSI;
+    extern uint8_t noiseFloorMin;
+    extern uint8_t noiseFloorMax;
     extern uint8_t  rssiDelay;
     extern uint8_t lastState;
     extern uint32_t interruptMicros;

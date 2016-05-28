@@ -211,12 +211,12 @@ static void activityLed (byte on) {
     pinMode(LED_PIN, OUTPUT);
 #endif
 #if INVERT_LED == 0
-    ledStatus = on;
+    ledStatus = !on;
   #ifdef LED_PIN
     digitalWrite(LED_PIN, !on);
   #endif
 #else
-    ledStatus = !on;
+    ledStatus = on;
   #ifdef LED_PIN
     digitalWrite(LED_PIN, on);
   #endif
@@ -565,8 +565,13 @@ static void showStatus() {
     showString(PSTR(", Free Ram "));
     Serial.print(freeRam());     
 #if RF69_COMPAT
-    showString(PSTR("b, Restarts "));
+    showString(PSTR("b, RX Restarts "));
     Serial.print(RF69::RSSIrestart);
+    showString(PSTR(", Noise Floor "));
+    Serial.print(RF69::noiseFloorMin);
+    printOneChar('/');
+    Serial.print(RF69::noiseFloorMax);
+    
 #endif
     showString(PSTR(", Eeprom"));
     rf12_configDump();
@@ -2076,6 +2081,19 @@ void loop () {
         if (RF69::RSSIrestart != lastRSSIrestart) {
               if (RF69::RSSIrestart) activityLed(1);
               lastRSSIrestart = RF69::RSSIrestart;
+              if (config.verbosity > 2) {
+                  showString(PSTR("Restart#"));
+                  Serial.print(RF69::RSSIrestart);
+                  printOneChar(':');
+                  Serial.print(RF69::afc);
+                  printOneChar(',');
+                  Serial.print(RF69::fei);
+                  printOneChar(',');
+                  Serial.print((RF69::lna >> 3));
+                  printOneChar(',');
+                  Serial.print(RF69::rssi);
+                  Serial.println();                  
+              }
         }
     } // rf12_recvDone
 #endif    
