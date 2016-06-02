@@ -1764,6 +1764,8 @@ void loop () {
 
             if (rf12_sri) {
                 showString(PSTR(" Rs="));
+                Serial.print(rf12_drx);
+                printOneChar('/');                
                 // display RSSI at the start of RX phase value
                 if (config.output & 0x1)                  // Hex output?
                     showByte(rf12_sri);
@@ -2084,6 +2086,8 @@ void loop () {
               if (config.verbosity > 2) {
                   showString(PSTR("Restart#"));
                   Serial.print(RF69::RSSIrestart);
+                  printOneChar('/');
+                  Serial.print(rf12_drx);
                   printOneChar(':');
                   Serial.print(RF69::afc);
                   printOneChar(',');

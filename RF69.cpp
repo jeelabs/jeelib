@@ -167,10 +167,12 @@ static volatile uint16_t discards;   // Count of packets discarded
 static volatile uint8_t reentry = false;
 static volatile uint8_t rf69_skip;   // header bytes to skip
 static volatile uint8_t rf69_fix;    // Maximum for fixed length packet
+static volatile uint16_t delayTXRECV;
 static volatile uint16_t rtp;
 static volatile uint16_t rst;
 static volatile uint32_t tfr;
 static volatile uint8_t startRSSI;
+static volatile uint8_t noiseThreshold;
 
 static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x2E, 0xA0, // SyncConfig = sync on, sync size = 5
@@ -204,10 +206,13 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 //  0x18, 0x02, // Manual LNA = 2 = -6dB
   0x19, 0x42, // RxBw 125 KHz
   0x1A, 0x42, // AfcBw 125 KHz Channel filter BW 
+//  0x19, 0x42, // RxBw 125 KHz
+//  0x1A, 0x51, // AfcBw 166.7 KHz Channel filter BW 
+
   0x26, 0x07, // disable clkout
 
   0x29, 0xA0, // RssiThresh ... -80dB
-  0x2B, 0x05, // TimeoutRssiThresh
+  0x2B, 0x06, // TimeoutRssiThresh
 //  0x2B, 0x04, // TimeoutRssiThresh // Can't see response to own 't'
   0x2E, 0xA7, // SyncConfig = sync on, sync size = 5
   0x2F, 0xAA, // SyncValue1 = 0xAA
@@ -340,7 +345,7 @@ uint8_t RF69::currentRSSI() {
 
       uint8_t storedMode = (readReg(REG_OPMODE) & MODE_MASK);
       uint8_t storeDIOM = readReg(REG_DIOMAPPING1); // Collect Interrupt trigger
-      uint8_t noiseFloor = readReg(REG_RSSITHRESHOLD);// Store current threshold
+      noiseThreshold = readReg(REG_RSSITHRESHOLD);// Store current threshold
 
       setMode(MODE_STANDBY); 
       writeReg(REG_DIOMAPPING1, (DIO0_CRCOK));// Suppress Interrupts
@@ -355,13 +360,13 @@ uint8_t RF69::currentRSSI() {
       uint8_t r = readReg(REG_RSSIVALUE);           // Collect RSSI value
       
       setMode(MODE_STANDBY);                        // Get out of RX mode 
-      writeReg(REG_RSSITHRESHOLD, noiseFloor);      // Restore threshold
+      writeReg(REG_RSSITHRESHOLD, noiseThreshold);      // Restore threshold
       if (storedMode != MODE_RECEIVER) setMode(storedMode); // Restore mode
       else setMode(MODE_RECEIVER);                  // Restart RX mode
       // The above is required to clear RSSI threshold mechanism
       // REG_DIOMAPPING1 is mode sensitive so can only restore to correct mode
       writeReg(REG_DIOMAPPING1, storeDIOM);         // Restore Interrupt trigger
-      if (r > noiseFloor) {
+      if (r > noiseThreshold) {
           if (r < noiseFloorMin) noiseFloorMin = r;
           if (r > noiseFloorMax) noiseFloorMax = r;
       }
@@ -406,14 +411,16 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         rxfill = rf69_buf[2] = 0;
         crc = _crc16_update(~0, group);
         recvBuf = buf;
-        rxstate = TXRECV;
-//        flushFifo();
         setMode(MODE_STANDBY);
         startRSSI = currentRSSI();
-        modeChange1 = setMode(MODE_RECEIVER); // setting RX mode uses 33-36 spins
-        writeReg(REG_DIOMAPPING1, (DIO3_RSSI/* | DIO0_SYNCADDRESS*/));// Interrupt trigger
-        writeReg(REG_AFCFEI, AFC_CLEAR);      // Clear the AFC
-        startRX = micros();
+        if (startRSSI > noiseThreshold) { // Don't start to RX mid RF exchange
+            rxstate = TXRECV;
+            rf12_drx = delayTXRECV;// Loops waiting for clear air before RX mode
+            modeChange1 = setMode(MODE_RECEIVER); // setting RX mode uses 33-36 spins
+            writeReg(REG_DIOMAPPING1, (DIO3_RSSI/* | DIO0_SYNCADDRESS*/));// Interrupt trigger
+            writeReg(REG_AFCFEI, AFC_CLEAR);      // Clear the AFC
+            startRX = micros();
+        } else delayTXRECV++;
         break;
     case TXRECV:
         if (rxdone) {
@@ -424,6 +431,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
             rf12_lna = lna;
             rf12_afc = afc;
             rf12_fei = fei;
+            delayTXRECV = 0;
             rf12_sri = currentRSSI();
             rf12_rtp = rtp; // Delay between RSSI & Data Packet
             rf12_rst = rst; // Count of resets used to capture packet
@@ -549,15 +557,12 @@ second rollover and then will be 1.024 mS out.
             volatile uint32_t RSSIinterruptMicros = micros();            
 // Timer start on 16MHz Processor
             _delay_loop_1(163);
-//            delayMicroseconds(32);   // Wait for RFM69, produces results
-//            delayMicroseconds(48);   // Wait for RFM69
+//            _delay_loop_1(180);
             // Perceived quality of returned FEI value varies with the above.
 
             writeReg(REG_AFCFEI, FeiStart); 
             while (!readReg(REG_AFCFEI) & FeiDone)
                 ;
-// Timer elapsed is 60탎, 4탎 appears optional, by ommitting the test above. 
-// /* Testing */ interruptMicros = micros() - RSSIinterruptMicros; // Debug Code
             fei  = readReg(REG_FEIMSB);
             fei  = (fei << 8) | readReg(REG_FEILSB);
             rssi = readReg(REG_RSSIVALUE);
@@ -577,9 +582,6 @@ second rollover and then will be 1.024 mS out.
                     break;
                 } else if (i & IRQ1_TIMEOUT) {// Timeout set in TimeoutRssiThresh
                     // TODO the timeout above is very variable
-// Timer elapsed is xxx탎 with value 4 in TimeoutRssiThresh 268-1296
-// Timer elapsed is 596탎 with value 5 in TimeoutRssiThresh 584-1624탎
-//* Testing */interruptMicros = micros() - RSSIinterruptMicros; // Debug Code
                        RSSIrestart++;
                     rxstate = TXIDLE;   // Trigger a RX restart by FSM           
                     return;
@@ -650,7 +652,6 @@ second rollover and then will be 1.024 mS out.
         writeReg(REG_AFCFEI, AFC_CLEAR);  // Clear the AFC
         setMode(MODE_STANDBY);
         rxdone = true;      // force TXRECV in RF69::recvDone_compat
-//* Testing */interruptMicros = micros() - RSSIinterruptMicros;
 
 /* This code can't trigger if using DIO3 as IRQ, see scanning code at the 
    end of RF69::sendStart_compat
@@ -669,8 +670,8 @@ second rollover and then will be 1.024 mS out.
           }
 */
     } else {
-          // We get here when a interrupt that is neither for RX or as a TX
-          // completion. Appears related to receiving noise when the bad CRC
+          // We get here when a interrupt that is not for RX completion.
+          // Appears related to receiving noise when the bad CRC
           // packet display is enabled using "0q".
           unexpected++;
           unexpectedFSM = rxstate; // Save Finite State Machine status
