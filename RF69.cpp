@@ -40,7 +40,7 @@
 #define REG_SYNCVALUE6      0x34
 #define REG_SYNCVALUE7      0x35
 #define REG_SYNCVALUE8      0x36
-#define REG_SYNCGROUP       0x33
+#define REG_SYNCGROUP       0x32
 #define REG_NODEADRS        0x39
 #define REG_FIFOTHRESH      0x3C
 #define REG_PACKETCONFIG2   0x3D
@@ -111,7 +111,7 @@
 #define fourByteSync        0x98
 #define fiveByteSync        0xA0
 
-#define AFC_CLEAR           0x02
+#define AFC_CLEAR           0x0C    // Afc Auto Clear, Afc Auto On
 
 #define RF_MAX   72
 
@@ -175,16 +175,16 @@ static volatile uint8_t startRSSI;
 static volatile uint8_t noiseThreshold;
 
 static ROM_UINT8 configRegs_compat [] ROM_DATA = {
-  0x2E, 0xA0, // SyncConfig = sync on, sync size = 5
+  0x2E, 0x97, // SyncConfig = sync on, sync size = 4
   0x2F, 0xAA, // SyncValue1 = 0xAA
   0x30, 0xAA, // SyncValue2 = 0xAA
-  0x31, 0xAA, // SyncValue3 = 0xAA
-  0x32, 0x2D, // SyncValue4 = 0x2D
-  0x33, 0xD4, // SyncValue5 = 212, Group
-// 0x01, 0x04, // OpMode = standby
-//  0x02, 0x03, // DataModul = packet mode, fsk, Gaussian filter, BT = 0.3
+  0x31, 0x2D, // SyncValue3 = 0x2D
+  0x32, 0xD4, // SyncValue4 = 0xD4, 212, group
+  0x33, 0x00, // SyncValue5
+
   0x03, 0x02, // BitRateMsb, data rate = 49,261 khz
   0x04, 0x8A, // BitRateLsb, divider = 32 MHz / 650 == 49,230 khz
+
 //  0x05, 0x00, // FdevMsb = 9.943 KHz
 //  0x06, 0xA3, // FdevLsb = 9.943 KHz
 //  0x05, 0x01, // FdevMsb = 23 KHz
@@ -207,19 +207,16 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x19, 0x42, // RxBw 125 KHz
   0x1A, 0x42, // AfcBw 125 KHz Channel filter BW 
 //  0x19, 0x42, // RxBw 125 KHz
-//  0x1A, 0x51, // AfcBw 166.7 KHz Channel filter BW 
+//  0x1A, 0x51, // AfcBw 166.7 KHz Channel filter BW
+    0x1E, AFC_CLEAR, // Afc Auto Clear, Afc Auto On 
+//  0x1E, 0x00, // Afc Auto Clear, Afc Auto On 
 
   0x26, 0x07, // disable clkout
 
   0x29, 0xA0, // RssiThresh ... -80dB
   0x2B, 0x06, // TimeoutRssiThresh
 //  0x2B, 0x04, // TimeoutRssiThresh // Can't see response to own 't'
-  0x2E, 0xA7, // SyncConfig = sync on, sync size = 5
-  0x2F, 0xAA, // SyncValue1 = 0xAA
-  0x30, 0xAA, // SyncValue2 = 0xAA
-  0x31, 0xAA, // SyncValue3 = 0xAA
-  0x32, 0x2D, // SyncValue4 = 0x2D
-  0x33, 0xD4, // SyncValue5 = 212, Group
+
   0x37, 0x00, // PacketConfig1 = fixed, no crc, filt off
   0x38, 0x00, // PayloadLength = 0, unlimited
   0x3C, 0x80, // FifoTresh, not empty, level unused here
@@ -384,9 +381,9 @@ void RF69::configure_compat () {
     if (initRadio(configRegs_compat)) {
         writeReg(REG_SYNCGROUP, group);
         if (group == 0) {
-            writeReg(REG_SYNCCONFIG, fourByteSync);
+            writeReg(REG_SYNCCONFIG, threeByteSync);
         } else {
-            writeReg(REG_SYNCCONFIG, fiveByteSync);
+            writeReg(REG_SYNCCONFIG, fourByteSync);
         }   
 
         writeReg(REG_FRFMSB, frf >> 16);
@@ -481,11 +478,11 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
     rxstate = - (2 + rf12_len); // preamble and SYN1/SYN2 are sent by hardware
     flushFifo();
     
-/*  All packets are transmitted with a 5 byte header SYN1/SYN2/SYN3/2D/Group  
+/*  All packets are transmitted with a 4 byte header SYN1/SYN2/SYN3/2D/Group  
     even when the group is zero                                               */
     
     // REG_SYNCGROUP must have been set to an appropriate group before this.
-    writeReg(REG_SYNCCONFIG, fiveByteSync);
+    writeReg(REG_SYNCCONFIG, fourByteSync);
     crc = _crc16_update(~0, readReg(REG_SYNCGROUP));
 
 //    if (rf12_len > 9)                       // Expedite short packet TX
@@ -541,7 +538,7 @@ condition is met to transmit the packet data.
     rxstate = TXIDLE;
     // Restore sync bytes configuration
     if (group == 0) {               // Allow receiving from all groups
-          writeReg(REG_SYNCCONFIG, fourByteSync);
+          writeReg(REG_SYNCCONFIG, threeByteSync);
     }
 }
 
@@ -556,20 +553,20 @@ second rollover and then will be 1.024 mS out.
         if (rxstate == TXRECV) {
             volatile uint32_t RSSIinterruptMicros = micros();            
 // Timer start on 16MHz Processor
-            _delay_loop_1(163);
+//            _delay_loop_1(163);
 //            _delay_loop_1(180);
             // Perceived quality of returned FEI value varies with the above.
 
-            writeReg(REG_AFCFEI, FeiStart); 
-            while (!readReg(REG_AFCFEI) & FeiDone)
-                ;
+//            writeReg(REG_AFCFEI, FeiStart); 
+//            while (!readReg(REG_AFCFEI) & FeiDone)
+//                ;
             fei  = readReg(REG_FEIMSB);
             fei  = (fei << 8) | readReg(REG_FEILSB);
             rssi = readReg(REG_RSSIVALUE);
             lna = readReg(REG_LNA);
             afc  = readReg(REG_AFCMSB);
             afc  = (afc << 8) | readReg(REG_AFCLSB);
-            writeReg(REG_AFCFEI, AFC_CLEAR);  // Clear the AFC
+//            writeReg(REG_AFCFEI, AFC_CLEAR);  // Clear the AFC
             // The window for grabbing the above values is quite small
             // values available during transfer between the ether
             // and the inbound fifo buffer.
@@ -582,7 +579,10 @@ second rollover and then will be 1.024 mS out.
                     break;
                 } else if (i & IRQ1_TIMEOUT) {// Timeout set in TimeoutRssiThresh
                     // TODO the timeout above is very variable
-                       RSSIrestart++;
+//                      writeReg(REG_FRFMSB+2, 0xFF);  // Attempt to force freqency
+//                      writeReg(REG_FRFMSB+2, frf);  // Attempt to force freqency
+                      setMode(MODE_TRANSMITTER);  // Attempt to force frequency
+                      RSSIrestart++;
                     rxstate = TXIDLE;   // Trigger a RX restart by FSM           
                     return;
                 }
@@ -649,7 +649,7 @@ second rollover and then will be 1.024 mS out.
             packetShort++;
         }    
         tfr =  (micros() - startRX);
-        writeReg(REG_AFCFEI, AFC_CLEAR);  // Clear the AFC
+//        writeReg(REG_AFCFEI, AFC_CLEAR);  // Clear the AFC
         setMode(MODE_STANDBY);
         rxdone = true;      // force TXRECV in RF69::recvDone_compat
 
@@ -666,7 +666,7 @@ second rollover and then will be 1.024 mS out.
           rxstate = TXIDLE;
           // Restore sync bytes configuration
           if (group == 0) {               // Allow receiving from all groups
-              writeReg(REG_SYNCCONFIG, fourByteSync);
+              writeReg(REG_SYNCCONFIG, threeByteSync);
           }
 */
     } else {

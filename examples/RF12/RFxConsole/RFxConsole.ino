@@ -58,7 +58,7 @@ mode by setting RestartRx bit to 1.
 #define REG_RSSIVALUE  0x24
 #define REG_SYNCCONFIG 0x2E  // RFM69 only, register containing sync length
 #define oneByteSync    0x87  // RFM69 only, value to get only one byte sync with max bit errors.
-#define REG_SYNCGROUP  0x33  // RFM69 only, register containing group number
+#define REG_SYNCGROUP  0x32  // RFM69 only, register containing group number
 #define REG_SYNCVALUE7 0x35  // RFM69 only
 #define REG_SYNCVALUE8 0x36  // RFM69 only
 
@@ -101,7 +101,7 @@ unsigned int SalusFrequency = SALUSFREQUENCY;
 
 unsigned int NodeMap;
 unsigned int newNodeMap;
-byte stickyGroup = 212;
+byte stickyGroup;
 byte eepromWrite;
 byte qMin = ~0;
 byte qMax = 0;
@@ -1015,7 +1015,6 @@ static void handleInput (char c) {
                   Serial.println();
             } else {
                   // Accepts a group number and prints matching entries from the eeprom
-                  stickyGroup = value;
                   nodeShow(value);
             }
 #endif
@@ -1102,9 +1101,9 @@ static void handleInput (char c) {
                 Sleepy::powerDown();
             }
             if (value == 255) {
-#if DEBUG              
+
                 clrNodeStore;
-#endif
+
                 showString(PSTR("Watchdog enabled, restarting\n"));
                 WDTCSR |= _BV(WDE);
             }
@@ -1332,6 +1331,7 @@ memset(pktCount,0,sizeof(pktCount));
     }
     
     stickyGroup = config.group;
+    if (!(stickyGroup)) stickyGroup = 212;
 
     df_initialize();
 
@@ -1347,10 +1347,9 @@ memset(pktCount,0,sizeof(pktCount));
     Serial.flush();
 } // setup
 
-#if DEBUG
 static void clrConfig() {
         // Clear Config eeprom
-        for (unsigned int i = 0; i < sizeof config; ++i) {
+        for (byte i = 0; i < sizeof config; i++) {
             eeprom_write_byte((RF12_EEPROM_ADDR) + i, 0xFF);
         }
 }
@@ -1358,7 +1357,7 @@ static void clrConfig() {
 static void clrNodeStore() {
         // Clear Node Store eeprom
         for (unsigned int n = 0; n < MAX_NODES; n++) {
-            eeprom_write_byte((RF12_EEPROM_NODEMAP) + (n * 4), 255);
+            eeprom_write_byte((RF12_EEPROM_NODEMAP) + (n * 4), 0xFF);
         }
 }
 
@@ -1378,7 +1377,6 @@ static void dumpEEprom() {
     else Serial.print(" GOOD CRC ");
 //    Serial.flush();
 }
-#endif
 
 #if DEBUG && RF69_COMPAT
 /// Display the RFM69x registers
@@ -1813,13 +1811,15 @@ void loop () {
             showString(PSTR("dB"));
         }
         printOneChar(')');
-#if DEBUG
+        Serial.print((RF69::control(9,0)), HEX);  // LSB of frequency
+  #if DEBUG
         showString(PSTR(" mCR1="));
         Serial.print(modeChange1);
         showString(PSTR(" mCT2="));
         Serial.print(modeChange2);
         showString(PSTR(" mCs3="));
         Serial.print(modeChange3);
+  #endif
 #endif        
         if (config.verbosity > 1) {
             if(!(crc)) showString(PSTR(" Bad"));
@@ -1844,7 +1844,6 @@ void loop () {
         Serial.print(rf12_getRSSI());
         Serial.print(")");
 */
-#endif
         Serial.println();
         
 #if !TINY
