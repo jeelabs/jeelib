@@ -111,7 +111,9 @@
 #define fourByteSync        0x98
 #define fiveByteSync        0xA0
 
-#define AFC_CLEAR           0x0C    // Afc Auto Clear, Afc Auto On
+#define AFC_DONE            0x10
+#define AFC_CLEAR           0x02
+#define AFC_START           0x01
 
 #define RF_MAX   72
 
@@ -208,7 +210,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x1A, 0x42, // AfcBw 125 KHz Channel filter BW 
 //  0x19, 0x42, // RxBw 125 KHz
 //  0x1A, 0x51, // AfcBw 166.7 KHz Channel filter BW
-    0x1E, AFC_CLEAR, // Afc Auto Clear, Afc Auto On 
+  0x1E, AFC_CLEAR,
 //  0x1E, 0x00, // Afc Auto Clear, Afc Auto On 
 
   0x26, 0x07, // disable clkout
@@ -576,13 +578,16 @@ second rollover and then will be 1.024 mS out.
                 i = readReg(REG_IRQFLAGS1); 
                 if (i & IRQ1_SYNCMATCH) {
 /* Production */    interruptMicros = micros() - RSSIinterruptMicros;
+                    writeReg(REG_AFCFEI, AFC_START);
+                    while (!readReg(REG_AFCFEI) & AFC_DONE)
+                      ;
+                    afc  = readReg(REG_AFCMSB);
+                    afc  = (afc << 8) | readReg(REG_AFCLSB);                      
                     break;
                 } else if (i & IRQ1_TIMEOUT) {// Timeout set in TimeoutRssiThresh
                     // TODO the timeout above is very variable
-//                      writeReg(REG_FRFMSB+2, 0xFF);  // Attempt to force freqency
-//                      writeReg(REG_FRFMSB+2, frf);  // Attempt to force freqency
-                      setMode(MODE_TRANSMITTER);  // Attempt to force frequency
-                      RSSIrestart++;
+                    writeReg(REG_AFCFEI, AFC_CLEAR);  // Clear Noise
+                    RSSIrestart++;
                     rxstate = TXIDLE;   // Trigger a RX restart by FSM           
                     return;
                 }
@@ -635,6 +640,7 @@ second rollover and then will be 1.024 mS out.
                     packetBytes++;
                     crc = _crc16_update(crc, in);              
                     if (rxfill >= (payloadLen + (5 - rf69_skip))) {  // Trap end of payload
+                        writeReg(REG_AFCFEI, AFC_CLEAR);
                         setMode(MODE_STANDBY);  // Get radio out of RX mode
                         stillCollecting = false;
                         break;
@@ -649,7 +655,7 @@ second rollover and then will be 1.024 mS out.
             packetShort++;
         }    
         tfr =  (micros() - startRX);
-//        writeReg(REG_AFCFEI, AFC_CLEAR);  // Clear the AFC
+        writeReg(REG_AFCFEI, AFC_CLEAR);
         setMode(MODE_STANDBY);
         rxdone = true;      // force TXRECV in RF69::recvDone_compat
 
