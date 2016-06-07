@@ -560,6 +560,9 @@ void rf12_fix_len (uint8_t fix) {
     else rf12_max_len = fix;
 }
 
+void rf12_afc_mode (uint8_t afc) {
+}
+
 void rf12_sendStart (uint8_t hdr) {
 #if RF12_COMPAT
     // top 2 bits are the parity bits of the net group

@@ -56,6 +56,7 @@ namespace RF69 {
 /// Default value 2 skips the Jeelib header enabling non-Jeelib FSK packets 
     void skip_hdr (uint8_t skip = 2);
     void fix_len (uint8_t skip = 16);
+    void afc_mode (uint8_t afc);
     void sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len);
     void RSSIinterrupt();
     void interrupt_compat();

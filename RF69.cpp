@@ -169,6 +169,7 @@ static volatile uint16_t discards;   // Count of packets discarded
 static volatile uint8_t reentry = false;
 static volatile uint8_t rf69_skip;   // header bytes to skip
 static volatile uint8_t rf69_fix;    // Maximum for fixed length packet
+static volatile uint8_t rf69_afc;    
 static volatile uint16_t delayTXRECV;
 static volatile uint16_t rtp;
 static volatile uint16_t rst;
@@ -224,7 +225,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x3C, 0x80, // FifoTresh, not empty, level unused here
   0x3D, 0x10, // PacketConfig2, interpkt = 1, autorxrestart off
   0x58, 0x2D, // High sensitivity mode
-//  0x6F, 0x20, // 0x30, // TestDagc ...
+  0x6F, 0x30, // TestDagc ...
 //  0x71, 0x01, // AFC offset set for low modulation index systems, used if
               // AfcLowBetaOn=1. Offset = LowBetaAfcOffset x 488 Hz 
   0
@@ -417,7 +418,6 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
             rf12_drx = delayTXRECV;// Loops waiting for clear air before RX mode
             modeChange1 = setMode(MODE_RECEIVER); // setting RX mode uses 33-36 spins
             writeReg(REG_DIOMAPPING1, (DIO3_RSSI/* | DIO0_SYNCADDRESS*/));// Interrupt trigger
-            writeReg(REG_AFCFEI, AFC_CLEAR);      // Clear the AFC
             startRX = micros();
         } else delayTXRECV++;
         break;
@@ -463,6 +463,10 @@ void RF69::skip_hdr (uint8_t skip) {
 
 void RF69::fix_len (uint8_t fix) {
     rf69_fix = fix;
+}
+
+void RF69::afc_mode (uint8_t afc) {
+    rf69_afc = afc;
 }
 
 uint16_t rf69_status () {
@@ -568,7 +572,6 @@ second rollover and then will be 1.024 mS out.
             lna = readReg(REG_LNA);
             afc  = readReg(REG_AFCMSB);
             afc  = (afc << 8) | readReg(REG_AFCLSB);
-//            writeReg(REG_AFCFEI, AFC_CLEAR);  // Clear the AFC
             // The window for grabbing the above values is quite small
             // values available during transfer between the ether
             // and the inbound fifo buffer.
@@ -640,7 +643,7 @@ second rollover and then will be 1.024 mS out.
                     packetBytes++;
                     crc = _crc16_update(crc, in);              
                     if (rxfill >= (payloadLen + (5 - rf69_skip))) {  // Trap end of payload
-                        writeReg(REG_AFCFEI, AFC_CLEAR);
+                        if (rf69_afc & 0x80) writeReg(REG_AFCFEI, AFC_CLEAR);
                         setMode(MODE_STANDBY);  // Get radio out of RX mode
                         stillCollecting = false;
                         break;
@@ -655,7 +658,7 @@ second rollover and then will be 1.024 mS out.
             packetShort++;
         }    
         tfr =  (micros() - startRX);
-        writeReg(REG_AFCFEI, AFC_CLEAR);
+        if (rf69_afc & 0x80) writeReg(REG_AFCFEI, AFC_CLEAR);
         setMode(MODE_STANDBY);
         rxdone = true;      // force TXRECV in RF69::recvDone_compat
 

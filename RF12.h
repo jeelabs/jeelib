@@ -75,6 +75,10 @@
 #define RF12_SLEEP 0        ///< Enter sleep mode.
 #define RF12_WAKEUP -1      ///< Wake up from sleep mode.
 
+// Options relevant to AFC
+#define RF12_REMOTE   0     ///< Track frequency supplied by Central
+#define RF12_CENTRAL  128   ///< Maintain static frequency
+
 /// Running crc value, should be zero at end.
 extern volatile uint16_t rf12_crc;
 /// Recv/xmit buf including hdr & crc bytes.
@@ -133,6 +137,8 @@ void rf12_skip_hdr (uint8_t skip = 2);
 /// Call this to fix the receive length where rf12_len is not used
 /// Default value 16 will receive 16 bytes before forcing end of data packet
 void rf12_fix_len (uint8_t fix = 16);
+/// Call this to set specific AFC handling
+void rf12_afc_mode (uint8_t afc);
 /// Call this only when rf12_recvDone() or rf12_canSend() return true.
 void rf12_sendStart(uint8_t hdr, const void* ptr, uint8_t len);
 /// This variant loops on rf12_canSend() and then calls rf12_sendStart() asap.
