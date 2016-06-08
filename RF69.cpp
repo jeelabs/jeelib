@@ -344,8 +344,6 @@ uint8_t* RF69::SPI_pins() {
 
 uint8_t RF69::currentRSSI() {
 
-  PreventInterrupt RF69_avr_h_INT;
-  
   if (((rxfill == 0) || (rxdone))) {
 
       uint8_t storedMode = (readReg(REG_OPMODE) & MODE_MASK);
@@ -602,10 +600,13 @@ second rollover and then will be 1.024 mS out.
                     // TODO the timeout above is very variable
                     writeReg(REG_AFCFEI, AFC_CLEAR);  // Clear Noise
                     RSSIrestart++;
-//                    rxstate = TXIDLE;   // Trigger a RX restart by FSM
+                    rxstate = TXIDLE;   // Cause a RX restart by FSM
+                    
+//                    writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
 
-                    writeReg(REG_PACKETCONFIG2, PACKET2_RESTART);// Re-enter AGC
-           
+//                    writeReg(REG_PACKETCONFIG2, PACKET2_RESTART);// Re-enter AGC
+//                    Pity the above doesn't work properly, receiver shows
+//                    the signs of going off piste.           
                     return;
                 }
             }
@@ -619,7 +620,7 @@ second rollover and then will be 1.024 mS out.
                 return;
             }   
             reentry = true;
-//            IRQ_ENABLE;       // allow nested interrupts from here on
+            IRQ_ENABLE;       // allow nested interrupts from here on
             
             rtp = interruptMicros;
             rst = RSSIrestart;
