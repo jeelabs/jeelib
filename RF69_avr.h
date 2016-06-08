@@ -147,12 +147,12 @@ static void spiConfigPins () {
 
 #else // ATmega168, ATmega328, etc.
 
-#define INT         INT1
-#define INT_NUMBER  1
+#define INT         INT1    // INT0 or INT1
+#define INT_NUMBER  1       // 0 for INT0 and 1 for INT1
 #if PINCHG_IRQ
-    #define RFM_IRQ     18  // 18 for pin change on PB2
+    #define RFM_IRQ     18  // 18 for pin change on PD2
 #else
-    #define RFM_IRQ     2   // 2 for INT0 on PB2
+    #define RFM_IRQ     3   // 2 for INT0 on PD2, 3 for INT1 on PD3
 #endif 
 #define SS_DDR      DDRB
 #define SS_PORT     PORTB
@@ -282,7 +282,7 @@ static void spiConfigPins () {
 struct PreventInterrupt {
     PreventInterrupt () { XXMSK &= ~ _BV(INT_BIT); }
     ~PreventInterrupt () { XXMSK |= _BV(INT_BIT); }
-};  // Semicolon is requird
+};  // Semicolon is required
 
 static void spiInit (void) {
     spiConfigPins();
