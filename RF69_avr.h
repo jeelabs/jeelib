@@ -342,7 +342,6 @@ static void InitIntPin () {
         #if RFM_IRQ < 8
             if (RF69::node != 0) {
                 bitClear(DDRB, RFM_IRQ);      // input
-//                bitSet(PORTB, RFM_IRQ);       // pull-up
                 bitSet(PCMSK0, RFM_IRQ);      // pin-change
                 bitSet(PCICR, PCIE0);         // enable
             } else
@@ -351,7 +350,6 @@ static void InitIntPin () {
         #elif RFM_IRQ < 16
             if (RF69::node != 0) {
                 bitClear(DDRC, RFM_IRQ - 8);  // input
-//                bitSet(PORTC, RFM_IRQ - 8);   // pull-up
                 bitSet(PCMSK1, RFM_IRQ - 8);  // pin-change
                 bitSet(PCICR, PCIE1);         // enable
             } else
@@ -361,7 +359,6 @@ static void InitIntPin () {
         #else
             if (RF69::node != 0) {
                 bitClear(DDRD, RFM_IRQ - 16); // input
-//                bitSet(PORTD, RFM_IRQ - 16);  // pull-up
                 bitSet(PCMSK2, RFM_IRQ - 16); // pin-change
                 bitSet(PCICR, PCIE2);         // enable
                 lastPCInt = PIND;             // Init pin change from value                      
@@ -370,7 +367,9 @@ static void InitIntPin () {
         #endif
     #elif RF69_COMPAT
         if (RF69::node != 0) {
+            cli();
             attachInterrupt(INT_NUMBER, RF69::interrupt_compat, RISING);
+            sei();
         } else {
             detachInterrupt(INT_NUMBER);
         }
@@ -383,7 +382,6 @@ static void InitIntPin () {
         #if RFM_IRQ < 8   // Be aware of conflict with JNu serial input
             if (RF69::node != 0) {
                 bitClear(DDRA, RFM_IRQ);      // input
-//               bitSet(PORTA, RFM_IRQ);       // pull-up
                 bitSet(PCMSK0, RFM_IRQ);      // pin-change
                 bitSet(GIMSK, PCIE0);         // enable
             } else
@@ -392,7 +390,6 @@ static void InitIntPin () {
         #elif RFM_IRQ > 7
             if (RF69::node != 0) {
                 bitClear(DDRB, RFM_IRQ - 8);  // input
-//                bitSet(PORTB, RFM_IRQ - 8);   // pull-up
                 bitSet(PCMSK1, RFM_IRQ - 8);  // pin-change
                 bitSet(GIMSK, PCIE1);         // enable
             } else
@@ -400,7 +397,9 @@ static void InitIntPin () {
         #endif                   
     #elif RF69_COMPAT
         if (RF69::node != 0) {
+            cli();
             attachInterrupt(INT_NUMBER, RF69::interrupt_compat, RISING);
+            sei();
         } else {
             detachInterrupt(INT_NUMBER);
         }

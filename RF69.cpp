@@ -180,6 +180,8 @@ static volatile uint8_t startRSSI;
 static volatile uint8_t noiseThreshold;
 
 static ROM_UINT8 configRegs_compat [] ROM_DATA = {
+//  0x01, 0x04, // Standby Mode
+  0x28, IRQ2_FIFOOVERRUN, // Clear the FIFO
   0x2E, 0x97, // SyncConfig = sync on, sync size = 4
   0x2F, 0xAA, // SyncValue1 = 0xAA
   0x30, 0xAA, // SyncValue2 = 0xAA
@@ -275,7 +277,6 @@ uint8_t setMode (uint8_t mode) {
 }
 
 static uint8_t initRadio (ROM_UINT8* init) {
-    InitIntPin();
 
     spiInit();
 // Validate SPI bus operation
@@ -284,12 +285,16 @@ static uint8_t initRadio (ROM_UINT8* init) {
     writeReg(REG_SYNCVALUE8, 0x55);
     if ((readReg(REG_SYNCVALUE7) == 0xAA) && (readReg(REG_SYNCVALUE8) == 0x55)) {
 // Configure radio
+        setMode(MODE_STANDBY);
         for (;;) {
             uint8_t cmd = ROM_READ_UINT8(init);
             if (cmd == 0) break;
             writeReg(cmd, ROM_READ_UINT8(init+1));
             init += 2;
         }
+        
+        InitIntPin();
+        
         return 1;
     }
     return 0;
@@ -498,7 +503,7 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
 //    the above code is to facilitate slow SPI bus speeds.  
     
     modeChange2 = setMode(MODE_TRANSMITTER);
-    writeReg(REG_DIOMAPPING1, REG_DIOMAPPING1);// Interrupt not available with DIO3 
+    writeReg(REG_DIOMAPPING1, DIO0_PACKETSENT);// Interrupt not available with DIO3 
     
 /*  We must being transmission to avoid overflowing the FIFO since
     jeelib packet size can exceed FIFO size. We also want to avoid the
@@ -551,6 +556,8 @@ condition is met to transmit the packet data.
 }
 
 void RF69::interrupt_compat () {
+        interruptCount++;
+
 /*
 micros() returns the hardware timer contents (which updates continuously), 
 plus a count of rollovers (ie. one rollover ever 1.024 mS). 
@@ -611,7 +618,6 @@ second rollover and then will be 1.024 mS out.
                 }
             }
 
-            interruptCount++;
             if (reentry) {
                 nestedInterrupts++;
                 uint8_t f = readReg(REG_IRQFLAGS2);

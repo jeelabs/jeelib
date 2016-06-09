@@ -174,7 +174,7 @@ uint8_t rf69_configSilent () {
     frequency = (frequency << 8) + (eeprom_read_byte(RF12_EEPROM_ADDR + 4)
        + rf12_microOffset);
                                                             
-    rf69_initialize(nodeId, nodeId >> 6, group, frequency);
+    rf69_initialize(nodeId, /* band*/(nodeId >> 6), group, frequency);
     return nodeId & RF12_HDR_MASK;
 }
 
