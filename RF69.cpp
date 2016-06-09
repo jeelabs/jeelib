@@ -99,7 +99,7 @@
 #define DIO3_RSSI           0x01
 #define DIO3_SYNCADDRESS    0x02
 #define DIO3_FIFOFULL_TX    0x00
-#define DIO3_NOTHING_IN_TX  0x02
+#define DIO3_TX_PACKETSENT  0x02
 
 #define RcCalStart          0x81
 #define RcCalDone           0x40
@@ -268,12 +268,12 @@ static void flushFifo () {
 
 uint8_t setMode (uint8_t mode) {
     // Settin OPMODE = STANDBY in an ISR has caused me problems - JohnO.
-    byte c = 0;
+//    byte c = 0;
     writeReg(REG_OPMODE, (readReg(REG_OPMODE) & 0xE3) | mode);
-    while ((readReg(REG_IRQFLAGS1) & IRQ1_MODEREADY) == 0) {
-        c++; if (c == 255) break;
-    }
-    return c;
+//    while ((readReg(REG_IRQFLAGS1) & IRQ1_MODEREADY) == 0) {
+//        c++; if (c == 255) break;
+//    }
+//    return c;
 }
 
 static uint8_t initRadio (ROM_UINT8* init) {
@@ -351,6 +351,7 @@ uint8_t RF69::currentRSSI() {
 
   if (((rxfill == 0) || (rxdone))) {
 
+      cli();
       uint8_t storedMode = (readReg(REG_OPMODE) & MODE_MASK);
       uint8_t storeDIOM = readReg(REG_DIOMAPPING1); // Collect Interrupt trigger
       noiseThreshold = readReg(REG_RSSITHRESHOLD);// Store current threshold
@@ -373,6 +374,7 @@ uint8_t RF69::currentRSSI() {
       if (storedMode != MODE_RECEIVER) setMode(storedMode); // Restore mode
       else setMode(MODE_RECEIVER);                  // Restart RX mode
       // The above is required to clear RSSI threshold mechanism
+      sei();
       if (r > noiseThreshold) {
           if (r < noiseFloorMin) noiseFloorMin = r;
           if (r > noiseFloorMax) noiseFloorMax = r;
@@ -423,10 +425,10 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         if (startRSSI > noiseThreshold) { // Don't start to RX mid RF exchange
             rxstate = TXRECV;
             rf12_drx = delayTXRECV;
-            writeReg(REG_DIOMAPPING1, (DIO3_RSSI | DIO0_RSSI));// Interrupt trigger
+            writeReg(REG_DIOMAPPING1, (/*DIO0_RSSI |*/ DIO0_SYNCADDRESS));// Interrupt trigger
             modeChange1 = setMode(MODE_RECEIVER); // setting RX mode uses 33-36 spins
             startRX = micros();
-        } else delayTXRECV++; // Loops waiting for clear air before RX mode
+        } else delayTXRECV++; // Loops waiting for clear air before RX mode 
         break;
     case TXRECV:
         if (rxdone) {
@@ -503,7 +505,8 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
 //    the above code is to facilitate slow SPI bus speeds.  
     
     modeChange2 = setMode(MODE_TRANSMITTER);
-    writeReg(REG_DIOMAPPING1, DIO0_PACKETSENT);// Interrupt not available with DIO3 
+    writeReg(REG_DIOMAPPING1, DIO0_PACKETSENT);   // Interrupt 
+//    writeReg(REG_DIOMAPPING1, DIO3_TX_PACKETSENT);// Undocumented Interrupt 
     
 /*  We must being transmission to avoid overflowing the FIFO since
     jeelib packet size can exceed FIFO size. We also want to avoid the
@@ -557,7 +560,6 @@ condition is met to transmit the packet data.
 
 void RF69::interrupt_compat () {
         interruptCount++;
-
 /*
 micros() returns the hardware timer contents (which updates continuously), 
 plus a count of rollovers (ie. one rollover ever 1.024 mS). 
@@ -566,8 +568,9 @@ if you cross a rollover point, however after 1.024 mS it will not know about the
 second rollover and then will be 1.024 mS out.
 */
         if (rxstate == TXRECV) {
+            digitalWrite(9, 0); // LED on
             volatile uint32_t RSSIinterruptMicros = micros();            
-//            writeReg(REG_DIOMAPPING1, DIO0_SYNCADDRESS);
+//            writeReg(REG_DIOMAPPING1, DIO0_CRCOK);
 
 //        writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
 //        return;
@@ -711,4 +714,9 @@ second rollover and then will be 1.024 mS out.
                 else unexpectedIRQFLAGS2 = 0xFF;
     }
     reentry = false;
+    digitalWrite(9, 1); // LED off
+}
+
+void RF69::interrupt_spare () {
+    return;
 }

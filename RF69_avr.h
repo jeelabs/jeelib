@@ -147,12 +147,12 @@ static void spiConfigPins () {
 
 #else // ATmega168, ATmega328, etc.
 
-#define INT         INT1    // INT0 or INT1
-#define INT_NUMBER  1       // 0 for INT0 and 1 for INT1
+#define INT         INT0    // INT0 or INT1
+#define INT_NUMBER  0       // 0 for INT0 and 1 for INT1
 #if PINCHG_IRQ
     #define RFM_IRQ     18  // 18 for pin change on PD2
 #else
-    #define RFM_IRQ     3   // 2 for INT0 on PD2, 3 for INT1 on PD3
+    #define RFM_IRQ     2   // 2 for INT0 on PD2, 3 for INT1 on PD3
 #endif 
 #define SS_DDR      DDRB
 #define SS_PORT     PORTB
@@ -369,6 +369,7 @@ static void InitIntPin () {
         if (RF69::node != 0) {
             cli();
             attachInterrupt(INT_NUMBER, RF69::interrupt_compat, RISING);
+            attachInterrupt(1, RF69::interrupt_spare, RISING);
             sei();
         } else {
             detachInterrupt(INT_NUMBER);
@@ -399,6 +400,7 @@ static void InitIntPin () {
         if (RF69::node != 0) {
             cli();
             attachInterrupt(INT_NUMBER, RF69::interrupt_compat, RISING);
+            attachInterrupt(1, RF69::interrupt_spare, RISING);
             sei();
         } else {
             detachInterrupt(INT_NUMBER);

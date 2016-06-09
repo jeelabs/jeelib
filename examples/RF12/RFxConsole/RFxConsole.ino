@@ -4,13 +4,16 @@
 ///                          // The above flag must be set similarly in RF12.cpp
 ///                          // and RF69_avr.h
 #define BLOCK  0             // Alternate LED pin?
-#define INVERT_LED       0   // 0 is normal and 1 opposite
+#define INVERT_LED       0   // 0 is Jeenode usual and 1 inverse
 //
-/* TODO AutoRxRestartOn = 1, page 24:
+/* AutoRxRestartOn = 1, page 24:
 after the controller has emptied the FIFO the receiver will re-enter the WAIT mode described
 above, after a delay of InterPacketRxDelay, allowing for the distant transmitter to ramp down, hence avoiding a false
 RSSI detection. In both cases (AutoRxRestartOn=0 or AutoRxRestartOn=1), the receiver can also re-enter the WAIT
-mode by setting RestartRx bit to 1. 
+mode by setting RestartRx bit to 1.
+
+Works but somehow, with AFC active the receiver drifts off into thw wilderness
+and doesn't receive unless forced to transmit. 
 */
 ///////////////////////////////////////////////////////////////////////////////
 /// Configure some values in EEPROM for easy config of the RF12 later on.
@@ -201,24 +204,21 @@ static unsigned long now () {
     // FIXME 49-day overflow
     return millis() / 1000;
 }
-#if INVERT_LED == 0
-byte  ledStatus = 0;
-#else
-byte  ledStatus = 1;
-#endif
+
+byte ledStatus = 0;
 static void activityLed (byte on) {
 #ifdef LED_PIN
     pinMode(LED_PIN, OUTPUT);
 #endif
-#if INVERT_LED == 0
-    ledStatus = !on;
+#if INVERT_LED
+    ledStatus = on;            // Reported by the software
   #ifdef LED_PIN
-    digitalWrite(LED_PIN, !on);
+    digitalWrite(LED_PIN, on);  // Inverted by the hardware
   #endif
 #else
     ledStatus = on;
   #ifdef LED_PIN
-    digitalWrite(LED_PIN, on);
+    digitalWrite(LED_PIN, !on);
   #endif
 #endif
 }
@@ -561,7 +561,7 @@ static void showHelp () {
 }
 
 static void showStatus() {
-    showString(PSTR(" Led is ")); if (ledStatus) showString(PSTR("off")); else showString(PSTR("on"));
+    showString(PSTR(" Led is ")); if (ledStatus) showString(PSTR("on")); else showString(PSTR("off"));
     showString(PSTR(", Free Ram "));
     Serial.print(freeRam());     
 #if RF69_COMPAT
@@ -591,7 +591,7 @@ static void showStatus() {
     }
 
     byte* b = RF69::SPI_pins();  // {OPTIMIZE_SPI, PINCHG_IRQ, RF69_COMPAT, RFM_IRQ, SPI_SS, SPI_MOSI, SPI_MISO, SPI_SCK }
-    static byte n[] = {1,0,1,2,2,3,4,5,1};     // Default ATMega328 with RFM69 settings
+    static byte n[] = {1,0,1,3,2,3,4,5,1};     // Default ATMega328 with RFM69 settings
     byte mismatch = false;
     for (byte i = 0; i < 9; i++) {
         if (b[i] != n[i]) {
@@ -814,6 +814,7 @@ static void handleInput (char c) {
             if (sendLen) showByte(stack[0]); // first byte in test buffer
             ++testCounter;
             testTX++;
+            Serial.flush();
             break;
 
         case 'a': // send packet to node ID N, request an ack
@@ -905,7 +906,7 @@ static void handleInput (char c) {
             saveConfig();
 
 #if RF69_COMPAT
-            // The 5 byte sync used by the RFM69 reduces detected noise dramatically.
+            // The 4 byte sync used by the RFM69 reduces detected noise dramatically.
             // The command below sets the sync length to 1 to test radio reception.
             if (top == 1) RF69::control(REG_SYNCCONFIG | 0x80, oneByteSync); // Allow noise
             // Appropriate sync length will be reset by the driver after the next transmission.
@@ -1248,7 +1249,7 @@ void setup () {
 #endif
 #if DEBUG
 //    dumpRegs();
-    dumpEEprom();
+//    dumpEEprom();
 #endif
 
 #ifndef PRR
@@ -1307,7 +1308,8 @@ memset(pktCount,0,sizeof(pktCount));
     bitSet(DDRB, 0);
     bitClear(PORTB, 0);
     delay(1000);
-#endif    
+#endif
+    Serial.println("Configuring"); Serial.flush();    
     if (rf12_configSilent()) {
         loadConfig();
     } else {
@@ -1322,13 +1324,16 @@ memset(pktCount,0,sizeof(pktCount));
         config.ackDelay = 5;        // 5ms
 #if RF69_COMPAT == 0
         config.RegRssiThresh = 2;
-        config.clearAir = 170;      // 85dB
+        config.clearAir = 160;      // 80dB
 #endif
         saveConfig();
         config.defaulted = false;   // Value if UI saves config
         if (!rf12_configSilent())
-          showString(INITFAIL);       
+          showString(INITFAIL);
+          
     }
+
+    rf12_afc_mode(RF12_CENTRAL);       
     
     stickyGroup = config.group;
     if (!(stickyGroup)) stickyGroup = 212;

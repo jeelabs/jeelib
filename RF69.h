@@ -60,6 +60,7 @@ namespace RF69 {
     void sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len);
     void RSSIinterrupt();
     void interrupt_compat();
+    void interrupt_spare();
 }
 
 #endif
