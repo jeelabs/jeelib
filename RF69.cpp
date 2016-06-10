@@ -181,6 +181,7 @@ static volatile uint8_t noiseThreshold;
 
 static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 //  0x01, 0x04, // Standby Mode
+  0x25, 0x00, // Set DIOMAPPING1 to POR value
   0x28, IRQ2_FIFOOVERRUN, // Clear the FIFO
   0x2E, 0x97, // SyncConfig = sync on, sync size = 4
   0x2F, 0xAA, // SyncValue1 = 0xAA
@@ -344,21 +345,19 @@ int8_t RF69::readTemperature(int8_t userCal) {
 
 uint8_t* RF69::SPI_pins() {
   return (SPI_Pins());  // {OPTIMIZE_SPI, PINCHG_IRQ, RF69_COMPAT, RFM_IRQ, 
-                        //  SPI_SS, SPI_MOSI, SPI_MISO, SPI_SCK }
+                        //  SPI_SS, SPI_MOSI, SPI_MISO, SPI_SCK, INT_NUMBER }
 }
 
 uint8_t RF69::currentRSSI() {
 
   if (((rxfill == 0) || (rxdone))) {
-
-      cli();
       uint8_t storedMode = (readReg(REG_OPMODE) & MODE_MASK);
-      uint8_t storeDIOM = readReg(REG_DIOMAPPING1); // Collect Interrupt trigger
-      noiseThreshold = readReg(REG_RSSITHRESHOLD);// Store current threshold
+      uint8_t storeDIOM = readReg(REG_DIOMAPPING1);// Collect Interrupt triggers
+      noiseThreshold = readReg(REG_RSSITHRESHOLD); // Store current threshold
 
       setMode(MODE_STANDBY); 
       writeReg(REG_DIOMAPPING1, 0);      // Suppress Interrupt
-      writeReg(REG_RSSITHRESHOLD, 0xFF); // Open up threshold
+      writeReg(REG_RSSITHRESHOLD, 0xFF); // Max out threshold
 
       setMode(MODE_RECEIVER);   // Looses contents of FIFO and 36 spins
       rssiDelay = 0;
@@ -374,7 +373,6 @@ uint8_t RF69::currentRSSI() {
       if (storedMode != MODE_RECEIVER) setMode(storedMode); // Restore mode
       else setMode(MODE_RECEIVER);                  // Restart RX mode
       // The above is required to clear RSSI threshold mechanism
-      sei();
       if (r > noiseThreshold) {
           if (r < noiseFloorMin) noiseFloorMin = r;
           if (r > noiseFloorMax) noiseFloorMax = r;
@@ -425,8 +423,8 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         if (startRSSI > noiseThreshold) { // Don't start to RX mid RF exchange
             rxstate = TXRECV;
             rf12_drx = delayTXRECV;
-            writeReg(REG_DIOMAPPING1, (/*DIO0_RSSI |*/ DIO0_SYNCADDRESS));// Interrupt trigger
-            modeChange1 = setMode(MODE_RECEIVER); // setting RX mode uses 33-36 spins
+            writeReg(REG_DIOMAPPING1, (DIO0_SYNCADDRESS | DIO3_RSSI /* DIO0_SYNCADDRESS*/));// Interrupt triggers
+            setMode(MODE_RECEIVER); // setting RX mode uses 33-36 spins
             startRX = micros();
         } else delayTXRECV++; // Loops waiting for clear air before RX mode 
         break;
@@ -504,13 +502,12 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
 //      writeReg(REG_FIFOTHRESH, DELAY_TX);   // Wait for FIFO to hit 32 bytes
 //    the above code is to facilitate slow SPI bus speeds.  
     
+    writeReg(REG_DIOMAPPING1, 0);   // Not using interrupts for TX  
     modeChange2 = setMode(MODE_TRANSMITTER);
-    writeReg(REG_DIOMAPPING1, DIO0_PACKETSENT);   // Interrupt 
-//    writeReg(REG_DIOMAPPING1, DIO3_TX_PACKETSENT);// Undocumented Interrupt 
     
-/*  We must being transmission to avoid overflowing the FIFO since
+/*  We must begin transmission to avoid overflowing the FIFO since
     jeelib packet size can exceed FIFO size. We also want to avoid the
-    transmissions of sync etc before payload is presented.                    */
+    transmissions of excessive preamble before payload is presented.          */
     
 /* Page 54
 The transmission of packet data is initiated by the Packet Handler only if the 
@@ -558,7 +555,7 @@ condition is met to transmit the packet data.
     }
 }
 
-void RF69::interrupt_compat () {
+void RF69::interrupt_compat (uint8_t rssi_interrupt) {
         interruptCount++;
 /*
 micros() returns the hardware timer contents (which updates continuously), 
@@ -568,23 +565,7 @@ if you cross a rollover point, however after 1.024 mS it will not know about the
 second rollover and then will be 1.024 mS out.
 */
         if (rxstate == TXRECV) {
-            digitalWrite(9, 0); // LED on
             volatile uint32_t RSSIinterruptMicros = micros();            
-//            writeReg(REG_DIOMAPPING1, DIO0_CRCOK);
-
-//        writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
-//        return;
-
-
-//            _delay_loop_1(180);
-// Timer start on 16MHz Processor
-//            _delay_loop_1(163);
-//            _delay_loop_1(180);
-            // Perceived quality of returned FEI value varies with the above.
-
-//            writeReg(REG_AFCFEI, FeiStart); 
-//            while (!readReg(REG_AFCFEI) & FeiDone)
-//                ;
             fei  = readReg(REG_FEIMSB);
             fei  = (fei << 8) | readReg(REG_FEILSB);
             rssi = readReg(REG_RSSIVALUE);
@@ -595,32 +576,28 @@ second rollover and then will be 1.024 mS out.
             // values available during transfer between the ether
             // and the inbound fifo buffer.
 
-            volatile uint8_t i;
-            while (true) {  // Loop for SyncMatch or Timeout
-                i = readReg(REG_IRQFLAGS1); 
-                if (i & IRQ1_SYNCMATCH) {
-/* Production */    interruptMicros = micros() - RSSIinterruptMicros;
-                    writeReg(REG_AFCFEI, AFC_START);
-                    while (!readReg(REG_AFCFEI) & AFC_DONE)
-                      ;
-                    afc  = readReg(REG_AFCMSB);
-                    afc  = (afc << 8) | readReg(REG_AFCLSB);                      
-                    break;
-                } else if (i & IRQ1_TIMEOUT) {// Timeout set in TimeoutRssiThresh
-                    // TODO the timeout above is very variable
-                    writeReg(REG_AFCFEI, AFC_CLEAR);  // Clear Noise
-                    RSSIrestart++;
-                    rxstate = TXIDLE;   // Cause a RX restart by FSM
-                    
-//                    writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
-
-//                    writeReg(REG_PACKETCONFIG2, PACKET2_RESTART);// Re-enter AGC
-//                    Pity the above doesn't work properly, receiver shows
-//                    the signs of going off piste.           
-                    return;
-                }
-            }
-
+            if (rssi_interrupt) {
+                volatile uint8_t i;
+                while (true) {  // Loop for SyncMatch or Timeout
+                    i = readReg(REG_IRQFLAGS1); 
+                    if (i & IRQ1_SYNCMATCH) {
+/* Production */        interruptMicros = micros() - RSSIinterruptMicros;
+                        writeReg(REG_AFCFEI, AFC_START);
+                        while (!readReg(REG_AFCFEI) & AFC_DONE)
+                          ;
+                        afc  = readReg(REG_AFCMSB);
+                        afc  = (afc << 8) | readReg(REG_AFCLSB);                      
+                        break;
+                    } else if (i & IRQ1_TIMEOUT) {// Timeout set in TimeoutRssiThresh
+                        // TODO the timeout above is very variable
+                        writeReg(REG_AFCFEI, AFC_CLEAR);  // Clear Noise
+                        RSSIrestart++;
+                        rxstate = TXIDLE;   // Cause a RX restart by FSM
+                        return;
+                   }
+                } //  while
+            } //  RSSI
+            
             if (reentry) {
                 nestedInterrupts++;
                 uint8_t f = readReg(REG_IRQFLAGS2);
@@ -629,6 +606,7 @@ second rollover and then will be 1.024 mS out.
                 return;
             }   
             reentry = true;
+            
             IRQ_ENABLE;       // allow nested interrupts from here on
             
             rtp = interruptMicros;
@@ -641,7 +619,7 @@ second rollover and then will be 1.024 mS out.
 
             for (;;) { // busy loop, to get each data byte as soon as it comes in 
                 if (readReg(REG_IRQFLAGS2) & 
-                   (IRQ2_FIFONOTEMPTY /*| IRQ2_FIFOOVERRUN*/)) {
+                  (IRQ2_FIFONOTEMPTY /*| IRQ2_FIFOOVERRUN*/)) {
                     if (rxfill == 0 && group != 0) { 
                       recvBuf[rxfill++] = group;
                       packetBytes++;
@@ -661,8 +639,7 @@ second rollover and then will be 1.024 mS out.
                             crc = 1;               // set bad CRC
                             badLen++;
                         }
-                    }
-                    
+                    }                    
                     recvBuf[rxfill++] = in;
                     packetBytes++;
                     crc = _crc16_update(crc, in);              
@@ -672,51 +649,40 @@ second rollover and then will be 1.024 mS out.
                         stillCollecting = false;
                         break;
                     }
-            } 
-        }
-        byteCount = rxfill;
-        if (packetBytes < (5 - rf69_skip)) underrun++;
+                } //  if 
+            } // busy loop
+            byteCount = rxfill;
+            if (packetBytes < (5 - rf69_skip)) underrun++;
             
-        if (stillCollecting) {
-            // We are exiting before a successful packet completion
-            packetShort++;
-        }    
-        tfr =  (micros() - startRX);
-        if (rf69_afc & 0x80) writeReg(REG_AFCFEI, AFC_CLEAR);
-        setMode(MODE_STANDBY);
-        rxdone = true;      // force TXRECV in RF69::recvDone_compat
-        writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
-
-/* This code can't trigger if using DIO3 as IRQ, see scanning code at the 
-   end of RF69::sendStart_compat
-   
-    } else if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
-          writeReg(REG_TESTPA1, TESTPA1_NORMAL);    // Turn off high power 
-          writeReg(REG_TESTPA2, TESTPA2_NORMAL);    // transmit
-          // rxstate will be TXDONE at this point
-          IRQ_ENABLE;       // allow nested interrupts from here on
-          txP++;
-          setMode(MODE_STANDBY);
-          rxstate = TXIDLE;
-          // Restore sync bytes configuration
-          if (group == 0) {               // Allow receiving from all groups
-              writeReg(REG_SYNCCONFIG, threeByteSync);
-          }
-*/
-    } else {
-          // We get here when a interrupt that is not for RX completion.
-          // Appears related to receiving noise when the bad CRC
-          // packet display is enabled using "0q".
-          unexpected++;
-          unexpectedFSM = rxstate; // Save Finite State Machine status
-                uint8_t f = readReg(REG_IRQFLAGS2);
-                if(f) unexpectedIRQFLAGS2 = f;
-                else unexpectedIRQFLAGS2 = 0xFF;
-    }
-    reentry = false;
-    digitalWrite(9, 1); // LED off
+            if (stillCollecting) {
+                // We are exiting before a successful packet completion
+                packetShort++;
+            }    
+            tfr =  (micros() - startRX);
+            if (rf69_afc & 0x80) writeReg(REG_AFCFEI, AFC_CLEAR);
+            setMode(MODE_STANDBY);
+            rxdone = true;      // force TXRECV in RF69::recvDone_compat
+        
+//        writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
+        } else {
+            // We get here when a interrupt that is not for RX completion.
+            // Appears related to receiving noise when the bad CRC
+            // packet display is enabled using "0q".
+            unexpected++;
+            unexpectedFSM = rxstate; // Save Finite State Machine status
+            uint8_t f = readReg(REG_IRQFLAGS2);
+            if(f) unexpectedIRQFLAGS2 = f;
+            else unexpectedIRQFLAGS2 = 0xFF;
+        }
+        reentry = false;
 }
 
 void RF69::interrupt_spare () {
+/*
+    digitalWrite(9, 1); // LED on
+    _delay_loop_2(0);
+    digitalWrite(9, 0); // LED off
+    _delay_loop_2(0);
     return;
+*/
 }

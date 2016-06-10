@@ -4,7 +4,7 @@
 ///                          // The above flag must be set similarly in RF12.cpp
 ///                          // and RF69_avr.h
 #define BLOCK  0             // Alternate LED pin?
-#define INVERT_LED       0   // 0 is Jeenode usual and 1 inverse
+#define INVERT_LED       1   // 0 is Jeenode usual and 1 inverse
 //
 /* AutoRxRestartOn = 1, page 24:
 after the controller has emptied the FIFO the receiver will re-enter the WAIT mode described
@@ -591,9 +591,9 @@ static void showStatus() {
     }
 
     byte* b = RF69::SPI_pins();  // {OPTIMIZE_SPI, PINCHG_IRQ, RF69_COMPAT, RFM_IRQ, SPI_SS, SPI_MOSI, SPI_MISO, SPI_SCK }
-    static byte n[] = {1,0,1,3,2,3,4,5,1};     // Default ATMega328 with RFM69 settings
+    static byte n[] = {1,0,1,2,3,4,5};     // Default ATMega328 with RFM69 settings
     byte mismatch = false;
-    for (byte i = 0; i < 9; i++) {
+    for (byte i = 0; i < 7; i++) {
         if (b[i] != n[i]) {
             mismatch = true;
             showByte(i);
@@ -601,8 +601,13 @@ static void showStatus() {
             showByte(b[i]);
             printOneChar(' ');
         }
-    }
-    if (mismatch) showString(PSTR("Mismatch\r\n"));
+    }    
+    if((b[7] == 2) && (b[8] == 0)) showString(PSTR("INT0 Sync "));
+    else if((b[7] == 3) && (b[8] == 1)) showString(PSTR("INT1 Rssi "));
+    else mismatch = true;
+
+    if (mismatch) showString(PSTR("Mismatch"));
+    Serial.println();
 #endif    
     Serial.flush();
 }
@@ -694,7 +699,6 @@ static void handleInput (char c) {
                   && ((value + config.matchingRF + config.matchingRF) < 3904)) { // supported by RFM12B
                     Serial.println(value + config.matchingRF);
                     config.frequency_offset = value;
-//                    Serial.flush();
                     saveConfig();
                 } else {
                     showString(UNSUPPORTED);
@@ -729,7 +733,6 @@ static void handleInput (char c) {
       for (byte i = 0; i < 10; i++) {
 //          Serial.print(RF69::rssiConfig);
           showString(PSTR(" @"));
-//          Serial.flush();
 // display current RSSI value in this channel
             byte r = RF69::currentRSSI();
             if (config.output & 0x1)                  // Hex output?
@@ -814,7 +817,6 @@ static void handleInput (char c) {
             if (sendLen) showByte(stack[0]); // first byte in test buffer
             ++testCounter;
             testTX++;
-            Serial.flush();
             break;
 
         case 'a': // send packet to node ID N, request an ack
@@ -1096,7 +1098,6 @@ static void handleInput (char c) {
         case 'z': // put the ATmega in ultra-low power mode (reset needed)
             if (value == 123) {
                 showString(PSTR(" Zzz...\n"));
-//                Serial.flush();
                 rf12_sleep(RF12_SLEEP);
                 cli();
                 Sleepy::powerDown();
@@ -1309,7 +1310,6 @@ memset(pktCount,0,sizeof(pktCount));
     bitClear(PORTB, 0);
     delay(1000);
 #endif
-    Serial.println("Configuring"); Serial.flush();    
     if (rf12_configSilent()) {
         loadConfig();
     } else {
@@ -1380,7 +1380,6 @@ static void dumpEEprom() {
         Serial.println(crc, HEX);
     }
     else Serial.print(" GOOD CRC ");
-//    Serial.flush();
 }
 
 #if DEBUG && RF69_COMPAT
@@ -1816,7 +1815,7 @@ void loop () {
             showString(PSTR("dB"));
         }
         printOneChar(')');
-        Serial.print((RF69::control(9,0)), HEX);  // LSB of frequency
+//        Serial.print((RF69::control(9,0)), HEX);  // LSB of frequency
   #if DEBUG
         showString(PSTR(" mCR1="));
         Serial.print(modeChange1);
@@ -2141,7 +2140,6 @@ void loop () {
 #endif            
             showString(PSTR(" Busy 0x"));             // Not ready to send
             Serial.println(s, HEX);
-//            Serial.flush();
             busyCount++;
             if ((++sendRetry & 3) == 0) {
                 showString(PSTR("Command Aborted"));  // Drop the command

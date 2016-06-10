@@ -147,12 +147,12 @@ static void spiConfigPins () {
 
 #else // ATmega168, ATmega328, etc.
 
-#define INT         INT0    // INT0 or INT1
-#define INT_NUMBER  0       // 0 for INT0 and 1 for INT1
+#define INT          INT1   // INT0 or INT1 also used to select SYNC or RSSI
+#define INT_NUMBER      1   // 0 for INT0 and 1 for INT1
 #if PINCHG_IRQ
-    #define RFM_IRQ     18  // 18 for pin change on PD2
+    #define RFM_IRQ    18   // 18 for pin change on PD2
 #else
-    #define RFM_IRQ     2   // 2 for INT0 on PD2, 3 for INT1 on PD3
+    #define RFM_IRQ     3   // 2 for INT0 on PD2, 3 for INT1 on PD3
 #endif 
 #define SS_DDR      DDRB
 #define SS_PORT     PORTB
@@ -172,6 +172,19 @@ static void spiConfigPins () {
 
 #endif
 
+#define SYNC_INTERRUPT  0
+#define RSSI_INTERRUPT  1
+
+#if INT == INT0
+  #define INTERRUPT_HANDLER interrupt_compat(SYNC_INTERRUPT)
+#elif INT == INT1
+  #define INTERRUPT_HANDLER interrupt_compat(RSSI_INTERRUPT)
+#endif
+
+void interrupt_stub() {
+        RF69::INTERRUPT_HANDLER;
+}
+
 #ifdef EIMSK    // ATMega
     #define XXMSK EIMSK
     #if PINCHG_IRQ && RF69_COMPAT
@@ -189,7 +202,7 @@ static void spiConfigPins () {
                                 
                 if (pinB & (1 << RFM_IRQ)) {
                     XXMSK &= ~(1 << INT_BIT);   //Prevent nested IRQ 
-                    RF69::interrupt_compat();   //Process the RFM69x IRQ
+                    interrupt_stub();   //Process the RFM69x IRQ
                     XXMSK |= (1 << INT_BIT);    //Restore IRQ function
                 } 
             }
@@ -207,7 +220,7 @@ static void spiConfigPins () {
                                 
                 if (pinC & (1 << RFM_IRQ - 8)) {
                     XXMSK &= ~(1 << INT_BIT);   //Prevent nested IRQ 
-                    RF69::interrupt_compat();   //Process the RFM69x IRQ
+                    interrupt_stub();   //Process the RFM69x IRQ
                     XXMSK |= (1 << INT_BIT);    //Restore IRQ function
                 }
             }
@@ -226,7 +239,7 @@ static void spiConfigPins () {
                                 
                 if (pinD & (1 << RFM_IRQ - 16)) {
                     XXMSK &= ~(1 << INT_BIT);   //Prevent nested IRQ 
-                    RF69::interrupt_compat();   //Process the RFM69x IRQ
+                    interrupt_stub();   //Process the RFM69x IRQ
                     XXMSK |= (1 << INT_BIT);    //Restore IRQ function
                 }
             }
@@ -252,7 +265,7 @@ static void spiConfigPins () {
                                 
                 if (pinA & (1 << RFM_IRQ)) {
                     XXMSK &= ~(1 << INT_BIT);
-                    RF69::interrupt_compat();// Process the RFM69x interrupt
+                    interrupt_stub();// Process the RFM69x interrupt
                     XXMSK |= (1 << INT_BIT);
                 }
         #elif RFM_IRQ > 7 && RFM_IRQ < 12
@@ -269,7 +282,7 @@ static void spiConfigPins () {
                                 
                 if (pinB & (1 << RFM_IRQ - 8)) {
                     XXMSK &= ~(1 << INT_BIT);
-                    RF69::interrupt_compat();// Process the RFM69x interrupt
+                    interrupt_stub();// Process the RFM69x interrupt
                     XXMSK |= (1 << INT_BIT);
                 }                        
             }
@@ -368,8 +381,7 @@ static void InitIntPin () {
     #elif RF69_COMPAT
         if (RF69::node != 0) {
             cli();
-            attachInterrupt(INT_NUMBER, RF69::interrupt_compat, RISING);
-            attachInterrupt(1, RF69::interrupt_spare, RISING);
+            attachInterrupt(INT_NUMBER, interrupt_stub, RISING);
             sei();
         } else {
             detachInterrupt(INT_NUMBER);
@@ -399,17 +411,19 @@ static void InitIntPin () {
     #elif RF69_COMPAT
         if (RF69::node != 0) {
             cli();
-            attachInterrupt(INT_NUMBER, RF69::interrupt_compat, RISING);
-            attachInterrupt(1, RF69::interrupt_spare, RISING);
+            attachInterrupt(INT_NUMBER, interrupt_stub, RISING);
             sei();
         } else {
             detachInterrupt(INT_NUMBER);
         }
     #endif
 #endif
+
 }
+
 static byte* SPI_Pins(void) {
-    static byte pins[] = {OPTIMIZE_SPI, PINCHG_IRQ, RF69_COMPAT, RFM_IRQ, 
-                          SPI_SS, SPI_MOSI,SPI_MISO, SPI_SCK, INT_NUMBER };                              
+    static byte pins[] = {OPTIMIZE_SPI, PINCHG_IRQ, RF69_COMPAT, SPI_SS,   
+                          SPI_MOSI,SPI_MISO, SPI_SCK, RFM_IRQ, INT_NUMBER };                              
     return &pins[0];
 }
+

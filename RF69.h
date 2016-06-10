@@ -59,7 +59,7 @@ namespace RF69 {
     void afc_mode (uint8_t afc);
     void sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len);
     void RSSIinterrupt();
-    void interrupt_compat();
+    void interrupt_compat(uint8_t RSSI_INTERRUPT);
     void interrupt_spare();
 }
 
