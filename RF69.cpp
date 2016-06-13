@@ -90,16 +90,19 @@
 
 #define DIO0_PACKETSENT     0x00
 
+// RX Mode
 #define DIO0_CRCOK          0x00
 #define DIO0_PAYLOADREADY   0x40
 #define DIO0_SYNCADDRESS    0x80
 #define DIO0_RSSI           0xC0
+// TX Mode
+#define DIO0_TX_UNDEFINED   0x80
 
 #define DIO3_FIFOFULL       0x00
 #define DIO3_RSSI           0x01
 #define DIO3_SYNCADDRESS    0x02
 #define DIO3_FIFOFULL_TX    0x00
-#define DIO3_TX_PACKETSENT  0x02
+#define DIO3_TX_UNDEFINED   0x02
 
 #define RcCalStart          0x81
 #define RcCalDone           0x40
@@ -227,7 +230,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 
   0x37, 0x00, // PacketConfig1 = fixed, no crc, filt off
   0x38, 0x00, // PayloadLength = 0, unlimited
-  0x3C, 0x80, // FifoTresh, not empty, level unused here
+  0x3C, 0x8F, // FifoTresh, not empty, level 15 bytes, unused here
   0x3D, 0x10, // PacketConfig2, interpkt = 1, autorxrestart off
   0x58, 0x2D, // High sensitivity mode
   0x6F, 0x30, // TestDagc ...
@@ -358,8 +361,8 @@ uint8_t RF69::currentRSSI() {
       setMode(MODE_STANDBY); 
       writeReg(REG_DIOMAPPING1, 0);      // Suppress Interrupt
       writeReg(REG_RSSITHRESHOLD, 0xFF); // Max out threshold
-
       setMode(MODE_RECEIVER);   // Looses contents of FIFO and 36 spins
+
       rssiDelay = 0;
       writeReg(REG_RSSICONFIG, RssiStart);
       while (!(readReg(REG_IRQFLAGS1) & IRQ1_RSSI)) {
@@ -368,11 +371,10 @@ uint8_t RF69::currentRSSI() {
       uint8_t r = readReg(REG_RSSIVALUE);           // Collect RSSI value
       
       setMode(MODE_STANDBY);                        // Get out of RX mode 
-      writeReg(REG_RSSITHRESHOLD, noiseThreshold);      // Restore threshold
+      writeReg(REG_RSSITHRESHOLD, noiseThreshold);  // Restore threshold
       writeReg(REG_DIOMAPPING1, storeDIOM);         // Restore Interrupt trigger
-      if (storedMode != MODE_RECEIVER) setMode(storedMode); // Restore mode
-      else setMode(MODE_RECEIVER);                  // Restart RX mode
-      // The above is required to clear RSSI threshold mechanism
+      setMode(storedMode); // Restore mode
+      
       if (r > noiseThreshold) {
           if (r < noiseFloorMin) noiseFloorMin = r;
           if (r > noiseFloorMax) noiseFloorMax = r;
@@ -502,7 +504,7 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
 //      writeReg(REG_FIFOTHRESH, DELAY_TX);   // Wait for FIFO to hit 32 bytes
 //    the above code is to facilitate slow SPI bus speeds.  
     
-    writeReg(REG_DIOMAPPING1, 0);   // Not using interrupts for TX  
+    writeReg(REG_DIOMAPPING1, (DIO0_TX_UNDEFINED | DIO3_TX_UNDEFINED));
     modeChange2 = setMode(MODE_TRANSMITTER);
     
 /*  We must begin transmission to avoid overflowing the FIFO since
@@ -517,7 +519,8 @@ transmits a preamble sequence until the condition is met. This happens only if
 the preamble length /= 0, otherwise it transmits a zero or one until the 
 condition is met to transmit the packet data.
 */    
-    
+// TODO It would be nice to pace the writes to FIFO to allow a few bytes to
+// be transmitted before the FIFO gets very close to full.     
     while (rxstate < TXDONE)
         if ((readReg(REG_IRQFLAGS2) & IRQ2_FIFOFULL) == 0) { // FIFO is 66 bytes
             uint8_t out;
@@ -539,20 +542,25 @@ condition is met to transmit the packet data.
 //        writeReg(REG_FIFOTHRESH, START_TX);     // if < 32 bytes, release FIFO
                                                   // for transmission
 /*  At this point packet is typically in the FIFO but not fully transmitted.
-    transmission complete will be detected by scanning. 
+    transmission complete will be detected the scanning below. 
 */
-    while (!(readReg(REG_IRQFLAGS2) & (IRQ2_PACKETSENT)))
-        ;
+
+//  This code is no longer interrupt triggered since DIO3 does not have a
+//  PacketSent Diox mapping.
+
+    while (!(readReg(REG_IRQFLAGS2) & (IRQ2_PACKETSENT))) {
+        _delay_loop_1(5);
+        }
     writeReg(REG_TESTPA1, TESTPA1_NORMAL);    // Turn off high power 
     writeReg(REG_TESTPA2, TESTPA2_NORMAL);    // transmit
     // rxstate will be TXDONE at this point
     txP++;
     setMode(MODE_STANDBY);
-    rxstate = TXIDLE;
     // Restore sync bytes configuration
     if (group == 0) {               // Allow receiving from all groups
           writeReg(REG_SYNCCONFIG, threeByteSync);
     }
+    rxstate = TXIDLE;
 }
 
 void RF69::interrupt_compat (uint8_t rssi_interrupt) {
