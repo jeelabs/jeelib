@@ -292,6 +292,7 @@ void interrupt_stub() {
     #endif
 #endif
 
+// TODO The code below appears NOT to handle the PINCHG_IRQ situation.
 struct PreventInterrupt {
     PreventInterrupt () { XXMSK &= ~ _BV(INT_BIT); }
     ~PreventInterrupt () { XXMSK |= _BV(INT_BIT); }
