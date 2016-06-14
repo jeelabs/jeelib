@@ -183,7 +183,7 @@ static volatile uint8_t startRSSI;
 static volatile uint8_t noiseThreshold;
 
 static ROM_UINT8 configRegs_compat [] ROM_DATA = {
-//  0x01, 0x04, // Standby Mode
+  0x01, 0x04, // Standby Mode
   0x25, 0x00, // Set DIOMAPPING1 to POR value
   0x28, IRQ2_FIFOOVERRUN, // Clear the FIFO
   0x2E, 0x97, // SyncConfig = sync on, sync size = 4
