@@ -147,12 +147,12 @@ static void spiConfigPins () {
 
 #else // ATmega168, ATmega328, etc.
 
-#define INT          INT1   // INT0 or INT1 also used to select SYNC or RSSI
-#define INT_NUMBER      1   // 0 for INT0 and 1 for INT1
+#define INT          INT0   // INT0 or INT1 also used to select SYNC or RSSI
+#define INT_NUMBER      0   // 0 for INT0 and 1 for INT1
 #if PINCHG_IRQ
     #define RFM_IRQ    18   // 18 for pin change on PD2
 #else
-    #define RFM_IRQ     3   // 2 for INT0 on PD2, 3 for INT1 on PD3
+    #define RFM_IRQ     2   // 2 for INT0 on PD2, 3 for INT1 on PD3
 #endif 
 #define SS_DDR      DDRB
 #define SS_PORT     PORTB
@@ -185,9 +185,9 @@ void interrupt_stub() {
         RF69::INTERRUPT_HANDLER;
 }
 
-#ifdef EIMSK    // ATMega
-    #define XXMSK EIMSK
-    #if PINCHG_IRQ && RF69_COMPAT
+#ifdef EIMSK    // Test for ATMega
+    #if PINCHG_IRQ
+        #define XXMSK PCICR
         #if RFM_IRQ < 8
             #define INT_BIT PCIE0
             ISR(PCINT0_vect) {// Create appropriate pin change interrupt handler
@@ -245,12 +245,13 @@ void interrupt_stub() {
             }
         #endif
     #else
+        #define XXMSK EIMSK
         #define INT_BIT INT 
     #endif
 #endif
-#ifdef GIMSK    // ATTiny
-    #define XXMSK GIMSK    
-    #if PINCHG_IRQ && RF69_COMPAT
+#ifdef GIMSK    // Test for ATTiny
+    #if PINCHG_IRQ
+        #define XXMSK GIMSK    
         #if RFM_IRQ < 8
             #define INT_BIT PCIE0
             ISR(PCINT0_vect) {// Create appropriate pin change interrupt handler
@@ -288,11 +289,11 @@ void interrupt_stub() {
             }
         #endif
     #else
+        #define XXMSK GIMSK    
         #define INT_BIT INT
     #endif
 #endif
 
-// TODO The code below appears NOT to handle the PINCHG_IRQ situation.
 struct PreventInterrupt {
     PreventInterrupt () { XXMSK &= ~ _BV(INT_BIT); }
     ~PreventInterrupt () { XXMSK |= _BV(INT_BIT); }
