@@ -58,6 +58,7 @@
 #define MODE_LISTENABORT    0x20
 #define MODE_LISTENON       0x40
 #define MODE_TRANSMITTER    0x0C
+#define MODE_SEQUENCER_OFF  0x80
 #define MODE_MASK           0x1C
 #define TESTLNA_NORMAL      0x1B
 #define TESTLNA_BOOST       0x2D
@@ -72,6 +73,7 @@
 
 #define IRQ1_MODEREADY      0x80
 #define IRQ1_RXREADY        0x40
+#define IRQ1_PLL            0x10
 #define IRQ1_RSSI           0x08
 #define IRQ1_TIMEOUT        0x04
 #define IRQ1_SYNCMATCH      0x01
@@ -183,7 +185,7 @@ static volatile uint8_t startRSSI;
 static volatile uint8_t noiseThreshold;
 
 static ROM_UINT8 configRegs_compat [] ROM_DATA = {
-  0x01, 0x04, // Standby Mode
+  0x01, 0x84, // Standby Mode, Autosequencer off
   0x25, 0x00, // Set DIOMAPPING1 to POR value
   0x28, IRQ2_FIFOOVERRUN, // Clear the FIFO
   0x2E, 0x97, // SyncConfig = sync on, sync size = 4
@@ -271,13 +273,20 @@ static void flushFifo () {
 }
 
 uint8_t setMode (uint8_t mode) {
-    // Settin OPMODE = STANDBY in an ISR has caused me problems - JohnO.
-//    byte c = 0;
-    writeReg(REG_OPMODE, (readReg(REG_OPMODE) & 0xE3) | mode);
-//    while ((readReg(REG_IRQFLAGS1) & IRQ1_MODEREADY) == 0) {
-//        c++; if (c == 255) break;
-//    }
-//    return c;
+    // Setting OPMODE = STANDBY in an ISR has caused me problems - JohnO.
+    if (mode >= MODE_FS) {
+        writeReg(REG_OPMODE, (MODE_FS | MODE_SEQUENCER_OFF));
+        while (readReg(REG_IRQFLAGS1 & IRQ1_PLL) == 0)
+          ;
+    }
+    byte c = 1;
+    if (mode != MODE_FS) {
+        writeReg(REG_OPMODE, (mode | MODE_SEQUENCER_OFF));
+        while ((readReg(REG_IRQFLAGS1) & IRQ1_MODEREADY) == 0) {
+            c++; if (c == 255) break;
+        }
+    }
+    return c;
 }
 
 static uint8_t initRadio (ROM_UINT8* init) {
@@ -358,18 +367,18 @@ uint8_t RF69::currentRSSI() {
       uint8_t storeDIOM = readReg(REG_DIOMAPPING1);// Collect Interrupt triggers
       noiseThreshold = readReg(REG_RSSITHRESHOLD); // Store current threshold
 
-      setMode(MODE_STANDBY); 
-      writeReg(REG_DIOMAPPING1, 0);      // Suppress Interrupt
-      writeReg(REG_RSSITHRESHOLD, 0xFF); // Max out threshold
+      writeReg(REG_DIOMAPPING1, 0x00);      // Mask most radio interrupts
+      setMode(MODE_STANDBY);
+      writeReg(REG_RSSITHRESHOLD, 255); // Max out threshold
       setMode(MODE_RECEIVER);   // Looses contents of FIFO and 36 spins
 
       rssiDelay = 0;
       writeReg(REG_RSSICONFIG, RssiStart);
+//      _delay_loop_2(16000);
       while (!(readReg(REG_IRQFLAGS1) & IRQ1_RSSI)) {
           rssiDelay++;
       }
       uint8_t r = readReg(REG_RSSIVALUE);           // Collect RSSI value
-      
       setMode(MODE_STANDBY);                        // Get out of RX mode 
       writeReg(REG_RSSITHRESHOLD, noiseThreshold);  // Restore threshold
       writeReg(REG_DIOMAPPING1, storeDIOM);         // Restore Interrupt trigger
@@ -425,7 +434,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         if (startRSSI > noiseThreshold) { // Don't start to RX mid RF exchange
             rxstate = TXRECV;
             rf12_drx = delayTXRECV;
-            writeReg(REG_DIOMAPPING1, (DIO0_SYNCADDRESS | DIO3_RSSI /* DIO0_SYNCADDRESS*/));// Interrupt triggers
+            writeReg(REG_DIOMAPPING1, (DIO0_RSSI | DIO3_RSSI /* DIO0_SYNCADDRESS*/));// Interrupt triggers
             setMode(MODE_RECEIVER); // setting RX mode uses 33-36 spins
             startRX = micros();
         } else delayTXRECV++; // Loops waiting for clear air before RX mode 
@@ -566,6 +575,16 @@ condition is met to transmit the packet data.
 void RF69::interrupt_compat (uint8_t rssi_interrupt) {
         interruptCount++;
 /*
+        if (reentry) {
+            nestedInterrupts++;
+            uint8_t f = readReg(REG_IRQFLAGS2);
+            if(f != 64) IRQFLAGS2 = f;
+                DIOMAPPING1 = readReg(REG_DIOMAPPING1);
+                return;
+        }   
+        reentry = true;
+*/
+/*
 micros() returns the hardware timer contents (which updates continuously), 
 plus a count of rollovers (ie. one rollover ever 1.024 mS). 
 It can handle one rollover (the hardware remembers that) so it doesn't matter 
@@ -586,6 +605,7 @@ second rollover and then will be 1.024 mS out.
 
             if (rssi_interrupt) {
                 volatile uint8_t i;
+                volatile uint16_t c;
                 while (true) {  // Loop for SyncMatch or Timeout
                     i = readReg(REG_IRQFLAGS1); 
                     if (i & IRQ1_SYNCMATCH) {
@@ -596,25 +616,17 @@ second rollover and then will be 1.024 mS out.
                         afc  = readReg(REG_AFCMSB);
                         afc  = (afc << 8) | readReg(REG_AFCLSB);                      
                         break;
-                    } else if (i & IRQ1_TIMEOUT) {// Timeout set in TimeoutRssiThresh
+                    } else if (i & IRQ1_TIMEOUT || (c++ == 512)) {// Timeout set in TimeoutRssiThresh
                         // TODO the timeout above is very variable
                         writeReg(REG_AFCFEI, AFC_CLEAR);  // Clear Noise
                         RSSIrestart++;
+//                        setMode(MODE_STANDBY);
                         rxstate = TXIDLE;   // Cause a RX restart by FSM
                         return;
                    }
                 } //  while
             } //  RSSI
-            
-            if (reentry) {
-                nestedInterrupts++;
-                uint8_t f = readReg(REG_IRQFLAGS2);
-                if(f != 64) IRQFLAGS2 = f;
-                DIOMAPPING1 = readReg(REG_DIOMAPPING1);
-                return;
-            }   
-            reentry = true;
-            
+                        
             IRQ_ENABLE;       // allow nested interrupts from here on
             
             rtp = interruptMicros;
@@ -681,6 +693,7 @@ second rollover and then will be 1.024 mS out.
             uint8_t f = readReg(REG_IRQFLAGS2);
             if(f) unexpectedIRQFLAGS2 = f;
             else unexpectedIRQFLAGS2 = 0xFF;
+            writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
         }
         reentry = false;
 }

@@ -147,12 +147,12 @@ static void spiConfigPins () {
 
 #else // ATmega168, ATmega328, etc.
 
-#define INT          INT0   // INT0 or INT1 also used to select SYNC or RSSI
-#define INT_NUMBER      0   // 0 for INT0 and 1 for INT1
+#define INT          INT1   // INT0 or INT1 also used to select SYNC or RSSI
+#define INT_NUMBER      1   // 0 for INT0 and 1 for INT1
 #if PINCHG_IRQ
     #define RFM_IRQ    18   // 18 for pin change on PD2
 #else
-    #define RFM_IRQ     2   // 2 for INT0 on PD2, 3 for INT1 on PD3
+    #define RFM_IRQ     3   // 2 for INT0 on PD2, 3 for INT1 on PD3
 #endif 
 #define SS_DDR      DDRB
 #define SS_PORT     PORTB
@@ -175,11 +175,11 @@ static void spiConfigPins () {
 #define SYNC_INTERRUPT  0
 #define RSSI_INTERRUPT  1
 
-#if INT == INT0
-  #define INTERRUPT_HANDLER interrupt_compat(SYNC_INTERRUPT)
-#elif INT == INT1
+//#if INT == INT0 && !PINCHG_IRQ
+//  #define INTERRUPT_HANDLER interrupt_compat(SYNC_INTERRUPT)
+//#else // INT == INT1
   #define INTERRUPT_HANDLER interrupt_compat(RSSI_INTERRUPT)
-#endif
+//#endif
 
 void interrupt_stub() {
         RF69::INTERRUPT_HANDLER;
@@ -229,7 +229,7 @@ void interrupt_stub() {
             #define INT_BIT PCIE2
             ISR(PCINT2_vect) {// Create appropriate pin change interrupt handler
                 volatile byte pinD = PIND;     // Read port data
-                sleep_disable();
+                sleep_disable();  // What is this for?
                 RF69::pcIntBits |=  pinD ^ lastPCInt;
                 lastPCInt = pinD;  
                 // Prevent more pcinterrupts(s) until pcIntBits bit is cleared
