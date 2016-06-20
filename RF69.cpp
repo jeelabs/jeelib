@@ -274,16 +274,17 @@ static void flushFifo () {
 
 uint8_t setMode (uint8_t mode) {
     // Setting OPMODE = STANDBY in an ISR has caused me problems - JohnO.
+    uint16_t c = 0;
     if (mode >= MODE_FS) {
         writeReg(REG_OPMODE, (MODE_FS | MODE_SEQUENCER_OFF));
-        while (readReg(REG_IRQFLAGS1 & IRQ1_PLL) == 0)
-          ;
+        while (readReg(REG_IRQFLAGS1 & IRQ1_PLL) == 0) {
+            c++; if (c >= 255) break;
+        }
     }
-    byte c = 1;
     if (mode != MODE_FS) {
         writeReg(REG_OPMODE, (mode | MODE_SEQUENCER_OFF));
         while ((readReg(REG_IRQFLAGS1) & IRQ1_MODEREADY) == 0) {
-            c++; if (c == 255) break;
+            c++; if (c >= 255) break;
         }
     }
     return c;
