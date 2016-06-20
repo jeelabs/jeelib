@@ -185,7 +185,7 @@ static volatile uint8_t startRSSI;
 static volatile uint8_t noiseThreshold;
 
 static ROM_UINT8 configRegs_compat [] ROM_DATA = {
-  0x01, 0x84, // Standby Mode, Autosequencer off
+//  0x01, 0x04, // Standby Mode
   0x25, 0x00, // Set DIOMAPPING1 to POR value
   0x28, IRQ2_FIFOOVERRUN, // Clear the FIFO
   0x2E, 0x97, // SyncConfig = sync on, sync size = 4
@@ -274,17 +274,17 @@ static void flushFifo () {
 
 uint8_t setMode (uint8_t mode) {
     // Setting OPMODE = STANDBY in an ISR has caused me problems - JohnO.
-    uint16_t c = 0;
+    uint8_t c = 0;
     if (mode >= MODE_FS) {
         writeReg(REG_OPMODE, (MODE_FS | MODE_SEQUENCER_OFF));
         while (readReg(REG_IRQFLAGS1 & IRQ1_PLL) == 0) {
-            c++; if (c >= 255) break;
+            c++; if (c >= 127) break;
         }
     }
     if (mode != MODE_FS) {
         writeReg(REG_OPMODE, (mode | MODE_SEQUENCER_OFF));
         while ((readReg(REG_IRQFLAGS1) & IRQ1_MODEREADY) == 0) {
-            c++; if (c >= 255) break;
+            c++; if (c >= 254) break;
         }
     }
     return c;
@@ -298,17 +298,23 @@ static uint8_t initRadio (ROM_UINT8* init) {
     writeReg(REG_SYNCVALUE7, 0xAA);
     writeReg(REG_SYNCVALUE8, 0x55);
     if ((readReg(REG_SYNCVALUE7) == 0xAA) && (readReg(REG_SYNCVALUE8) == 0x55)) {
-// Configure radio
+
+        // Attempt to mitigate init loop of RSSI interrupt, symptoms are
+        // not mitigated by very high RSSI threshold.
+        setMode(MODE_TRANSMITTER);
+        writeReg(REG_FIFO, 0x55);
+
         setMode(MODE_STANDBY);
+
+        InitIntPin();
+        
+// Configure radio
         for (;;) {
             uint8_t cmd = ROM_READ_UINT8(init);
             if (cmd == 0) break;
             writeReg(cmd, ROM_READ_UINT8(init+1));
             init += 2;
         }
-        
-        InitIntPin();
-        
         return 1;
     }
     return 0;
@@ -370,12 +376,11 @@ uint8_t RF69::currentRSSI() {
 
       writeReg(REG_DIOMAPPING1, 0x00);      // Mask most radio interrupts
       setMode(MODE_STANDBY);
-      writeReg(REG_RSSITHRESHOLD, 255); // Max out threshold
+      writeReg(REG_RSSITHRESHOLD, 0xFF); // Max out threshold
       setMode(MODE_RECEIVER);   // Looses contents of FIFO and 36 spins
 
       rssiDelay = 0;
       writeReg(REG_RSSICONFIG, RssiStart);
-//      _delay_loop_2(16000);
       while (!(readReg(REG_IRQFLAGS1) & IRQ1_RSSI)) {
           rssiDelay++;
       }
@@ -608,24 +613,24 @@ second rollover and then will be 1.024 mS out.
                 volatile uint8_t i;
                 volatile uint16_t c;
                 while (true) {  // Loop for SyncMatch or Timeout
+/* Production */    interruptMicros = micros() - RSSIinterruptMicros;
                     i = readReg(REG_IRQFLAGS1); 
                     if (i & IRQ1_SYNCMATCH) {
-/* Production */        interruptMicros = micros() - RSSIinterruptMicros;
                         writeReg(REG_AFCFEI, AFC_START);
                         while (!readReg(REG_AFCFEI) & AFC_DONE)
                           ;
                         afc  = readReg(REG_AFCMSB);
                         afc  = (afc << 8) | readReg(REG_AFCLSB);                      
                         break;
-                    } else if (i & IRQ1_TIMEOUT || (c++ == 512)) {// Timeout set in TimeoutRssiThresh
-                        // TODO the timeout above is very variable
+                    } else if ((interruptMicros > 1500UL) || (c++ == 512)) {
+                        // Timeout
+                        setMode(MODE_STANDBY);                        
                         writeReg(REG_AFCFEI, AFC_CLEAR);  // Clear Noise
                         RSSIrestart++;
-//                        setMode(MODE_STANDBY);
                         rxstate = TXIDLE;   // Cause a RX restart by FSM
                         return;
-                   }
-                } //  while
+                    } // SyncMatch or Timeout 
+                }//  while
             } //  RSSI
                         
             IRQ_ENABLE;       // allow nested interrupts from here on

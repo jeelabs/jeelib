@@ -382,9 +382,9 @@ static void InitIntPin () {
         #endif
     #elif RF69_COMPAT
         if (RF69::node != 0) {
-            cli();
+            XXMSK &= ~ _BV(INT_BIT);          // Mask radio interrupt
             attachInterrupt(INT_NUMBER, interrupt_stub, RISING);
-            sei();
+            XXMSK |= _BV(INT_BIT);            // Enable radio interrupt
         } else {
             detachInterrupt(INT_NUMBER);
         }
@@ -412,9 +412,9 @@ static void InitIntPin () {
         #endif                   
     #elif RF69_COMPAT
         if (RF69::node != 0) {
-            cli();
+            XXMSK &= ~ _BV(INT_BIT);          // Mask radio interrupt
             attachInterrupt(INT_NUMBER, interrupt_stub, RISING);
-            sei();
+            XXMSK |= _BV(INT_BIT);            // Enable radio interrupt
         } else {
             detachInterrupt(INT_NUMBER);
         }

@@ -4,7 +4,7 @@
 ///                          // The above flag must be set similarly in RF12.cpp
 ///                          // and RF69_avr.h
 #define BLOCK  0             // Alternate LED pin?
-#define INVERT_LED       1   // 0 is Jeenode usual and 1 inverse
+#define INVERT_LED       0   // 0 is Jeenode usual and 1 inverse
 //
 /* AutoRxRestartOn = 1, page 24:
 after the controller has emptied the FIFO the receiver will re-enter the WAIT mode described
@@ -12,7 +12,7 @@ above, after a delay of InterPacketRxDelay, allowing for the distant transmitter
 RSSI detection. In both cases (AutoRxRestartOn=0 or AutoRxRestartOn=1), the receiver can also re-enter the WAIT
 mode by setting RestartRx bit to 1.
 
-Works but somehow, with AFC active the receiver drifts off into thw wilderness
+Works but somehow, with AFC active the receiver drifts off into the wilderness
 and doesn't receive unless forced to transmit. 
 */
 ///////////////////////////////////////////////////////////////////////////////
@@ -607,6 +607,21 @@ static void showStatus() {
     else mismatch = true;
 
     if (mismatch) showString(PSTR("Mismatch"));
+//#if DEBUG
+    printOneChar('[');
+    Serial.print(RF69::unexpected);
+    printOneChar(',');
+    Serial.print(RF69::unexpectedFSM);
+    printOneChar(',');
+    Serial.print(RF69::unexpectedIRQFLAGS2);
+    printOneChar(']');
+    printOneChar(',');
+    Serial.print(RF69::nestedInterrupts);
+    printOneChar(',');
+    Serial.print(RF69::IRQFLAGS2);
+    printOneChar(',');
+    Serial.print(RF69::DIOMAPPING1);
+//#endif
     Serial.println();
 #endif    
     Serial.flush();
@@ -1584,7 +1599,7 @@ void loop () {
         byte modeChange3 = RF69::modeChange3;
 #endif
 #if RF69_COMPAT && !TINY                // At this point the radio is in Standby
-        rf12_recvDone();                // Attempt to buffer next RF packet
+//        rf12_recvDone();                // Attempt to buffer next RF packet
                                         // At this point the receiver is active
         observedRX.afc = rf12_afc;
         observedRX.fei = rf12_fei;
