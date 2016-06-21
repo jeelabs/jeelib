@@ -4,7 +4,7 @@
 ///                          // The above flag must be set similarly in RF12.cpp
 ///                          // and RF69_avr.h
 #define BLOCK  0             // Alternate LED pin?
-#define INVERT_LED       0   // 0 is Jeenode usual and 1 inverse
+#define INVERT_LED       1   // 0 is Jeenode usual and 1 inverse
 //
 /* AutoRxRestartOn = 1, page 24:
 after the controller has emptied the FIFO the receiver will re-enter the WAIT mode described
@@ -591,9 +591,9 @@ static void showStatus() {
     }
 
     byte* b = RF69::SPI_pins();  // {OPTIMIZE_SPI, PINCHG_IRQ, RF69_COMPAT, RFM_IRQ, SPI_SS, SPI_MOSI, SPI_MISO, SPI_SCK }
-    static byte n[] = {1,0,1,2,3,4,5};     // Default ATMega328 with RFM69 settings
+    static byte n[] = {1,0,1,2,3,4,5,2,0};     // Default ATMega328 with RFM69 settings
     byte mismatch = false;
-    for (byte i = 0; i < 7; i++) {
+    for (byte i = 0; i < 9; i++) {
         if (b[i] != n[i]) {
             mismatch = true;
             showByte(i);
@@ -602,9 +602,6 @@ static void showStatus() {
             printOneChar(' ');
         }
     }    
-    if((b[7] == 2) && (b[8] == 0)) showString(PSTR("INT0 Sync "));
-    else if((b[7] == 3) && (b[8] == 1)) showString(PSTR("INT1 Rssi "));
-    else mismatch = true;
 
     if (mismatch) showString(PSTR("Mismatch"));
 //#if DEBUG
@@ -846,7 +843,7 @@ static void handleInput (char c) {
             // Set hardware specific TX power in eeprom
             if(value) config.RegPaLvl = value;
             // Transmit permit threshold
-            if(top = 1 && (stack[0])) config.clearAir = stack[0];
+            if (top = 1 && (stack[0])) config.clearAir = stack[0];
             saveConfig();
             break;
             
@@ -1599,7 +1596,7 @@ void loop () {
         byte modeChange3 = RF69::modeChange3;
 #endif
 #if RF69_COMPAT && !TINY                // At this point the radio is in Standby
-//        rf12_recvDone();                // Attempt to buffer next RF packet
+        rf12_recvDone();                // Attempt to buffer next RF packet
                                         // At this point the receiver is active
         observedRX.afc = rf12_afc;
         observedRX.fei = rf12_fei;
@@ -2024,6 +2021,7 @@ void loop () {
                             printOneChar(' ');
                             showByte(i);        
                             printOneChar('i');
+                            printOneChar(' ');
                             break;
                         }                            
                     }
