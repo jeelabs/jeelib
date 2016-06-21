@@ -12,7 +12,7 @@ namespace RF69 {
     extern uint8_t noiseFloorMax;
     extern uint8_t  rssiDelay;
     extern uint8_t lastState;
-    extern uint32_t interruptMicros;
+    extern uint16_t RssiToSync;
     extern uint16_t RSSIrestart;
     extern uint8_t REGIRQFLAGS1;
     extern int16_t  afc;

@@ -175,11 +175,7 @@ static void spiConfigPins () {
 #define SYNC_INTERRUPT  0
 #define RSSI_INTERRUPT  1
 
-//#if INT == INT0 && !PINCHG_IRQ
-//  #define INTERRUPT_HANDLER interrupt_compat(SYNC_INTERRUPT)
-//#else // INT == INT1
-  #define INTERRUPT_HANDLER interrupt_compat(RSSI_INTERRUPT)
-//#endif
+#define INTERRUPT_HANDLER interrupt_compat(RSSI_INTERRUPT)
 
 void interrupt_stub() {
         RF69::INTERRUPT_HANDLER;

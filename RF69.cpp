@@ -9,7 +9,7 @@
 #define ROM_READ_UINT8  pgm_read_byte
 #define ROM_DATA        PROGMEM
 
-#define LIBRARY_VERSION     14      // Stored in REG_SYNCVALUE6 by initRadio 
+#define LIBRARY_VERSION     15      // Stored in REG_SYNCVALUE6 by initRadio 
 
 #define REG_FIFO            0x00
 #define REG_OPMODE          0x01
@@ -139,7 +139,7 @@ namespace RF69 {
     uint8_t  noiseFloorMax;
     uint8_t  rssiDelay;
     uint8_t  lastState;
-    uint32_t interruptMicros;
+    uint16_t RssiToSync;
     uint16_t RSSIrestart;
     uint8_t  REGIRQFLAGS1;
     int16_t  afc;                  // I wonder how to make sure these 
@@ -222,13 +222,10 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 //  0x19, 0x42, // RxBw 125 KHz
 //  0x1A, 0x51, // AfcBw 166.7 KHz Channel filter BW
   0x1E, AFC_CLEAR,
-//  0x1E, 0x00, // Afc Auto Clear, Afc Auto On 
 
   0x26, 0x07, // disable clkout
 
   0x29, 0xA0, // RssiThresh ... -80dB
-  0x2B, 0x06, // TimeoutRssiThresh
-//  0x2B, 0x04, // TimeoutRssiThresh // Can't see response to own 't'
 
   0x37, 0x00, // PacketConfig1 = fixed, no crc, filt off
   0x38, 0x00, // PayloadLength = 0, unlimited
@@ -305,8 +302,6 @@ static uint8_t initRadio (ROM_UINT8* init) {
         writeReg(REG_FIFO, 0x55);
 
         setMode(MODE_STANDBY);
-
-        InitIntPin();
         
 // Configure radio
         for (;;) {
@@ -315,6 +310,9 @@ static uint8_t initRadio (ROM_UINT8* init) {
             writeReg(cmd, ROM_READ_UINT8(init+1));
             init += 2;
         }
+
+        InitIntPin();
+        
         return 1;
     }
     return 0;
@@ -579,6 +577,12 @@ condition is met to transmit the packet data.
 }
 
 void RF69::interrupt_compat (uint8_t rssi_interrupt) {
+/*
+  This interrupt service routine retains control for far too long. However,
+  the choices are limted because of the short time gap between RSSI & SyncMatch,
+  being driven by recvDone and the size of the radio FIFO.
+
+*/
         interruptCount++;
 /*
         if (reentry) {
@@ -598,7 +602,7 @@ if you cross a rollover point, however after 1.024 mS it will not know about the
 second rollover and then will be 1.024 mS out.
 */
         if (rxstate == TXRECV) {
-            volatile uint32_t RSSIinterruptMicros = micros();            
+//            volatile uint32_t RSSIinterruptMicros = micros();
             fei  = readReg(REG_FEIMSB);
             fei  = (fei << 8) | readReg(REG_FEILSB);
             rssi = readReg(REG_RSSIVALUE);
@@ -610,32 +614,31 @@ second rollover and then will be 1.024 mS out.
             // and the inbound fifo buffer.
 
             if (rssi_interrupt) {
-                volatile uint8_t i;
-                volatile uint16_t c;
+                RssiToSync = 0;
                 while (true) {  // Loop for SyncMatch or Timeout
-/* Production */    interruptMicros = micros() - RSSIinterruptMicros;
-                    i = readReg(REG_IRQFLAGS1); 
-                    if (i & IRQ1_SYNCMATCH) {
+                    if (readReg(REG_IRQFLAGS1) & IRQ1_SYNCMATCH) {
                         writeReg(REG_AFCFEI, AFC_START);
                         while (!readReg(REG_AFCFEI) & AFC_DONE)
                           ;
                         afc  = readReg(REG_AFCMSB);
                         afc  = (afc << 8) | readReg(REG_AFCLSB);                      
                         break;
-                    } else if ((interruptMicros > 1500UL) || (c++ == 512)) {
-                        // Timeout
-                        setMode(MODE_STANDBY);                        
+                    } else if (RssiToSync++ == 230) {
+                    /*  Timeout: MartynJ "Assuming you are using 5byte synch,
+                        then it is just counting the bit times to find the 
+                        minimum i.e. 0.02uS per bit x 6bytes is 
+                        about 1mS minimum."                                   */
                         writeReg(REG_AFCFEI, AFC_CLEAR);  // Clear Noise
                         RSSIrestart++;
                         rxstate = TXIDLE;   // Cause a RX restart by FSM
                         return;
                     } // SyncMatch or Timeout 
-                }//  while
+                } //  while
             } //  RSSI
                         
             IRQ_ENABLE;       // allow nested interrupts from here on
             
-            rtp = interruptMicros;
+            rtp = RssiToSync;
             rst = RSSIrestart;
             volatile uint8_t stillCollecting = true;
             rxP++;
