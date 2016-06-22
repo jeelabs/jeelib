@@ -92,6 +92,8 @@
 
 #define DIO0_PACKETSENT     0x00
 
+// FS Mode
+#define DIO0_FS_UNDEFINED   0x00
 // RX Mode
 #define DIO0_CRCOK          0x00
 #define DIO0_PAYLOADREADY   0x40
@@ -125,7 +127,7 @@
 #define RF_MAX   72
 
 // transceiver states, these determine what to do with each interrupt
-enum { TXCRC1, TXCRC2,/* TXTAIL,*/ TXDONE, TXIDLE, TXRECV };
+enum { TXCRC1, TXCRC2,/* TXTAIL,*/ TXDONE, TXIDLE, TXRECV, RXFIFO };
 
 namespace RF69 {
     uint32_t frf;
@@ -152,6 +154,7 @@ namespace RF69 {
     uint16_t unexpected;
     uint8_t  unexpectedFSM;
     uint8_t  unexpectedIRQFLAGS2;
+    uint8_t  unexpectedMode;
     uint8_t  modeChange1;
     uint8_t  modeChange2;
     uint8_t  modeChange3;
@@ -273,10 +276,13 @@ uint8_t setMode (uint8_t mode) {
     // Setting OPMODE = STANDBY in an ISR has caused me problems - JohnO.
     uint8_t c = 0;
     if (mode >= MODE_FS) {
+        uint8_t s = readReg(REG_DIOMAPPING1);// Save Interrupt triggers
+        writeReg(REG_DIOMAPPING1, DIO0_FS_UNDEFINED); // Mask PllLock Interrupt
         writeReg(REG_OPMODE, (MODE_FS | MODE_SEQUENCER_OFF));
         while (readReg(REG_IRQFLAGS1 & IRQ1_PLL) == 0) {
             c++; if (c >= 127) break;
         }
+        writeReg(REG_DIOMAPPING1, s);        // Restore Interrupt triggers
     }
     if (mode != MODE_FS) {
         writeReg(REG_OPMODE, (mode | MODE_SEQUENCER_OFF));
@@ -297,11 +303,12 @@ static uint8_t initRadio (ROM_UINT8* init) {
     if ((readReg(REG_SYNCVALUE7) == 0xAA) && (readReg(REG_SYNCVALUE8) == 0x55)) {
 
         // Attempt to mitigate init loop of RSSI interrupt, symptoms are
-        // not mitigated by very high RSSI threshold.
+        // not mitigated by numerically low RSSI threshold values.
+        writeReg(REG_SYNCCONFIG, oneByteSync);  // Don't disturb anyone.
         setMode(MODE_TRANSMITTER);
         writeReg(REG_FIFO, 0x55);
 
-        setMode(MODE_STANDBY);
+        setMode(MODE_SLEEP);
         
 // Configure radio
         for (;;) {
@@ -334,8 +341,8 @@ uint8_t RF69::canSend (uint8_t clearAir) {
   if (((rxfill == 0) || (rxdone))) {
         sendRSSI = currentRSSI();
         if(sendRSSI >= clearAir) {
-            rxstate = TXIDLE;
             setMode(MODE_STANDBY);
+            rxstate = TXIDLE;
             return sendRSSI;
         }
     }
@@ -444,9 +451,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         } else delayTXRECV++; // Loops waiting for clear air before RX mode 
         break;
     case TXRECV:
-        if (rxdone) {
-            rxstate = TXIDLE;
-            
+        if (rxdone) {            
             // Move attributes & packet into rf12_buf
             rf12_rssi = rssi;
             rf12_lna = lna;
@@ -461,6 +466,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
                 rf12_buf[i] = rf69_buf[i];
             }     
             rf12_crc = crc;
+            rxstate = TXIDLE;
 
             if (crc == 0) {
                 if (!(rf69_hdr & RF12_HDR_DST) || node == 31 ||
@@ -635,7 +641,7 @@ second rollover and then will be 1.024 mS out.
                     } // SyncMatch or Timeout 
                 } //  while
             } //  RSSI
-                        
+            rxstate = RXFIFO;            
             IRQ_ENABLE;       // allow nested interrupts from here on
             
             rtp = RssiToSync;
@@ -690,21 +696,21 @@ second rollover and then will be 1.024 mS out.
             tfr =  (micros() - startRX);
             if (rf69_afc & 0x80) writeReg(REG_AFCFEI, AFC_CLEAR);
             setMode(MODE_STANDBY);
-            rxdone = true;      // force TXRECV in RF69::recvDone_compat
-        
-//        writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
+            rxdone = true;      // force TXRECV in RF69::recvDone_compat       
+            writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
+            rxstate = TXRECV;   // Restore state machine
         } else {
             // We get here when a interrupt that is not for RX completion.
             // Appears related to receiving noise when the bad CRC
             // packet display is enabled using "0q".
             unexpected++;
             unexpectedFSM = rxstate; // Save Finite State Machine status
-            uint8_t f = readReg(REG_IRQFLAGS2);
-            if(f) unexpectedIRQFLAGS2 = f;
-            else unexpectedIRQFLAGS2 = 0xFF;
+            unexpectedIRQFLAGS2 = readReg(REG_IRQFLAGS2);
+            unexpectedMode = readReg(REG_OPMODE);
             writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
+            rxstate = TXIDLE;   // Cause a RX restart by FSM
         }
-        reentry = false;
+//        reentry = false;
 }
 
 void RF69::interrupt_spare () {
