@@ -93,7 +93,8 @@
 #define DIO0_PACKETSENT     0x00
 
 // FS Mode
-#define DIO0_FS_UNDEFINED   0x00
+#define DIO0_FS_UNDEF_RX    0x40
+#define DIO0_FS_UNDEF_TX    0x80
 // RX Mode
 #define DIO0_CRCOK          0x00
 #define DIO0_PAYLOADREADY   0x40
@@ -273,11 +274,13 @@ static void flushFifo () {
 }
 
 uint8_t setMode (uint8_t mode) {
-    // Setting OPMODE = STANDBY in an ISR has caused me problems - JohnO.
     uint8_t c = 0;
     if (mode >= MODE_FS) {
         uint8_t s = readReg(REG_DIOMAPPING1);// Save Interrupt triggers
-        writeReg(REG_DIOMAPPING1, DIO0_FS_UNDEFINED); // Mask PllLock Interrupt
+         // Mask FS PllLock and appropriate target mode Interrupt
+        if (mode == MODE_TRANSMITTER) writeReg(REG_DIOMAPPING1, DIO0_FS_UNDEF_TX);
+        else writeReg(REG_DIOMAPPING1, DIO0_FS_UNDEF_RX);
+        
         writeReg(REG_OPMODE, (MODE_FS | MODE_SEQUENCER_OFF));
         while (readReg(REG_IRQFLAGS1 & IRQ1_PLL) == 0) {
             c++; if (c >= 127) break;
@@ -305,9 +308,10 @@ static uint8_t initRadio (ROM_UINT8* init) {
         // Attempt to mitigate init loop of RSSI interrupt, symptoms are
         // not mitigated by numerically low RSSI threshold values.
         writeReg(REG_SYNCCONFIG, oneByteSync);  // Don't disturb anyone.
+        writeReg(REG_DIOMAPPING1, DIO0_FS_UNDEF_TX);
         setMode(MODE_TRANSMITTER);
         writeReg(REG_FIFO, 0x55);
-
+        
         setMode(MODE_SLEEP);
         
 // Configure radio

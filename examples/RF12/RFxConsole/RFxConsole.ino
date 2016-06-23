@@ -37,6 +37,9 @@ and doesn't receive unless forced to transmit.
 // Added min/max for above
 // Basic verification that a Posting has been received. It should appear as rf12_data[0] in following packets
 // Added min/max FEI levels per node 2016-05-13
+// Added verbosity flag, command 3v currently displays most information 2016-06-10
+// Changed RX interrupt trigger to be RSSI rather than SyncMatch 2016-06-20
+// Mask two stray interrupts, sleep before reconfiguring radio 2016-06-23
 
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
     #define TINY 1
@@ -405,6 +408,7 @@ static void saveConfig () {
 #if STATISTICS    
     messageCount = nonBroadcastCount = CRCbadCount = 0; // Clear stats counters
 #endif
+    rf12_sleep(RF12_SLEEP);                                             // Sleep while we tweak things
     if (!rf12_configSilent()) showString(INITFAIL);
     activityLed(0); 
     showString(DONE);
@@ -561,7 +565,9 @@ static void showHelp () {
 }
 
 static void showStatus() {
-    showString(PSTR(" Led is ")); if (ledStatus) showString(PSTR("on")); else showString(PSTR("off"));
+    printOneChar(' ');
+    Serial.print(now());
+    showString(PSTR("s elapsed, Led is ")); if (ledStatus) showString(PSTR("on")); else showString(PSTR("off"));
     showString(PSTR(", Free Ram "));
     Serial.print(freeRam());     
 #if RF69_COMPAT
@@ -611,8 +617,9 @@ static void showStatus() {
     Serial.print(RF69::unexpectedFSM);
     printOneChar(',');
     Serial.print(RF69::unexpectedIRQFLAGS2);
-    printOneChar(']');
     printOneChar(',');
+    Serial.print(RF69::unexpectedMode);
+    printOneChar(']');
     Serial.print(RF69::nestedInterrupts);
     printOneChar(',');
     Serial.print(RF69::IRQFLAGS2);
@@ -859,6 +866,7 @@ static void handleInput (char c) {
                 else value = SalusFrequency;
             }
             
+            rf12_sleep(RF12_SLEEP);                                             // Sleep while we tweak things
             rf12_initialize (config.nodeId, RF12_868MHZ, 212, SalusFrequency);  // 868.30 MHz
             rf12_sleep(RF12_SLEEP);                                             // Sleep while we tweak things
     #if RF69_COMPAT
@@ -1531,6 +1539,8 @@ static void nodeShow(byte group) {
     Serial.print(RF69::unexpectedFSM);
     printOneChar(',');
     Serial.print(RF69::unexpectedIRQFLAGS2);
+    printOneChar(',');
+    Serial.print(RF69::unexpectedMode);
     printOneChar(']');
     printOneChar(',');
     Serial.print(RF69::nestedInterrupts);
@@ -1740,7 +1750,7 @@ void loop () {
            }
         }
 #if RF69_COMPAT && !TINY
-        if (config.verbosity) {
+        if (config.verbosity > 1) {
             showString(PSTR(" a="));
             Serial.print(observedRX.afc);                        // TODO What units has this number?
             showString(PSTR(" f="));
@@ -1837,7 +1847,7 @@ void loop () {
         Serial.print(modeChange3);
   #endif
 #endif        
-        if (config.verbosity > 1) {
+        if (config.verbosity > 2) {
             if(!(crc)) showString(PSTR(" Bad"));
             if (!(rf12_hdr & 0xA0)) showString(PSTR(" Packet "));
             else showString(PSTR(" Ack "));
@@ -2099,7 +2109,7 @@ void loop () {
         if (RF69::RSSIrestart != lastRSSIrestart) {
               if (RF69::RSSIrestart) activityLed(1);
               lastRSSIrestart = RF69::RSSIrestart;
-              if (config.verbosity > 2) {
+              if (config.verbosity) {
                   showString(PSTR("Restart#"));
                   Serial.print(RF69::RSSIrestart);
                   printOneChar('/');
