@@ -4,7 +4,7 @@
 ///                          // The above flag must be set similarly in RF12.cpp
 ///                          // and RF69_avr.h
 #define BLOCK  0             // Alternate LED pin?
-#define INVERT_LED       1   // 0 is Jeenode usual and 1 inverse
+#define INVERT_LED       0   // 0 is Jeenode usual and 1 inverse
 //
 /* AutoRxRestartOn = 1, page 24:
 after the controller has emptied the FIFO the receiver will re-enter the WAIT mode described
@@ -37,7 +37,11 @@ and doesn't receive unless forced to transmit.
 // Added min/max for above
 // Basic verification that a Posting has been received. It should appear as rf12_data[0] in following packets
 // Added min/max FEI levels per node 2016-05-13
-// Added verbosity flag, command 3v currently displays most information 2016-06-10
+// Added verbosity flag, command 15v displays all extra information 2016-06-10
+//  1v displays receiver restarts
+//  2v displays packet reception details, fei, lna etc
+//  4v displays a a basic packet decode
+//  add any values above to combine display settings.
 // Changed RX interrupt trigger to be RSSI rather than SyncMatch 2016-06-20
 // Mask two stray interrupts, sleep before reconfiguring radio 2016-06-23
 
@@ -412,7 +416,6 @@ static void saveConfig () {
     if (!rf12_configSilent()) showString(INITFAIL);
     activityLed(0); 
     showString(DONE);
-    RF69::RSSIrestart = 0;       
 } // saveConfig
 
 static byte bandToFreq (byte band) {
@@ -573,7 +576,9 @@ static void showStatus() {
 #if RF69_COMPAT
     showString(PSTR("b, RX Restarts "));
     Serial.print(RF69::RSSIrestart);
-    showString(PSTR(", Noise Floor "));
+    showString(PSTR(", Rate "));
+    Serial.print(RF69::restartRate);
+    showString(PSTR("/s, Noise Floor "));
     Serial.print(RF69::noiseFloorMin);
     printOneChar('/');
     Serial.print(RF69::noiseFloorMax);
@@ -942,6 +947,7 @@ static void handleInput (char c) {
 #if RF69_COMPAT
             config.RegPaLvl = RF69::control(0x11, 0x9F);   // Pull the current RegPaLvl from the radio
             config.RegRssiThresh = RF69::control(0x29, 0xA0);   // Pull the current RegRssiThresh from the radio
+            RF69::RSSIrestart = RF69::restartRate = 0;       
 #endif                                                     // An obscure method because one can blow the hardware
             saveConfig();
             break;
@@ -1750,7 +1756,7 @@ void loop () {
            }
         }
 #if RF69_COMPAT && !TINY
-        if (config.verbosity > 1) {
+        if (config.verbosity & 2) {
             showString(PSTR(" a="));
             Serial.print(observedRX.afc);                        // TODO What units has this number?
             showString(PSTR(" f="));
@@ -1847,7 +1853,7 @@ void loop () {
         Serial.print(modeChange3);
   #endif
 #endif        
-        if (config.verbosity > 2) {
+        if (config.verbosity & 4) {
             if(!(crc)) showString(PSTR(" Bad"));
             if (!(rf12_hdr & 0xA0)) showString(PSTR(" Packet "));
             else showString(PSTR(" Ack "));
@@ -2109,12 +2115,14 @@ void loop () {
         if (RF69::RSSIrestart != lastRSSIrestart) {
               if (RF69::RSSIrestart) activityLed(1);
               lastRSSIrestart = RF69::RSSIrestart;
-              if (config.verbosity) {
+              if (config.verbosity & 1) {
                   showString(PSTR("Restart#"));
                   Serial.print(RF69::RSSIrestart);
-                  printOneChar('/');
-                  Serial.print(rf12_drx);
+                  printOneChar('@');
+                  Serial.print(RF69::restartRate);
                   printOneChar(':');
+                  Serial.print(rf12_drx);
+                  printOneChar('(');
                   Serial.print(RF69::afc);
                   printOneChar(',');
                   Serial.print(RF69::fei);
@@ -2122,6 +2130,7 @@ void loop () {
                   Serial.print((RF69::lna >> 3));
                   printOneChar(',');
                   Serial.print(RF69::rssi);
+                  printOneChar(')');
                   Serial.println();                  
               }
         }

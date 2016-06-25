@@ -10,7 +10,7 @@
 #define ROM_DATA        PROGMEM
 
 #define LIBRARY_VERSION     15      // Stored in REG_SYNCVALUE6 by initRadio 
-
+#define RATEINTERVAL        (uint32_t)1000
 #define REG_FIFO            0x00
 #define REG_OPMODE          0x01
 #define DATAMODUL           0x02 
@@ -144,6 +144,7 @@ namespace RF69 {
     uint8_t  lastState;
     uint16_t RssiToSync;
     uint16_t RSSIrestart;
+    uint16_t restartRate;
     uint8_t  REGIRQFLAGS1;
     int16_t  afc;                  // I wonder how to make sure these 
     int16_t  fei;                  // are volatile
@@ -185,6 +186,8 @@ static volatile uint16_t delayTXRECV;
 static volatile uint16_t rtp;
 static volatile uint16_t rst;
 static volatile uint32_t tfr;
+static volatile uint32_t RSSIinterruptMillis;
+static volatile uint32_t restarts;
 static volatile uint8_t startRSSI;
 static volatile uint8_t noiseThreshold;
 
@@ -308,7 +311,7 @@ static uint8_t initRadio (ROM_UINT8* init) {
         // Attempt to mitigate init loop of RSSI interrupt, symptoms are
         // not mitigated by numerically low RSSI threshold values.
         writeReg(REG_SYNCCONFIG, oneByteSync);  // Don't disturb anyone.
-        writeReg(REG_DIOMAPPING1, DIO0_FS_UNDEF_TX);
+        writeReg(REG_DIOMAPPING1, DIO0_TX_UNDEFINED);  // No interrupt
         setMode(MODE_TRANSMITTER);
         writeReg(REG_FIFO, 0x55);
         
@@ -445,12 +448,14 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         crc = _crc16_update(~0, group);
         recvBuf = buf;
         setMode(MODE_STANDBY);
+        writeReg(REG_AFCFEI, AFC_CLEAR);
         startRSSI = currentRSSI();
-        if (startRSSI > noiseThreshold) { // Don't start to RX mid RF exchange
-            rxstate = TXRECV;
+        if (startRSSI >= noiseThreshold) { // Don't start to RX mid RF transmit
+            writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
             rf12_drx = delayTXRECV;
             writeReg(REG_DIOMAPPING1, (DIO0_RSSI | DIO3_RSSI /* DIO0_SYNCADDRESS*/));// Interrupt triggers
-            setMode(MODE_RECEIVER); // setting RX mode uses 33-36 spins
+            rxstate = TXRECV;
+            setMode(MODE_RECEIVER);
             startRX = micros();
         } else delayTXRECV++; // Loops waiting for clear air before RX mode 
         break;
@@ -612,7 +617,6 @@ if you cross a rollover point, however after 1.024 mS it will not know about the
 second rollover and then will be 1.024 mS out.
 */
         if (rxstate == TXRECV) {
-//            volatile uint32_t RSSIinterruptMicros = micros();
             fei  = readReg(REG_FEIMSB);
             fei  = (fei << 8) | readReg(REG_FEILSB);
             rssi = readReg(REG_RSSIVALUE);
@@ -637,9 +641,20 @@ second rollover and then will be 1.024 mS out.
                     /*  Timeout: MartynJ "Assuming you are using 5byte synch,
                         then it is just counting the bit times to find the 
                         minimum i.e. 0.02uS per bit x 6bytes is 
-                        about 1mS minimum."                                   */
+                        about 1mS minimum."
+                                                                              */
                         writeReg(REG_AFCFEI, AFC_CLEAR);  // Clear Noise
                         RSSIrestart++;
+
+                        volatile uint32_t ms = millis();
+                        if ((RSSIinterruptMillis + RATEINTERVAL) < ms) {
+                        
+                            restartRate = (((RSSIrestart - restarts) * 1000) / 
+                              ((ms - RSSIinterruptMillis)));
+                            RSSIinterruptMillis = ms;
+                            restarts = RSSIrestart;
+                            
+                        }
                         rxstate = TXIDLE;   // Cause a RX restart by FSM
                         return;
                     } // SyncMatch or Timeout 

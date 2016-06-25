@@ -14,6 +14,7 @@ namespace RF69 {
     extern uint8_t lastState;
     extern uint16_t RssiToSync;
     extern uint16_t RSSIrestart;
+    extern uint16_t restartRate;
     extern uint8_t REGIRQFLAGS1;
     extern int16_t  afc;
     extern int16_t  fei;
