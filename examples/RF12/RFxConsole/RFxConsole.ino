@@ -578,7 +578,9 @@ static void showStatus() {
     Serial.print(RF69::RSSIrestart);
     showString(PSTR(", Rate "));
     Serial.print(RF69::restartRate);
-    showString(PSTR("/s, Noise Floor "));
+    printOneChar('(');
+    Serial.print(RF69::maxRestartRate);
+    showString(PSTR(")/s, Noise Floor "));
     Serial.print(RF69::noiseFloorMin);
     printOneChar('/');
     Serial.print(RF69::noiseFloorMax);
@@ -947,8 +949,9 @@ static void handleInput (char c) {
 #if RF69_COMPAT
             config.RegPaLvl = RF69::control(0x11, 0x9F);   // Pull the current RegPaLvl from the radio
             config.RegRssiThresh = RF69::control(0x29, 0xA0);   // Pull the current RegRssiThresh from the radio
-            RF69::RSSIrestart = RF69::restartRate = 0;       
-#endif                                                     // An obscure method because one can blow the hardware
+                                                                // An obscure method because one can blow the hardware
+            RF69::RSSIrestart = RF69::restartRate = RF69::maxRestartRate = 0;       
+#endif                                                     
             saveConfig();
             break;
 

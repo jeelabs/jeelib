@@ -144,6 +144,7 @@ namespace RF69 {
     uint8_t  lastState;
     uint16_t RssiToSync;
     uint16_t RSSIrestart;
+    uint16_t maxRestartRate;
     uint16_t restartRate;
     uint8_t  REGIRQFLAGS1;
     int16_t  afc;                  // I wonder how to make sure these 
@@ -653,7 +654,8 @@ second rollover and then will be 1.024 mS out.
                               ((ms - RSSIinterruptMillis)));
                             RSSIinterruptMillis = ms;
                             restarts = RSSIrestart;
-                            
+                            if (restartRate > maxRestartRate)
+                              maxRestartRate = restartRate;                            
                         }
                         rxstate = TXIDLE;   // Cause a RX restart by FSM
                         return;
