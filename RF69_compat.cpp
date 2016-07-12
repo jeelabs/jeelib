@@ -73,6 +73,7 @@ uint8_t rf69_initialize (uint8_t id, uint8_t band, uint8_t group=0xD4, uint16_t 
     if (txPower) RF69::control(0x91, txPower);
     if (rxThreshold) {
         RF69::control(0xA9, rxThreshold);
+        RF69::rssiThreshold = rxThreshold;
     }
     return nodeid = id;
 }

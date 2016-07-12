@@ -10,7 +10,7 @@
 #define ROM_DATA        PROGMEM
 
 #define LIBRARY_VERSION     15      // Stored in REG_SYNCVALUE6 by initRadio 
-#define RATEINTERVAL        (uint32_t)1000
+#define RATEINTERVAL        (uint32_t)10000 // 10s //
 #define REG_FIFO            0x00
 #define REG_OPMODE          0x01
 #define DATAMODUL           0x02 
@@ -144,6 +144,7 @@ namespace RF69 {
     uint8_t  lastState;
     uint16_t RssiToSync;
     uint16_t RSSIrestart;
+    uint8_t rssiThreshold;
     uint16_t maxRestartRate;
     uint16_t restartRate;
     uint8_t  REGIRQFLAGS1;
@@ -188,9 +189,9 @@ static volatile uint16_t rtp;
 static volatile uint16_t rst;
 static volatile uint32_t tfr;
 static volatile uint32_t RSSIinterruptMillis;
+static volatile uint32_t SYNCinterruptMillis;
 static volatile uint32_t restarts;
 static volatile uint8_t startRSSI;
-static volatile uint8_t noiseThreshold;
 
 static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 //  0x01, 0x04, // Standby Mode
@@ -385,7 +386,6 @@ uint8_t RF69::currentRSSI() {
   if (((rxfill == 0) || (rxdone))) {
       uint8_t storedMode = (readReg(REG_OPMODE) & MODE_MASK);
       uint8_t storeDIOM = readReg(REG_DIOMAPPING1);// Collect Interrupt triggers
-      noiseThreshold = readReg(REG_RSSITHRESHOLD); // Store current threshold
 
       writeReg(REG_DIOMAPPING1, 0x00);      // Mask most radio interrupts
       setMode(MODE_STANDBY);
@@ -399,11 +399,11 @@ uint8_t RF69::currentRSSI() {
       }
       uint8_t r = readReg(REG_RSSIVALUE);           // Collect RSSI value
       setMode(MODE_STANDBY);                        // Get out of RX mode 
-      writeReg(REG_RSSITHRESHOLD, noiseThreshold);  // Restore threshold
+      writeReg(REG_RSSITHRESHOLD, rssiThreshold);  // Restore threshold
       writeReg(REG_DIOMAPPING1, storeDIOM);         // Restore Interrupt trigger
       setMode(storedMode); // Restore mode
       
-      if (r > noiseThreshold) {
+      if (r > rssiThreshold) {
           if (r < noiseFloorMin) noiseFloorMin = r;
           if (r > noiseFloorMax) noiseFloorMax = r;
       }
@@ -451,7 +451,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         setMode(MODE_STANDBY);
         writeReg(REG_AFCFEI, AFC_CLEAR);
         startRSSI = currentRSSI();
-        if (startRSSI >= noiseThreshold) { // Don't start to RX mid RF transmit
+        if (startRSSI >= rssiThreshold) { // Don't start to RX mid RF transmit
             writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
             rf12_drx = delayTXRECV;
             writeReg(REG_DIOMAPPING1, (DIO0_RSSI | DIO3_RSSI /* DIO0_SYNCADDRESS*/));// Interrupt triggers
@@ -627,6 +627,7 @@ second rollover and then will be 1.024 mS out.
             // The window for grabbing the above values is quite small
             // values available during transfer between the ether
             // and the inbound fifo buffer.
+            volatile uint32_t ms = millis();
 
             if (rssi_interrupt) {
                 RssiToSync = 0;
@@ -637,6 +638,13 @@ second rollover and then will be 1.024 mS out.
                           ;
                         afc  = readReg(REG_AFCMSB);
                         afc  = (afc << 8) | readReg(REG_AFCLSB);                      
+
+                        if((SYNCinterruptMillis + RATEINTERVAL) < ms) {
+                            SYNCinterruptMillis = ms;
+                            if(!(restartRate) && (rssiThreshold < 250)) 
+                              rssiThreshold++;
+                        }
+
                         break;
                     } else if (RssiToSync++ == 230) {
                     /*  Timeout: MartynJ "Assuming you are using 5byte synch,
@@ -646,13 +654,13 @@ second rollover and then will be 1.024 mS out.
                                                                               */
                         writeReg(REG_AFCFEI, AFC_CLEAR);  // Clear Noise
                         RSSIrestart++;
-
-                        volatile uint32_t ms = millis();
-                        if ((RSSIinterruptMillis + RATEINTERVAL) < ms) {
                         
+                        if ((RSSIinterruptMillis + RATEINTERVAL) < ms) {
                             restartRate = (((RSSIrestart - restarts) * 1000) / 
                               ((ms - RSSIinterruptMillis)));
                             RSSIinterruptMillis = ms;
+                            if ((restartRate) && (rssiThreshold > 160)) 
+                              rssiThreshold--;
                             restarts = RSSIrestart;
                             if (restartRate > maxRestartRate)
                               maxRestartRate = restartRate;                            

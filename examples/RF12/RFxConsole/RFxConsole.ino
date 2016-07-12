@@ -44,7 +44,7 @@ and doesn't receive unless forced to transmit.
 //  add any values above to combine display settings.
 // Changed RX interrupt trigger to be RSSI rather than SyncMatch 2016-06-20
 // Mask two stray interrupts, sleep before reconfiguring radio 2016-06-23
-
+// Added dynamic control of RX Threshold based on restart rate 2016-07-12
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
     #define TINY 1
 #endif
@@ -115,6 +115,7 @@ byte stickyGroup;
 byte eepromWrite;
 byte qMin = ~0;
 byte qMax = 0;
+byte lastrssiThreshold;
 unsigned int lastRSSIrestart;
 
 #if TINY
@@ -582,6 +583,8 @@ static void showStatus() {
     Serial.print(RF69::maxRestartRate);
     showString(PSTR(")/s, Noise Floor "));
     Serial.print(RF69::noiseFloorMin);
+    printOneChar('/');
+    Serial.print(RF69::rssiThreshold);
     printOneChar('/');
     Serial.print(RF69::noiseFloorMax);
     
@@ -2116,7 +2119,8 @@ void loop () {
 #if RF69_COMPAT && !TINY    
       else { 
         if (RF69::RSSIrestart != lastRSSIrestart) {
-              if (RF69::RSSIrestart) activityLed(1);
+              if (ledStatus) activityLed(0);
+              else activityLed(1);
               lastRSSIrestart = RF69::RSSIrestart;
               if (config.verbosity & 1) {
                   showString(PSTR("Restart#"));
@@ -2135,6 +2139,15 @@ void loop () {
                   Serial.print(RF69::rssi);
                   printOneChar(')');
                   Serial.println();                  
+              }
+        }
+        if (RF69::rssiThreshold != lastrssiThreshold) {
+              if (config.verbosity & 8) {
+                  showString(PSTR("RX threshold change "));
+                  Serial.print(lastrssiThreshold);
+                  printOneChar(':');
+                  Serial.println(RF69::rssiThreshold);
+                  lastrssiThreshold = RF69::rssiThreshold;
               }
         }
     } // rf12_recvDone
