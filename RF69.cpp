@@ -188,7 +188,7 @@ static volatile uint16_t delayTXRECV;
 static volatile uint16_t rtp;
 static volatile uint16_t rst;
 static volatile uint32_t tfr;
-static volatile uint32_t RSSIinterruptMillis;
+static volatile uint32_t previousMillis;
 static volatile uint32_t SYNCinterruptMillis;
 static volatile uint32_t restarts;
 static volatile uint8_t startRSSI;
@@ -442,6 +442,20 @@ uint8_t* recvBuf;
 
 uint32_t startRX;
 uint16_t RF69::recvDone_compat (uint8_t* buf) {
+    uint32_t ms = millis();
+
+    if ((previousMillis + RATEINTERVAL) < ms) {
+        restartRate = (((RSSIrestart - restarts) * 1000) / 
+          (ms - previousMillis));
+        previousMillis = ms;
+        restarts = RSSIrestart;
+        if (restartRate) {
+            if(rssiThreshold > 160) rssiThreshold--;
+        } else if((rssiThreshold < 250)) rssiThreshold++;        
+        if (restartRate > maxRestartRate)
+          maxRestartRate = restartRate;                            
+    }
+                        
     switch (rxstate) {
     case TXIDLE:
         rxdone = false;
@@ -518,7 +532,7 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
     for (int i = 0; i < len; ++i)
         rf12_data[i] = ((const uint8_t*) ptr)[i];
     rf12_hdr = hdr & RF12_HDR_DST ? hdr : (hdr & ~RF12_HDR_MASK) + node; 
-// TODO instruction below worries me now I have 4/5 byte sync
+
     rxstate = - (2 + rf12_len); // preamble and SYN1/SYN2 are sent by hardware
     flushFifo();
     
@@ -627,7 +641,6 @@ second rollover and then will be 1.024 mS out.
             // The window for grabbing the above values is quite small
             // values available during transfer between the ether
             // and the inbound fifo buffer.
-            volatile uint32_t ms = millis();
 
             if (rssi_interrupt) {
                 RssiToSync = 0;
@@ -638,13 +651,6 @@ second rollover and then will be 1.024 mS out.
                           ;
                         afc  = readReg(REG_AFCMSB);
                         afc  = (afc << 8) | readReg(REG_AFCLSB);                      
-
-                        if((SYNCinterruptMillis + RATEINTERVAL) < ms) {
-                            SYNCinterruptMillis = ms;
-                            if(!(restartRate) && (rssiThreshold < 250)) 
-                              rssiThreshold++;
-                        }
-
                         break;
                     } else if (RssiToSync++ == 230) {
                     /*  Timeout: MartynJ "Assuming you are using 5byte synch,
@@ -654,17 +660,6 @@ second rollover and then will be 1.024 mS out.
                                                                               */
                         writeReg(REG_AFCFEI, AFC_CLEAR);  // Clear Noise
                         RSSIrestart++;
-                        
-                        if ((RSSIinterruptMillis + RATEINTERVAL) < ms) {
-                            restartRate = (((RSSIrestart - restarts) * 1000) / 
-                              ((ms - RSSIinterruptMillis)));
-                            RSSIinterruptMillis = ms;
-                            if ((restartRate) && (rssiThreshold > 160)) 
-                              rssiThreshold--;
-                            restarts = RSSIrestart;
-                            if (restartRate > maxRestartRate)
-                              maxRestartRate = restartRate;                            
-                        }
                         rxstate = TXIDLE;   // Cause a RX restart by FSM
                         return;
                     } // SyncMatch or Timeout 

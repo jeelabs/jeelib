@@ -391,6 +391,7 @@ static void loadConfig () {
     // this uses 166 bytes less flash than eeprom_read_block(), no idea why
     for (byte i = 0; i < sizeof config; ++i)
         ((byte*) &config)[i] = eeprom_read_byte(RF12_EEPROM_ADDR + i);
+    lastrssiThreshold = config.RegRssiThresh;    
     config.defaulted = false;   // Value if UI saves config
 }
 
@@ -953,7 +954,7 @@ static void handleInput (char c) {
             config.RegPaLvl = RF69::control(0x11, 0x9F);   // Pull the current RegPaLvl from the radio
             config.RegRssiThresh = RF69::control(0x29, 0xA0);   // Pull the current RegRssiThresh from the radio
                                                                 // An obscure method because one can blow the hardware
-            RF69::RSSIrestart = RF69::restartRate = RF69::maxRestartRate = 0;       
+//            RF69::RSSIrestart = RF69::restartRate = RF69::maxRestartRate = 0;       
 #endif                                                     
             saveConfig();
             break;
