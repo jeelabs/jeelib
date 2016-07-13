@@ -441,23 +441,24 @@ void RF69::configure_compat () {
 uint8_t* recvBuf;
 
 uint32_t startRX;
+uint32_t ms;
 uint16_t RF69::recvDone_compat (uint8_t* buf) {
-    uint32_t ms = millis();
-
-    if ((previousMillis + RATEINTERVAL) < ms) {
-        restartRate = (((RSSIrestart - restarts) * 1000) / 
-          (ms - previousMillis));
-        previousMillis = ms;
-        restarts = RSSIrestart;
-        if (restartRate) {
-            if(rssiThreshold > 160) rssiThreshold--;
-        } else if((rssiThreshold < 250)) rssiThreshold++;        
-        if (restartRate > maxRestartRate)
-          maxRestartRate = restartRate;                            
-    }
-                        
     switch (rxstate) {
     case TXIDLE:
+        ms = millis();
+
+        if ((previousMillis + RATEINTERVAL) < ms) {
+            restartRate = (((RSSIrestart - restarts) * 1000) / 
+              (ms - previousMillis));
+            previousMillis = ms;
+            restarts = RSSIrestart;
+            if (restartRate) {
+                if(rssiThreshold > 160) rssiThreshold--;
+            } else if((rssiThreshold < 250)) rssiThreshold++;        
+            if (restartRate > maxRestartRate)
+              maxRestartRate = restartRate;                            
+        }
+                        
         rxdone = false;
         rxfill = rf69_buf[2] = 0;
         crc = _crc16_update(~0, group);
