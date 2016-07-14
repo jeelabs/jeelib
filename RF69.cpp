@@ -469,7 +469,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         if (startRSSI >= rssiThreshold) { // Don't start to RX mid RF transmit
             writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
             rf12_drx = delayTXRECV;
-            writeReg(REG_DIOMAPPING1, (DIO0_RSSI | DIO3_RSSI /* DIO0_SYNCADDRESS*/));// Interrupt triggers
+            writeReg(REG_DIOMAPPING1, (DIO0_RSSI /*| DIO3_RSSI  DIO0_SYNCADDRESS*/));// Interrupt triggers
             rxstate = TXRECV;
             setMode(MODE_RECEIVER);
             startRX = micros();
