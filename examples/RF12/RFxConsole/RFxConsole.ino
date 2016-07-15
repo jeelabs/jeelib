@@ -1354,7 +1354,7 @@ memset(pktCount,0,sizeof(pktCount));
         config.collect_mode = true; // Default to no-ACK
         config.quiet_mode = true;   // Default flags, quiet on
         config.defaulted = true;    // Default config initialized
-        config.ackDelay = 5;        // 5ms
+        config.ackDelay = 1;        // 1ms to handle 8Mhz nodes getting into RX mode for ACK.
 #if RF69_COMPAT == 0
         config.RegRssiThresh = 2;
         config.clearAir = 160;      // 80dB

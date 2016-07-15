@@ -29,9 +29,6 @@ namespace RF69 {
     extern uint8_t  unexpectedFSM;
     extern uint8_t  unexpectedIRQFLAGS2;
     extern uint8_t  unexpectedMode;
-    extern uint8_t  modeChange1;
-    extern uint8_t  modeChange2;
-    extern uint8_t  modeChange3;
     extern uint16_t byteCount;
     extern uint16_t underrun;
     extern uint8_t  present;

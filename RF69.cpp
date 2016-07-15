@@ -159,9 +159,6 @@ namespace RF69 {
     uint8_t  unexpectedFSM;
     uint8_t  unexpectedIRQFLAGS2;
     uint8_t  unexpectedMode;
-    uint8_t  modeChange1;
-    uint8_t  modeChange2;
-    uint8_t  modeChange3;
     uint16_t byteCount;
     uint16_t underrun;
     uint8_t  present;
@@ -503,7 +500,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
                     // This will happen on next entry to recvDone_compat
                     // because rxstate == TXIDLE
                 }
-            } else return 1;
+            } else return 0;
         }
         break;
     }
@@ -549,7 +546,7 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
 //    the above code is to facilitate slow SPI bus speeds.  
     
     writeReg(REG_DIOMAPPING1, (DIO0_TX_UNDEFINED | DIO3_TX_UNDEFINED));
-    modeChange2 = setMode(MODE_TRANSMITTER);
+    setMode(MODE_TRANSMITTER);
     
 /*  We must begin transmission to avoid overflowing the FIFO since
     jeelib packet size can exceed FIFO size. We also want to avoid the
