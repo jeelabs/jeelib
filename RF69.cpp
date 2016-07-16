@@ -442,19 +442,6 @@ uint32_t ms;
 uint16_t RF69::recvDone_compat (uint8_t* buf) {
     switch (rxstate) {
     case TXIDLE:
-        ms = millis();
-
-        if ((previousMillis + RATEINTERVAL) < ms) {
-            restartRate = (((RSSIrestart - restarts) * 1000) / 
-              (ms - previousMillis));
-            previousMillis = ms;
-            restarts = RSSIrestart;
-            if (restartRate) {
-                if(rssiThreshold > 160) rssiThreshold--;
-            } else if((rssiThreshold < 250)) rssiThreshold++;        
-            if (restartRate > maxRestartRate)
-              maxRestartRate = restartRate;                            
-        }
                         
         rxdone = false;
         rxfill = rf69_buf[2] = 0;
@@ -463,7 +450,21 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         setMode(MODE_STANDBY);
         writeReg(REG_AFCFEI, AFC_CLEAR);
         startRSSI = currentRSSI();
-        if (startRSSI >= rssiThreshold) { // Don't start to RX mid RF transmit
+        if (startRSSI >= 160 /*rssiThreshold*/) { // Don't start to RX in busy airwaves
+            ms = millis();
+            // Update restart rate
+            if ((previousMillis + RATEINTERVAL) < ms) {
+                restartRate = (((RSSIrestart - restarts) * 1000) / 
+                  (ms - previousMillis));
+                previousMillis = ms;
+                restarts = RSSIrestart;
+                if (restartRate) {
+                    if(rssiThreshold > 160) rssiThreshold--;
+                } else if((rssiThreshold < 250)) rssiThreshold++;        
+                if (restartRate > maxRestartRate)
+                  maxRestartRate = restartRate;                            
+            }
+            // Prepare to receive
             writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
             rf12_drx = delayTXRECV;
             writeReg(REG_DIOMAPPING1, (DIO0_RSSI /*| DIO3_RSSI  DIO0_SYNCADDRESS*/));// Interrupt triggers
