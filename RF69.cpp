@@ -10,7 +10,6 @@
 #define ROM_DATA        PROGMEM
 
 #define LIBRARY_VERSION     15      // Stored in REG_SYNCVALUE6 by initRadio 
-#define RATEINTERVAL        (uint32_t)10000 // 10s //
 #define REG_FIFO            0x00
 #define REG_OPMODE          0x01
 #define DATAMODUL           0x02 
@@ -143,10 +142,11 @@ namespace RF69 {
     uint8_t  rssiDelay;
     uint8_t  lastState;
     uint16_t RssiToSync;
-    uint16_t RSSIrestart;
+    uint32_t RSSIrestart;
     uint8_t rssiThreshold;
-    uint16_t maxRestartRate;
-    uint16_t restartRate;
+    uint32_t rateInterval = 10000; // 10s //
+    uint32_t maxRestartRate;
+    uint32_t restartRate;
     uint8_t  REGIRQFLAGS1;
     int16_t  afc;                  // I wonder how to make sure these 
     int16_t  fei;                  // are volatile
@@ -453,16 +453,16 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         if (startRSSI >= 160 /*rssiThreshold*/) { // Don't start to RX in busy airwaves
             ms = millis();
             // Update restart rate
-            if ((previousMillis + RATEINTERVAL) < ms) {
-                restartRate = (((RSSIrestart - restarts) * 1000) / 
+            if ((previousMillis + rateInterval) < ms) {
+                restartRate = (((RSSIrestart - restarts) * 1000L) / 
                   (ms - previousMillis));
                 previousMillis = ms;
-                restarts = RSSIrestart;
-                if (restartRate) {
+                if (restarts != RSSIrestart) {
                     if(rssiThreshold > 160) rssiThreshold--;
                 } else if((rssiThreshold < 250)) rssiThreshold++;        
                 if (restartRate > maxRestartRate)
                   maxRestartRate = restartRate;                            
+                restarts = RSSIrestart;
             }
             // Prepare to receive
             writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO

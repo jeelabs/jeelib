@@ -45,6 +45,7 @@ and doesn't receive unless forced to transmit.
 // Changed RX interrupt trigger to be RSSI rather than SyncMatch 2016-06-20
 // Mask two stray interrupts, sleep before reconfiguring radio 2016-06-23
 // Added dynamic control of RX Threshold based on restart rate 2016-07-12
+// Variable time constant for rate calculation stoed in eeprom
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
     #define TINY 1
 #endif
@@ -272,9 +273,10 @@ typedef struct {
     byte RegRssiThresh;     // See datasheet RFM69x Register 0x29, offset 7
     signed int matchingRF :8;// Frequency matching for this hardware, offset 8
     byte ackDelay         :4;// Delay in ms added on turnaround RX to TX, RFM69 offset 9
-    byte verbosity        :4;// Controls output format
-    byte clearAir;           // Transmit permit threshold, offset 10
-    byte pad[RF12_EEPROM_SIZE - 13];
+    byte verbosity        :4;// Controls output format offset 9
+    byte clearAir;          // Transmit permit threshold, offset 10
+    byte rateInterval;      // Seconds between rate updates offset 11
+    byte pad[RF12_EEPROM_SIZE - 14];
     word crc;
 } RF12Config;
 static RF12Config config;
@@ -391,7 +393,8 @@ static void loadConfig () {
     // this uses 166 bytes less flash than eeprom_read_block(), no idea why
     for (byte i = 0; i < sizeof config; ++i)
         ((byte*) &config)[i] = eeprom_read_byte(RF12_EEPROM_ADDR + i);
-    lastrssiThreshold = config.RegRssiThresh;    
+    lastrssiThreshold = config.RegRssiThresh;
+    RF69::rateInterval = (config.rateInterval << 10);    
     config.defaulted = false;   // Value if UI saves config
 }
 
@@ -861,12 +864,16 @@ static void handleInput (char c) {
             // Set hardware specific TX power in eeprom
             if(value) config.RegPaLvl = value;
             // Transmit permit threshold
-            if (top = 1 && (stack[0])) config.clearAir = stack[0];
+            if (top == 1 && (stack[0])) config.clearAir = stack[0];
             saveConfig();
             break;
             
         case 'R': // Set hardware specific RX threshold in eeprom
             config.RegRssiThresh = value;
+            if (top == 1 && (stack[0])) {
+                config.rateInterval = stack[0];
+                RF69::rateInterval = (uint32_t)(config.rateInterval) << 10;
+            }
             saveConfig();
             break;
             

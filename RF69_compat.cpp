@@ -18,6 +18,7 @@ static int8_t matchRF = 0;          // Hardware matching value
 static uint8_t txThre = 255;        // TX permit threshold
 static uint8_t ackDelay = 0;        // Additional delay before sending ACK's
 static uint8_t txPower = 0;         // Transmitter power from eeprom
+static uint8_t rateInterval = 10;   // Restart rate interval in seconds
 static uint8_t rxThreshold = 0;     // Receiver threshold from eeprom
 
 // same as in RF12
@@ -91,6 +92,7 @@ void rf69_configDump () {
     ackDelay = eeprom_read_byte(RF12_EEPROM_ADDR + 9); // Store from eeprom
     rxThreshold = eeprom_read_byte(RF12_EEPROM_ADDR + 7); // Store from eeprom
     matchRF = eeprom_read_byte(RF12_EEPROM_ADDR + 8);     // Store from eeprom
+    rateInterval = eeprom_read_byte(RF12_EEPROM_ADDR + 11);// Store from eeprom
     
     // " A i1 g178 @ 868 MHz "
     Serial.print(' ');
@@ -140,10 +142,12 @@ void rf69_configDump () {
         }
     }
     if (rxThreshold) {
-        if (rxThreshold != 0xA0) {
-            Serial.print(" rx");
+//        if (rxThreshold != 0xA0) {
+            Serial.print(" ");
+            Serial.print(rateInterval);
+            Serial.print("rx");
             Serial.print(rxThreshold);
-       }
+//       }
     }
     if (ackDelay >> 4) {
             Serial.print(" v");
