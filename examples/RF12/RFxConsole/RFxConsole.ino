@@ -1647,7 +1647,7 @@ void loop () {
 
         
         if (watchNode) {
-            if (rf12_buf[1] != watchNode) return;
+            if ((rf12_hdr & RF12_HDR_MASK) != watchNode) return;
         }
         
         if (rf12_crc == 0) {

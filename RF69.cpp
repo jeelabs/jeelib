@@ -457,7 +457,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
                 restartRate = (((RSSIrestart - restarts) * 1000L) / 
                   (ms - previousMillis));
                 previousMillis = ms;
-                if (restarts != RSSIrestart) {
+                if (restartRate) {
                     if(rssiThreshold > 160) rssiThreshold--;
                 } else if((rssiThreshold < 250)) rssiThreshold++;        
                 if (restartRate > maxRestartRate)
