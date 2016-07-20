@@ -194,7 +194,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 //  0x01, 0x04, // Standby Mode
   0x25, 0x00, // Set DIOMAPPING1 to POR value
   0x28, IRQ2_FIFOOVERRUN, // Clear the FIFO
-  0x2E, 0x97, // SyncConfig = sync on, sync size = 4
+  0x2E, 0x98, // SyncConfig = sync on, sync size = 4
   0x2F, 0xAA, // SyncValue1 = 0xAA
   0x30, 0xAA, // SyncValue2 = 0xAA
   0x31, 0x2D, // SyncValue3 = 0x2D
@@ -227,7 +227,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x1A, 0x42, // AfcBw 125 KHz Channel filter BW 
 //  0x19, 0x42, // RxBw 125 KHz
 //  0x1A, 0x51, // AfcBw 166.7 KHz Channel filter BW
-  0x1E, AFC_CLEAR,
+  0x1E, 0x00,
 
   0x26, 0x07, // disable clkout
 
@@ -395,7 +395,9 @@ uint8_t RF69::currentRSSI() {
           rssiDelay++;
       }
       uint8_t r = readReg(REG_RSSIVALUE);           // Collect RSSI value
-      setMode(MODE_STANDBY);                        // Get out of RX mode 
+      writeReg(REG_AFCFEI, AFC_CLEAR);
+      setMode(MODE_STANDBY);                        // Get out of RX mode
+       
       writeReg(REG_RSSITHRESHOLD, rssiThreshold);  // Restore threshold
       writeReg(REG_DIOMAPPING1, storeDIOM);         // Restore Interrupt trigger
       setMode(storedMode); // Restore mode
@@ -470,6 +472,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
             writeReg(REG_DIOMAPPING1, (DIO0_RSSI /*| DIO3_RSSI  DIO0_SYNCADDRESS*/));// Interrupt triggers
             rxstate = TXRECV;
             setMode(MODE_RECEIVER);
+            writeReg(REG_AFCFEI, AFC_CLEAR);
             startRX = micros();
         } else delayTXRECV++; // Loops waiting for clear air before RX mode 
         break;
