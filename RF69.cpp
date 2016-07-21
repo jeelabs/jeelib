@@ -284,7 +284,7 @@ uint8_t setMode (uint8_t mode) {
         else writeReg(REG_DIOMAPPING1, DIO0_FS_UNDEF_RX);
         
         writeReg(REG_OPMODE, (MODE_FS | MODE_SEQUENCER_OFF));
-        while (readReg(REG_IRQFLAGS1 & IRQ1_PLL) == 0) {
+        while (readReg(REG_IRQFLAGS1 & (IRQ1_PLL | IRQ1_MODEREADY)) == 0) {
             c++; if (c >= 127) break;
         }
         writeReg(REG_DIOMAPPING1, s);        // Restore Interrupt triggers
@@ -450,7 +450,6 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         crc = _crc16_update(~0, group);
         recvBuf = buf;
         setMode(MODE_STANDBY);
-        writeReg(REG_AFCFEI, AFC_CLEAR);
         startRSSI = currentRSSI();
         if (startRSSI >= 160 /*rssiThreshold*/) { // Don't start to RX in busy airwaves
             ms = millis();
@@ -470,8 +469,8 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
             writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
             rf12_drx = delayTXRECV;
             writeReg(REG_DIOMAPPING1, (DIO0_RSSI /*| DIO3_RSSI  DIO0_SYNCADDRESS*/));// Interrupt triggers
-            rxstate = TXRECV;
             setMode(MODE_RECEIVER);
+            rxstate = TXRECV;
             writeReg(REG_AFCFEI, AFC_CLEAR);
             startRX = micros();
         } else delayTXRECV++; // Loops waiting for clear air before RX mode 
