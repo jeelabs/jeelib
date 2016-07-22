@@ -17,9 +17,9 @@ static uint16_t frequency;          // Frequency within selected band
 static int8_t matchRF = 0;          // Hardware matching value
 static uint8_t txThre = 255;        // TX permit threshold
 static uint8_t ackDelay = 0;        // Additional delay before sending ACK's
-static uint8_t txPower = 0;         // Transmitter power from eeprom
+static uint8_t txPower = 159;         // Transmitter power from eeprom
 static uint8_t rateInterval = 10;   // Restart rate interval in seconds
-static uint8_t rxThreshold = 0;     // Receiver threshold from eeprom
+static uint8_t rxThreshold = 160;   // Receiver threshold from eeprom
 
 // same as in RF12
 #define RETRIES     8               // stop retrying after 8 times

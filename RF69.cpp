@@ -503,7 +503,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
                     // This will happen on next entry to recvDone_compat
                     // because rxstate == TXIDLE
                 }
-            } else return 0;
+            } else return 1;
         }
         break;
     }
