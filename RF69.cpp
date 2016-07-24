@@ -144,7 +144,7 @@ namespace RF69 {
     uint16_t RssiToSync;
     uint32_t RSSIrestart;
     uint8_t rssiThreshold;
-    uint32_t rateInterval = 10000; // 10s //
+    uint32_t rateInterval = 0; // Disabled by default, set this to 10000ms //
     uint32_t maxRestartRate;
     uint32_t restartRate;
     uint8_t  REGIRQFLAGS1;
@@ -454,7 +454,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         if (startRSSI >= 160 /*rssiThreshold*/) { // Don't start to RX in busy airwaves
             ms = millis();
             // Update restart rate
-            if ((previousMillis + rateInterval) < ms) {
+            if ((rateInterval) && (previousMillis + rateInterval) < ms) {
                 restartRate = (((RSSIrestart - restarts) * 1000L) / 
                   (ms - previousMillis));
                 previousMillis = ms;

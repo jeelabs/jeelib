@@ -870,7 +870,7 @@ static void handleInput (char c) {
             
         case 'R': // Set hardware specific RX threshold in eeprom
             config.RegRssiThresh = value;
-            if (top == 1 && (stack[0])) {
+            if (top == 1) {
                 config.rateInterval = stack[0];
                 RF69::rateInterval = (uint32_t)(config.rateInterval) << 10;
             }
@@ -2155,8 +2155,8 @@ void loop () {
                   Serial.print(lastrssiThreshold);
                   printOneChar(':');
                   Serial.println(RF69::rssiThreshold);
-                  lastrssiThreshold = RF69::rssiThreshold;
               }
+              lastrssiThreshold = RF69::rssiThreshold;
         }
     } // rf12_recvDone
 #endif    
