@@ -62,6 +62,19 @@ protected:
     /// @return Arduino analog pin number of a Port's A pin (uint8_t).
     inline uint8_t anaPin() const
         { return 11 - 2 * portNum; }
+#elif defined(__AVR_ATmega2560__)
+	/// @return Arduino digital pin number of a Port's D pin (uint8_t).
+    inline uint8_t digiPin() const
+        { return portNum ? portNum + 3 : 20; }
+	/// @return Arduino digital pin number of a Port's A pin (uint8_t).
+    inline uint8_t digiPin2() const
+        { return portNum ? portNum + 13 : 21; }
+	/// @return Arduino digital pin number of the I pin on all Ports (uint8_t).
+    static uint8_t digiPin3()
+        { return 3; }
+    /// @return Arduino analog pin number of a Port's A pin (uint8_t).
+    inline uint8_t anaPin() const
+        { return portNum - 1; }
 #else
 	/// @return Arduino digital pin number of a Port's D pin (uint8_t).
     inline uint8_t digiPin() const
