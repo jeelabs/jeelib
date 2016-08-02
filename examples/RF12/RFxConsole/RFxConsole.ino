@@ -400,6 +400,9 @@ static void loadConfig () {
 
 static void saveConfig () {
     activityLed(1);
+#if RF69_COMPAT   
+    config.RegRssiThresh = RF69::control(0x29, 0xA0);   // Pull the current RegRssiThresh from the radio
+#endif
     config.format = MAJOR_VERSION;
     config.crc = calcCrc(&config, sizeof config - 2);
     // eeprom_write_block(&config, RF12_EEPROM_ADDR, sizeof config);
@@ -2154,7 +2157,13 @@ void loop () {
                   showString(PSTR("RX threshold change "));
                   Serial.print(lastrssiThreshold);
                   printOneChar(':');
-                  Serial.println(RF69::rssiThreshold);
+                  Serial.print(RF69::rssiThreshold);
+                  printOneChar('#');
+                  Serial.print(RF69::RSSIrestart);
+                  printOneChar(',');
+                  Serial.print(RF69::restartRate);
+                  printOneChar(',');
+                  Serial.println(RF69::maxRestartRate);
               }
               lastrssiThreshold = RF69::rssiThreshold;
         }
