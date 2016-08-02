@@ -117,7 +117,7 @@ byte eepromWrite;
 byte qMin = ~0;
 byte qMax = 0;
 byte lastrssiThreshold;
-unsigned int lastRSSIrestart;
+unsigned long lastRSSIrestart;
 
 #if TINY
 // Serial support (output only) for Tiny supported by TinyDebugSerial
@@ -2130,9 +2130,9 @@ void loop () {
 #if RF69_COMPAT && !TINY    
       else { 
         if (RF69::RSSIrestart != lastRSSIrestart) {
+              lastRSSIrestart = RF69::RSSIrestart;
               if (ledStatus) activityLed(0);
               else activityLed(1);
-              lastRSSIrestart = RF69::RSSIrestart;
               if (config.verbosity & 1) {
                   showString(PSTR("Restart#"));
                   Serial.print(RF69::RSSIrestart);
