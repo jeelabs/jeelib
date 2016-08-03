@@ -101,7 +101,7 @@
 #define DIO0_RSSI           0xC0
 // TX Mode
 #define DIO0_TX_UNDEFINED   0x80
-
+#define DIO0_PACKETSENT     0x00
 #define DIO3_FIFOFULL       0x00
 #define DIO3_RSSI           0x01
 #define DIO3_SYNCADDRESS    0x02
@@ -526,9 +526,9 @@ uint16_t rf69_status () {
     return (rxstate << 8) | rxfill;   
 }
 
-// Uses rf12_buf as the send buffer, rf69_buf reserved for RX
 void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
 
+// Uses rf12_buf as the send buffer, rf69_buf reserved for RX
     rf12_len = len;
     for (int i = 0; i < len; ++i)
         rf12_data[i] = ((const uint8_t*) ptr)[i];
@@ -548,7 +548,7 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
 //      writeReg(REG_FIFOTHRESH, DELAY_TX);   // Wait for FIFO to hit 32 bytes
 //    the above code is to facilitate slow SPI bus speeds.  
     
-    writeReg(REG_DIOMAPPING1, (DIO0_TX_UNDEFINED | DIO3_TX_UNDEFINED));
+    writeReg(REG_DIOMAPPING1, (DIO0_PACKETSENT | DIO3_TX_UNDEFINED));
     setMode(MODE_TRANSMITTER);
     
 /*  We must begin transmission to avoid overflowing the FIFO since
@@ -586,12 +586,9 @@ condition is met to transmit the packet data.
 //        writeReg(REG_FIFOTHRESH, START_TX);     // if < 32 bytes, release FIFO
                                                   // for transmission
 /*  At this point packet is typically in the FIFO but not fully transmitted.
-    transmission complete will be detected the scanning below. 
+    transmission complete will be indicated by an interrupt.                   
 */
-
-//  This code is no longer interrupt triggered since DIO3 does not have a
-//  PacketSent Diox mapping.
-
+/* Reinstated interrupt code for TX completion
     while (!(readReg(REG_IRQFLAGS2) & (IRQ2_PACKETSENT))) {
         _delay_loop_1(5);
         }
@@ -605,6 +602,7 @@ condition is met to transmit the packet data.
           writeReg(REG_SYNCCONFIG, threeByteSync);
     }
     rxstate = TXIDLE;
+*/
 }
 
 void RF69::interrupt_compat (uint8_t rssi_interrupt) {
@@ -724,6 +722,23 @@ second rollover and then will be 1.024 mS out.
             rxdone = true;      // force TXRECV in RF69::recvDone_compat       
             writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
             rxstate = TXRECV;   // Restore state machine
+
+
+	    } else if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
+          	writeReg(REG_TESTPA1, TESTPA1_NORMAL);    // Turn off high power 
+          	writeReg(REG_TESTPA2, TESTPA2_NORMAL);    // transmit
+          	// rxstate will be TXDONE at this point
+          	IRQ_ENABLE;       // allow nested interrupts from here on
+          	txP++;
+          	setMode(MODE_STANDBY);
+          	rxstate = TXIDLE;
+          	// Restore sync bytes configuration
+          	if (group == 0) {               // Allow receiving from all groups
+              writeReg(REG_SYNCCONFIG, fourByteSync);
+          	}
+
+
+
         } else {
             // We get here when a interrupt that is not for RX completion.
             // Appears related to receiving noise when the bad CRC

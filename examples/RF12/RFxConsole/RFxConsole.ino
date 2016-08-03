@@ -118,6 +118,7 @@ byte qMin = ~0;
 byte qMax = 0;
 byte lastrssiThreshold;
 unsigned long lastRSSIrestart;
+unsigned long lastThresholdRSSIrestart;
 
 #if TINY
 // Serial support (output only) for Tiny supported by TinyDebugSerial
@@ -400,9 +401,6 @@ static void loadConfig () {
 
 static void saveConfig () {
     activityLed(1);
-#if RF69_COMPAT   
-    config.RegRssiThresh = RF69::control(0x29, 0xA0);   // Pull the current RegRssiThresh from the radio
-#endif
     config.format = MAJOR_VERSION;
     config.crc = calcCrc(&config, sizeof config - 2);
     // eeprom_write_block(&config, RF12_EEPROM_ADDR, sizeof config);
@@ -573,6 +571,7 @@ static void showHelp () {
   #endif
     showStatus();
 #endif
+
 }
 
 static void showStatus() {
@@ -584,11 +583,14 @@ static void showStatus() {
 #if RF69_COMPAT
     showString(PSTR("b, RX Restarts "));
     Serial.print(RF69::RSSIrestart);
+ //   printOneChar('(');
+ //   Serial.print((RF69::RSSIrestart) - lastRSSIrestart);
+ //   printOneChar(')');
     showString(PSTR(", Rate "));
     Serial.print(RF69::restartRate);
-    printOneChar('(');
+    printOneChar('m');
     Serial.print(RF69::maxRestartRate);
-    showString(PSTR(")/s, Noise Floor "));
+    showString(PSTR("/s, Noise Floor "));
     Serial.print(RF69::noiseFloorMin);
     printOneChar('/');
     Serial.print(RF69::rssiThreshold);
@@ -702,7 +704,10 @@ static void handleInput (char c) {
         rf12_configSilent();
 
     } else if (c > ' ') {
+      
 // TODO Do we need the "else if" above    
+        config.RegRssiThresh = RF69::control(0x29, 0xA0);   // Pull the current RegRssiThresh from the radio
+
         switch (c) {
 
         case 'i': // set node id
@@ -962,7 +967,6 @@ static void handleInput (char c) {
             config.output = value;
 #if RF69_COMPAT
             config.RegPaLvl = RF69::control(0x11, 0x9F);   // Pull the current RegPaLvl from the radio
-            config.RegRssiThresh = RF69::control(0x29, 0xA0);   // Pull the current RegRssiThresh from the radio
                                                                 // An obscure method because one can blow the hardware
 //            RF69::RSSIrestart = RF69::restartRate = RF69::maxRestartRate = 0;       
 #endif                                                     
@@ -2126,16 +2130,16 @@ void loop () {
 
             activityLed(0);
         }
-    } // rf12_recvDone 
+    } // rf12_recvDone
 #if RF69_COMPAT && !TINY    
       else { 
-        if (RF69::RSSIrestart != lastRSSIrestart) {
-              lastRSSIrestart = RF69::RSSIrestart;
+        unsigned long r = RF69::RSSIrestart;
+        if (r != lastRSSIrestart) {
               if (ledStatus) activityLed(0);
               else activityLed(1);
               if (config.verbosity & 1) {
                   showString(PSTR("Restart#"));
-                  Serial.print(RF69::RSSIrestart);
+                  Serial.print(r);
                   printOneChar('@');
                   Serial.print(RF69::restartRate);
                   printOneChar(':');
@@ -2159,14 +2163,18 @@ void loop () {
                   printOneChar(':');
                   Serial.print(RF69::rssiThreshold);
                   printOneChar('#');
-                  Serial.print(RF69::RSSIrestart);
-                  printOneChar(',');
+                  Serial.print(r);
+                  printOneChar('(');
+                  Serial.print(r  - lastThresholdRSSIrestart);
+                  lastThresholdRSSIrestart = lastRSSIrestart;
+                  printOneChar(')');
                   Serial.print(RF69::restartRate);
-                  printOneChar(',');
+                  printOneChar('m');
                   Serial.println(RF69::maxRestartRate);
               }
-              lastrssiThreshold = RF69::rssiThreshold;
+        lastrssiThreshold = RF69::rssiThreshold;     
         }
+    lastRSSIrestart = r;
     } // rf12_recvDone
 #endif    
     byte r;
