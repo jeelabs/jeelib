@@ -242,7 +242,10 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 //  0x71, 0x01, // AFC offset set for low modulation index systems, used if
               // AfcLowBetaOn=1. Offset = LowBetaAfcOffset x 488 Hz 
   0
-};  
+};
+
+RF_API rfapi;
+  
 /*
 
 0x13 RegOcp default is Current limiter active, threshold at 45+ 5*trim bits.
@@ -434,6 +437,11 @@ void RF69::configure_compat () {
         writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
         rxstate = TXIDLE;
         present = 1;                                // Radio is present
+#if F_CPU == 16000000UL
+        rfapi.RssiToSync = JEEPACKET16;
+#elif F_CPU == 8000000UL
+		rfapi.RssiToSync = JEEPACKET8;
+#endif
     }
 }
 
@@ -651,8 +659,8 @@ second rollover and then will be 1.024 mS out.
                         afc  = readReg(REG_AFCMSB);
                         afc  = (afc << 8) | readReg(REG_AFCLSB);                      
                         break;
-                    } else if (RssiToSync++ == 230) {
-                    /*  Timeout: MartynJ "Assuming you are using 5byte synch,
+                    } else if (RssiToSync++ == rfapi.RssiToSync) {
+/* CPU clock dependant: Timeout: MartynJ "Assuming you are using 5byte synch,
                         then it is just counting the bit times to find the 
                         minimum i.e. 0.02uS per bit x 6bytes is 
                         about 1mS minimum."

@@ -793,7 +793,7 @@ static void handleInput (char c) {
         case '+': // Increment hardware dependant RF offset
             if (value) {
                 if (((config.frequency_offset + config.matchingRF + value) > 95) 
-                  && ((config.frequency_offset + config.matchingRF + value) < 3904)) { // supported by RFM12B              
+                  && (config.frequency_offset + config.matchingRF + value) < 3904) { // supported by RFM12B              
                     config.matchingRF = config.matchingRF + value;
                     Serial.println(config.matchingRF);
                     saveConfig();
@@ -810,7 +810,7 @@ static void handleInput (char c) {
         case '-': // Increment hardware dependant RF offset
             if (value) {
                 if (((config.frequency_offset + config.matchingRF - value) > 95) 
-                  && ((config.frequency_offset + config.matchingRF - value) < 3904)) { // supported by RFM12B              
+                  && (config.frequency_offset + config.matchingRF - value) < 3904) { // supported by RFM12B              
                     config.matchingRF = config.matchingRF - value;
                     Serial.println(config.matchingRF);
                     saveConfig();
@@ -900,7 +900,8 @@ static void handleInput (char c) {
             RF69::control(REG_BITRATELSB | 0x80, 0x15);
             RF69::control(REG_BITFDEVMSB | 0x80, 0x04);                         // 75kHz freq shift
             RF69::control(REG_BITFDEVLSB | 0x80, 0xCE);
-    #else
+            rfapi.RssiToSync = SALUSPACKET16;
+   	#else
             rf12_control(RF12_DATA_RATE_2);                                     // 2.4kbps
             rf12_control(0x9830);                                               // 75khz freq shift
     #endif

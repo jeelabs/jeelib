@@ -1,6 +1,14 @@
 #ifndef RF69_h
 #define RF69_h
 
+#define JEEPACKET16 230			// Loop limiter in RF69::interrupt_compat
+#define SALUSPACKET16 3200		// ditto
+
+typedef struct {
+	uint16_t RssiToSync;	//Count of loops after RSSI before a missed sync is triggered
+	} RF_API;
+	extern RF_API rfapi;	// Info interchange area
+    
 namespace RF69 {
     extern uint32_t frf;
     extern uint8_t  group;
@@ -42,7 +50,6 @@ namespace RF69 {
     extern uint8_t  IRQFLAGS2;
     extern uint8_t  DIOMAPPING1;
 
-    
     void setFrequency (uint32_t freq);
     uint8_t canSend (uint8_t clearAir);
     bool sending ();
