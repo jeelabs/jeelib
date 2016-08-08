@@ -136,17 +136,8 @@ namespace RF69 {
     uint8_t microOffset;
     uint16_t crc;
     uint8_t  rssi;
-    uint8_t  sendRSSI;
-    uint8_t  noiseFloorMin;
-    uint8_t  noiseFloorMax;
     uint8_t  rssiDelay;
     uint8_t  lastState;
-    uint16_t RssiToSync;
-    uint32_t RSSIrestart;
-    uint8_t rssiThreshold;
-    uint32_t rateInterval = 0; // Disabled by default, set this to 10000ms //
-    uint32_t maxRestartRate;
-    uint32_t restartRate;
     uint8_t  REGIRQFLAGS1;
     int16_t  afc;                  // I wonder how to make sure these 
     int16_t  fei;                  // are volatile
@@ -167,7 +158,6 @@ namespace RF69 {
     int8_t   payloadLen;
     uint16_t badLen;
     uint16_t packetShort;
-    uint16_t nestedInterrupts;
     uint8_t  IRQFLAGS2;
     uint8_t  DIOMAPPING1;
     }
@@ -187,6 +177,8 @@ static volatile uint16_t rst;
 static volatile uint32_t tfr;
 static volatile uint32_t previousMillis;
 static volatile uint32_t SYNCinterruptMillis;
+static volatile uint16_t RssiToSync;
+
 static volatile uint32_t restarts;
 static volatile uint8_t startRSSI;
 
@@ -342,17 +334,20 @@ void RF69::setFrequency (uint32_t freq) {
     // 868.0 MHz = 0xD90000, 868.3 MHz = 0xD91300, 915.0 MHz = 0xE4C000 
     frf = (((freq << 2) / (32000000L >> 11)) << 6) + microOffset;
     rf69_skip = 0;    // Ensure default Jeenode RF12 operation
-    noiseFloorMin = 255;
-    noiseFloorMax = 0;
+    
+	// Init RF API values
+    rfapi.len = sizeof rfapi;
+    rfapi.noiseFloorMin = 255;
+    rfapi.noiseFloorMax = 0;
 }
 
 uint8_t RF69::canSend (uint8_t clearAir) {
   if (((rxfill == 0) || (rxdone))) {
-        sendRSSI = currentRSSI();
-        if(sendRSSI >= clearAir) {
+        rfapi.sendRSSI = currentRSSI();
+        if(rfapi.sendRSSI >= clearAir) {
             setMode(MODE_STANDBY);
             rxstate = TXIDLE;
-            return sendRSSI;
+            return rfapi.sendRSSI;
         }
     }
     return false;
@@ -389,7 +384,7 @@ uint8_t RF69::currentRSSI() {
 
       writeReg(REG_DIOMAPPING1, 0x00);      // Mask most radio interrupts
       setMode(MODE_STANDBY);
-      writeReg(REG_RSSITHRESHOLD, 0xFF); // Max out threshold
+      writeReg(REG_RSSITHRESHOLD, 0xFF); 	// Max out threshold
       setMode(MODE_RECEIVER);   // Looses contents of FIFO and 36 spins
 
       rssiDelay = 0;
@@ -401,13 +396,13 @@ uint8_t RF69::currentRSSI() {
       writeReg(REG_AFCFEI, AFC_CLEAR);
       setMode(MODE_STANDBY);                        // Get out of RX mode
        
-      writeReg(REG_RSSITHRESHOLD, rssiThreshold);  // Restore threshold
+      writeReg(REG_RSSITHRESHOLD, rfapi.rssiThreshold);  // Restore threshold
       writeReg(REG_DIOMAPPING1, storeDIOM);         // Restore Interrupt trigger
       setMode(storedMode); // Restore mode
       
-      if (r > rssiThreshold) {
-          if (r < noiseFloorMin) noiseFloorMin = r;
-          if (r > noiseFloorMax) noiseFloorMax = r;
+      if (r > rfapi.rssiThreshold) {
+          if (r < rfapi.noiseFloorMin) rfapi.noiseFloorMin = r;
+          if (r > rfapi.noiseFloorMax) rfapi.noiseFloorMax = r;
       }
       return r;
       
@@ -433,7 +428,7 @@ void RF69::configure_compat () {
         writeReg(REG_FRFMSB+2, frf);
         setMode(MODE_STANDBY);
         writeReg(REG_OSC1, RcCalStart);             // Calibrate
-        while(!(readReg(REG_OSC1) & RcCalDone));    // Wait for completion
+    	while(!(readReg(REG_OSC1) & RcCalDone));    // Wait for completion
         writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
         rxstate = TXIDLE;
         present = 1;                                // Radio is present
@@ -449,6 +444,7 @@ uint8_t* recvBuf;
 
 uint32_t startRX;
 uint32_t ms;
+
 uint16_t RF69::recvDone_compat (uint8_t* buf) {
     switch (rxstate) {
     case TXIDLE:
@@ -462,16 +458,16 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         if (startRSSI >= 160 /*rssiThreshold*/) { // Don't start to RX in busy airwaves
             ms = millis();
             // Update restart rate
-            if ((rateInterval) && (previousMillis + rateInterval) < ms) {
-                restartRate = (((RSSIrestart - restarts) * 1000L) / 
+            if ((rfapi.rateInterval) && (previousMillis + rfapi.rateInterval) < ms) {
+                rfapi.restartRate = (((rfapi.RSSIrestart - restarts) * 1000L) / 
                   (ms - previousMillis));
                 previousMillis = ms;
-                if (restartRate) {
-                    if(rssiThreshold > 160) rssiThreshold--;
-                } else if((rssiThreshold < 250)) rssiThreshold++;        
-                if (restartRate > maxRestartRate)
-                  maxRestartRate = restartRate;                            
-                restarts = RSSIrestart;
+                if (rfapi.restartRate) {
+                    if(rfapi.rssiThreshold > 160) rfapi.rssiThreshold--;
+                } else if((rfapi.rssiThreshold < 250)) rfapi.rssiThreshold++;        
+                if (rfapi.restartRate > rfapi.maxRestartRate)
+                  rfapi.maxRestartRate = rfapi.restartRate;                            
+                restarts = rfapi.RSSIrestart;
             }
             // Prepare to receive
             writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
@@ -621,16 +617,7 @@ void RF69::interrupt_compat (uint8_t rssi_interrupt) {
 
 */
         interruptCount++;
-/*
-        if (reentry) {
-            nestedInterrupts++;
-            uint8_t f = readReg(REG_IRQFLAGS2);
-            if(f != 64) IRQFLAGS2 = f;
-                DIOMAPPING1 = readReg(REG_DIOMAPPING1);
-                return;
-        }   
-        reentry = true;
-*/
+
 /*
 micros() returns the hardware timer contents (which updates continuously), 
 plus a count of rollovers (ie. one rollover ever 1.024 mS). 
@@ -664,9 +651,9 @@ second rollover and then will be 1.024 mS out.
                         then it is just counting the bit times to find the 
                         minimum i.e. 0.02uS per bit x 6bytes is 
                         about 1mS minimum."
-                                                                              */
+                                                                */ // CPU clock dependant
                         writeReg(REG_AFCFEI, AFC_CLEAR);  // Clear Noise
-                        RSSIrestart++;
+                        rfapi.RSSIrestart++;
                         rxstate = TXIDLE;   // Cause a RX restart by FSM
                         return;
                     } // SyncMatch or Timeout 
@@ -676,7 +663,7 @@ second rollover and then will be 1.024 mS out.
             IRQ_ENABLE;       // allow nested interrupts from here on
             
             rtp = RssiToSync;
-            rst = RSSIrestart;
+            rst = rfapi.RSSIrestart;
             volatile uint8_t stillCollecting = true;
             rxP++;
             crc = ~0;
@@ -731,7 +718,6 @@ second rollover and then will be 1.024 mS out.
             writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
             rxstate = TXRECV;   // Restore state machine
 
-
 	    } else if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
           	writeReg(REG_TESTPA1, TESTPA1_NORMAL);    // Turn off high power 
           	writeReg(REG_TESTPA2, TESTPA2_NORMAL);    // transmit
@@ -744,8 +730,6 @@ second rollover and then will be 1.024 mS out.
           	if (group == 0) {               // Allow receiving from all groups
               writeReg(REG_SYNCCONFIG, fourByteSync);
           	}
-
-
 
         } else {
             // We get here when a interrupt that is not for RX completion.

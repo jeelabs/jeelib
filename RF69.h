@@ -5,7 +5,18 @@
 #define SALUSPACKET16 3200		// ditto
 
 typedef struct {
+
+	uint8_t	len;
 	uint16_t RssiToSync;	//Count of loops after RSSI before a missed sync is triggered
+    uint8_t  noiseFloorMin;
+    uint8_t  noiseFloorMax;
+    uint8_t  sendRSSI;
+    uint32_t rateInterval;	// Disabled by default, set this to 10000ms
+    uint32_t RSSIrestart;
+    uint32_t maxRestartRate;
+    uint32_t restartRate;
+    uint8_t rssiThreshold;
+
 	} RF_API;
 	extern RF_API rfapi;	// Info interchange area
     
@@ -15,17 +26,8 @@ namespace RF69 {
     extern uint8_t  node;
     extern uint8_t microOffset;
     extern uint8_t  rssi;
-    extern uint8_t  sendRSSI;
-    extern uint8_t noiseFloorMin;
-    extern uint8_t noiseFloorMax;
     extern uint8_t  rssiDelay;
     extern uint8_t lastState;
-    extern uint16_t RssiToSync;
-    extern uint32_t RSSIrestart;
-    extern uint32_t restartRate;
-    extern uint8_t rssiThreshold;
-    extern uint32_t maxRestartRate;
-    extern uint32_t rateInterval;
     extern uint8_t REGIRQFLAGS1;
     extern int16_t  afc;
     extern int16_t  fei;
@@ -46,7 +48,6 @@ namespace RF69 {
     extern int8_t   payloadLen;
     extern uint16_t badLen;
     extern uint16_t packetShort;
-    extern uint16_t nestedInterrupts;
     extern uint8_t  IRQFLAGS2;
     extern uint8_t  DIOMAPPING1;
 
