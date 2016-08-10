@@ -170,7 +170,7 @@ static volatile uint16_t discards;   // Count of packets discarded
 static volatile uint8_t reentry = false;
 static volatile uint8_t rf69_skip;   // header bytes to skip
 static volatile uint8_t rf69_fix;    // Maximum for fixed length packet
-static volatile uint8_t rf69_afc;    
+//static volatile uint8_t rf69_afc;    
 static volatile uint16_t delayTXRECV;
 static volatile uint16_t rtp;
 static volatile uint16_t rst;
@@ -388,17 +388,18 @@ uint8_t RF69::currentRSSI() {
       setMode(MODE_RECEIVER);   // Looses contents of FIFO and 36 spins
 
       rssiDelay = 0;
-      writeReg(REG_RSSICONFIG, RssiStart);
+      writeReg(REG_RSSICONFIG, RssiStart);	// Trigger an RSSI measurement
       while (!(readReg(REG_IRQFLAGS1) & IRQ1_RSSI)) {
           rssiDelay++;
       }
       uint8_t r = readReg(REG_RSSIVALUE);           // Collect RSSI value
       writeReg(REG_AFCFEI, AFC_CLEAR);
+      writeReg(REG_RSSITHRESHOLD, 0x00);  			// Clear threshold
       setMode(MODE_STANDBY);                        // Get out of RX mode
        
       writeReg(REG_RSSITHRESHOLD, rfapi.rssiThreshold);  // Restore threshold
       writeReg(REG_DIOMAPPING1, storeDIOM);         // Restore Interrupt trigger
-      setMode(storedMode); // Restore mode
+      setMode(storedMode); 							// Restore mode
       
       if (r > rfapi.rssiThreshold) {
           if (r < rfapi.noiseFloorMin) rfapi.noiseFloorMin = r;
@@ -459,14 +460,18 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
             ms = millis();
             // Update restart rate
             if ((rfapi.rateInterval) && (previousMillis + rfapi.rateInterval) < ms) {
+            
                 rfapi.restartRate = (((rfapi.RSSIrestart - restarts) * 1000L) / 
-                  (ms - previousMillis));
+                  												(ms - previousMillis));
+                  
                 previousMillis = ms;
-                if (rfapi.restartRate) {
-                    if(rfapi.rssiThreshold > 160) rfapi.rssiThreshold--;
-                } else if((rfapi.rssiThreshold < 250)) rfapi.rssiThreshold++;        
-                if (rfapi.restartRate > rfapi.maxRestartRate)
-                  rfapi.maxRestartRate = rfapi.restartRate;                            
+                if (rfapi.restartRate) {                
+                    	if (rfapi.rssiThreshold > 160) { rfapi.rssiThreshold--;} 
+                } else	if(rfapi.rssiThreshold < 250) { rfapi.rssiThreshold++; } 
+                    
+                if (rfapi.restartRate > rfapi.maxRestartRate) { 
+              		rfapi.maxRestartRate = rfapi.restartRate;
+                }                      
                 restarts = rfapi.RSSIrestart;
             }
             // Prepare to receive
@@ -522,9 +527,11 @@ void RF69::fix_len (uint8_t fix) {
     rf69_fix = fix;
 }
 
+/*
 void RF69::afc_mode (uint8_t afc) {
     rf69_afc = afc;
 }
+*/
 
 uint16_t rf69_status () {
     return (rxstate << 8) | rxfill;   
@@ -652,7 +659,8 @@ second rollover and then will be 1.024 mS out.
                         minimum i.e. 0.02uS per bit x 6bytes is 
                         about 1mS minimum."
                                                                 */ // CPU clock dependant
-                        writeReg(REG_AFCFEI, AFC_CLEAR);  // Clear Noise
+      					writeReg(REG_DIOMAPPING1, 0x00); // Mask most radio interrupts
+            			setMode(MODE_STANDBY);
                         rfapi.RSSIrestart++;
                         rxstate = TXIDLE;   // Cause a RX restart by FSM
                         return;
@@ -697,7 +705,7 @@ second rollover and then will be 1.024 mS out.
                     packetBytes++;
                     crc = _crc16_update(crc, in);              
                     if (rxfill >= (payloadLen + (5 - rf69_skip))) {  // Trap end of payload
-                        if (rf69_afc & 0x80) writeReg(REG_AFCFEI, AFC_CLEAR);
+                        writeReg(REG_AFCFEI, AFC_CLEAR);
                         setMode(MODE_STANDBY);  // Get radio out of RX mode
                         stillCollecting = false;
                         break;
@@ -712,7 +720,7 @@ second rollover and then will be 1.024 mS out.
                 packetShort++;
             }    
             tfr =  (micros() - startRX);
-            if (rf69_afc & 0x80) writeReg(REG_AFCFEI, AFC_CLEAR);
+            writeReg(REG_AFCFEI, AFC_CLEAR);
             setMode(MODE_STANDBY);
             rxdone = true;      // force TXRECV in RF69::recvDone_compat       
             writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO

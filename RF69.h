@@ -7,15 +7,15 @@
 typedef struct {
 
 	uint8_t	len;
-	uint16_t RssiToSync;	//Count of loops after RSSI before a missed sync is triggered
+    uint8_t rssiThreshold;
     uint8_t  noiseFloorMin;
     uint8_t  noiseFloorMax;
     uint8_t  sendRSSI;
+	uint16_t RssiToSync;	//Count of loops after RSSI before a missed sync is triggered
     uint32_t rateInterval;	// Disabled by default, set this to 10000ms
     uint32_t RSSIrestart;
     uint32_t maxRestartRate;
     uint32_t restartRate;
-    uint8_t rssiThreshold;
 
 	} RF_API;
 	extern RF_API rfapi;	// Info interchange area
@@ -66,7 +66,6 @@ namespace RF69 {
 /// Default value 2 skips the Jeelib header enabling non-Jeelib FSK packets 
     void skip_hdr (uint8_t skip = 2);
     void fix_len (uint8_t skip = 16);
-    void afc_mode (uint8_t afc);
     void sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len);
     void RSSIinterrupt();
     void interrupt_compat(uint8_t RSSI_INTERRUPT);

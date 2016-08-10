@@ -1390,8 +1390,6 @@ memset(pktCount,0,sizeof(pktCount));
           
     }
 
-    rf12_afc_mode(RF12_CENTRAL);       
-    
     stickyGroup = config.group;
     if (!(stickyGroup)) stickyGroup = 212;
 

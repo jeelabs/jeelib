@@ -211,10 +211,6 @@ void rf69_fix_len (uint8_t fix) {
     RF69::fix_len (fix);
 }
 
-void rf69_afc_mode (uint8_t afc) {
-    RF69::afc_mode (afc);
-}
-
 void rf69_sendStart (uint8_t hdr, const void* ptr, uint8_t len) {
     RF69::sendStart_compat(hdr, ptr, len);
 }
