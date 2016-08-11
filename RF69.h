@@ -7,10 +7,14 @@
 typedef struct {
 
 	uint8_t	len;
+	uint8_t	configThreshold;
     uint8_t rssiThreshold;
-    uint8_t  noiseFloorMin;
-    uint8_t  noiseFloorMax;
-    uint8_t  sendRSSI;
+    uint8_t	noiseFloorMin;
+    uint8_t	noiseFloorMax;
+    uint8_t	sendRSSI;
+    uint8_t	setmode;
+    uint8_t	irqflags1;
+    uint8_t	mode;
 	uint16_t RssiToSync;	//Count of loops after RSSI before a missed sync is triggered
     uint32_t rateInterval;	// Disabled by default, set this to 10000ms
     uint32_t RSSIrestart;

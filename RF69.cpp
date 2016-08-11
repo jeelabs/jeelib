@@ -270,7 +270,7 @@ static void flushFifo () {
         readReg(REG_FIFO);
 }
 
-uint8_t setMode (uint8_t mode) {
+uint8_t setMode (uint8_t mode) {	// TODO enhance return code
     uint8_t c = 0;
     if (mode >= MODE_FS) {
         uint8_t s = readReg(REG_DIOMAPPING1);// Save Interrupt triggers
@@ -290,7 +290,7 @@ uint8_t setMode (uint8_t mode) {
             c++; if (c >= 254) break;
         }
     }
-    return c;
+    return c;	// May need to beef this up since sometimes we don't appear to setmode correctly
 }
 
 static uint8_t initRadio (ROM_UINT8* init) {
@@ -448,8 +448,8 @@ uint32_t ms;
 
 uint16_t RF69::recvDone_compat (uint8_t* buf) {
     switch (rxstate) {
+    
     case TXIDLE:
-                        
         rxdone = false;
         rxfill = rf69_buf[2] = 0;
         crc = _crc16_update(~0, group);
@@ -473,17 +473,22 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
               		rfapi.maxRestartRate = rfapi.restartRate;
                 }                      
                 restarts = rfapi.RSSIrestart;
+                
             }
             // Prepare to receive
             writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
             rf12_drx = delayTXRECV;
             writeReg(REG_DIOMAPPING1, (DIO0_RSSI /*| DIO3_RSSI  DIO0_SYNCADDRESS*/));// Interrupt triggers
-            setMode(MODE_RECEIVER);
+      		writeReg(REG_LNA, 0x00); 			// 
+            rfapi.setmode = setMode(MODE_RECEIVER);
             rxstate = TXRECV;
             writeReg(REG_AFCFEI, AFC_CLEAR);
             startRX = micros();
+            rfapi.mode = readReg(REG_OPMODE);
+            rfapi.irqflags1 = readReg(REG_IRQFLAGS1);
         } else delayTXRECV++; // Loops waiting for clear air before RX mode 
         break;
+        
     case TXRECV:
         if (rxdone) {            
             // Move attributes & packet into rf12_buf
@@ -659,10 +664,17 @@ second rollover and then will be 1.024 mS out.
                         minimum i.e. 0.02uS per bit x 6bytes is 
                         about 1mS minimum."
                                                                 */ // CPU clock dependant
-      					writeReg(REG_DIOMAPPING1, 0x00); // Mask most radio interrupts
+      					writeReg(REG_DIOMAPPING1, 0x00);	// Mask most radio interrupts
+      					writeReg(REG_LNA, 0x06); 			// Minimise LNA gain
+      					writeReg(REG_RSSITHRESHOLD, 0x00); 	// Clear RSSI threshold
             			setMode(MODE_STANDBY);
                         rfapi.RSSIrestart++;
                         rxstate = TXIDLE;   // Cause a RX restart by FSM
+                        delay(1);
+						if ((rfapi.rateInterval) && (rfapi.rssiThreshold
+						 					>= (rfapi.configThreshold + 2))) { 
+							rfapi.rssiThreshold = rfapi.rssiThreshold - 2;
+						} 
                         return;
                     } // SyncMatch or Timeout 
                 } //  while

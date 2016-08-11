@@ -638,7 +638,6 @@ static void showStatus() {
     printOneChar(',');
     Serial.print(RF69::unexpectedMode);
     printOneChar(']');
-//    Serial.print(RF69::nestedInterrupts);
     printOneChar(',');
     Serial.print(RF69::IRQFLAGS2);
     printOneChar(',');
@@ -1283,6 +1282,8 @@ void resetFlagsInit(void)
 
 void setup () {
 
+    delay(1000);
+
 //  clrConfig();
   
 #if TINY
@@ -1292,8 +1293,6 @@ void setup () {
     pinMode(_receivePin, INPUT);        // PA2 - doesn't work if before the PCMSK0 line
     digitalWrite(_receivePin, HIGH);    // pullup!
   
-    delay(100); // shortened for now. Handy with JeeNode Micro V1 where ISP
-                // interaction can be upset by RF12B startup process.    
 #endif
     Serial.begin(SERIAL_BAUD);
     displayVersion();
@@ -1323,11 +1322,6 @@ void setup () {
 #endif
 #if defined PRR2
     PRR1 |= (1 << PRTIM3);  // 1284P
-#endif
-
-#if TINY
-    delay(100);    // shortened for now. Handy with JeeNode Micro V1 where ISP
-                  // interaction can be upset by RF12B startup process.
 #endif
 
 // Consider adding the following equivalents for RFM12x
@@ -2148,10 +2142,12 @@ void loop () {
               else activityLed(1);
               
               if (config.verbosity & 1) {
-                  showString(PSTR("Restart#"));
+                  showString(PSTR("RX restart#"));
                   Serial.print(r);
                   printOneChar('@');
                   Serial.print(rfapi.restartRate);
+                  printOneChar('t');
+                  Serial.print(rfapi.rssiThreshold);
                   printOneChar(':');
                   Serial.print(rf12_drx);
                   printOneChar('(');
@@ -2159,7 +2155,7 @@ void loop () {
                   printOneChar(',');
                   Serial.print(RF69::fei);
                   printOneChar(',');
-                  Serial.print((RF69::lna >> 3));
+                  Serial.print((RF69::lna /* >> 3 */));
                   printOneChar(',');
                   Serial.print(RF69::rssi);
                   printOneChar(')');
@@ -2180,7 +2176,13 @@ void loop () {
                   printOneChar(')');
                   Serial.print(rfapi.restartRate);
                   printOneChar('m');
-                  Serial.println(rfapi.maxRestartRate);
+                  Serial.print(rfapi.maxRestartRate);
+                  printOneChar('*');
+                  Serial.print(rfapi.setmode);
+                  printOneChar('*');
+                  Serial.print(rfapi.irqflags1);
+                  printOneChar('*');
+                  Serial.println(rfapi.mode);
               }
         lastrssiThreshold = rfapi.rssiThreshold;     
         }
