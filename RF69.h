@@ -7,6 +7,12 @@
 typedef struct {
 
 	uint8_t	len;
+    uint32_t rateInterval;	// Disabled by default, set this to 10000ms
+    uint32_t RSSIrestart;
+    uint32_t notNoise;
+    uint32_t maxRestartRate;
+    uint32_t restartRate;
+	uint16_t RssiToSync;	//Count of loops after RSSI before a missed sync is triggered
 	uint8_t	configThreshold;
     uint8_t rssiThreshold;
     uint8_t	noiseFloorMin;
@@ -15,11 +21,6 @@ typedef struct {
     uint8_t	setmode;
     uint8_t	irqflags1;
     uint8_t	mode;
-	uint16_t RssiToSync;	//Count of loops after RSSI before a missed sync is triggered
-    uint32_t rateInterval;	// Disabled by default, set this to 10000ms
-    uint32_t RSSIrestart;
-    uint32_t maxRestartRate;
-    uint32_t restartRate;
 
 	} RF_API;
 	extern RF_API rfapi;	// Info interchange area

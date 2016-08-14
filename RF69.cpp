@@ -215,8 +215,8 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 // 0x11, 0x5F, // PA1 enable, Pout = max // uncomment this for RFM69H
 */
 //  0x18, 0x02, // Manual LNA = 2 = -6dB
-  0x19, 0x42, // RxBw 125 KHz
-  0x1A, 0x42, // AfcBw 125 KHz Channel filter BW 
+  0x19, 0xE2, // RxBw 125 KHz, if DCC set to 0 is more sensitive
+  0x1A, 0xF7, // RxBwAFC 2.6 Khz Only handling initial RSSI phase, not payload!
 //  0x19, 0x42, // RxBw 125 KHz
 //  0x1A, 0x51, // AfcBw 166.7 KHz Channel filter BW
   0x1E, 0x00,
@@ -620,7 +620,15 @@ condition is met to transmit the packet data.
     rxstate = TXIDLE;
 */
 }
-
+/*bool maskRestart (int freq) {
+	if(!(freq)) return false;
+	int* p = &rfapi.maskFreq[0];
+	for (uint8_t c = 0; c < 8; ++c) {
+		if (p[c] == freq) return true;
+	} 
+	return false;
+}
+*/
 void RF69::interrupt_compat (uint8_t rssi_interrupt) {
 /*
   This interrupt service routine retains control for far too long. However,
@@ -664,17 +672,20 @@ second rollover and then will be 1.024 mS out.
                         minimum i.e. 0.02uS per bit x 6bytes is 
                         about 1mS minimum."
                                                                 */ // CPU clock dependant
-      					writeReg(REG_DIOMAPPING1, 0x00);	// Mask most radio interrupts
-      					writeReg(REG_LNA, 0x06); 			// Minimise LNA gain
-      					writeReg(REG_RSSITHRESHOLD, 0x00); 	// Clear RSSI threshold
-            			setMode(MODE_STANDBY);
-                        rfapi.RSSIrestart++;
                         rxstate = TXIDLE;   // Cause a RX restart by FSM
-                        delay(1);
-						if ((rfapi.rateInterval) && (rfapi.rssiThreshold
-						 					>= (rfapi.configThreshold + 2))) { 
-							rfapi.rssiThreshold = rfapi.rssiThreshold - 2;
-						} 
+                        if (rssi > (rfapi.rssiThreshold - 20)) {	
+                        	// Adjust RSSI if in noise region
+                	        rfapi.RSSIrestart++;
+	      					writeReg(REG_DIOMAPPING1, 0x00);	// Mask most radio interrupts
+    	  					writeReg(REG_LNA, 0x06); 			// Minimise LNA gain
+      						writeReg(REG_RSSITHRESHOLD, 0x00); 	// Clear RSSI threshold
+            				setMode(MODE_STANDBY);
+                    	    delay(1);
+							if ((rfapi.rateInterval) && (rfapi.rssiThreshold
+						 						>= (rfapi.configThreshold + 2))) { 
+								rfapi.rssiThreshold = rfapi.rssiThreshold - 2;
+							} /* else { rfapi.rssiThreshold--; } */
+						} else rfapi.notNoise++;
                         return;
                     } // SyncMatch or Timeout 
                 } //  while

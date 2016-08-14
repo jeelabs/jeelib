@@ -589,7 +589,9 @@ static void showStatus() {
     Serial.print(rfapi.restartRate);
     printOneChar('m');
     Serial.print(rfapi.maxRestartRate);
-    showString(PSTR("/s, Noise Floor "));
+    showString(PSTR("/s notNoise "));
+    Serial.print(rfapi.notNoise);
+    showString(PSTR(" Noise Floor "));
     Serial.print(rfapi.noiseFloorMin);
     printOneChar('/');
     Serial.print(rfapi.rssiThreshold);
@@ -1093,14 +1095,21 @@ static void handleInput (char c) {
             
             // Show and set RFMxx registers
             if ((top == 2) & ((stack[0] == 128) || (stack[0] == 0))) {
+            	showByte(stack[1]);
 #if RF69_COMPAT
+            	printOneChar('=');
 /* Example usage: 1x        // Switch into hex input mode (optional, adjust values below accordingly)
 //                80,A9,E4n  // 0x80 (write bit) + 0x29 (RSSI Threshold) == 0xA9; E4 (default RSSI threshold); n = node command
 //                80,91,80n  // 0x80 (write bit) + 0x11 (Output power) == 0x91; 80 (PA0 transmit power minimum); n = node command
 //                x         // Save certain registers in eeprom and revert to decimal mode
 */
                 showByte(RF69::control((stack[1] | stack[0]), value)); // Prints out Register value before any change requested.
+				if (stack[0] == 128) {
+            		printOneChar('>');
+            		showByte(value);
+				}
 #else
+
                 Serial.print((word)(rf12_control(value)));
 #endif
             }
@@ -1151,7 +1160,7 @@ static void handleInput (char c) {
             }
             if (value == 255) {
 
-                clrNodeStore;
+//                clrNodeStore;
 
                 showString(PSTR("Watchdog enabled, restarting\n"));
                 WDTCSR |= _BV(WDE);
@@ -2101,6 +2110,7 @@ void loop () {
                 }
                 crlf = true;
                 delay(config.ackDelay);          // changing into TX mode is quicker than changing into RX mode for RF69.     
+                showString(PSTR("TX "));
                 byte r = rf12_canSend(config.clearAir);
 #if RF69_COMPAT && !TINY
                 Serial.print(rfapi.sendRSSI);
@@ -2177,12 +2187,15 @@ void loop () {
                   Serial.print(rfapi.restartRate);
                   printOneChar('m');
                   Serial.print(rfapi.maxRestartRate);
+                  /*
                   printOneChar('*');
                   Serial.print(rfapi.setmode);
                   printOneChar('*');
                   Serial.print(rfapi.irqflags1);
                   printOneChar('*');
-                  Serial.println(rfapi.mode);
+                  Serial.print(rfapi.mode);
+                  */
+                  Serial.println();
               }
         lastrssiThreshold = rfapi.rssiThreshold;     
         }
@@ -2194,6 +2207,7 @@ void loop () {
         r = rf12_canSend(config.clearAir);
         if (r) {
             activityLed(1);
+            showString(PSTR("TX "));
             Serial.print(r);
             showString(PSTR(" -> "));
             showByte(sendLen);
@@ -2223,7 +2237,7 @@ void loop () {
 #if RF69_COMPAT && !TINY
             Serial.print(rfapi.sendRSSI);
 #endif            
-            showString(PSTR(" Busy 0x"));             // Not ready to send
+            showString(PSTR("TX Busy 0x"));             // Not ready to send
             Serial.println(s, HEX);
             busyCount++;
             if ((++sendRetry & 3) == 0) {
