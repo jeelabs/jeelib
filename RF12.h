@@ -21,33 +21,31 @@
 #define rf12_grp        rf12_buf[0]
 
 #if RF12_COMPAT
-#define rf12_len        (rf12_buf[1] - 2)
-#define rf12_dst        rf12_buf[2]       // parity bits and dest addr
-#define rf12_hdr        rf12_buf[3]       // flag bits and origin addr
-#define rf12_data       (rf12_buf + 4)
+	#define rf12_len        (rf12_buf[1] - 2)
+	#define rf12_dst        rf12_buf[2]       // parity bits and dest addr
+	#define rf12_hdr        rf12_buf[3]       // flag bits and origin addr
+	#define rf12_data       (rf12_buf + 4)
 
-#define RF12_HDR_CTL    0x80
-#define RF12_HDR_DST    0     // never set in native RF69 packets
-#define RF12_HDR_ACK    0x40
-#define RF12_HDR_MASK   0x3F
+	#define RF12_HDR_CTL    0x80
+	#define RF12_HDR_DST    0     // never set in native RF69 packets
+	#define RF12_HDR_ACK    0x40
+	#define RF12_HDR_MASK   0x3F
 #else
+	/// Shorthand for RFM12B header byte in rf12_buf.
+	#define rf12_hdr        rf12_buf[1]
+	/// Shorthand for RFM12B length byte in rf12_buf.
+	#define rf12_len        rf12_buf[2]
+	/// Shorthand for first RFM12B data byte in rf12_buf.
+	#define rf12_data       (rf12_buf + 3)
 
-/// Shorthand for RFM12B header byte in rf12_buf.
-#define rf12_hdr        rf12_buf[1]
-/// Shorthand for RFM12B length byte in rf12_buf.
-#define rf12_len        rf12_buf[2]
-/// Shorthand for first RFM12B data byte in rf12_buf.
-#define rf12_data       (rf12_buf + 3)
-
-/// RFM12B CTL bit mask.
-#define RF12_HDR_CTL    0x80
-/// RFM12B DST bit mask.
-#define RF12_HDR_DST    0x40
-/// RFM12B ACK bit mask.
-#define RF12_HDR_ACK    0x20
-/// RFM12B HDR bit mask.
-#define RF12_HDR_MASK   0x1F
-
+	/// RFM12B CTL bit mask.
+	#define RF12_HDR_CTL    0x80
+	/// RFM12B DST bit mask.
+	#define RF12_HDR_DST    0x40
+	/// RFM12B ACK bit mask.
+	#define RF12_HDR_ACK    0x20
+	/// RFM12B HDR bit mask.
+	#define RF12_HDR_MASK   0x1F
 #endif
 
 /// RFM12B Maximum message size in bytes.

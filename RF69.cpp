@@ -507,7 +507,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
             rf12_crc = crc;
             rxstate = TXIDLE;
 
-            if (crc == 0) {
+            if (rf12_crc == 0) {
                 if (!(rf69_hdr & RF12_HDR_DST) || node == 31 ||
                     (rf69_hdr & RF12_HDR_MASK) == node) {
                     return 0; // it's for us, good packet received
@@ -552,6 +552,7 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
 
     rxstate = - (2 + rf12_len); // preamble and SYN1/SYN2 are sent by hardware
     flushFifo();
+    writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
     
 /*  All packets are transmitted with a 4 byte header SYN1/SYN2/2D/Group  
     even when the group is zero                                               */
@@ -604,7 +605,7 @@ condition is met to transmit the packet data.
 /*  At this point packet is typically in the FIFO but not fully transmitted.
     transmission complete will be indicated by an interrupt.                   
 */
-/* Reinstated interrupt code for TX completion
+	/* Reinstated interrupt code for TX completion
     while (!(readReg(REG_IRQFLAGS2) & (IRQ2_PACKETSENT))) {
         _delay_loop_1(5);
         }
@@ -618,8 +619,8 @@ condition is met to transmit the packet data.
           writeReg(REG_SYNCCONFIG, threeByteSync);
     }
     rxstate = TXIDLE;
-*/
-}
+	*/
+	}
 /*bool maskRestart (int freq) {
 	if(!(freq)) return false;
 	int* p = &rfapi.maskFreq[0];
