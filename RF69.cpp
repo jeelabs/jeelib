@@ -452,7 +452,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
     case TXIDLE:
         rxdone = false;
         rxfill = rf69_buf[2] = 0;
-        crc = _crc16_update(~0, group);
+      //  crc = _crc16_update(~0, group);
         recvBuf = buf;
         setMode(MODE_STANDBY);
         startRSSI = currentRSSI();
@@ -549,7 +549,6 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
     for (int i = 0; i < len; ++i)
         rf12_data[i] = ((const uint8_t*) ptr)[i];
     rf12_hdr = hdr & RF12_HDR_DST ? hdr : (hdr & ~RF12_HDR_MASK) + node; 
-
     rxstate = - (2 + rf12_len); // preamble and SYN1/SYN2 are sent by hardware
     flushFifo();
     writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
@@ -600,6 +599,7 @@ condition is met to transmit the packet data.
             writeReg(REG_FIFO, out);
             ++rxstate;
         }
+
 //        writeReg(REG_FIFOTHRESH, START_TX);     // if < 32 bytes, release FIFO
                                                   // for transmission
 /*  At this point packet is typically in the FIFO but not fully transmitted.
@@ -702,21 +702,23 @@ second rollover and then will be 1.024 mS out.
             packetBytes = 0;
             payloadLen = rf69_fix; // Assumed value if no Jee header used            
 
+            if (group) { 
+            	recvBuf[rxfill++] = group;
+            	packetBytes++;
+                crc = _crc16_update(~0, group);
+            } else crc = ~0;
+             
             for (;;) { // busy loop, to get each data byte as soon as it comes in 
                 if (readReg(REG_IRQFLAGS2) & 
                   (IRQ2_FIFONOTEMPTY /*| IRQ2_FIFOOVERRUN*/)) {
-                    if (rxfill == 0 && group != 0) { 
-                      recvBuf[rxfill++] = group;
-                      packetBytes++;
-                      crc = _crc16_update(crc, group);
-                    } 
                     volatile uint8_t in = readReg(REG_FIFO);
                     
                     if ((rxfill == 2) && (rf69_skip == 0)) {
                         if (in <= RF12_MAXDATA) {  // capture and
                             payloadLen = in;       // validate length byte
                         } else {
-                            recvBuf[rxfill++] = 0; // Set rf69_len to zero!
+                            recvBuf[rxfill++] = in; // Set rf69_len to zero!
+//                            recvBuf[rxfill++] = 0; // Set rf69_len to zero!
                             payloadLen = -2;       // skip CRC in payload
                             in = ~0;               // fake CRC 
                             recvBuf[rxfill++] = in;// into buffer
@@ -760,7 +762,7 @@ second rollover and then will be 1.024 mS out.
           	rxstate = TXIDLE;
           	// Restore sync bytes configuration
           	if (group == 0) {               // Allow receiving from all groups
-              writeReg(REG_SYNCCONFIG, fourByteSync);
+              writeReg(REG_SYNCCONFIG, threeByteSync);
           	}
 
         } else {

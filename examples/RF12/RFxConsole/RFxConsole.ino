@@ -1153,7 +1153,9 @@ static void handleInput (char c) {
 
         case 'z': // put the ATmega in ultra-low power mode (reset needed)
             if (value == 123) {
+            	clrConfig();
                 showString(PSTR(" Zzz...\n"));
+                Serial.flush();
                 rf12_sleep(RF12_SLEEP);
                 cli();
                 Sleepy::powerDown();
@@ -1291,7 +1293,7 @@ void resetFlagsInit(void)
 
 void setup () {
 
-    delay(1000);
+    delay(1500);
 
 //  clrConfig();
   
@@ -1373,6 +1375,7 @@ memset(pktCount,0,sizeof(pktCount));
     if (rf12_configSilent()) {
         loadConfig();
     } else {
+    	dumpEEprom();
         showString(INITFAIL);
         memset(&config, 0, sizeof config);
         config.nodeId = 0x9F;       // 868 MHz, node 31
@@ -1387,9 +1390,9 @@ memset(pktCount,0,sizeof(pktCount));
         config.clearAir = 160;      // 80dB
 #endif
         saveConfig();
-        config.defaulted = false;   // Value if UI saves config
-        if (!rf12_configSilent())
-          showString(INITFAIL);
+        WDTCSR |= _BV(WDE);			// Trigger watchdog restart
+//        if (!(rf12_configSilent()))
+//          showString(INITFAIL);
           
     }
 
@@ -1415,6 +1418,7 @@ static void clrConfig() {
         for (byte i = 0; i < sizeof config; i++) {
             eeprom_write_byte((RF12_EEPROM_ADDR) + i, 0xFF);
         }
+        showString(PSTR("Config cleared\n"));
 }
 
 static void clrNodeStore() {
@@ -1644,7 +1648,7 @@ void loop () {
         byte modeChange3 = RF69::modeChange3;
 #endif
 #if RF69_COMPAT && !TINY                // At this point the radio is in Standby
-        rf12_recvDone();                // Attempt to buffer next RF packet
+//        rf12_recvDone();                // Attempt to buffer next RF packet
                                         // At this point the receiver is active
         observedRX.afc = rf12_afc;
         observedRX.fei = rf12_fei;
@@ -1663,10 +1667,7 @@ void loop () {
         byte n = rf12_len; // Also output the CRC
         byte crc = false;
 
-        
-        if (watchNode) {
-            if ((rf12_hdr & RF12_HDR_MASK) != watchNode) return;
-        }
+        if ((watchNode) && ((rf12_hdr & RF12_HDR_MASK) != watchNode)) return;
         
         if (rf12_crc == 0) {
 #if STATISTICS && !TINY
@@ -1733,14 +1734,13 @@ void loop () {
             }            
 #endif
             
-            if (config.quiet_mode)
-                return;
+            if (config.quiet_mode) return;
+                
             crc = false;
             showString(PSTR("   ?"));
                 n = 16;
-//            if (n > 20) // print at most 20 bytes if crc is wrong
-//              n = 20;
         }
+        
         if (config.output & 0x1)
             printOneChar('X');
    // Compatibility with HouseMon v0.7.0     else printOneChar(' ');
@@ -2212,7 +2212,7 @@ void loop () {
             showString(PSTR(" -> "));
             showByte(sendLen);
             showString(PSTR(" b\n"));
-            byte header = cmd == 'a' ? RF12_HDR_ACK : 0;
+            byte header = (cmd == 'a' ? RF12_HDR_ACK : 0);
             if (dest)
                 header |= RF12_HDR_DST | dest;
 #if RF69_COMPAT && !TINY
@@ -2221,15 +2221,15 @@ void loop () {
             }
 #endif
             rf12_sendStart(header, stack, sendLen);
-            rf12_sendWait(1);  // Wait for transmission complete
 #if DEBUG            
-            for (byte i = 0; i < rf12_len + 2; i++) {;
-                showByte(rf12_buf[i]);
+            for (byte i = 0; i < rf12_len + 3; i++) {;
+                showByte(rf12_data[i]);
                 printOneChar(' ');
             }
             Serial.print((rf12_crc & 0x00FF), HEX);
             Serial.println((rf12_crc >> 8), HEX);
 #endif
+            rf12_sendWait(1);  // Wait for transmission complete
             cmd = 0;
             activityLed(0);
         } else { // rf12_canSend

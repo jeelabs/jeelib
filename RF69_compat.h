@@ -16,8 +16,10 @@
 extern volatile uint16_t rf69_crc;
 extern volatile uint8_t rf69_buf[72];
 
+#define rf69_grp			rf69_buf[0]
 #define rf69_hdr            rf69_buf[1]
 #define rf69_len            rf69_buf[2]
+
 #define rf12_seq            rf69_seq
                             
 #define rf12_set_cs         rf69_set_cs
