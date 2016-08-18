@@ -545,10 +545,10 @@ uint16_t rf69_status () {
 void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
 
 // Uses rf12_buf as the send buffer, rf69_buf reserved for RX
-    rf12_len = len;
     for (int i = 0; i < len; ++i)
         rf12_data[i] = ((const uint8_t*) ptr)[i];
     rf12_hdr = hdr & RF12_HDR_DST ? hdr : (hdr & ~RF12_HDR_MASK) + node; 
+    rf12_len = len;
     rxstate = - (2 + rf12_len); // preamble and SYN1/SYN2 are sent by hardware
     flushFifo();
     writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
@@ -714,11 +714,12 @@ second rollover and then will be 1.024 mS out.
                     volatile uint8_t in = readReg(REG_FIFO);
                     
                     if ((rxfill == 2) && (rf69_skip == 0)) {
+                    	rfapi.lastLen = in;
                         if (in <= RF12_MAXDATA) {  // capture and
                             payloadLen = in;       // validate length byte
                         } else {
-                            recvBuf[rxfill++] = in; // Set rf69_len to zero!
-//                            recvBuf[rxfill++] = 0; // Set rf69_len to zero!
+//                           recvBuf[rxfill++] = in; // Set rf69_len to zero!
+                            recvBuf[rxfill++] = 0; // Set rf69_len to zero!
                             payloadLen = -2;       // skip CRC in payload
                             in = ~0;               // fake CRC 
                             recvBuf[rxfill++] = in;// into buffer
@@ -766,7 +767,7 @@ second rollover and then will be 1.024 mS out.
           	}
 
         } else {
-            // We get here when a interrupt that is not for RX completion.
+            // We get here when a interrupt that is not for RX/TX completion.
             // Appears related to receiving noise when the bad CRC
             // packet display is enabled using "0q".
             unexpected++;
