@@ -509,8 +509,8 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
                 Serial.print(rf12_buf[i]); Serial.print(' ');
             }     
             rf12_crc = crc;
-            Serial.print(rf12_crc); Serial.print(' ');
-            Serial.println(rf12_len);
+            Serial.println(rf12_crc); Serial.print(' ');
+//            Serial.println(rf12_len);
             rxstate = TXIDLE;
 
             if (rf12_crc == 0) {
@@ -715,7 +715,8 @@ second rollover and then will be 1.024 mS out.
             	packetBytes++;
                 crc = _crc16_update(~0, group);
             } else crc = ~0;
-             delay(3);
+            
+//             delay(3);	// FIFO Underrun?
             for (;;) { // busy loop, to get each data byte as soon as it comes in 
                 if (readReg(REG_IRQFLAGS2) & 
                   (IRQ2_FIFONOTEMPTY /*| IRQ2_FIFOOVERRUN*/)) {
