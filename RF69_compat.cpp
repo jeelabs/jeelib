@@ -4,10 +4,10 @@
 #include <util/crc16.h>
 
 // maximum transmit / receive buffer: 3 header + data + 2 crc bytes
-#define RF_MAX   (RF12_MAXDATA + 5)
+#define RF_MAX   (RF69_MAXDATA + 5)
 
 volatile uint16_t rf69_crc;
-volatile uint8_t rf69_buf[72];
+volatile uint8_t rf69_buf[71];
 #define rf69_hdr            rf69_buf[1]
 
 

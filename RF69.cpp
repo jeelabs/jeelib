@@ -162,7 +162,7 @@ namespace RF69 {
     uint8_t  DIOMAPPING1;
     }
 
-static volatile uint8_t rxfill;      // number of data bytes in rf12_buf
+static volatile uint8_t rxfill;      // number of data bytes in buffer
 static volatile uint8_t rxdone;      // 
 static volatile int8_t rxstate;      // current transceiver state
 static volatile uint8_t packetBytes; // Count of bytes in packet
@@ -452,7 +452,6 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
     case TXIDLE:
         rxdone = false;
         rxfill = rf69_buf[2] = 0;
-      //  crc = _crc16_update(~0, group);
         recvBuf = buf;
         setMode(MODE_STANDBY);
         startRSSI = currentRSSI();
@@ -486,11 +485,15 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
             startRX = micros();
             rfapi.mode = readReg(REG_OPMODE);
             rfapi.irqflags1 = readReg(REG_IRQFLAGS1);
-        } else delayTXRECV++; // Loops waiting for clear air before RX mode 
+        } else delayTXRECV++; // Loops waiting for clear air before entering RX mode 
         break;
         
     case TXRECV:
-        if (rxdone) {            
+        if (rxdone) {
+            for (byte c = 0; c < 72; c++) {	// Clear receiving buffer
+                rf12_buf[c] = 0;
+            }     
+                    
             // Move attributes & packet into rf12_buf
             rf12_rssi = rssi;
             rf12_lna = lna;
@@ -501,10 +504,13 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
             rf12_rtp = rtp; // Delay between RSSI & Data Packet
             rf12_rst = rst; // Count of resets used to capture packet
             rf12_tfr = tfr; // Time to receive in microseconds
-            for (byte i = 0; i <= (rf69_len + 5); i++) {
+            for (byte i = 0; i <= (rf69_len + 3); i++) {
                 rf12_buf[i] = rf69_buf[i];
+                Serial.print(rf12_buf[i]); Serial.print(' ');
             }     
             rf12_crc = crc;
+            Serial.print(rf12_crc); Serial.print(' ');
+            Serial.println(rf12_len);
             rxstate = TXIDLE;
 
             if (rf12_crc == 0) {
@@ -549,7 +555,7 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
         rf12_data[i] = ((const uint8_t*) ptr)[i];
     rf12_hdr = hdr & RF12_HDR_DST ? hdr : (hdr & ~RF12_HDR_MASK) + node; 
     rf12_len = len;
-    rxstate = - (2 + rf12_len); // preamble and SYN1/SYN2 are sent by hardware
+    rxstate = - (2 + rf12_len);// Preamble/SYN1/SYN2/2D/Group are inserted by hardware
     flushFifo();
     writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
     
@@ -588,6 +594,7 @@ condition is met to transmit the packet data.
                 // rf12_buf used since rf69_buf is now reserved for RX
                 out = rf12_buf[3 + rf12_len + rf69_skip + rxstate];
                 crc = _crc16_update(crc, out);
+                Serial.print(out); Serial.print(' ');
             } else {
                 switch (rxstate) {
                     case TXCRC1: out = crc; break;
@@ -599,6 +606,7 @@ condition is met to transmit the packet data.
             writeReg(REG_FIFO, out);
             ++rxstate;
         }
+        Serial.println(rf12_len);
 
 //        writeReg(REG_FIFOTHRESH, START_TX);     // if < 32 bytes, release FIFO
                                                   // for transmission
@@ -707,7 +715,7 @@ second rollover and then will be 1.024 mS out.
             	packetBytes++;
                 crc = _crc16_update(~0, group);
             } else crc = ~0;
-             
+             delay(3);
             for (;;) { // busy loop, to get each data byte as soon as it comes in 
                 if (readReg(REG_IRQFLAGS2) & 
                   (IRQ2_FIFONOTEMPTY /*| IRQ2_FIFOOVERRUN*/)) {
@@ -718,13 +726,12 @@ second rollover and then will be 1.024 mS out.
                         if (in <= RF12_MAXDATA) {  // capture and
                             payloadLen = in;       // validate length byte
                         } else {
-//                           recvBuf[rxfill++] = in; // Set rf69_len to zero!
-                            recvBuf[rxfill++] = 0; // Set rf69_len to zero!
-                            payloadLen = -2;       // skip CRC in payload
-                            in = ~0;               // fake CRC 
-                            recvBuf[rxfill++] = in;// into buffer
-                            packetBytes+=2;        // don't trip underflow
-                            crc = 1;               // set bad CRC
+                            recvBuf[rxfill++] = 10; // Set rf69_len to zero!
+                            payloadLen = 10;       // skip CRC in payload
+//                            in = ~0;               // fake CRC 
+//                            recvBuf[rxfill++] = in;// into buffer
+ //                           packetBytes+=2;        // don't trip underflow
+//                            crc = 1;               // set bad CRC
                             badLen++;
                         }
                     }                    
@@ -733,6 +740,7 @@ second rollover and then will be 1.024 mS out.
                     crc = _crc16_update(crc, in);              
                     if (rxfill >= (payloadLen + (5 - rf69_skip))) {  // Trap end of payload
                         writeReg(REG_AFCFEI, AFC_CLEAR);
+	      				writeReg(REG_DIOMAPPING1, 0x00);	// Mask most radio interrupts
                         setMode(MODE_STANDBY);  // Get radio out of RX mode
                         stillCollecting = false;
                         break;
@@ -748,6 +756,7 @@ second rollover and then will be 1.024 mS out.
             }    
             tfr =  (micros() - startRX);
             writeReg(REG_AFCFEI, AFC_CLEAR);
+	      	writeReg(REG_DIOMAPPING1, 0x00);	// Mask most radio interrupts
             setMode(MODE_STANDBY);
             rxdone = true;      // force TXRECV in RF69::recvDone_compat       
             writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO

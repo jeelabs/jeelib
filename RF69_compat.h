@@ -13,8 +13,9 @@
 
 //#define rf12_crc            rf69_crc
 //#define rf12_buf            rf69_buf
+#define	RF69_MAXDATA		66
 extern volatile uint16_t rf69_crc;
-extern volatile uint8_t rf69_buf[72];
+extern volatile uint8_t rf69_buf[RF69_MAXDATA + 5];
 
 #define rf69_grp			rf69_buf[0]
 #define rf69_hdr            rf69_buf[1]

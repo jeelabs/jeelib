@@ -865,7 +865,9 @@ static void handleInput (char c) {
         case 's': // send packet to node ID N, no ack
             cmd = c;
             sendLen = top;
-            dest = value;
+            Serial.println(top);
+            dest = (byte)value;
+            Serial.println(dest);
             break;
 
         case 'T': 
@@ -2024,7 +2026,7 @@ void loop () {
             }
             
 // Where requested, acknowledge broadcast packets - not directed packets
-// unless directed to to my nodeId
+// unless directed to this nodeId
             if ((RF12_WANTS_ACK && (config.collect_mode) == 0) && (!(rf12_hdr & RF12_HDR_DST))             
                || (rf12_hdr & (RF12_HDR_MASK | RF12_HDR_ACK | RF12_HDR_DST)) 
                == ((config.nodeId & 0x1F) | RF12_HDR_ACK | RF12_HDR_DST)) {
@@ -2217,7 +2219,7 @@ void loop () {
                 header |= RF12_HDR_DST | dest;
 #if RF69_COMPAT && !TINY
             if (config.group == 0) {
-                RF69::control(REG_SYNCGROUP | 0x80, stickyGroup);  // Set a group number to use for transmission
+//                RF69::control(REG_SYNCGROUP | 0x80, stickyGroup);  // Set a group number to use for transmission
             }
 #endif
             rf12_sendStart(header, stack, sendLen);
@@ -2237,7 +2239,7 @@ void loop () {
 #if RF69_COMPAT && !TINY
             Serial.print(rfapi.sendRSSI);
 #endif            
-            showString(PSTR("TX Busy 0x"));             // Not ready to send
+            showString(PSTR("TX Busy 0x"));           // Not ready to send
             Serial.println(s, HEX);
             busyCount++;
             if ((++sendRetry & 3) == 0) {

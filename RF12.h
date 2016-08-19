@@ -80,7 +80,7 @@
 /// Running crc value, should be zero at end.
 extern volatile uint16_t rf12_crc;
 /// Recv/xmit buf including hdr & crc bytes.
-extern volatile uint8_t rf12_buf[];
+extern volatile uint8_t rf12_buf[71];
 /// Seq number of encrypted packet (or -1).
 extern long rf12_seq;
 extern volatile uint8_t rf12_rssi;         // Only available with RFM69 hardware
