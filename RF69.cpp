@@ -506,10 +506,10 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
             rf12_tfr = tfr; // Time to receive in microseconds
             for (byte i = 0; i <= (rf69_len + 3); i++) {
                 rf12_buf[i] = rf69_buf[i];
-                Serial.print(rf12_buf[i]); Serial.print(' ');
+//                Serial.print(rf12_buf[i]); Serial.print(' ');
             }     
             rf12_crc = crc;
-            Serial.println(rf12_crc); Serial.print(' ');
+//            Serial.println(rf12_crc); Serial.print(' ');
 //            Serial.println(rf12_len);
             rxstate = TXIDLE;
 
@@ -594,7 +594,7 @@ condition is met to transmit the packet data.
                 // rf12_buf used since rf69_buf is now reserved for RX
                 out = rf12_buf[3 + rf12_len + rf69_skip + rxstate];
                 crc = _crc16_update(crc, out);
-                Serial.print(out); Serial.print(' ');
+//                Serial.print(out); Serial.print(' ');
             } else {
                 switch (rxstate) {
                     case TXCRC1: out = crc; break;
@@ -606,7 +606,7 @@ condition is met to transmit the packet data.
             writeReg(REG_FIFO, out);
             ++rxstate;
         }
-        Serial.println(rf12_len);
+//        Serial.println(rf12_len);
 
 //        writeReg(REG_FIFOTHRESH, START_TX);     // if < 32 bytes, release FIFO
                                                   // for transmission
@@ -716,7 +716,6 @@ second rollover and then will be 1.024 mS out.
                 crc = _crc16_update(~0, group);
             } else crc = ~0;
             
-//             delay(3);	// FIFO Underrun?
             for (;;) { // busy loop, to get each data byte as soon as it comes in 
                 if (readReg(REG_IRQFLAGS2) & 
                   (IRQ2_FIFONOTEMPTY /*| IRQ2_FIFOOVERRUN*/)) {
@@ -727,12 +726,8 @@ second rollover and then will be 1.024 mS out.
                         if (in <= RF12_MAXDATA) {  // capture and
                             payloadLen = in;       // validate length byte
                         } else {
-                            recvBuf[rxfill++] = 10; // Set rf69_len to zero!
-                            payloadLen = 10;       // skip CRC in payload
-//                            in = ~0;               // fake CRC 
-//                            recvBuf[rxfill++] = in;// into buffer
- //                           packetBytes+=2;        // don't trip underflow
-//                            crc = 1;               // set bad CRC
+                            recvBuf[rxfill++] = 10;// Set rf69_len to ten!
+                            payloadLen = 10;
                             badLen++;
                         }
                     }                    
@@ -788,14 +783,4 @@ second rollover and then will be 1.024 mS out.
             rxstate = TXIDLE;   // Cause a RX restart by FSM
         }
 //        reentry = false;
-}
-
-void RF69::interrupt_spare () {
-/*
-    digitalWrite(9, 1); // LED on
-    _delay_loop_2(0);
-    digitalWrite(9, 0); // LED off
-    _delay_loop_2(0);
-    return;
-*/
 }

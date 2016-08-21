@@ -1164,7 +1164,7 @@ static void handleInput (char c) {
             }
             if (value == 255) {
 
-//                clrNodeStore;
+//                clrNodeStore();
 
                 showString(PSTR("Watchdog enabled, restarting\n"));
                 WDTCSR |= _BV(WDE);
@@ -1417,16 +1417,17 @@ memset(pktCount,0,sizeof(pktCount));
 
 static void clrConfig() {
         // Clear Config eeprom
+        showString(PSTR("Clearing Config\n"));
         for (byte i = 0; i < sizeof config; i++) {
             eeprom_write_byte((RF12_EEPROM_ADDR) + i, 0xFF);
         }
-        showString(PSTR("Config cleared\n"));
 }
 
 static void clrNodeStore() {
         // Clear Node Store eeprom
-        for (unsigned int n = 0; n < MAX_NODES; n++) {
-            eeprom_write_byte((RF12_EEPROM_NODEMAP) + (n * 4), 0xFF);
+        showString(PSTR("Clearing NodeStore\n"));
+        for (unsigned int n = 0; n < 2016; n++) {
+            eeprom_write_byte((RF12_EEPROM_NODEMAP) + n, 0xFF);
         }
 }
 
@@ -1644,13 +1645,10 @@ void loop () {
         handleInput(Serial.read());
 #endif
     if (rf12_recvDone()) {
-#if DEBUG
-        byte modeChange1 = RF69::modeChange1;
-        byte modeChange2 = RF69::modeChange2;
-        byte modeChange3 = RF69::modeChange3;
-#endif
+
 #if RF69_COMPAT && !TINY                // At this point the radio is in Standby
-//        rf12_recvDone();                // Attempt to buffer next RF packet
+
+        rf12_recvDone();                // Attempt to buffer next RF packet
                                         // At this point the receiver is active
         observedRX.afc = rf12_afc;
         observedRX.fei = rf12_fei;
@@ -1735,6 +1733,13 @@ void loop () {
 //                return;
             }            
 #endif
+        	if ((rf12_hdr &  ~RF12_HDR_MASK) == (RF12_HDR_DST | RF12_HDR_ACK) &&
+          	  (rf12_hdr &  RF12_HDR_MASK) > 23) {
+          	  	showString(UNSUPPORTED);
+				showString(RFM69x);
+        		// RFM69 radio problem
+        		Serial.println();
+        	}  
             
             if (config.quiet_mode) return;
                 
@@ -1898,6 +1903,11 @@ void loop () {
             Serial.print(rf12_hdr & RF12_HDR_MASK);
             showString(PSTR(" len "));
             Serial.print(rf12_len);
+            if(rf12_len != rfapi.lastLen) {
+            	printOneChar('(');
+            	Serial.print(rfapi.lastLen);	// Show actual length received
+            	printOneChar(')');
+            }
 /*            printOneChar(' ');
             Serial.print(RF69::rssiChanged);  printOneChar('/'); Serial.print(RF69::lastState);
             printOneChar('/'); Serial.print(RF69::countRSSI);
