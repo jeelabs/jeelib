@@ -82,7 +82,7 @@ and doesn't receive unless forced to transmit.
 
 #define MAJOR_VERSION RF12_EEPROM_VERSION // bump when EEPROM layout changes
 #define MINOR_VERSION 0                   // bump on other non-trivial changes
-#define VERSION "\n[RFxConsole.2]"        // keep in sync with the above
+//#define VERSION "\n[RFxConsole.2]"        // keep in sync with the above
 #if !configSTRING
 #define rf12_configDump()                 // Omit A i1 g210 @ 868 MHz q1
 #endif
@@ -102,7 +102,7 @@ const char INITFAIL[] PROGMEM = "\nInit failed\n";
 const char RFM12x[] PROGMEM = "RFM12x ";
 const char RFM69x[] PROGMEM = "RFM69x ";
 const char BLOC[] PROGMEM = "BLOCK ";
-const char UNSUPPORTED[] PROGMEM = "Unsupported ";
+const char UNSUPPORTED[] PROGMEM = "RX Unsupported ";
 const char DONE[] PROGMEM = "Done\n";
 
 #define SALUSFREQUENCY 1660       // Default value
@@ -205,7 +205,7 @@ static byte inChar () {
         #define LED_PIN     9        // activity LED, comment out to disable
     #endif
 #define messageStore  128
-#define MAX_NODES 25        // Contrained by RAM (9 bytes RAM per node)
+#define MAX_NODES 31        // Contrained by RAM (9 bytes RAM per node)
 #endif
 
 ISR(WDT_vect) { Sleepy::watchdogEvent(); }
@@ -706,7 +706,6 @@ static void handleInput (char c) {
     } else if (c > ' ') {
       
 // TODO Do we need the "else if" above    
-        config.RegRssiThresh = RF69::control(0x29, 0xA0);   // Pull the current RegRssiThresh from the radio
 
         switch (c) {
 
@@ -879,6 +878,7 @@ static void handleInput (char c) {
             break;
             
         case 'R': // Set hardware specific RX threshold in eeprom
+//        	config.RegRssiThresh = RF69::control(0x29, 0xA0);   // Pull the current RegRssiThresh from the radio
             config.RegRssiThresh = value;
             if (top == 1) {
                 config.rateInterval = stack[0];
@@ -1000,8 +1000,8 @@ static void handleInput (char c) {
                 fromR = sourceR;                // Points to next message length byte, if RAM
                 if ((sourceR) && (len)) {       // Is message in RAM?
                     byte valid = true;
-                    for (unsigned int i = 0; i <= MAX_NODES; i++) {                    // Scan for message in use
-                        if (semaphores[i] >= value && semaphores[i] <= topMessage) {   // If so, or higher then can't
+                    for (unsigned int i = 0; i < MAX_NODES; i++) {                    // Scan for message in use
+                        if ((semaphores[i] >= value) && (semaphores[i] <= topMessage)) {   // If so, or higher then can't
                             showString(PSTR("In use i"));
                             Serial.println((word) i);
                             valid = false;
@@ -1664,7 +1664,7 @@ void loop () {
             previousFEI = observedRX.fei;
         }
 #endif  
-        byte n = rf12_len; // Also output the CRC
+        byte n = rf12_len;
         byte crc = false;
 
         if ((watchNode) && ((rf12_hdr & RF12_HDR_MASK) != watchNode)) return;
@@ -1733,19 +1733,22 @@ void loop () {
 //                return;
             }            
 #endif
-        	if ((rf12_hdr &  ~RF12_HDR_MASK) == (RF12_HDR_DST | RF12_HDR_ACK) &&
-          	  (rf12_hdr &  RF12_HDR_MASK) > 23) {
+#if RF69_COMPAT
+        	if ((rf12_hdr &  ~RF12_HDR_MASK) == (RF12_HDR_DST | RF12_HDR_ACK) && 
+        	  ((rf12_hdr &  RF12_HDR_MASK) > 23) && (config.group != 0)) {
           	  	showString(UNSUPPORTED);
 				showString(RFM69x);
         		// RFM69 radio problem
-        		Serial.println();
+//        		Serial.println();
         	}  
+#endif
             
             if (config.quiet_mode) return;
                 
             crc = false;
             showString(PSTR("   ?"));
-                n = 16;
+            n = n + 2;	// Include potential CRC
+            if (n > 16) n = 16;
         }
         
         if (config.output & 0x1)
@@ -1903,11 +1906,13 @@ void loop () {
             Serial.print(rf12_hdr & RF12_HDR_MASK);
             showString(PSTR(" len "));
             Serial.print(rf12_len);
+#if RF69_COMPAT                        
             if(rf12_len != rfapi.lastLen) {
             	printOneChar('(');
             	Serial.print(rfapi.lastLen);	// Show actual length received
             	printOneChar(')');
             }
+#endif
 /*            printOneChar(' ');
             Serial.print(RF69::rssiChanged);  printOneChar('/'); Serial.print(RF69::lastState);
             printOneChar('/'); Serial.print(RF69::countRSSI);
@@ -2075,22 +2080,23 @@ void loop () {
                             byte* d = &stack[sizeof stack];
                             memcpy(d - (ackLen - 1), &observedRX, (ackLen - 1));
                             showString(PSTR("Node allocation "));
-                            crlf = true;
+//                            crlf = true;
                             showByte(rf12_grp);
                             printOneChar('g');
                             printOneChar(' ');
                             showByte(i);        
                             printOneChar('i');
-                            printOneChar(' ');
+//                            printOneChar(' ');
                             break;
                         }                            
                     }
                     if (!ackLen) {
                         showString(PSTR("No free node numbers in "));
-                        crlf = true;
+//                        crlf = true;
                         showByte(rf12_grp);
                         printOneChar('g');
                     }
+                Serial.println();                    
                 }
 #endif                    
 #if MESSAGING
@@ -2164,7 +2170,7 @@ void loop () {
               else activityLed(1);
               
               if (config.verbosity & 1) {
-                  showString(PSTR("RX restart#"));
+                  showString(PSTR("RX restart "));
                   Serial.print(r);
                   printOneChar('@');
                   Serial.print(rfapi.restartRate);

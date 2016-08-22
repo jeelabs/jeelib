@@ -167,10 +167,8 @@ static volatile uint8_t rxdone;      //
 static volatile int8_t rxstate;      // current transceiver state
 static volatile uint8_t packetBytes; // Count of bytes in packet
 static volatile uint16_t discards;   // Count of packets discarded
-static volatile uint8_t reentry = false;
 static volatile uint8_t rf69_skip;   // header bytes to skip
 static volatile uint8_t rf69_fix;    // Maximum for fixed length packet
-//static volatile uint8_t rf69_afc;    
 static volatile uint16_t delayTXRECV;
 static volatile uint16_t rtp;
 static volatile uint16_t rst;
@@ -490,10 +488,6 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         
     case TXRECV:
         if (rxdone) {
-            for (byte c = 0; c < 72; c++) {	// Clear receiving buffer
-                rf12_buf[c] = 0;
-            }     
-                    
             // Move attributes & packet into rf12_buf
             rf12_rssi = rssi;
             rf12_lna = lna;
@@ -504,13 +498,10 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
             rf12_rtp = rtp; // Delay between RSSI & Data Packet
             rf12_rst = rst; // Count of resets used to capture packet
             rf12_tfr = tfr; // Time to receive in microseconds
-            for (byte i = 0; i <= (rf69_len + 3); i++) {
+            for (byte i = 0; i <= (rf69_len + 4); i++) {
                 rf12_buf[i] = rf69_buf[i];
-//                Serial.print(rf12_buf[i]); Serial.print(' ');
             }     
             rf12_crc = crc;
-//            Serial.println(rf12_crc); Serial.print(' ');
-//            Serial.println(rf12_len);
             rxstate = TXIDLE;
 
             if (rf12_crc == 0) {
@@ -587,14 +578,13 @@ condition is met to transmit the packet data.
 */    
 // TODO It would be nice to pace the writes to FIFO to allow a few bytes to
 // be transmitted before the FIFO gets very close to full.     
-    while (rxstate < TXDONE)
+    while (rxstate < TXDONE) {
         if ((readReg(REG_IRQFLAGS2) & IRQ2_FIFOFULL) == 0) { // FIFO is 66 bytes
             uint8_t out;
             if (rxstate < 0) {
                 // rf12_buf used since rf69_buf is now reserved for RX
                 out = rf12_buf[3 + rf12_len + rf69_skip + rxstate];
                 crc = _crc16_update(crc, out);
-//                Serial.print(out); Serial.print(' ');
             } else {
                 switch (rxstate) {
                     case TXCRC1: out = crc; break;
@@ -606,38 +596,16 @@ condition is met to transmit the packet data.
             writeReg(REG_FIFO, out);
             ++rxstate;
         }
-//        Serial.println(rf12_len);
-
+    }
 //        writeReg(REG_FIFOTHRESH, START_TX);     // if < 32 bytes, release FIFO
                                                   // for transmission
 /*  At this point packet is typically in the FIFO but not fully transmitted.
     transmission complete will be indicated by an interrupt.                   
 */
-	/* Reinstated interrupt code for TX completion
-    while (!(readReg(REG_IRQFLAGS2) & (IRQ2_PACKETSENT))) {
-        _delay_loop_1(5);
-        }
-    writeReg(REG_TESTPA1, TESTPA1_NORMAL);    // Turn off high power 
-    writeReg(REG_TESTPA2, TESTPA2_NORMAL);    // transmit
-    // rxstate will be TXDONE at this point
-    txP++;
-    setMode(MODE_STANDBY);
-    // Restore sync bytes configuration
-    if (group == 0) {               // Allow receiving from all groups
-          writeReg(REG_SYNCCONFIG, threeByteSync);
-    }
-    rxstate = TXIDLE;
-	*/
-	}
-/*bool maskRestart (int freq) {
-	if(!(freq)) return false;
-	int* p = &rfapi.maskFreq[0];
-	for (uint8_t c = 0; c < 8; ++c) {
-		if (p[c] == freq) return true;
-	} 
-	return false;
+
 }
-*/
+
+
 void RF69::interrupt_compat (uint8_t rssi_interrupt) {
 /*
   This interrupt service routine retains control for far too long. However,
@@ -782,5 +750,4 @@ second rollover and then will be 1.024 mS out.
             writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
             rxstate = TXIDLE;   // Cause a RX restart by FSM
         }
-//        reentry = false;
 }

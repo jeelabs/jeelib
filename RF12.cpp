@@ -158,6 +158,7 @@ static uint8_t group;               // network group
 static uint16_t frequency;          // Frequency within selected band
 static int8_t matchRF = 0;          // Hardware matching value
 static uint8_t txPower = 0;         // Transmitter power from eeprom
+static uint8_t ackDelay = 0;        // Additional delay before sending ACK's
 static uint8_t rxThreshold = 2;     // Receiver threshold from eeprom
 static volatile uint16_t status = 0;// Status word from RFM12B
 static volatile uint16_t interruptCount = 0;
@@ -856,6 +857,7 @@ void rf12_configDump () {
     frequency = eeprom_read_byte(RF12_EEPROM_ADDR + 5);
     frequency = (frequency << 8) + (eeprom_read_byte(RF12_EEPROM_ADDR + 4));
     txPower = eeprom_read_byte(RF12_EEPROM_ADDR + 6);     // Store from eeprom
+    ackDelay = eeprom_read_byte(RF12_EEPROM_ADDR + 9); // Store from eeprom
     rxThreshold = eeprom_read_byte(RF12_EEPROM_ADDR + 7); // Store from eeprom
     matchRF = eeprom_read_byte(RF12_EEPROM_ADDR + 8);     // Store from eeprom
     
@@ -890,6 +892,9 @@ void rf12_configDump () {
     }
     if (flags & 0x04) {
         Serial.print(" c1");
+    } else {
+        Serial.print(" "); Serial.print(ackDelay & 0x0F);
+        Serial.print("c0");    
     }
     if (flags & 0x03) {
         Serial.print(" x");
@@ -902,6 +907,10 @@ void rf12_configDump () {
     if (rxThreshold != 0x02) {
         Serial.print(" rx");
         Serial.print(rxThreshold, HEX);
+    }
+    if (ackDelay >> 4) {
+            Serial.print(" v");
+            Serial.print(ackDelay >> 4);
     }
     Serial.println();
 }
