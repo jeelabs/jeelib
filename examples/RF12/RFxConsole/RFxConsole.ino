@@ -38,9 +38,10 @@ and doesn't receive unless forced to transmit.
 // Basic verification that a Posting has been received. It should appear as rf12_data[0] in following packets
 // Added min/max FEI levels per node 2016-05-13
 // Added verbosity flag, command 15v displays all extra information 2016-06-10
-//  1v displays receiver restarts
-//  2v displays packet reception details, fei, lna etc
-//  4v displays a a basic packet decode
+//  1v displays packet reception details, fei, lna etc
+//  2v displays a basic packet decode
+//  4v displays receiver restarts
+//	8v displays RX Threshold adjustments use with 10,200R
 //  add any values above to combine display settings.
 // Changed RX interrupt trigger to be RSSI rather than SyncMatch 2016-06-20
 // Mask two stray interrupts, sleep before reconfiguring radio 2016-06-23
@@ -1798,7 +1799,7 @@ void loop () {
            }
         }
 #if RF69_COMPAT && !TINY
-        if (config.verbosity & 2) {
+        if (config.verbosity & 1) {
             showString(PSTR(" a="));
             Serial.print(observedRX.afc);                        // TODO What units has this number?
             showString(PSTR(" f="));
@@ -1895,7 +1896,7 @@ void loop () {
         Serial.print(modeChange3);
   #endif
 #endif        
-        if (config.verbosity & 4) {
+        if (config.verbosity & 2) {
             if(!(crc)) showString(PSTR(" Bad"));
             if (!(rf12_hdr & 0xA0)) showString(PSTR(" Packet "));
             else showString(PSTR(" Ack "));
@@ -2169,24 +2170,24 @@ void loop () {
               if (ledStatus) activityLed(0);
               else activityLed(1);
               
-              if (config.verbosity & 1) {
+              if (config.verbosity & 4) {
                   showString(PSTR("RX restart "));
                   Serial.print(r);
-                  printOneChar('@');
+                  printOneChar(' ');
                   Serial.print(rfapi.restartRate);
-                  printOneChar('t');
+                  printOneChar(' ');
                   Serial.print(rfapi.rssiThreshold);
-                  printOneChar(':');
+                  printOneChar(' ');
                   Serial.print(rf12_drx);
-                  printOneChar('(');
+                  printOneChar(' ');
                   Serial.print(RF69::afc);
-                  printOneChar(',');
+                  printOneChar(' ');
                   Serial.print(RF69::fei);
-                  printOneChar(',');
-                  Serial.print((RF69::lna /* >> 3 */));
-                  printOneChar(',');
+                  printOneChar(' ');
+                  Serial.print((RF69::lna >> 3));
+                  printOneChar(' ');
                   Serial.print(RF69::rssi);
-                  printOneChar(')');
+                  printOneChar(' ');
                   Serial.println();                  
               }
         }
@@ -2194,16 +2195,16 @@ void loop () {
               if (config.verbosity & 8) {
                   showString(PSTR("RX threshold change "));
                   Serial.print(lastrssiThreshold);
-                  printOneChar(':');
+                  printOneChar(' ');
                   Serial.print(rfapi.rssiThreshold);
-                  printOneChar('#');
+                  printOneChar(' ');
                   Serial.print(r);
-                  printOneChar('(');
+                  printOneChar(' ');
                   Serial.print(r  - lastThresholdRSSIrestart);
                   lastThresholdRSSIrestart = lastRSSIrestart;
-                  printOneChar(')');
+                  printOneChar(' ');
                   Serial.print(rfapi.restartRate);
-                  printOneChar('m');
+                  printOneChar(' ');
                   Serial.print(rfapi.maxRestartRate);
                   /*
                   printOneChar('*');
@@ -2252,18 +2253,21 @@ void loop () {
             activityLed(0);
         } else { // rf12_canSend
             uint16_t s = rf12_status();            
+            showString(PSTR("TX "));					// Not ready to send
 #if RF69_COMPAT && !TINY
             Serial.print(rfapi.sendRSSI);
+            printOneChar(' ');
 #endif            
-            showString(PSTR("TX Busy 0x"));           // Not ready to send
-            Serial.println(s, HEX);
+            showString(PSTR("Busy 0x"));				// Not ready to send            
+            Serial.print(s, HEX);
             busyCount++;
             if ((++sendRetry & 3) == 0) {
-                showString(PSTR("Command Aborted"));  // Drop the command
-                Serial.println();   
-                cmd = sendRetry = 0;                  // Request dropped
+                showString(PSTR(" Command Aborted"));	// Drop the command
+                cmd = sendRetry = 0;					// Request dropped
             }
-            else delay(sendRetry);                    // or try a little later
+            else delay(sendRetry);						// or try a little later
+            
+            Serial.println();   
         }
     } // cmd
 } // loop

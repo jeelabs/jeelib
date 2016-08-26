@@ -169,6 +169,7 @@ static volatile uint8_t packetBytes; // Count of bytes in packet
 static volatile uint16_t discards;   // Count of packets discarded
 static volatile uint8_t rf69_skip;   // header bytes to skip
 static volatile uint8_t rf69_fix;    // Maximum for fixed length packet
+static volatile uint8_t lastFEI;
 static volatile uint16_t delayTXRECV;
 static volatile uint16_t rtp;
 static volatile uint16_t rst;
@@ -471,7 +472,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
                 }                      
                 restarts = rfapi.RSSIrestart;
                 
-            }
+            }	// Calculate restart rate
             // Prepare to receive
             writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
             rf12_drx = delayTXRECV;
@@ -650,19 +651,20 @@ second rollover and then will be 1.024 mS out.
                         about 1mS minimum."
                                                                 */ // CPU clock dependant
                         rxstate = TXIDLE;   // Cause a RX restart by FSM
-                        if (rssi > (rfapi.rssiThreshold - 20)) {	
+	      				writeReg(REG_DIOMAPPING1, 0x00);	// Mask most radio interrupts
+    	  				writeReg(REG_LNA, 0x06); 			// Minimise LNA gain
+      					writeReg(REG_RSSITHRESHOLD, 0x00); 	// Clear RSSI threshold
+        				setMode(MODE_STANDBY);
+                	    delay(1);
+                        if (rssi > (rfapi.rssiThreshold - 10) || (fei != lastFEI)) {	
                         	// Adjust RSSI if in noise region
-                	        rfapi.RSSIrestart++;
-	      					writeReg(REG_DIOMAPPING1, 0x00);	// Mask most radio interrupts
-    	  					writeReg(REG_LNA, 0x06); 			// Minimise LNA gain
-      						writeReg(REG_RSSITHRESHOLD, 0x00); 	// Clear RSSI threshold
-            				setMode(MODE_STANDBY);
-                    	    delay(1);
+	                	    rfapi.RSSIrestart++;
 							if ((rfapi.rateInterval) && (rfapi.rssiThreshold
 						 						>= (rfapi.configThreshold + 2))) { 
 								rfapi.rssiThreshold = rfapi.rssiThreshold - 2;
 							} /* else { rfapi.rssiThreshold--; } */
 						} else rfapi.notNoise++;
+						lastFEI = fei;
                         return;
                     } // SyncMatch or Timeout 
                 } //  while
