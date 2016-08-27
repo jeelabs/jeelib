@@ -67,6 +67,7 @@ uint8_t rf69_initialize (uint8_t id, uint8_t band, uint8_t group=0xD4, uint16_t 
     else
         detachInterrupt(IRQ_NUMBER);
 ////////////////////////////////////////////////////////////////////////////////
+*/
           
     RF69::configure_compat(); 
 
