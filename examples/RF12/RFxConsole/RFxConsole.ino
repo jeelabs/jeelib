@@ -2164,13 +2164,16 @@ void loop () {
     } // rf12_recvDone
 #if RF69_COMPAT && !TINY    
       else { 
-        unsigned long r = rfapi.RSSIrestart;
+        unsigned long r = rfapi.RSSIrestart + rfapi.notNoise;
         if (r != lastRSSIrestart) {
         
               if (ledStatus) activityLed(0);
               else activityLed(1);
               
               if (config.verbosity & 4) {
+              // RX restart 10 2 202 0 0 -70 1 200
+              // RX restart 5334 0 217 1 0 0 1 208
+              //			 r	 r rss d
                   showString(PSTR("RX restart "));
                   Serial.print(r);
                   printOneChar(' ');

@@ -169,7 +169,7 @@ static volatile uint8_t packetBytes; // Count of bytes in packet
 static volatile uint16_t discards;   // Count of packets discarded
 static volatile uint8_t rf69_skip;   // header bytes to skip
 static volatile uint8_t rf69_fix;    // Maximum for fixed length packet
-static volatile uint8_t lastFEI;
+static volatile int16_t lastFEI;
 static volatile uint16_t delayTXRECV;
 static volatile uint16_t rtp;
 static volatile uint16_t rst;
@@ -464,7 +464,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
                   
                 previousMillis = ms;
                 if (rfapi.restartRate) {                
-                    	if (rfapi.rssiThreshold > 160) { rfapi.rssiThreshold--;} 
+                    	if (rfapi.rssiThreshold > rfapi.configThreshold) { rfapi.rssiThreshold--;} 
                 } else	if(rfapi.rssiThreshold < 250) { rfapi.rssiThreshold++; } 
                     
                 if (rfapi.restartRate > rfapi.maxRestartRate) { 
@@ -656,14 +656,17 @@ second rollover and then will be 1.024 mS out.
       					writeReg(REG_RSSITHRESHOLD, 0x00); 	// Clear RSSI threshold
         				setMode(MODE_STANDBY);
                 	    delay(1);
-                        if (rssi > (rfapi.rssiThreshold - 10) || (fei != lastFEI)) {	
+                        if (/*rssi > (rfapi.rssiThreshold - 10) ||*/ !((fei & ~3) == (lastFEI & ~3))) {	
                         	// Adjust RSSI if in noise region
 	                	    rfapi.RSSIrestart++;
-							if ((rfapi.rateInterval) && (rfapi.rssiThreshold
-						 						>= (rfapi.configThreshold + 2))) { 
-								rfapi.rssiThreshold = rfapi.rssiThreshold - 2;
+							if (rfapi.rateInterval) /* && (rfapi.rssiThreshold
+						 						>= (rfapi.configThreshold + 2)))*/ { 
+								rfapi.rssiThreshold = rfapi.rssiThreshold - 1;
 							} /* else { rfapi.rssiThreshold--; } */
-						} else rfapi.notNoise++;
+						} else {
+							rfapi.notNoise++;
+//							rfapi.rssiThreshold--;
+						}
 						lastFEI = fei;
                         return;
                     } // SyncMatch or Timeout 
