@@ -865,9 +865,7 @@ static void handleInput (char c) {
         case 's': // send packet to node ID N, no ack
             cmd = c;
             sendLen = top;
-            Serial.println(top);
             dest = (byte)value;
-            Serial.println(dest);
             break;
 
         case 'T': 
@@ -879,7 +877,9 @@ static void handleInput (char c) {
             break;
             
         case 'R': // Set hardware specific RX threshold in eeprom
-//        	config.RegRssiThresh = RF69::control(0x29, 0xA0);   // Pull the current RegRssiThresh from the radio
+#if RF69_COMPAT
+        	RF69::control(0xA9, value);	// Set radio
+#endif
             config.RegRssiThresh = value;
             if (top == 1) {
                 config.rateInterval = stack[0];
@@ -1296,7 +1296,7 @@ void resetFlagsInit(void)
 
 void setup () {
 
-    delay(1500);
+    delay(10000);
 
 //  clrConfig();
   

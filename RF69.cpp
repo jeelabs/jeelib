@@ -222,7 +222,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 
   0x26, 0x07, // disable clkout
 
-  0x29, 0xA0, // RssiThresh ... -80dB
+//  0x29, 0xA0, // RssiThresh ... -80dB
 
   0x37, 0x00, // PacketConfig1 = fixed, no crc, filt off
   0x38, 0x00, // PayloadLength = 0, unlimited
@@ -463,13 +463,13 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
                   												(ms - previousMillis));
                   
                 previousMillis = ms;
-                if (rfapi.restartRate) {                
-                    	if (rfapi.rssiThreshold > rfapi.configThreshold) { rfapi.rssiThreshold--;} 
-                } else	if(rfapi.rssiThreshold < 250) { rfapi.rssiThreshold++; } 
-                    
-                if (rfapi.restartRate > rfapi.maxRestartRate) { 
-              		rfapi.maxRestartRate = rfapi.restartRate;
-                }                      
+                
+                if ((rfapi.restartRate == 0) && (rfapi.rssiThreshold < 228)) { 
+                	rfapi.rssiThreshold++;
+                	if (rfapi.restartRate > rfapi.maxRestartRate) { 
+              			rfapi.maxRestartRate = rfapi.restartRate;
+                	}                      
+                }
                 restarts = rfapi.RSSIrestart;
                 
             }	// Calculate restart rate
@@ -655,18 +655,16 @@ second rollover and then will be 1.024 mS out.
     	  				writeReg(REG_LNA, 0x06); 			// Minimise LNA gain
       					writeReg(REG_RSSITHRESHOLD, 0x00); 	// Clear RSSI threshold
         				setMode(MODE_STANDBY);
-                	    delay(1);
-                        if (/*rssi > (rfapi.rssiThreshold - 10) ||*/ !((fei & ~3) == (lastFEI & ~3))) {	
+//                	    delay(1);
+                        if ((fei & ~3) != (lastFEI & ~3)) {	
                         	// Adjust RSSI if in noise region
 	                	    rfapi.RSSIrestart++;
-							if (rfapi.rateInterval) /* && (rfapi.rssiThreshold
-						 						>= (rfapi.configThreshold + 2)))*/ { 
-								rfapi.rssiThreshold = rfapi.rssiThreshold - 1;
-							} /* else { rfapi.rssiThreshold--; } */
-						} else {
-							rfapi.notNoise++;
-//							rfapi.rssiThreshold--;
-						}
+	                	    
+							if ((rfapi.rateInterval) &&
+							  rfapi.rssiThreshold > rfapi.configThreshold) { 
+									rfapi.rssiThreshold--;
+							}
+						} else rfapi.notNoise++;	// Same frequency as last restart
 						lastFEI = fei;
                         return;
                     } // SyncMatch or Timeout 
