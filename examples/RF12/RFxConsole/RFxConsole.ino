@@ -47,6 +47,7 @@ and doesn't receive unless forced to transmit.
 // Mask two stray interrupts, sleep before reconfiguring radio 2016-06-23
 // Added dynamic control of RX Threshold based on restart rate 2016-07-12
 // Variable time constant for rate calculation stoed in eeprom
+// Added counter for ACK's aborted due to busy airwaves 2016-09-01
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
     #define TINY 1
 #endif
@@ -313,6 +314,7 @@ byte lastTest;
 byte busyCount;
 byte missedTests;
 byte sendRetry = 0;
+unsigned int packetAborts;
 unsigned int testTX;
 unsigned int testRX;
 
@@ -333,6 +335,8 @@ static byte maxLNA[MAX_NODES];
 #if RF69_COMPAT && !TINY
 static byte CRCbadMinRSSI = 255;
 static byte CRCbadMaxRSSI = 0;
+static byte minTxRSSI = 255;
+static byte maxTxRSSI = 0;
 
 static signed int previousAFC;
 static signed int previousFEI;
@@ -590,14 +594,22 @@ static void showStatus() {
     Serial.print(rfapi.restartRate);
     printOneChar('m');
     Serial.print(rfapi.maxRestartRate);
-    showString(PSTR("/s notNoise "));
+    showString(PSTR("/s, notNoise "));
     Serial.print(rfapi.notNoise);
-    showString(PSTR(" Noise Floor "));
+    showString(PSTR(", Noise Floor "));
     Serial.print(rfapi.noiseFloorMin);
     printOneChar('/');
     Serial.print(rfapi.rssiThreshold);
     printOneChar('/');
     Serial.print(rfapi.noiseFloorMax);
+    showString(PSTR(", Ack: Aborts "));
+    Serial.print(packetAborts);
+    showString(PSTR(", Floor "));
+    Serial.print(minTxRSSI);
+    printOneChar('/');
+    Serial.print(maxTxRSSI);
+    
+    
     
 #endif
     showString(PSTR(", Eeprom"));
@@ -2133,6 +2145,8 @@ void loop () {
                 byte r = rf12_canSend(config.clearAir);
 #if RF69_COMPAT && !TINY
                 Serial.print(rfapi.sendRSSI);
+                if (rfapi.sendRSSI < minTxRSSI) minTxRSSI = rfapi.sendRSSI;
+                if (rfapi.sendRSSI > maxTxRSSI) maxTxRSSI = rfapi.sendRSSI;
 #endif            
                 showString(PSTR(" -> ack "));
                 if (testPacket) {  // Return test packet number being ACK'ed
@@ -2154,7 +2168,13 @@ void loop () {
                     rf12_sendStart(RF12_ACK_REPLY, &stack[sizeof stack - ackLen], ackLen);
                     rf12_sendWait(1);
                 } else {
-                    showString(PSTR(" Aborted"));  // Airwaves busy, drop ACK and look for a retransmission.   
+                    packetAborts++;   
+                    showString(PSTR(" Abort "));  // Airwaves busy, drop ACK and look for a retransmission.
+                    showByte(packetAborts);
+    				printOneChar(' ');
+    				Serial.print(minTxRSSI);
+    				printOneChar(' ');
+    				Serial.print(maxTxRSSI);
                 }
             }
             if (crlf) Serial.println();
