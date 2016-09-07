@@ -84,7 +84,7 @@ and doesn't receive unless forced to transmit.
 
 #define MAJOR_VERSION RF12_EEPROM_VERSION // bump when EEPROM layout changes
 #define MINOR_VERSION 0                   // bump on other non-trivial changes
-//#define VERSION "\n[RFxConsole.2]"        // keep in sync with the above
+//#define VERSION "\n[RFxConsole.3]"        // keep in sync with the above
 #if !configSTRING
 #define rf12_configDump()                 // Omit A i1 g210 @ 868 MHz q1
 #endif
@@ -106,6 +106,8 @@ const char RFM69x[] PROGMEM = "RFM69x ";
 const char BLOC[] PROGMEM = "BLOCK ";
 const char UNSUPPORTED[] PROGMEM = "RX Unsupported ";
 const char DONE[] PROGMEM = "Done\n";
+const char ABORTED[] PROGMEM = " Aborted ";
+
 
 #define SALUSFREQUENCY 1660       // Default value
 byte salusMode = false;
@@ -2143,33 +2145,33 @@ void loop () {
                 delay(config.ackDelay);          // changing into TX mode is quicker than changing into RX mode for RF69.     
                 showString(PSTR("TX "));
                 byte r = rf12_canSend(config.clearAir);
-#if RF69_COMPAT && !TINY
-                Serial.print(rfapi.sendRSSI);
-                if (rfapi.sendRSSI < minTxRSSI) minTxRSSI = rfapi.sendRSSI;
-                if (rfapi.sendRSSI > maxTxRSSI) maxTxRSSI = rfapi.sendRSSI;
-#endif            
-                showString(PSTR(" -> ack "));
-                if (testPacket) {  // Return test packet number being ACK'ed
-                    stack[(sizeof stack - 2)] = 0x80;
-                    stack[(sizeof stack - 1)] = rf12_data[0];
-                    ackLen = 2;
-                }
-#if RF69_COMPAT && !TINY
-                if (config.group == 0) {
-                    showString(PSTR("g"));
-                    showByte(rf12_grp);
-                    RF69::control(REG_SYNCGROUP | 0x80, rf12_grp); // Reply to incoming group number
-                    printOneChar(' ');
-                }
-#endif
-                printOneChar('i');
-                showByte(rf12_hdr & RF12_HDR_MASK);
                 if (r) {
+#if RF69_COMPAT && !TINY
+                	Serial.print(rfapi.sendRSSI);
+                	if (rfapi.sendRSSI < minTxRSSI) minTxRSSI = rfapi.sendRSSI;
+                	if (rfapi.sendRSSI > maxTxRSSI) maxTxRSSI = rfapi.sendRSSI;
+#endif            
+                	showString(PSTR(" -> ack "));
+                	if (testPacket) {  // Return test packet number being ACK'ed
+                    	stack[(sizeof stack - 2)] = 0x80;
+                    	stack[(sizeof stack - 1)] = rf12_data[0];
+                    	ackLen = 2;
+                	}
+#if RF69_COMPAT && !TINY
+                	if (config.group == 0) {
+                    	showString(PSTR("g"));
+                    	showByte(rf12_grp);
+                    	RF69::control(REG_SYNCGROUP | 0x80, rf12_grp); // Reply to incoming group number
+                    	printOneChar(' ');
+                	}
+#endif
+                	printOneChar('i');
+                	showByte(rf12_hdr & RF12_HDR_MASK);
                     rf12_sendStart(RF12_ACK_REPLY, &stack[sizeof stack - ackLen], ackLen);
                     rf12_sendWait(1);
                 } else {
                     packetAborts++;   
-                    showString(PSTR(" Abort "));  // Airwaves busy, drop ACK and look for a retransmission.
+                    showString(ABORTED);		// Airwaves busy, drop ACK and look for a retransmission.
                     showByte(packetAborts);
     				printOneChar(' ');
     				Serial.print(minTxRSSI);
@@ -2285,7 +2287,8 @@ void loop () {
             Serial.print(s, HEX);
             busyCount++;
             if ((++sendRetry & 3) == 0) {
-                showString(PSTR(" Command Aborted"));	// Drop the command
+                showString(PSTR(" Command"));
+                showString(ABORTED);					// Drop the command
                 cmd = sendRetry = 0;					// Request dropped
             }
             else delay(sendRetry);						// or try a little later
@@ -2294,4 +2297,3 @@ void loop () {
         }
     } // cmd
 } // loop
-

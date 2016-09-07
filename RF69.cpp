@@ -348,7 +348,7 @@ uint8_t RF69::canSend (uint8_t clearAir) {
             rxstate = TXIDLE;
             return rfapi.sendRSSI;
         }
-    }
+    } else rfapi.sendRSSI = 0;
     return false;
 }
 
@@ -656,7 +656,7 @@ second rollover and then will be 1.024 mS out.
       					writeReg(REG_RSSITHRESHOLD, 0x00); 	// Clear RSSI threshold
         				setMode(MODE_STANDBY);
 //                	    delay(1);
-                        if ((fei & ~3) != (lastFEI & ~3)) {	
+                        if ((fei /*& ~3*/) != (lastFEI /*& ~3*/)) {	
                         	// Adjust RSSI if in noise region
 	                	    rfapi.RSSIrestart++;
 	                	    
