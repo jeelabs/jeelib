@@ -7,6 +7,8 @@
 typedef struct {
 
 	uint8_t	len;
+	uint8_t rxfill;
+	uint8_t rxdone;
 	uint8_t	lastHdr;
 	uint8_t	lastLen;
 	uint8_t lastPay0;

@@ -5,6 +5,6 @@
 #define VERSION_MAJOR "2.x"
 
 //The following lines may be changed automatically
-#define VERSION "\n[RFxConsole.2]"
-#define VERSION_SHA1 "c057b5f4c072229fccff8e4359717ee2f86989e7"
-#define VERSION_SIG  "c057b5f"
+#define VERSION "\n[RFxConsole.3]"
+#define VERSION_SHA1 "d464f08475d0e9f6dd348b21d6c0f9fb4203fbdb"
+#define VERSION_SIG  "d464f08"

@@ -1089,7 +1089,9 @@ static void handleInput (char c) {
             break;
 
         case 'n':
-        	dumpAPI(); 
+        	dumpAPI();
+        	dumpRegs();
+
           if ((top == 0) && (config.group == 0)) {
               showByte(stickyGroup);
               stickyGroup = (int)value;
@@ -1462,7 +1464,7 @@ static void dumpEEprom() {
     else Serial.print(" GOOD CRC ");
 }
 
-#if DEBUG && RF69_COMPAT
+//#if DEBUG && RF69_COMPAT
 /// Display the RFM69x registers
 static void dumpRegs() {
     Serial.println("\nRFM69x Registers:");
@@ -1474,7 +1476,7 @@ static void dumpRegs() {
     Serial.println();
     delay(10);
 }
-#endif
+//#endif
 /// Display stored nodes and show the post queued for each node
 /// the post queue is not preserved through a restart of RF12Demo
 static void nodeShow(byte group) {
@@ -2176,7 +2178,13 @@ void loop () {
     				printOneChar(' ');
     				Serial.print(minTxRSSI);
     				printOneChar(' ');
+    				Serial.print(rfapi.sendRSSI);
+    				printOneChar(' ');
     				Serial.print(maxTxRSSI);
+    				printOneChar(' ');
+    				Serial.print(rfapi.rxfill);
+    				printOneChar(' ');
+    				Serial.print(rfapi.rxdone);
                 }
             }
             if (crlf) Serial.println();

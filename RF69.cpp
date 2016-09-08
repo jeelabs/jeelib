@@ -283,11 +283,11 @@ uint8_t setMode (uint8_t mode) {	// TODO enhance return code
         }
         writeReg(REG_DIOMAPPING1, s);        // Restore Interrupt triggers
     }
-    if (mode != MODE_FS) {
-        writeReg(REG_OPMODE, (mode | MODE_SEQUENCER_OFF));
-        while ((readReg(REG_IRQFLAGS1) & IRQ1_MODEREADY) == 0) {
-            c++; if (c >= 254) break;
-        }
+    if (mode == 0) writeReg(REG_OPMODE, (mode)); 
+    else if (mode != MODE_FS) writeReg(REG_OPMODE, (mode | MODE_SEQUENCER_OFF));
+        
+    while ((readReg(REG_IRQFLAGS1) & IRQ1_MODEREADY) == 0) {
+        c++; if (c >= 254) break;
     }
     return c;	// May need to beef this up since sometimes we don't appear to setmode correctly
 }
@@ -348,7 +348,11 @@ uint8_t RF69::canSend (uint8_t clearAir) {
             rxstate = TXIDLE;
             return rfapi.sendRSSI;
         }
-    } else rfapi.sendRSSI = 0;
+    } else {
+    	rfapi.sendRSSI = 0;
+    	rfapi.rxfill = rxfill;
+    	rfapi.rxdone = rxdone;
+    }
     return false;
 }
 
@@ -708,7 +712,7 @@ second rollover and then will be 1.024 mS out.
                     if (rxfill >= (payloadLen + (5 - rf69_skip))) {  // Trap end of payload
                         writeReg(REG_AFCFEI, AFC_CLEAR);
 	      				writeReg(REG_DIOMAPPING1, 0x00);	// Mask most radio interrupts
-                        setMode(MODE_STANDBY);  // Get radio out of RX mode
+                        setMode(MODE_SLEEP);  // Get radio out of RX mode
                         stillCollecting = false;
                         break;
                     }
