@@ -277,7 +277,7 @@ uint8_t setMode (uint8_t mode) {	// TODO enhance return code
         if (mode == MODE_TRANSMITTER) writeReg(REG_DIOMAPPING1, DIO0_FS_UNDEF_TX);
         else writeReg(REG_DIOMAPPING1, DIO0_FS_UNDEF_RX);
         
-        writeReg(REG_OPMODE, (MODE_FS | MODE_SEQUENCER_OFF));
+        writeReg(REG_OPMODE, (MODE_FS /*| MODE_SEQUENCER_OFF*/));
         while (readReg(REG_IRQFLAGS1 & (IRQ1_PLL | IRQ1_MODEREADY)) == 0) {
             c++; if (c >= 127) break;
         }
