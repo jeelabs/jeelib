@@ -2221,7 +2221,8 @@ void loop () {
                   printOneChar(' ');
                   Serial.print(RF69::rssi);
                   printOneChar(' ');
-                  Serial.println();                  
+                  Serial.println(millis());
+//                  Serial.println();                  
               }
         }
         if (rfapi.rssiThreshold != lastrssiThreshold) {
@@ -2239,6 +2240,8 @@ void loop () {
                   Serial.print(rfapi.restartRate);
                   printOneChar(' ');
                   Serial.print(rfapi.maxRestartRate);
+                  printOneChar(' ');
+                  Serial.print(millis());
                   /*
                   printOneChar('*');
                   Serial.print(rfapi.setmode);

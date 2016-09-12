@@ -6,5 +6,5 @@
 
 //The following lines may be changed automatically
 #define VERSION "\n[RFxConsole.3]"
-#define VERSION_SHA1 "d464f08475d0e9f6dd348b21d6c0f9fb4203fbdb"
-#define VERSION_SIG  "d464f08"
+#define VERSION_SHA1 "77a16d80f52415145293ebc4ee408fff8f6aca12"
+#define VERSION_SIG  "77a16d8"

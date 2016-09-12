@@ -344,7 +344,7 @@ uint8_t RF69::canSend (uint8_t clearAir) {
   if (((rxfill == 0) || (rxdone))) {
         rfapi.sendRSSI = currentRSSI();
         if(rfapi.sendRSSI >= clearAir) {
-            setMode(MODE_STANDBY);
+            setMode(MODE_SLEEP);
             rxstate = TXIDLE;
             return rfapi.sendRSSI;
         }
@@ -398,7 +398,7 @@ uint8_t RF69::currentRSSI() {
       uint8_t r = readReg(REG_RSSIVALUE);           // Collect RSSI value
       writeReg(REG_AFCFEI, AFC_CLEAR);
       writeReg(REG_RSSITHRESHOLD, 0x00);  			// Clear threshold
-      setMode(MODE_STANDBY);                        // Get out of RX mode
+      setMode(MODE_SLEEP);                        	// Get out of RX mode
        
       writeReg(REG_RSSITHRESHOLD, rfapi.rssiThreshold);  // Restore threshold
       writeReg(REG_DIOMAPPING1, storeDIOM);         // Restore Interrupt trigger
@@ -461,7 +461,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         if (startRSSI >= 160 /*rssiThreshold*/) { // Don't start to RX in busy airwaves
             ms = millis();
             // Update restart rate
-            if ((rfapi.rateInterval) && (previousMillis + rfapi.rateInterval) < ms) {
+            if ((rfapi.rateInterval) && ((previousMillis + rfapi.rateInterval) < ms)) {
             
                 rfapi.restartRate = (((rfapi.RSSIrestart - restarts) * 1000L) / 
                   												(ms - previousMillis));
@@ -648,7 +648,7 @@ second rollover and then will be 1.024 mS out.
                         afc  = readReg(REG_AFCMSB);
                         afc  = (afc << 8) | readReg(REG_AFCLSB);                      
                         break;
-                    } else if (RssiToSync++ == rfapi.RssiToSync) {
+                    } else if (RssiToSync++ >= rfapi.RssiToSync) {
 /* CPU clock dependant: Timeout: MartynJ "Assuming you are using 5byte synch,
                         then it is just counting the bit times to find the 
                         minimum i.e. 0.02uS per bit x 6bytes is 
@@ -658,7 +658,7 @@ second rollover and then will be 1.024 mS out.
 	      				writeReg(REG_DIOMAPPING1, 0x00);	// Mask most radio interrupts
     	  				writeReg(REG_LNA, 0x06); 			// Minimise LNA gain
       					writeReg(REG_RSSITHRESHOLD, 0x00); 	// Clear RSSI threshold
-        				setMode(MODE_STANDBY);
+        				setMode(MODE_SLEEP);
 //                	    delay(1);
                         if ((fei /*& ~3*/) != (lastFEI /*& ~3*/)) {	
                         	// Adjust RSSI if in noise region
@@ -667,6 +667,7 @@ second rollover and then will be 1.024 mS out.
 							if ((rfapi.rateInterval) &&
 							  rfapi.rssiThreshold > rfapi.configThreshold) { 
 									rfapi.rssiThreshold--;
+									previousMillis = millis();
 							}
 						} else rfapi.notNoise++;	// Same frequency as last restart
 						lastFEI = fei;
@@ -728,7 +729,7 @@ second rollover and then will be 1.024 mS out.
             tfr =  (micros() - startRX);
             writeReg(REG_AFCFEI, AFC_CLEAR);
 	      	writeReg(REG_DIOMAPPING1, 0x00);	// Mask most radio interrupts
-            setMode(MODE_STANDBY);
+            setMode(MODE_SLEEP);
             rxdone = true;      // force TXRECV in RF69::recvDone_compat       
             writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
             rxstate = TXRECV;   // Restore state machine
@@ -739,7 +740,7 @@ second rollover and then will be 1.024 mS out.
           	// rxstate will be TXDONE at this point
           	IRQ_ENABLE;       // allow nested interrupts from here on
           	txP++;
-          	setMode(MODE_STANDBY);
+          	setMode(MODE_SLEEP);
           	rxstate = TXIDLE;
           	// Restore sync bytes configuration
           	if (group == 0) {               // Allow receiving from all groups
