@@ -72,12 +72,24 @@ uint8_t rf69_initialize (uint8_t id, uint8_t band, uint8_t group=0xD4, uint16_t 
     RF69::configure_compat(); 
 
     if (txPower) RF69::control(0x91, txPower);
-    byte r = RF69::control(0x29, 0);
-    if ((rxThreshold) && (r == 0xFF)) {
-        RF69::control(0xA9, rxThreshold);	// Use current RX threshold unless POR
-    } else rxThreshold = r;
-    rfapi.configThreshold = rxThreshold;
-    rfapi.rssiThreshold = rxThreshold;
+    
+    uint8_t r = RF69::control(0x29, 0);	// Read the current RSSI Threshold value
+// TODO For some reason using 'R' command causes the above to return 0 - bug?
+//	    	Serial.print("Configure ");
+//	    	Serial.println(r);
+//	    	if (r == 0) RF69::control((0x80 | 0x29), 160);
+//	    	Serial.println(RF69::control(0x29, 159));
+    if (rxThreshold) {
+    	if ((r == 0xFF) || (r < 160)) {	// Was it a Power On Reset?
+    		rfapi.configThreshold = rxThreshold;
+			rfapi.rssiThreshold = rxThreshold;
+//        	RF69::control(0x80 | 0x29), rxThreshold);// Use current RX threshold unless POR
+    	} else {
+    		rfapi.configThreshold = rxThreshold;
+    		rfapi.rssiThreshold = rxThreshold = r;
+//	    	Serial.println(rxThreshold);
+    	}
+    }
     return nodeid = id;
 }
 /// @details

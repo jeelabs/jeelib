@@ -891,10 +891,17 @@ static void handleInput (char c) {
             break;
             
         case 'R': // Set hardware specific RX threshold in eeprom
+//        	Serial.println(value);
+
 #if RF69_COMPAT
-        	RF69::control(0xA9, value);	// Set radio
+        	RF69::control((0x80) | (0x29), value);	// Set radio
+//	    	Serial.println(RF69::control(0x29, 160));
+        	
 #endif
             config.RegRssiThresh = value;
+//        	Serial.println(config.RegRssiThresh);
+			rfapi.rssiThreshold = value;
+//        	Serial.println(rfapi.rssiThreshold);
             if (top == 1) {
                 config.rateInterval = stack[0];
                 rfapi.rateInterval = (uint32_t)(config.rateInterval) << 10;
@@ -1118,8 +1125,8 @@ static void handleInput (char c) {
 #if RF69_COMPAT
             	printOneChar('=');
 /* Example usage: 1x        // Switch into hex input mode (optional, adjust values below accordingly)
-//                80,A9,E4n  // 0x80 (write bit) + 0x29 (RSSI Threshold) == 0xA9; E4 (default RSSI threshold); n = node command
-//                80,91,80n  // 0x80 (write bit) + 0x11 (Output power) == 0x91; 80 (PA0 transmit power minimum); n = node command
+//                80,29,E4n  // 0x80 (write bit) + 0x29 (RSSI Threshold) == 0xA9; E4 (default RSSI threshold); n = node command
+//                80,11,80n  // 0x80 (write bit) + 0x11 (Output power) == 0x91; 80 (PA0 transmit power minimum); n = node command
 //                x         // Save certain registers in eeprom and revert to decimal mode
 */
                 showByte(RF69::control((stack[1] | stack[0]), value)); // Prints out Register value before any change requested.
@@ -2207,9 +2214,9 @@ void loop () {
                   showString(PSTR("RX restart "));
                   Serial.print(r);
                   printOneChar(' ');
-                  Serial.print(rfapi.restartRate);
-                  printOneChar(' ');
                   Serial.print(rfapi.rssiThreshold);
+                  printOneChar(' ');
+                  Serial.print(rfapi.restartRate);
                   printOneChar(' ');
                   Serial.print(rf12_drx);
                   printOneChar(' ');
