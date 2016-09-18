@@ -640,6 +640,8 @@ second rollover and then will be 1.024 mS out.
             // and the inbound fifo buffer.
 
             if (rssi_interrupt) {
+            	ms = millis();
+        		// N.B. millis is not updating until IRQ_ENABLE
                 RssiToSync = 0;
                 while (true) {  // Loop for SyncMatch or Timeout
                     if (readReg(REG_IRQFLAGS1) & IRQ1_SYNCMATCH) {
@@ -647,7 +649,9 @@ second rollover and then will be 1.024 mS out.
                         while (!readReg(REG_AFCFEI) & AFC_DONE)
                           ;
                         afc  = readReg(REG_AFCMSB);
-                        afc  = (afc << 8) | readReg(REG_AFCLSB);                      
+                        afc  = (afc << 8) | readReg(REG_AFCLSB); 
+                        rfapi.syncMatch++;                     
+                		noiseMillis = ms;	// Delay a reduction in sensitivity
                         break;
                     } else if (RssiToSync++ >= rfapi.RssiToSync) {
 /* CPU clock dependant: Timeout: MartynJ "Assuming you are using 5byte synch,
@@ -661,14 +665,12 @@ second rollover and then will be 1.024 mS out.
       					writeReg(REG_RSSITHRESHOLD, 100); 	// Quiet the RSSI threshold
         				setMode(MODE_SLEEP);
 	                	rfapi.RSSIrestart++;
-            			ms = millis();
-            			// N.B. millis is not updating until IRQ_ENABLE
             			if ((rfapi.rateInterval) && ((noiseMillis + rfapi.rateInterval) < ms)) {
                         	// Adjust RSSI if in noise region	                	    
 							if (rfapi.rssiThreshold > rfapi.configThreshold) { 
 									rfapi.rssiThreshold--;
                 					noiseMillis = ms;
-									previousMillis = ms;
+									previousMillis = ms;// Delay an increase in sensitivity
 							}
 						}
 						lastFEI = fei;

@@ -325,6 +325,7 @@ static byte semaphores[MAX_NODES];
 #endif
 
 #if RF69_COMPAT && STATISTICS
+static unsigned long goodCRC;
 static signed int minFEI[MAX_NODES];
 static signed int maxFEI[MAX_NODES];
 static byte minRSSI[MAX_NODES];
@@ -596,9 +597,12 @@ static void showStatus() {
     Serial.print(rfapi.restartRate);
     printOneChar('m');
     Serial.print(rfapi.maxRestartRate);
-    showString(PSTR("/s, notNoise "));
-    Serial.print(rfapi.notNoise);
-    showString(PSTR(", Noise Floor "));
+    showString(PSTR("/s, Sync Match "));
+    Serial.print(rfapi.syncMatch);
+ 
+    showString(PSTR(", Good CRC "));
+    Serial.print(goodCRC);
+	showString(PSTR(", Noise Floor "));
     Serial.print(rfapi.noiseFloorMin);
     printOneChar('/');
     Serial.print(rfapi.rssiThreshold);
@@ -610,9 +614,7 @@ static void showStatus() {
     Serial.print(minTxRSSI);
     printOneChar('/');
     Serial.print(maxTxRSSI);
-    
-    
-    
+   
 #endif
     showString(PSTR(", Eeprom"));
     rf12_configDump();
@@ -1691,12 +1693,13 @@ void loop () {
         byte n = rf12_len;
         byte crc = false;
 
-        if ((watchNode) && ((rf12_hdr & RF12_HDR_MASK) != watchNode)) return;
         
         if (rf12_crc == 0) {
 #if STATISTICS && !TINY
             messageCount++;                             // Count a broadcast packet
 #endif
+			goodCRC++;
+        	if ((watchNode) && ((rf12_hdr & RF12_HDR_MASK) != watchNode)) return;
             showString(PSTR("OK"));
             crc = true;
         } else {
@@ -2201,8 +2204,8 @@ void loop () {
     } // rf12_recvDone
 #if RF69_COMPAT && !TINY    
       else { 
-        unsigned long r = rfapi.RSSIrestart + rfapi.notNoise;
-        if (r != lastRSSIrestart) {
+
+        if (rfapi.RSSIrestart != lastRSSIrestart) {
         
               if (ledStatus) activityLed(0);
               else activityLed(1);
@@ -2212,7 +2215,7 @@ void loop () {
               // RX restart 5334 0 217 1 0 0 1 208
               //			 r	 r rss d
                   showString(PSTR("RX restart "));
-                  Serial.print(r);
+                  Serial.print(rfapi.RSSIrestart);
                   printOneChar(' ');
                   Serial.print(rfapi.rssiThreshold);
                   printOneChar(' ');
@@ -2239,11 +2242,16 @@ void loop () {
                   printOneChar(' ');
                   Serial.print(rfapi.rssiThreshold);
                   printOneChar(' ');
-                  Serial.print(r);
+                  Serial.print(rfapi.RSSIrestart);
                   printOneChar(' ');
-                  Serial.print(r  - lastThresholdRSSIrestart);
-                  lastThresholdRSSIrestart = lastRSSIrestart;
+                  Serial.print(rfapi.syncMatch);
                   printOneChar(' ');
+                  Serial.print(goodCRC);
+                  printOneChar(' ');
+                 
+//                  Serial.print(rfapi.RSSIrestart  - lastThresholdRSSIrestart);
+//                  lastThresholdRSSIrestart = lastRSSIrestart;
+//                  printOneChar(' ');
                   Serial.print(rfapi.restartRate);
                   printOneChar(' ');
                   Serial.print(rfapi.maxRestartRate);
@@ -2261,7 +2269,7 @@ void loop () {
               }
         lastrssiThreshold = rfapi.rssiThreshold;     
         }
-    lastRSSIrestart = r;
+    lastRSSIrestart = rfapi.RSSIrestart;
     } // rf12_recvDone
 #endif    
     byte r;

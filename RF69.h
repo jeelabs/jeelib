@@ -14,7 +14,7 @@ typedef struct {
 	uint8_t lastPay0;
     uint32_t rateInterval;	// Disabled by default, set this to 10000ms
     uint32_t RSSIrestart;
-    uint32_t notNoise;
+    uint32_t syncMatch;
     uint32_t maxRestartRate;
     uint32_t restartRate;
 	uint16_t RssiToSync;	//Count of loops after RSSI before a missed sync is triggered
