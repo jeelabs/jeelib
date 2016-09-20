@@ -2273,6 +2273,7 @@ void loop () {
     } // rf12_recvDone
 #endif    
     byte r;
+    sendRetry = 0;
     if (cmd) {
         r = rf12_canSend(config.clearAir);
         if (r) {
@@ -2315,10 +2316,10 @@ void loop () {
             if ((++sendRetry & 3) == 0) {
                 showString(PSTR(" Command"));
                 showString(ABORTED);					// Drop the command
-                cmd = sendRetry = 0;					// Request dropped
+                cmd = 0;								// Request dropped
+            } else {
+            	delay(sendRetry << 2);					// or try a little later
             }
-            else delay(sendRetry);						// or try a little later
-            
             Serial.println();   
         }
     } // cmd
