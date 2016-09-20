@@ -17,7 +17,6 @@ static uint16_t frequency;          // Frequency within selected band
 static int8_t matchRF = 0;          // Hardware matching value
 static uint8_t txThre = 255;        // TX permit threshold
 static uint8_t ackDelay = 0;        // Additional delay before sending ACK's
-static uint8_t txPower = 159;         // Transmitter power from eeprom
 static uint8_t rateInterval = 10;   // Restart rate interval in seconds
 static uint8_t rxThreshold = 160;   // Receiver threshold from eeprom
 
@@ -71,7 +70,7 @@ uint8_t rf69_initialize (uint8_t id, uint8_t band, uint8_t group=0xD4, uint16_t 
           
     RF69::configure_compat(); 
 
-    if (txPower) RF69::control(0x91, txPower);
+    if (rfapi.txPower) RF69::control(0x91, rfapi.txPower);
     
     uint8_t r = RF69::control(0x29, 0);	// Read the current RSSI Threshold value
 // TODO For some reason using 'R' command causes the above to return 0 - bug?
@@ -102,7 +101,7 @@ void rf69_configDump () {
     frequency = eeprom_read_byte(RF12_EEPROM_ADDR + 5);
     frequency = (frequency << 8) + (eeprom_read_byte(RF12_EEPROM_ADDR + 4));
     txThre = eeprom_read_byte(RF12_EEPROM_ADDR + 10);     // Store from eeprom
-    txPower = eeprom_read_byte(RF12_EEPROM_ADDR + 6);     // Store from eeprom
+    rfapi.txPower = eeprom_read_byte(RF12_EEPROM_ADDR + 6);     // Store from eeprom
     ackDelay = eeprom_read_byte(RF12_EEPROM_ADDR + 9); // Store from eeprom
     rxThreshold = eeprom_read_byte(RF12_EEPROM_ADDR + 7); // Store from eeprom
     matchRF = eeprom_read_byte(RF12_EEPROM_ADDR + 8);     // Store from eeprom
@@ -147,12 +146,12 @@ void rf69_configDump () {
         Serial.print(" x");
         Serial.print(flags & 0x03);
     }
-    if (txPower) {
-        if (txPower != 0x9F) {
+    if (rfapi.txPower) {
+        if (rfapi.txPower != 0x9F) {
             Serial.print(" ");
             Serial.print(txThre);
             Serial.print("tx");
-            Serial.print(txPower);
+            Serial.print(rfapi.txPower);
         }
     }
     if (rxThreshold) {
@@ -185,7 +184,7 @@ uint8_t rf69_configSilent () {
      
     nodeId = eeprom_read_byte(RF12_EEPROM_ADDR + 0);
     group  = eeprom_read_byte(RF12_EEPROM_ADDR + 1);
-    txPower = eeprom_read_byte(RF12_EEPROM_ADDR + 6);     // Store from eeprom
+    rfapi.txPower = eeprom_read_byte(RF12_EEPROM_ADDR + 6);     // Store from eeprom
     rxThreshold = eeprom_read_byte(RF12_EEPROM_ADDR + 7); // Store from eeprom
     matchRF = eeprom_read_byte(RF12_EEPROM_ADDR + 8); // Store hardware matching 
 

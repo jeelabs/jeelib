@@ -17,6 +17,7 @@
 #define REG_BITRATELSB      0x04
 #define REG_FRFMSB          0x07
 #define REG_OSC1            0x0A
+#define REG_PALEVEL			0x11
 #define REG_OCP             0x13
 #define REG_LNA             0x18
 #define REG_AFCFEI          0x1E
@@ -484,6 +485,9 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
             rf12_drx = delayTXRECV;
             writeReg(REG_DIOMAPPING1, (DIO0_RSSI /*| DIO3_RSSI  DIO0_SYNCADDRESS*/));// Interrupt triggers
       		writeReg(REG_LNA, 0x00); 			// 
+    		writeReg(REG_PALEVEL, ((rfapi.txPower & 0x9F) | 0x80));	// PA1/PA2 off
+          	writeReg(REG_TESTPA1, TESTPA1_NORMAL);    // Turn off high power 
+          	writeReg(REG_TESTPA2, TESTPA2_NORMAL);    // transmit
             rfapi.setmode = setMode(MODE_RECEIVER);
             rxstate = TXRECV;
             writeReg(REG_AFCFEI, AFC_CLEAR);
@@ -569,6 +573,7 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
 //    the above code is to facilitate slow SPI bus speeds.  
     
     writeReg(REG_DIOMAPPING1, (DIO0_PACKETSENT | DIO3_TX_UNDEFINED));
+    writeReg(REG_PALEVEL, rfapi.txPower);
     setMode(MODE_TRANSMITTER);
     
 /*  We must begin transmission to avoid overflowing the FIFO since
@@ -739,6 +744,7 @@ second rollover and then will be 1.024 mS out.
             rxstate = TXRECV;   // Restore state machine
 
 	    } else if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
+    		writeReg(REG_PALEVEL, ((rfapi.txPower & 0x9F) | 0x80));	// PA1/PA2 off
           	writeReg(REG_TESTPA1, TESTPA1_NORMAL);    // Turn off high power 
           	writeReg(REG_TESTPA2, TESTPA2_NORMAL);    // transmit
           	// rxstate will be TXDONE at this point

@@ -12,6 +12,7 @@ typedef struct {
 	uint8_t	lastHdr;
 	uint8_t	lastLen;
 	uint8_t lastPay0;
+	uint8_t	txPower;
     uint32_t rateInterval;	// Disabled by default, set this to 10000ms
     uint32_t RSSIrestart;
     uint32_t syncMatch;
