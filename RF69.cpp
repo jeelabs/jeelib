@@ -463,17 +463,18 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
             ms = millis();
             // Update restart rate
             if ((rfapi.rateInterval) && ((previousMillis + rfapi.rateInterval) < ms)) {
-            
-                rfapi.restartRate = (((rfapi.RSSIrestart - restarts) * 1000L) / 
-                  												(ms - previousMillis));
+            	
+            	uint32_t d = rfapi.RSSIrestart - restarts;
+                rfapi.restartRate = ((d * 1000L) / (ms - previousMillis));
+                if (rfapi.restartRate > rfapi.maxRestartRate) { 
+              		rfapi.maxRestartRate = rfapi.restartRate;
+              	}                      
                   
                 previousMillis = ms;
                 
-                if ((rfapi.restartRate == 0) && (rfapi.rssiThreshold < 228)) { 
+//                if ((rfapi.restartRate == 0) && (rfapi.rssiThreshold < 228)) { 
+                if ((d < (rfapi.rateInterval << 1)) && (rfapi.rssiThreshold < 228)) { 
                 	rfapi.rssiThreshold++;
-                	if (rfapi.restartRate > rfapi.maxRestartRate) { 
-              			rfapi.maxRestartRate = rfapi.restartRate;
-                	}                      
                 }
                 restarts = rfapi.RSSIrestart;
                 
