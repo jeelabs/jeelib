@@ -634,7 +634,13 @@ static void showStatus() {
     }
 
     byte* b = RF69::SPI_pins();  // {OPTIMIZE_SPI, PINCHG_IRQ, RF69_COMPAT, RFM_IRQ, SPI_SS, SPI_MOSI, SPI_MISO, SPI_SCK }
+
+#if defined(__AVR_ATmega1284P__) // Moteino MEGA    
+    static byte n[] = {1,0,1,4,5,6,7,2,2};     // ATMEega1284 with RFM69 settings
+#else
     static byte n[] = {1,0,1,2,3,4,5,2,0};     // Default ATMega328 with RFM69 settings
+#endif
+
     byte mismatch = false;
     for (byte i = 0; i < 9; i++) {
         if (b[i] != n[i]) {
