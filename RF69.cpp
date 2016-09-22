@@ -63,9 +63,11 @@
 #define TESTLNA_NORMAL      0x1B
 #define TESTLNA_BOOST       0x2D
 #define TESTPA1_NORMAL      0x55
-#define TESTPA1_20dBm       0x5D
+#define TESTPA1_20DB		0x5D
 #define TESTPA2_NORMAL      0x70
-#define TESTPA2_20dBm       0x7C
+#define TESTPA2_20DB		0x7C
+#define OCP_NORMAL			0x1A
+#define OCP_20DB			0x0F
 
 #define COURSE_TEMP_COEF      -89 // starter callibration figure
 #define RF_TEMP1_MEAS_START   0x08
@@ -486,8 +488,9 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
             writeReg(REG_DIOMAPPING1, (DIO0_RSSI /*| DIO3_RSSI  DIO0_SYNCADDRESS*/));// Interrupt triggers
       		writeReg(REG_LNA, 0x00); 			// 
     		writeReg(REG_PALEVEL, ((rfapi.txPower & 0x9F) | 0x80));	// PA1/PA2 off
-          	writeReg(REG_TESTPA1, TESTPA1_NORMAL);    // Turn off high power 
-          	writeReg(REG_TESTPA2, TESTPA2_NORMAL);    // transmit
+          	writeReg(REG_OCP, OCP_NORMAL);				// Overcurrent protection on
+          	writeReg(REG_TESTPA1, TESTPA1_NORMAL);	// Turn off high power 
+          	writeReg(REG_TESTPA2, TESTPA2_NORMAL);  // transmit
             rfapi.setmode = setMode(MODE_RECEIVER);
             rxstate = TXRECV;
             writeReg(REG_AFCFEI, AFC_CLEAR);
@@ -571,9 +574,18 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
 //    if (rf12_len > 9)                       // Expedite short packet TX
 //      writeReg(REG_FIFOTHRESH, DELAY_TX);   // Wait for FIFO to hit 32 bytes
 //    the above code is to facilitate slow SPI bus speeds.  
-    
-    writeReg(REG_DIOMAPPING1, (DIO0_PACKETSENT | DIO3_TX_UNDEFINED));
+	if (rfapi.txPower & 0x80) {
+		rfapi.txPower = (rfapi.txPower & 0x9F);
+	}
+	else if
+		(rfapi.txPower == 0x7F) {
+          	writeReg(REG_OCP, OCP_20DB);    		// Overcurrent protection OFF!
+          	writeReg(REG_TESTPA1, TESTPA1_20DB);    // Turn on transmit highest power 
+          	writeReg(REG_TESTPA2, TESTPA2_20DB);    // cross your fingers
+          	// Beware the duty cycle - 1% only
+    	}
     writeReg(REG_PALEVEL, rfapi.txPower);
+    writeReg(REG_DIOMAPPING1, (DIO0_PACKETSENT | DIO3_TX_UNDEFINED));
     setMode(MODE_TRANSMITTER);
     
 /*  We must begin transmission to avoid overflowing the FIFO since
@@ -744,9 +756,10 @@ second rollover and then will be 1.024 mS out.
             rxstate = TXRECV;   // Restore state machine
 
 	    } else if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
+          	writeReg(REG_OCP, OCP_NORMAL);				// Overcurrent protection on
+          	writeReg(REG_TESTPA1, TESTPA1_NORMAL);	// Turn off high power 
+          	writeReg(REG_TESTPA2, TESTPA2_NORMAL);	// transmit
     		writeReg(REG_PALEVEL, ((rfapi.txPower & 0x9F) | 0x80));	// PA1/PA2 off
-          	writeReg(REG_TESTPA1, TESTPA1_NORMAL);    // Turn off high power 
-          	writeReg(REG_TESTPA2, TESTPA2_NORMAL);    // transmit
           	// rxstate will be TXDONE at this point
           	IRQ_ENABLE;       // allow nested interrupts from here on
           	txP++;
