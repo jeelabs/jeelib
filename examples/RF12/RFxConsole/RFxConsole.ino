@@ -323,9 +323,8 @@ unsigned int testRX;
 #if MESSAGING
 static byte semaphores[MAX_NODES];
 #endif
-
-#if RF69_COMPAT && STATISTICS
 static unsigned long goodCRC;
+#if RF69_COMPAT && STATISTICS
 static signed int minFEI[MAX_NODES];
 static signed int maxFEI[MAX_NODES];
 static byte minRSSI[MAX_NODES];
@@ -2192,12 +2191,14 @@ void loop () {
                     showString(ABORTED);		// Airwaves busy, drop ACK and look for a retransmission.
                     showByte(packetAborts);
     				printOneChar(' ');
+#if RF69_COMPAT && !TINY
     				Serial.print(minTxRSSI);
     				printOneChar(' ');
     				Serial.print(rfapi.sendRSSI);
     				printOneChar(' ');
     				Serial.print(maxTxRSSI);
     				printOneChar(' ');
+#endif
     				Serial.print(rfapi.rxfill);
     				printOneChar(' ');
     				Serial.print(rfapi.rxdone);

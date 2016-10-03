@@ -488,7 +488,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
             writeReg(REG_DIOMAPPING1, (DIO0_RSSI /*| DIO3_RSSI  DIO0_SYNCADDRESS*/));// Interrupt triggers
       		writeReg(REG_LNA, 0x00); 			// 
     		writeReg(REG_PALEVEL, ((rfapi.txPower & 0x9F) | 0x80));	// PA1/PA2 off
-          	writeReg(REG_OCP, OCP_NORMAL);				// Overcurrent protection on
+          	writeReg(REG_OCP, OCP_NORMAL);			// Overcurrent protection on
           	writeReg(REG_TESTPA1, TESTPA1_NORMAL);	// Turn off high power 
           	writeReg(REG_TESTPA2, TESTPA2_NORMAL);  // transmit
             rfapi.setmode = setMode(MODE_RECEIVER);
