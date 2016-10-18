@@ -2131,33 +2131,6 @@ Serial.print(")");
                     Serial.println();                    
                 }
 #endif                    
-#if MESSAGING
-                else {
-                    // This code is used when an incoming packet is requesting an ACK, it determines if a semaphore is posted for this Node/Group.
-                    // If a semaphore exists it is stored in the buffer. If the semaphore has a message addition associated with it then
-                    // the additional data from the message store is appended to the buffer and the whole buffer transmitted to the 
-                    // originating node with the ACK.
-
-
-                    if (semaphores[NodeMap]) {                            // Something to post?
-                        stack[sizeof stack - 1] = semaphores[NodeMap];    // Pick up message pointer
-                        ackLen = getMessage(stack[sizeof stack - 1]);     // Check for a message to be appended
-                        if (ackLen){
-                            stack[(sizeof stack - (ackLen + 1))] = semaphores[NodeMap];
-                        }
-                        ackLen++;                                                    // If 0 or message length then +1 for length byte
-                        showString(PSTR("Posted "));
-                        if (rf12_data[0] == semaphores[NodeMap]) {  // Check if previous Post value is the first byte of this payload 
-                            semaphores[NodeMap] = 0;                // Indicating it was received
-                            showString(PSTR("and cleared "));
-                        }
-                        // TODO Can we respond to an ACK request and also request that the response be ACK'ed?
-                        crlf = true;
-                        displayString(&stack[sizeof stack - ackLen], ackLen);        // 1 more than Message length!                      
-                        postingsOut++;
-                    }
-#endif
-                }
                 crlf = true;
                 delay(config.ackDelay);          // changing into TX mode is quicker than changing into RX mode for RF69.     
                 showString(PSTR("TX "));
@@ -2183,9 +2156,33 @@ Serial.print(")");
                     }
 #endif
                     printOneChar('i');
-                    showByte(rf12_hdr & RF12_HDR_MASK);
+                    showByte(rf12_hdr & RF12_HDR_MASK);                    
+#if MESSAGING
+	                // This code is used when an incoming packet is requesting an ACK, it determines if a semaphore is posted for this Node/Group.
+    	            // If a semaphore exists it is stored in the buffer. If the semaphore has a message addition associated with it then
+        	        // the additional data from the message store is appended to the buffer and the whole buffer transmitted to the 
+            	    // originating node with the ACK.
+                
+                	if (semaphores[NodeMap]) {                            // Something to post?
+                    	stack[sizeof stack - 1] = semaphores[NodeMap];    // Pick up message pointer
+	                    ackLen = getMessage(stack[sizeof stack - 1]);     // Check for a message to be appended
+    	                if (ackLen){
+        	                stack[(sizeof stack - (ackLen + 1))] = semaphores[NodeMap];
+            	        }
+                	    ackLen++;                                                    // If 0 or message length then +1 for length byte
+                    	showString(PSTR(" Posted "));
+	                    if (rf12_data[0] == semaphores[NodeMap]) {  // Check if previous Post value is the first byte of this payload 
+    	                    semaphores[NodeMap] = 0;                // Indicating it was received
+        	                showString(PSTR("and cleared "));
+            	        }
+                    	crlf = true;
+                    	displayString(&stack[sizeof stack - ackLen], ackLen);        // 1 more than Message length!                      
+                    	postingsOut++;
+                	}
+#endif                                        
                     rf12_sendStart(RF12_ACK_REPLY, &stack[sizeof stack - ackLen], ackLen);
                     rf12_sendWait(1);
+                    
                 } else {
                     packetAborts++;   
                     showString(ABORTED);		// Airwaves busy, drop ACK and look for a retransmission.

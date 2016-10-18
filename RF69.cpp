@@ -633,7 +633,7 @@ condition is met to transmit the packet data.
 void RF69::interrupt_compat (uint8_t rssi_interrupt) {
 /*
   This interrupt service routine retains control for far too long. However,
-  the choices are limted because of the short time gap between RSSI & SyncMatch,
+  the choices are limited because of the short time gap between RSSI & SyncMatch,
   being driven by recvDone and the size of the radio FIFO.
 
 */
