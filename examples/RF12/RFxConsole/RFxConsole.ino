@@ -2079,13 +2079,14 @@ Serial.print(")");
                     == ((config.nodeId & 0x1F) | RF12_HDR_ACK | RF12_HDR_DST)) {
 
                 byte ackLen = 0;
-
+				byte special = false;
                 // This code is used when an incoming packet requesting an ACK is also from Node 31
                 // The purpose is to find a "spare" Node number within the incoming group and offer 
                 // it with the returning ACK.
                 // If there are no spare Node numbers nothing is offered
                 // TODO perhaps we should increment the Group number and find a spare node number there?
                 if (((rf12_hdr & RF12_HDR_MASK) == 31) && (!(rf12_hdr & RF12_HDR_DST)) && (!(testPacket))) {
+                	special = true;
                     // Special Node 31 source node
                     // Make sure this nodes node/group is already in the eeprom
                     if (((getIndex(config.group, config.nodeId))) && (newNodeMap != 0xFFFF)) {   
@@ -2163,9 +2164,9 @@ Serial.print(")");
         	        // the additional data from the message store is appended to the buffer and the whole buffer transmitted to the 
             	    // originating node with the ACK.
                 
-                	if (semaphores[NodeMap]) {                            // Something to post?
-                    	stack[sizeof stack - 1] = semaphores[NodeMap];    // Pick up message pointer
-	                    ackLen = getMessage(stack[sizeof stack - 1]);     // Check for a message to be appended
+                	if (semaphores[NodeMap] && (!(special))) {				// Something to post?
+                    	stack[sizeof stack - 1] = semaphores[NodeMap];		// Pick up message pointer
+	                    ackLen = getMessage(stack[sizeof stack - 1]);		// Check for a message to be appended
     	                if (ackLen){
         	                stack[(sizeof stack - (ackLen + 1))] = semaphores[NodeMap];
             	        }
@@ -2185,13 +2186,12 @@ Serial.print(")");
                     
                 } else {
                     packetAborts++;   
+            		Serial.print(rfapi.sendRSSI);
                     showString(ABORTED);		// Airwaves busy, drop ACK and look for a retransmission.
                     showByte(packetAborts);
                     printOneChar(' ');
 #if RF69_COMPAT && !TINY
                     Serial.print(minTxRSSI);
-                    printOneChar(' ');
-                    Serial.print(rfapi.sendRSSI);
                     printOneChar(' ');
                     Serial.print(maxTxRSSI);
                     printOneChar(' ');
