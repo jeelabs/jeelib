@@ -512,8 +512,9 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
             rf12_rtp = rtp; // Delay between RSSI & Data Packet
             rf12_rst = rst; // Count of resets used to capture packet
             rf12_tfr = tfr; // Time to receive in microseconds
-            for (byte i = 0; i <= (rf69_len + 4); i++) {
+            for (byte i = 0; i < (payloadLen + 5); i++) {
                 rf12_buf[i] = rf69_buf[i];
+//*DEBUG*/		rf69_buf[i] = 0;
             }     
             rf12_crc = crc;
             rxstate = TXIDLE;
@@ -723,8 +724,7 @@ second rollover and then will be 1.024 mS out.
                         if (in <= RF12_MAXDATA) {  // capture and
                             payloadLen = in;       // validate length byte
                         } else {
-                            recvBuf[rxfill++] = 10;// Set rf69_len to ten!
-                            payloadLen = 10;
+							in = payloadLen = 10;	// Fix payload to 10!
                             badLen++;
                         }
                     }                    

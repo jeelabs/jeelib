@@ -1412,12 +1412,12 @@ showNibble(resetFlags);
         showString(INITFAIL);
         memset(&config, 0, sizeof config);
         config.nodeId = 0x9F;       // 868 MHz, node 31
-        config.group = 0xD4;        // Default group 212
+        config.group = 0x00;        // Default group 0
         config.frequency_offset = 1600;
         config.collect_mode = true; // Default to no-ACK
         config.quiet_mode = true;   // Default flags, quiet on
         config.defaulted = true;    // Default config initialized
-        config.ackDelay = 1;        // 1ms to handle 8Mhz nodes getting into RX mode for ACK.
+        config.ackDelay = 0;
 #if RF69_COMPAT == 0
         config.RegRssiThresh = 2;
         config.clearAir = 160;      // 80dB
