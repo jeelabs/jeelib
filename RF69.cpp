@@ -483,7 +483,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
                 
             }	// Calculate restart rate
             // Prepare to receive
-            writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
+//			writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
             rf12_drx = delayTXRECV;
             writeReg(REG_DIOMAPPING1, (DIO0_RSSI /*| DIO3_RSSI  DIO0_SYNCADDRESS*/));// Interrupt triggers
       		writeReg(REG_LNA, 0x00); 			// 
@@ -492,6 +492,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
           	writeReg(REG_TESTPA1, TESTPA1_NORMAL);	// Turn off high power 
           	writeReg(REG_TESTPA2, TESTPA2_NORMAL);  // transmit
             rfapi.setmode = setMode(MODE_RECEIVER);
+            writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
             rxstate = TXRECV;
             writeReg(REG_AFCFEI, AFC_CLEAR);
             startRX = micros();
