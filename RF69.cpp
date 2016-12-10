@@ -775,11 +775,13 @@ second rollover and then will be 1.024 mS out.
             // We get here when a interrupt that is not for RX/TX completion.
             // Appears related to receiving noise when the bad CRC
             // packet display is enabled using "0q".
+            // Many instances of an interrupt entering here while in FS mode 8 - PLL?
             unexpected++;
             unexpectedFSM = rxstate; // Save Finite State Machine status
             unexpectedIRQFLAGS2 = readReg(REG_IRQFLAGS2);
             unexpectedMode = readReg(REG_OPMODE);
             writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
             rxstate = TXIDLE;   // Cause a RX restart by FSM
+        	setMode(MODE_SLEEP);
         }
 }
