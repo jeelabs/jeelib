@@ -48,6 +48,7 @@
 // Added dynamic control of RX Threshold based on restart rate 2016-07-12
 // Variable time constant for rate calculation stoed in eeprom
 // Added counter for ACK's aborted due to busy airwaves 2016-09-01
+// Added inter packet time gaps, also min/max 2016-12-12
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
 #define TINY 1
 #endif
@@ -123,6 +124,9 @@ byte qMax = 0;
 byte lastrssiThreshold;
 unsigned long lastRSSIrestart;
 unsigned long lastThresholdRSSIrestart;
+unsigned long rxLast;
+unsigned long minGap = ~0;
+unsigned long maxGap = 0; 
 
 #if TINY
 // Serial support (output only) for Tiny supported by TinyDebugSerial
@@ -217,7 +221,7 @@ ISR(WDT_vect) { Sleepy::watchdogEvent(); }
 static unsigned long now () {
     // FIXME 49-day overflow
     return millis() / 1000;
-}
+} 
 
 byte ledStatus = 0;
 static void activityLed (byte on) {
@@ -613,6 +617,12 @@ static void showStatus() {
     Serial.print(minTxRSSI);
     printOneChar('/');
     Serial.print(maxTxRSSI);
+    showString(PSTR(", InterSync(ms) "));
+    Serial.print(minGap);
+    printOneChar('/');
+    Serial.print((millis() - rfapi.interpacketTS));
+    printOneChar('/');
+    Serial.print(maxGap);
 
 #endif
     showString(PSTR(", Eeprom"));
@@ -1681,6 +1691,12 @@ void loop () {
 
         rf12_recvDone();                // Attempt to buffer next RF packet
         // At this point the receiver is active
+        
+ 		unsigned long rxGap = rf12_interpacketTS - rxLast;
+ 		rxLast = rf12_interpacketTS;
+ 		if (rxGap < minGap) minGap = rxGap;
+ 		if (rxGap > maxGap) maxGap = rxGap;
+ 		
         observedRX.afc = rf12_afc;
         observedRX.fei = rf12_fei;
         observedRX.rssi2 = rf12_rssi;
@@ -1887,6 +1903,8 @@ void loop () {
 
             showString(PSTR(" r="));
             Serial.print(rf12_rst);
+            showString(PSTR(" i="));
+            Serial.print(rxGap);
             /*
                showString(PSTR(" M="));
                Serial.print(RF69::REGIRQFLAGS1, HEX);
@@ -2235,7 +2253,10 @@ Serial.print(")");
                 printOneChar(' ');
                 Serial.print(RF69::rssi);
                 printOneChar(' ');
-                Serial.println(millis());
+                unsigned long m = millis();
+                Serial.println(m - rfapi.interpacketTS);
+                printOneChar(' ');
+				Serial.print(m);
                 //                  Serial.println();                  
             }
         }

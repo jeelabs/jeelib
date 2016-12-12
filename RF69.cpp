@@ -508,6 +508,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
             rf12_lna = lna;
             rf12_afc = afc;
             rf12_fei = fei;
+            rf12_interpacketTS = rfapi.interpacketTS;
             delayTXRECV = 0;
             rf12_sri = currentRSSI();
             rf12_rtp = rtp; // Delay between RSSI & Data Packet
@@ -698,6 +699,7 @@ second rollover and then will be 1.024 mS out.
                     } // SyncMatch or Timeout 
                 } //  while
             } //  RSSI
+            rfapi.interpacketTS = ms;
             rxstate = RXFIFO;            
             IRQ_ENABLE;       // allow nested interrupts from here on
             
