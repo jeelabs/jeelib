@@ -535,6 +535,14 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         }
         break;
     }
+
+    // Test for radio in hung state
+    if (readReg(REG_OPMODE) == MODE_FS) {
+				setMode(MODE_SLEEP);	// Clear hang?
+            	rxstate = TXIDLE;
+            	rfapi.modeError++;
+	}
+
     return ~0; // keep going, not done yet
 }
 
