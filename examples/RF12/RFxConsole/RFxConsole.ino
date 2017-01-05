@@ -49,6 +49,8 @@
 // Variable time constant for rate calculation stoed in eeprom
 // Added counter for ACK's aborted due to busy airwaves 2016-09-01
 // Added inter packet time gaps, also min/max 2016-12-12
+// Tweaks around <cr> handling to better fit use of folie as a terminal emulator 2017-01-5
+
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
 #define TINY 1
 #endif
@@ -85,7 +87,7 @@
 
 #define MAJOR_VERSION RF12_EEPROM_VERSION // bump when EEPROM layout changes
 #define MINOR_VERSION 0                   // bump on other non-trivial changes
-//#define VERSION "\n[RFxConsole.3]"        // keep in sync with the above
+#define VERSION "\n[RFxConsole.4]\n"    // keep in sync with the above
 #if !configSTRING
 #define rf12_configDump()                 // Omit A i1 g210 @ 868 MHz q1
 #endif
@@ -588,13 +590,18 @@ static void showHelp () {
 }
 
 static void showStatus() {
-    printOneChar(' ');
+#if RF69_COMPAT
+    showString(RFM69x);
+#else
+	showString(RFM12x);
+#endif
+    showString(PSTR("Elapsed(s) "));
     Serial.print(now());
-    showString(PSTR("s elapsed, Led is ")); if (ledStatus) showString(PSTR("on")); else showString(PSTR("off"));
-    showString(PSTR(", Free Ram "));
+    showString(PSTR(", Led is ")); if (ledStatus) showString(PSTR("on")); else showString(PSTR("off"));
+    showString(PSTR(", Free Ram(b) "));
     Serial.print(freeRam());     
 #if RF69_COMPAT
-    showString(PSTR("b, RX Restarts "));
+    showString(PSTR(", RX Restarts "));
     Serial.print(rfapi.RSSIrestart);
     showString(PSTR(", Rate "));
     Serial.print(rfapi.restartRate);
@@ -611,7 +618,7 @@ static void showStatus() {
     Serial.print(rfapi.rssiThreshold);
     printOneChar('/');
     Serial.print(rfapi.noiseFloorMax);
-    showString(PSTR(", Ack: Aborts "));
+    showString(PSTR(", Ack Aborts "));
     Serial.print(packetAborts);
     showString(PSTR(", Floor "));
     Serial.print(minTxRSSI);
@@ -623,6 +630,8 @@ static void showStatus() {
     Serial.print((millis() - rfapi.interpacketTS));
     printOneChar('/');
     Serial.print(maxGap);
+    showString(PSTR(", Mode Errors "));
+    Serial.print(rfapi.modeError);
 
 #endif
     showString(PSTR(", Eeprom"));
@@ -682,6 +691,7 @@ Serial.println();
 Serial.flush();
 }
 
+bool cr = false;
 static void handleInput (char c) {
     //      Variable value is now 16 bits to permit offset command, stack only stores 8 bits
     //      not a problem for offset command but beware.
@@ -702,23 +712,31 @@ static void handleInput (char c) {
         value = 0;
         return;
     }
+    
+    if ((cr) && (c == 13)) {
+    	value = 0;	// Loose <cr> to work with folie
+    	cr = false;	// Allow the next <cr>
+    	return;
+    }
 
-    if (32 > c || c > 'z') {      // Trap unknown characters
-        for (byte i = 0; i < top; ++i) {
-            showByte(stack[i]);
-            printOneChar(',');
+    if (32 > c || c > 'z') {    // Trap unknown characters bar null
+		if (c != 13) {
+	        for (byte i = 0; i < top; ++i) {
+    	        showByte(stack[i]);
+        	    printOneChar(',');
+        	}
+        	showWord(value);
+        	showString(PSTR(",Key="));
+        	showByte(c);          // Highlight Tiny serial framing errors.  
+        	printOneChar(',');
         }
-        showWord(value);
-        showString(PSTR(",Key="));
-        showByte(c);          // Highlight Tiny serial framing errors.  
-        printOneChar(',');
+        
         showStatus();
 
-        //            Serial.println();
-        value = top = 0;      // Clear up
+        value = top = 0;	// Clear up
         ones = 0;
         other = 0;
-    }
+    } else cr = true;		// Loose next <cr> to work with folie
 
     // keeping this out of the switch reduces code size (smaller branch table)
     // TODO Using the '>' command with incorrect values hangs the hardware
@@ -1350,11 +1368,6 @@ void setup () {
 #endif
     Serial.begin(SERIAL_BAUD);
     displayVersion();
-#if RF69_COMPAT
-    showString(RFM69x);
-#else
-    showString(RFM12x);
-#endif
 #if LED_PIN == 8
     showString(BLOC);
 #endif
