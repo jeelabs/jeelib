@@ -1,9 +1,12 @@
+// This turns a JeeNode (or other 3.3V Arduino clone) into a programmer for the
+// JeeNode Zero, loading a copy of Mecrisp Forth on it via the ROOM boot loader.
+
 #include "ParitySerial.h"
 
-#define RX_PIN      7   // P4D
-#define TX_PIN      17  // P4A
-#define RESET_PIN   4   // P1D
-#define BOOT0_PIN   14  // P1A
+#define RX_PIN      7   // P4D: digital pin on JeePort #4
+#define TX_PIN      17  // P4A: analog  pin on JeePort #4
+#define RESET_PIN   4   // P1D: digital pin on JeePort #1
+#define BOOT0_PIN   14  // P1A: analog  pin on JeePort #1
 
 #define BOOT_LOADER "l052-mecrisp.h"
 
