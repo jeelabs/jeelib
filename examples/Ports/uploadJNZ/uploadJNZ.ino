@@ -1,5 +1,5 @@
 // This turns a JeeNode (or other 3.3V Arduino clone) into a programmer for the
-// JeeNode Zero, loading a copy of Mecrisp Forth on it via the ROOM boot loader.
+// JeeNode Zero, loading a copy of Mecrisp Forth on it via the ROM boot loader.
 
 #include "ParitySerial.h"
 
