@@ -5,8 +5,13 @@
 
 #define RX_PIN      7   // P4D: digital pin on JeePort #4
 #define TX_PIN      17  // P4A: analog  pin on JeePort #4
+
 #define RESET_PIN   4   // P1D: digital pin on JeePort #1
 #define BOOT0_PIN   14  // P1A: analog  pin on JeePort #1
+
+#define GREEN_PIN   6   // P3D: digital pin on JeePort #3
+#define ERROR_PIN   16  // P3A: analog  pin on JeePort #3
+#define START_PIN   3   // IRQ: interrupt pin on all JeePorts
 
 #define BOOT_LOADER "l052-mecrisp.h"
 
@@ -37,7 +42,7 @@ static uint8_t getData (uint16_t index) {
 }
 
 static uint8_t getReply () {
-    for (long i = 0; i < 100000; ++i)
+    for (long i = 0; i < 50000; ++i)
         if (Target.available())
             return Target.read();
     return 0;
@@ -58,6 +63,7 @@ static void wantAck () {
     }
     Serial.print(" FAILED - got 0x");
     Serial.println(b, HEX);
+    digitalWrite(ERROR_PIN, 1);
     while (true) ; // halt
 }
 
@@ -85,8 +91,11 @@ static void connectToTarget () {
 
     uint8_t b = 0;
     do {
+        digitalWrite(GREEN_PIN, 1);
         Serial.print(".");
+        delay(20);
         Target.write(0x7F);
+        digitalWrite(GREEN_PIN, 0);
         b = getReply();
         //Serial.print(b, HEX);
     } while (b != ACK && b != NAK);
@@ -150,6 +159,10 @@ void setup () {
     Serial.println(sizeof data);
     Serial.println();
 
+    digitalWrite(ERROR_PIN, 0); pinMode(ERROR_PIN, OUTPUT);
+    digitalWrite(GREEN_PIN, 0); pinMode(GREEN_PIN, OUTPUT);
+    pinMode(START_PIN, INPUT_PULLUP);
+
 if (1) {
     resetTarget(true);
 
@@ -189,6 +202,7 @@ if (1) {
     
     Serial.print("     Writing: ");
     for (uint16_t offset = 0; offset < sizeof data; offset += 256) {
+        digitalWrite(ERROR_PIN, 1);
         Serial.print('.');
         sendCmd(WRITE_CMD);
         uint32_t addr = 0x08000000 + offset;
@@ -197,6 +211,7 @@ if (1) {
         sendByte(addr >> 8);
         sendByte(addr);
         sendByte(check);
+        digitalWrite(ERROR_PIN, 0);
         wantAck();
         sendByte(256-1);
         //check = 0;
@@ -210,6 +225,7 @@ if (1) {
     Serial.print("        Done: ");
     Serial.print(sizeof data);
     Serial.println(" bytes uploaded.");
+    digitalWrite(GREEN_PIN, 1);
 }
 
     Target.begin(115200, false, false); // disable parity
