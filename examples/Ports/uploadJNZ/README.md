@@ -32,4 +32,5 @@ Mecrisp-Stellaris RA 2.3.3 with M0 core for STM32L053C8 by Matthias Koch
 
 Note: 115200 baud reception via Software Serial is tricky, some input data
 corruption may occur, for example when timer interrupts interfere with timing.
-As a result, some bytes received after upload + reset may be incorrect.
+As a result, some bytes received after upload + reset may be incorrect. The
+flashing itself runs at 57600 baud to avoid such timing problems.
