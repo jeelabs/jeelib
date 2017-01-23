@@ -15,6 +15,8 @@
 
 #define BOOT_LOADER "l052-mecrisp.h"
 
+#define RESET() ((void (*)()) 0)()
+
 const uint8_t data[] PROGMEM = {
 #include BOOT_LOADER
 };
@@ -64,7 +66,10 @@ static void wantAck () {
     Serial.print(" FAILED - got 0x");
     Serial.println(b, HEX);
     digitalWrite(ERROR_PIN, 1);
-    while (true) ; // halt
+
+    while (digitalRead(START_PIN) == 0)
+        ;
+    RESET();
 }
 
 static void sendByte (uint8_t b) {
@@ -140,7 +145,16 @@ static void massErase () {
 #endif
 }
 
-static void resetTarget(bool enterBoot) {
+static void waitForStart () {
+    do {
+        delay(500);
+        digitalWrite(GREEN_PIN, 1);
+        delay(500);
+        digitalWrite(GREEN_PIN, 0);
+    } while (digitalRead(START_PIN));  // zero starts, inverted logic
+}
+
+static void resetTarget (bool enterBoot) {
     digitalWrite(RESET_PIN, 1); pinMode(RESET_PIN, OUTPUT);
     digitalWrite(BOOT0_PIN, 0); pinMode(BOOT0_PIN, OUTPUT);
     delay(2);
@@ -163,7 +177,8 @@ void setup () {
     digitalWrite(GREEN_PIN, 0); pinMode(GREEN_PIN, OUTPUT);
     pinMode(START_PIN, INPUT_PULLUP);
 
-if (1) {
+    waitForStart();
+
     resetTarget(true);
 
     Serial.print("  Connecting: ");
@@ -226,7 +241,6 @@ if (1) {
     Serial.print(sizeof data);
     Serial.println(" bytes uploaded.");
     digitalWrite(GREEN_PIN, 1);
-}
 
     Target.begin(115200, false, false); // disable parity
     resetTarget(false);
@@ -237,4 +251,6 @@ void loop () {
         Target.write(Serial.read());
     if (Target.available())
         Serial.write(Target.read());
+    if (digitalRead(START_PIN))  // inverted logicgg
+        RESET();
 }
