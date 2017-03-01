@@ -50,6 +50,7 @@
 // Added counter for ACK's aborted due to busy airwaves 2016-09-01
 // Added inter packet time gaps, also min/max 2016-12-12
 // Tweaks around <cr> handling to better fit use of folie as a terminal emulator 2017-01-5
+// Add 1Hz Timer1 for rate calculation and longer elapsed duration 2017-02-28
 
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
 #define TINY 1
@@ -64,7 +65,7 @@
 #define MESSAGING    1   // Define to include message posting code m, p - Will not fit into any Tiny image
 #define STATISTICS   1   // Define to include stats gathering - Adds ?? bytes to Tiny image
 #define NODE31ALLOC  1   // Define to include offering of spare node numbers if node 31 requests ack
-#define DEBUG            0   //
+#define DEBUG        0   //
 #endif
 
 #define REG_BITRATEMSB 0x03  // RFM69 only, 0x02, // BitRateMsb, data rate = 49,261 khz
@@ -129,10 +130,6 @@ unsigned long lastThresholdRSSIrestart;
 unsigned long rxLast;
 unsigned long minGap = ~0;
 unsigned long maxGap = 0; 
-volatile unsigned long elapsedSeconds;
-volatile unsigned long previousRestarts;
-volatile unsigned int restartRate;
-volatile unsigned int maxRestartRate;
 
 #if TINY
 // Serial support (output only) for Tiny supported by TinyDebugSerial
@@ -224,6 +221,10 @@ static byte inChar () {
 
 ISR(WDT_vect) { Sleepy::watchdogEvent(); }
 
+volatile unsigned long elapsedSeconds;
+volatile unsigned long previousRestarts;
+volatile unsigned int restartRate;
+volatile unsigned int maxRestartRate;
 ISR(TIMER1_COMPA_vect){
 	elapsedSeconds++;
 
@@ -612,8 +613,19 @@ static void showStatus() {
 #else
 	showString(RFM12x);
 #endif
-    showString(PSTR("Elapsed(s) "));
+	unsigned long s = elapsedSeconds;
+    showString(PSTR("Elapsed "));
+    Serial.print(s / 86400UL);
+	printOneChar('d');
+    Serial.print((s%86400UL) / 3600UL);
+	printOneChar('h');
+    Serial.print((s%3600UL) / 60UL);
+	printOneChar('m');
+    Serial.print(s%60UL);
+	printOneChar('s');
+	printOneChar('=');
     Serial.print(elapsedSeconds);
+	printOneChar('s');
     showString(PSTR(", Led is ")); if (ledStatus) showString(PSTR("on")); else showString(PSTR("off"));
     showString(PSTR(", Free Ram(b) "));
     Serial.print(freeRam());     
@@ -2287,20 +2299,24 @@ Serial.print(")");
                 Serial.print(restartRate);
                 printOneChar(' ');
                 Serial.print(rf12_drx);
-                printOneChar(' ');
+//                printOneChar(' ');
+                showString(PSTR(" afc="));
                 Serial.print(RF69::afc);
-                printOneChar(' ');
+//                printOneChar(' ');
+                showString(PSTR(" fei="));
                 Serial.print(RF69::fei);
-                printOneChar(' ');
+//                printOneChar(' ');
+                showString(PSTR(" lna="));
                 Serial.print((RF69::lna >> 3));
-                printOneChar(' ');
+//                printOneChar(' ');
+                showString(PSTR(" rssi=="));
                 Serial.print(RF69::rssi);
                 printOneChar(' ');
                 unsigned long m = millis();
-                Serial.println(m - rfapi.interpacketTS);
+                Serial.print(m - rfapi.interpacketTS);
                 printOneChar(' ');
-				Serial.print(m);
-                //                  Serial.println();                  
+				Serial.println(m);
+//				Serial.println();                  
             }
         }
         if (rfapi.rssiThreshold != lastrssiThreshold) {
