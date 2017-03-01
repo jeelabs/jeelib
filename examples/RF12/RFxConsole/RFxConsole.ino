@@ -1901,9 +1901,9 @@ void loop () {
             }
         }
 #if RF69_COMPAT && !TINY
-        if (config.verbosity & 1) {
+        if ((config.verbosity & 1) || (!crc)) {
             showString(PSTR(" a="));
-            Serial.print(observedRX.afc);                        // TODO What units has this number?
+            Serial.print(observedRX.afc);                      // TODO What units has this number?
             showString(PSTR(" f="));
             Serial.print(observedRX.fei);                      // TODO What units has this number?
             /*
