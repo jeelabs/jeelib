@@ -182,7 +182,7 @@ static volatile uint32_t noiseMillis;
 static volatile uint32_t SYNCinterruptMillis;
 static volatile uint16_t RssiToSync;
 
-static volatile uint32_t restarts;
+//static volatile uint32_t restarts;
 static volatile uint8_t startRSSI;
 
 static ROM_UINT8 configRegs_compat [] ROM_DATA = {
@@ -321,7 +321,7 @@ static uint8_t initRadio (ROM_UINT8* init) {
             writeReg(cmd, ROM_READ_UINT8(init+1));
             init += 2;
         }
-
+		previousMillis = millis();
         InitIntPin();
         
         return 1;
@@ -461,27 +461,17 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         rxfill = rf69_buf[2] = 0;
         recvBuf = buf;
         setMode(MODE_STANDBY);
-        startRSSI = currentRSSI();
+        startRSSI = currentRSSI();       
         if (startRSSI >= 160 /*rssiThreshold*/) { // Don't start to RX in busy airwaves
-            ms = millis();
-            // Update restart rate
+/*            uint32_t d = rfapi.RSSIrestart - restarts;
             if ((rfapi.rateInterval) && ((previousMillis + rfapi.rateInterval) < ms)) {
-            	
-            	uint32_t d = rfapi.RSSIrestart - restarts;
-                rfapi.restartRate = ((d * 1000L) / (ms - previousMillis));
-                if (rfapi.restartRate > rfapi.maxRestartRate) { 
-              		rfapi.maxRestartRate = rfapi.restartRate;
-              	}                      
-                  
-                previousMillis = ms;
-                
-//                if ((rfapi.restartRate == 0) && (rfapi.rssiThreshold < 228)) { 
+
                 if ((d < (rfapi.rateInterval << 1)) && (rfapi.rssiThreshold < 228)) { 
                 	rfapi.rssiThreshold++;
                 }
-                restarts = rfapi.RSSIrestart;
                 
-            }	// Calculate restart rate
+            }
+*/
             // Prepare to receive
 //			writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
             rf12_drx = delayTXRECV;
@@ -499,6 +489,14 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
             rfapi.mode = readReg(REG_OPMODE);
             rfapi.irqflags1 = readReg(REG_IRQFLAGS1);
         } else delayTXRECV++; // Loops waiting for clear air before entering RX mode 
+        
+	    // Test for radio in hung state
+    	if (readReg(REG_OPMODE) == MODE_FS) {
+				setMode(MODE_SLEEP);	// Clear hang?
+            	rxstate = TXIDLE;
+            	rfapi.modeError++;
+		}      
+        
         break;
         
     case TXRECV:
@@ -535,14 +533,14 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         }
         break;
     }
-
+/* Code below did not find any mode error situations.
     // Test for radio in hung state
     if (readReg(REG_OPMODE) == MODE_FS) {
 				setMode(MODE_SLEEP);	// Clear hang?
             	rxstate = TXIDLE;
             	rfapi.modeError++;
 	}
-
+*/
     return ~0; // keep going, not done yet
 }
 
@@ -694,6 +692,7 @@ second rollover and then will be 1.024 mS out.
       					writeReg(REG_RSSITHRESHOLD, 100); 	// Quiet the RSSI threshold
         				setMode(MODE_SLEEP);
 	                	rfapi.RSSIrestart++;
+
             			if ((rfapi.rateInterval) && ((noiseMillis + rfapi.rateInterval) < ms)) {
                         	// Adjust RSSI if in noise region	                	    
 							if (rfapi.rssiThreshold > rfapi.configThreshold) { 

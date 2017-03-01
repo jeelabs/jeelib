@@ -129,6 +129,10 @@ unsigned long lastThresholdRSSIrestart;
 unsigned long rxLast;
 unsigned long minGap = ~0;
 unsigned long maxGap = 0; 
+volatile unsigned long elapsedSeconds;
+volatile unsigned long previousRestarts;
+volatile unsigned int restartRate;
+volatile unsigned int maxRestartRate;
 
 #if TINY
 // Serial support (output only) for Tiny supported by TinyDebugSerial
@@ -219,6 +223,19 @@ static byte inChar () {
 #endif
 
 ISR(WDT_vect) { Sleepy::watchdogEvent(); }
+
+ISR(TIMER1_COMPA_vect){
+	elapsedSeconds++;
+
+    // Update restart rate
+    restartRate = (rfapi.RSSIrestart - previousRestarts);
+    previousRestarts = rfapi.RSSIrestart;
+              	
+    if (restartRate > maxRestartRate) { 
+    	maxRestartRate = restartRate;
+    }                     
+}
+
 
 static unsigned long now () {
     // FIXME 49-day overflow
@@ -596,7 +613,7 @@ static void showStatus() {
 	showString(RFM12x);
 #endif
     showString(PSTR("Elapsed(s) "));
-    Serial.print(now());
+    Serial.print(elapsedSeconds);
     showString(PSTR(", Led is ")); if (ledStatus) showString(PSTR("on")); else showString(PSTR("off"));
     showString(PSTR(", Free Ram(b) "));
     Serial.print(freeRam());     
@@ -604,9 +621,9 @@ static void showStatus() {
     showString(PSTR(", RX Restarts "));
     Serial.print(rfapi.RSSIrestart);
     showString(PSTR(", Rate "));
-    Serial.print(rfapi.restartRate);
+    Serial.print(restartRate);
     printOneChar('m');
-    Serial.print(rfapi.maxRestartRate);
+    Serial.print(maxRestartRate);
     showString(PSTR("/s, Sync Match "));
     Serial.print(rfapi.syncMatch);
 
@@ -1028,7 +1045,6 @@ static void handleInput (char c) {
 #if RF69_COMPAT
                      config.RegPaLvl = RF69::control(0x11, 0x9F);   // Pull the current RegPaLvl from the radio
                      // An obscure method because one can blow the hardware
-                     //            rfapi.RSSIrestart = rfapi.restartRate = rfapi.maxRestartRate = 0;       
 #endif                                                     
                      saveConfig();
                      break;
@@ -1383,13 +1399,27 @@ void setup () {
     ACSR |= (1<<ACD);       // Disable Analog Comparator
     ADCSRA &= ~ bit(ADEN);  // disable the ADC
     // Switch off some unused hardware
-    PRR |= (1 << PRTIM1) | (1 << PRADC);
+//	PRR |= (1 << PRTIM1) | (1 << PRADC);
+    PRR |= (1 << PRADC);
 #if defined PRTIM2
     PRR |= (1 << PRTIM2);
 #endif
 #if defined PRR2
     PRR1 |= (1 << PRTIM3);  // 1284P
 #endif
+
+// Set up timer1 interrupt at 1Hz
+  	TCCR1A = 0;								// Set TCCR1A to 0
+  	TCCR1B = 0;								// Same for TCCR1B
+  	TCNT1  = 0;								// Counter value to 0
+  	// 1hz increments
+  	OCR1A = 15624;							// = (16*10^6) / (1*1024) - 1 (must be <65536)
+  
+  	TCCR1B |= (1 << WGM12);					// Activate CTC mode
+  
+  	TCCR1B |= (1 << CS12) | (1 << CS10);	// Set 1024 prescaler  
+  
+  	TIMSK1 |= (1 << OCIE1A);				// Timer1 compare interrupt
 
     // Consider adding the following equivalents for RFM12x
     /*
@@ -2254,7 +2284,7 @@ Serial.print(")");
                 printOneChar(' ');
                 Serial.print(rfapi.rssiThreshold);
                 printOneChar(' ');
-                Serial.print(rfapi.restartRate);
+                Serial.print(restartRate);
                 printOneChar(' ');
                 Serial.print(rf12_drx);
                 printOneChar(' ');
@@ -2290,9 +2320,9 @@ Serial.print(")");
                 //                  Serial.print(rfapi.RSSIrestart  - lastThresholdRSSIrestart);
                 //                  lastThresholdRSSIrestart = lastRSSIrestart;
                 //                  printOneChar(' ');
-                Serial.print(rfapi.restartRate);
+                Serial.print(restartRate);
                 printOneChar(' ');
-                Serial.print(rfapi.maxRestartRate);
+                Serial.print(maxRestartRate);
                 printOneChar(' ');
                 Serial.print(millis());
                 /*
