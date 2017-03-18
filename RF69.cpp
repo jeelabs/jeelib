@@ -490,13 +490,6 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
             rfapi.irqflags1 = readReg(REG_IRQFLAGS1);
         } else delayTXRECV++; // Loops waiting for clear air before entering RX mode 
         
-	    // Test for radio in hung state
-    	if (readReg(REG_OPMODE) == MODE_FS) {
-				setMode(MODE_SLEEP);	// Clear hang?
-            	rxstate = TXIDLE;
-            	rfapi.modeError++;
-		}      
-        
         break;
         
     case TXRECV:

@@ -659,8 +659,6 @@ static void showStatus() {
     Serial.print((millis() - rfapi.interpacketTS));
     printOneChar('/');
     Serial.print(maxGap);
-    showString(PSTR(", Mode Errors "));
-    Serial.print(rfapi.modeError);
 
 #endif
     showString(PSTR(", Eeprom"));
