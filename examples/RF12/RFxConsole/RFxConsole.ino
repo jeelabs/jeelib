@@ -88,7 +88,7 @@
 
 #define MAJOR_VERSION RF12_EEPROM_VERSION // bump when EEPROM layout changes
 #define MINOR_VERSION 0                   // bump on other non-trivial changes
-#define VERSION "\n[RFxConsole.4]\n"    // keep in sync with the above
+#define VERSION "\n[RFxConsole.4]\n"      // keep in sync with the above
 #if !configSTRING
 #define rf12_configDump()                 // Omit A i1 g210 @ 868 MHz q1
 #endif
@@ -644,8 +644,8 @@ static void showStatus() {
     showString(PSTR(", Noise Floor "));
     Serial.print(rfapi.noiseFloorMin);
     printOneChar('/');
-    Serial.print(rfapi.rssiThreshold);
-    printOneChar('/');
+//    Serial.print(rfapi.rssiThreshold);
+//    printOneChar('/');
     Serial.print(rfapi.noiseFloorMax);
     showString(PSTR(", Ack Aborts "));
     Serial.print(packetAborts);
@@ -1239,6 +1239,10 @@ static void handleInput (char c) {
                      break;
 
             case 'z': // put the ATmega in ultra-low power mode (reset needed)
+            		 if (value == 1) {
+            		 	minGap = ~0;
+            		 	maxGap = maxRestartRate = 0;
+            		 }
                      if (value == 123) {
                          clrConfig();
                          showString(PSTR(" Zzz...\n"));
@@ -1380,7 +1384,7 @@ void resetFlagsInit(void)
 
 void setup () {
 
-    delay(10000);
+    delay(5000);
 
     //  clrConfig();
 
@@ -2359,6 +2363,10 @@ Serial.print(")");
     if (cmd) {
         r = rf12_canSend(config.clearAir);
         if (r) {
+#if RF69_COMPAT        
+            if (rfapi.sendRSSI < minTxRSSI) minTxRSSI = rfapi.sendRSSI;
+            if (rfapi.sendRSSI > maxTxRSSI) maxTxRSSI = rfapi.sendRSSI;
+#endif        
             activityLed(1);
             showString(PSTR("TX "));
             Serial.print(r);
