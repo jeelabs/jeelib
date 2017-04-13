@@ -225,16 +225,20 @@ volatile unsigned long elapsedSeconds;
 volatile unsigned long previousRestarts;
 volatile unsigned int restartRate;
 volatile unsigned int maxRestartRate;
+volatile byte ping = false;
 ISR(TIMER1_COMPA_vect){
 	elapsedSeconds++;
 
+#if RF69_COMPAT        
     // Update restart rate
     restartRate = (rfapi.RSSIrestart - previousRestarts);
     previousRestarts = rfapi.RSSIrestart;
               	
     if (restartRate > maxRestartRate) { 
     	maxRestartRate = restartRate;
-    }                     
+    }
+    if ((elapsedSeconds%10UL) == 0) ping = true;                     
+#endif
 }
 
 
@@ -1795,8 +1799,8 @@ void loop () {
 
 #if !TINY
             if(rf12_buf[0] == 212 && (rf12_buf[1] | rf12_buf[2]) == rf12_buf[3] && (salusMode)){
-                Serial.print((word) SalusFrequency, DEC);  
-                showString(PSTR(" Salus I Channel "));
+                Serial.print((word) elapsedSeconds, DEC);  
+                showString(PSTR("s Salus I Channel "));
                 showByte(rf12_buf[1]);
                 printOneChar(':');
                 showByte(rf12_buf[2]);
@@ -1805,8 +1809,8 @@ void loop () {
                 n = RF69::byteCount - 3;
             }            
             if(rf12_buf[0] == 212 && rf12_buf[1] >= 160 && (salusMode)) {
-                Serial.print((word) SalusFrequency, DEC);  
-                showString(PSTR(" Salus II Device:"));
+                Serial.print((word) elapsedSeconds, DEC);  
+                showString(PSTR("s Salus II Device:"));
                 Serial.print(rf12_buf[1]);
 
                 showString(PSTR(" Addr:"));
@@ -2360,7 +2364,7 @@ Serial.print(")");
 #endif    
     byte r;
     sendRetry = 0;
-    if (cmd) {
+    if ((cmd) || (ping)) {
         r = rf12_canSend(config.clearAir);
         if (r) {
 #if RF69_COMPAT        
@@ -2369,30 +2373,35 @@ Serial.print(")");
 #endif        
             activityLed(1);
             showString(PSTR("TX "));
-            Serial.print(r);
-            showString(PSTR(" -> "));
-            showByte(sendLen);
-            showString(PSTR(" b\n"));
-            byte header = (cmd == 'a' ? RF12_HDR_ACK : 0);
-            if (dest)
-                header |= RF12_HDR_DST | dest;
+			Serial.print(r);
+            if (!ping) {
+            	showString(PSTR(" -> "));
+            	showByte(sendLen);
+            	showString(PSTR(" b\n"));
+            	byte header = (cmd == 'a' ? RF12_HDR_ACK : 0);
+            	if (dest)
+                	header |= RF12_HDR_DST | dest;
 #if RF69_COMPAT && !TINY
-            if (config.group == 0) {
+            	if (config.group == 0) {
                 //                RF69::control(REG_SYNCGROUP | 0x80, stickyGroup);  // Set a group number to use for transmission
-            }
+            	}
 #endif
-            rf12_sendStart(header, stack, sendLen);
+           		rf12_sendStart(header, stack, sendLen);
 #if DEBUG            
-            for (byte i = 0; i < rf12_len + 3; i++) {;
-                showByte(rf12_data[i]);
-                printOneChar(' ');
-            }
-            Serial.print((rf12_crc & 0x00FF), HEX);
-            Serial.println((rf12_crc >> 8), HEX);
+            	for (byte i = 0; i < rf12_len + 3; i++) {;
+                	showByte(rf12_data[i]);
+                	printOneChar(' ');
+            	}
+            	Serial.print((rf12_crc & 0x00FF), HEX);
+            	Serial.println((rf12_crc >> 8), HEX);
 #endif
-            rf12_sendWait(1);  // Wait for transmission complete
-            cmd = 0;
-            activityLed(0);
+            	rf12_sendWait(1);  // Wait for transmission complete
+            	cmd = 0;
+            	activityLed(0);
+            } else { // !ping
+            	showString(PSTR(" Ping\n"));
+            	ping = false;
+            }
         } else { // rf12_canSend
             uint16_t s = rf12_status();            
             showString(PSTR("TX "));					// Not ready to send
