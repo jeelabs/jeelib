@@ -132,6 +132,8 @@
 // transceiver states, these determine what to do with each interrupt
 enum { TXCRC1, TXCRC2,/* TXTAIL,*/ TXDONE, TXIDLE, TXRECV, RXFIFO };
 
+byte clearAir = 160;
+
 namespace RF69 {
     uint32_t frf;
     uint8_t  group;
@@ -344,8 +346,9 @@ void RF69::setFrequency (uint32_t freq) {
     rfapi.noiseFloorMax = 0;
 }
 
-uint8_t RF69::canSend (uint8_t clearAir) {
-  if (((rxfill == 0) || (rxdone))) {
+uint8_t RF69::canSend (uint8_t clear) {
+	clearAir = clear;
+	if (((rxfill == 0) || (rxdone))) {
         setMode(MODE_SLEEP);
         rfapi.sendRSSI = currentRSSI();
         if(rfapi.sendRSSI >= clearAir) {
@@ -462,34 +465,22 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         recvBuf = buf;
         setMode(MODE_STANDBY);
         startRSSI = currentRSSI();       
-        if (startRSSI >= 160 /*rssiThreshold*/) { // Don't start to RX in busy airwaves
-/*            uint32_t d = rfapi.RSSIrestart - restarts;
-            if ((rfapi.rateInterval) && ((previousMillis + rfapi.rateInterval) < ms)) {
 
-                if ((d < (rfapi.rateInterval << 1)) && (rfapi.rssiThreshold < 228)) { 
-                	rfapi.rssiThreshold++;
-                }
-                
-            }
-*/
-            // Prepare to receive
-//			writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
-            rf12_drx = delayTXRECV;
-            writeReg(REG_DIOMAPPING1, (DIO0_RSSI /*| DIO3_RSSI  DIO0_SYNCADDRESS*/));// Interrupt triggers
-      		writeReg(REG_LNA, 0x00); 			// 
-    		writeReg(REG_PALEVEL, ((rfapi.txPower & 0x9F) | 0x80));	// PA1/PA2 off
-          	writeReg(REG_OCP, OCP_NORMAL);			// Overcurrent protection on
-          	writeReg(REG_TESTPA1, TESTPA1_NORMAL);	// Turn off high power 
-          	writeReg(REG_TESTPA2, TESTPA2_NORMAL);  // transmit
-            rfapi.setmode = setMode(MODE_RECEIVER);
-            writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
-            rxstate = TXRECV;
-            writeReg(REG_AFCFEI, AFC_CLEAR);
-            startRX = micros();
-            rfapi.mode = readReg(REG_OPMODE);
-            rfapi.irqflags1 = readReg(REG_IRQFLAGS1);
-        } else delayTXRECV++; // Loops waiting for clear air before entering RX mode 
-        
+		rf12_drx = delayTXRECV;
+		writeReg(REG_DIOMAPPING1, (DIO0_RSSI /*| DIO3_RSSI  DIO0_SYNCADDRESS*/));// Interrupt triggers
+		writeReg(REG_LNA, 0x00); 			// 
+		writeReg(REG_PALEVEL, ((rfapi.txPower & 0x9F) | 0x80));	// PA1/PA2 off
+        writeReg(REG_OCP, OCP_NORMAL);			// Overcurrent protection on
+        writeReg(REG_TESTPA1, TESTPA1_NORMAL);	// Turn off high power 
+        writeReg(REG_TESTPA2, TESTPA2_NORMAL);  // transmit
+    	rfapi.setmode = setMode(MODE_RECEIVER);
+        writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
+        rxstate = TXRECV;
+        writeReg(REG_AFCFEI, AFC_CLEAR);
+        startRX = micros();
+        rfapi.mode = readReg(REG_OPMODE);
+        rfapi.irqflags1 = readReg(REG_IRQFLAGS1); 
+               
         break;
         
     case TXRECV:
@@ -570,7 +561,6 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
     even when the group is zero                                               */
     
     // REG_SYNCGROUP must have been set to an appropriate group before this.
-    writeReg(REG_SYNCCONFIG, fourByteSync);
     crc = _crc16_update(~0, readReg(REG_SYNCGROUP));
 
 //    if (rf12_len > 9)                       // Expedite short packet TX
@@ -586,8 +576,16 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
           	writeReg(REG_TESTPA2, TESTPA2_20DB);    // cross your fingers
           	// Beware the duty cycle - 1% only
     	}
-    writeReg(REG_PALEVEL, rfapi.txPower);
     writeReg(REG_DIOMAPPING1, (DIO0_PACKETSENT | DIO3_TX_UNDEFINED));
+
+    if (ptr != 0) {
+    	writeReg(REG_SYNCCONFIG, fourByteSync);
+    	writeReg(REG_PALEVEL, rfapi.txPower);
+    } else {
+    	writeReg(REG_SYNCCONFIG, 0);	// Turn off sync generation
+	    writeReg(REG_PALEVEL, 0);
+    }
+
     setMode(MODE_TRANSMITTER);
     
 /*  We must begin transmission to avoid overflowing the FIFO since

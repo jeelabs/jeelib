@@ -51,6 +51,7 @@
 // Added inter packet time gaps, also min/max 2016-12-12
 // Tweaks around <cr> handling to better fit use of folie as a terminal emulator 2017-01-5
 // Add 1Hz Timer1 for rate calculation and longer elapsed duration 2017-02-28
+// Remove Noise Floor check before entering RX mode 2017-04-18
 
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
 #define TINY 1
@@ -120,16 +121,20 @@ unsigned int SalusFrequency = SALUSFREQUENCY;
 
 unsigned int NodeMap;
 unsigned int newNodeMap;
+unsigned long lastRSSIrestart;
+unsigned long lastThresholdRSSIrestart;
+unsigned long rxLast;
+unsigned long rxCrcLast;
+unsigned long minGap = ~0;
+unsigned long maxGap = 0;
+unsigned long minCrcGap = ~0; 
+unsigned long maxCrcGap = 0; 
+
 byte stickyGroup;
 byte eepromWrite;
 byte qMin = ~0;
 byte qMax = 0;
 byte lastrssiThreshold;
-unsigned long lastRSSIrestart;
-unsigned long lastThresholdRSSIrestart;
-unsigned long rxLast;
-unsigned long minGap = ~0;
-unsigned long maxGap = 0; 
 
 #if TINY
 // Serial support (output only) for Tiny supported by TinyDebugSerial
@@ -431,7 +436,7 @@ static void loadConfig () {
     // this uses 166 bytes less flash than eeprom_read_block(), no idea why
     for (byte i = 0; i < sizeof config; ++i)
         ((byte*) &config)[i] = eeprom_read_byte(RF12_EEPROM_ADDR + i);
-    lastrssiThreshold = config.RegRssiThresh;
+    lastrssiThreshold = rfapi.rssiThreshold = config.RegRssiThresh;
     rfapi.rateInterval = (uint32_t)config.rateInterval << 10;    
     config.defaulted = false;   // Value if UI saves config
 }
@@ -653,6 +658,8 @@ static void showStatus() {
     Serial.print(rfapi.noiseFloorMax);
     showString(PSTR(", Ack Aborts "));
     Serial.print(packetAborts);
+    showString(PSTR(", Busy Count "));
+    Serial.print(busyCount);
     showString(PSTR(", Floor "));
     Serial.print(minTxRSSI);
     printOneChar('/');
@@ -663,6 +670,10 @@ static void showStatus() {
     Serial.print((millis() - rfapi.interpacketTS));
     printOneChar('/');
     Serial.print(maxGap);
+    showString(PSTR(", InterCRC(ms) "));
+    Serial.print(minCrcGap);
+    printOneChar('/');
+    Serial.print(maxCrcGap);
 
 #endif
     showString(PSTR(", Eeprom"));
@@ -964,10 +975,9 @@ static void handleInput (char c) {
                      //	    	Serial.println(RF69::control(0x29, 160));
 
 #endif
-                     config.RegRssiThresh = value;
                      //        	Serial.println(config.RegRssiThresh);
-                     rfapi.rssiThreshold = value;
                      //        	Serial.println(rfapi.rssiThreshold);
+                     config.RegRssiThresh = rfapi.rssiThreshold = value;
                      if (top == 1) {
                          config.rateInterval = stack[0];
                          rfapi.rateInterval = (uint32_t)(config.rateInterval) << 10;
@@ -1751,12 +1761,19 @@ void loop () {
 #if RF69_COMPAT && !TINY                // At this point the radio is in Standby
 
         rf12_recvDone();                // Attempt to buffer next RF packet
-        // At this point the receiver is active
+        // At this point the receiver is active but previous buffer intact
         
  		unsigned long rxGap = rf12_interpacketTS - rxLast;
  		rxLast = rf12_interpacketTS;
  		if (rxGap < minGap) minGap = rxGap;
  		if (rxGap > maxGap) maxGap = rxGap;
+
+        if (rf12_crc == 0) {
+         	unsigned long rxCrcGap = rf12_interpacketTS - rxCrcLast;
+ 			rxCrcLast = rf12_interpacketTS;
+ 			if (rxCrcGap < minCrcGap) minCrcGap = rxGap;
+ 			if (rxCrcGap > maxCrcGap) maxCrcGap = rxGap;
+		}
  		
         observedRX.afc = rf12_afc;
         observedRX.fei = rf12_fei;
@@ -1771,11 +1788,10 @@ void loop () {
             changedFEI++;
             previousFEI = observedRX.fei;
         }
-#endif  
+#endif
+  
         byte n = rf12_len;
         byte crc = false;
-
-
         if (rf12_crc == 0) {
 #if STATISTICS && !TINY
             messageCount++;                             // Count a broadcast packet
@@ -2237,6 +2253,10 @@ Serial.print(")");
 #endif
                     printOneChar('i');
                     showByte(rf12_hdr & RF12_HDR_MASK);                    
+//                    printOneChar(' ');
+//                    showByte(rf12_data[0]);                    
+//                    printOneChar(' ');
+//                    showByte(rf12_data[1]);                    
 #if MESSAGING
 	                // This code is used when an incoming packet is requesting an ACK, it determines if a semaphore is posted for this Node/Group.
     	            // If a semaphore exists it is stored in the buffer. If the semaphore has a message addition associated with it then
@@ -2249,7 +2269,7 @@ Serial.print(")");
     	                if (ackLen){
         	                stack[(sizeof stack - (ackLen + 1))] = semaphores[NodeMap];
             	        }
-                	    ackLen++;                                                    // If 0 or message length then +1 for length byte
+                	    ackLen++;                                           // If 0 or message length then +1 for length byte
                     	showString(PSTR(" Posted "));
 	                    if (rf12_data[0] == semaphores[NodeMap]) {  // Check if previous Post value is the first byte of this payload 
     	                    semaphores[NodeMap] = 0;                // Indicating it was received
@@ -2322,13 +2342,13 @@ Serial.print(")");
                 Serial.print(m - rfapi.interpacketTS);
                 printOneChar(' ');
 				Serial.println(m);
-//				Serial.println();                  
             }
         }
         if (rfapi.rssiThreshold != lastrssiThreshold) {
             if (config.verbosity & 8) {
                 showString(PSTR("RX threshold change "));
                 Serial.print(lastrssiThreshold);
+            	lastrssiThreshold = rfapi.rssiThreshold;     
                 printOneChar(' ');
                 Serial.print(rfapi.rssiThreshold);
                 printOneChar(' ');
@@ -2357,16 +2377,16 @@ Serial.print(")");
                  */
                 Serial.println();
             }
-            lastrssiThreshold = rfapi.rssiThreshold;     
         }
         lastRSSIrestart = rfapi.RSSIrestart;
     } // rf12_recvDone
 #endif    
     byte r;
-    sendRetry = 0;
+//    sendRetry = 0;
     if ((cmd) || (ping)) {
         r = rf12_canSend(config.clearAir);
         if (r) {
+			sendRetry = 0;
 #if RF69_COMPAT        
             if (rfapi.sendRSSI < minTxRSSI) minTxRSSI = rfapi.sendRSSI;
             if (rfapi.sendRSSI > maxTxRSSI) maxTxRSSI = rfapi.sendRSSI;
@@ -2399,7 +2419,7 @@ Serial.print(")");
             	cmd = 0;
             	activityLed(0);
             } else { // !ping
-            	showString(PSTR(" Ping\n"));
+            	showString(PSTR(" Clear\n"));
             	ping = false;
             }
         } else { // rf12_canSend
@@ -2409,13 +2429,19 @@ Serial.print(")");
             Serial.print(rfapi.sendRSSI);
             printOneChar(' ');
 #endif            
-            showString(PSTR("Busy 0x"));				// Not ready to send            
+            Serial.print(busyCount);
+            printOneChar(',');
+            Serial.print(sendRetry);
+            showString(PSTR(" Busy 0x"));				// Not ready to send            
             Serial.print(s, HEX);
             busyCount++;
             if ((++sendRetry & 3) == 0) {
                 showString(PSTR(" Command"));
                 showString(ABORTED);					// Drop the command
                 cmd = 0;								// Request dropped
+                // Consider forcing a TX here to clear the air, use low power //
+           		rf12_sendStart(0, 0, 0);				// Trigger a *null* transmit
+            	rf12_sendWait(1);  						// Wait for transmission complete
             } else {
                 delay(sendRetry << 2);					// or try a little later
             }
