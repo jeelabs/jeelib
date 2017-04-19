@@ -224,29 +224,6 @@ static byte inChar () {
 #define MAX_NODES 31        // Contrained by RAM (9 bytes RAM per node)
 #endif
 
-ISR(WDT_vect) { Sleepy::watchdogEvent(); }
-
-volatile unsigned long elapsedSeconds;
-volatile unsigned long previousRestarts;
-volatile unsigned int restartRate;
-volatile unsigned int maxRestartRate;
-volatile byte ping = false;
-ISR(TIMER1_COMPA_vect){
-	elapsedSeconds++;
-
-#if RF69_COMPAT        
-    // Update restart rate
-    restartRate = (rfapi.RSSIrestart - previousRestarts);
-    previousRestarts = rfapi.RSSIrestart;
-              	
-    if (restartRate > maxRestartRate) { 
-    	maxRestartRate = restartRate;
-    }
-    if ((elapsedSeconds%10UL) == 0) ping = true;                     
-#endif
-}
-
-
 static unsigned long now () {
     // FIXME 49-day overflow
     return millis() / 1000;
@@ -306,7 +283,7 @@ typedef struct {
     byte collect_mode :1;   // 0 = ack, 1 = don't send acks
     byte quiet_mode   :1;   // 0 = show all, 1 = show only valid packets
     byte spare_flags  :3;   // offset 3
-    byte defaulted    :1;   // 0 = config set via UI
+    byte defaulted    :1;   // 0 = config set via UI, offset 3
     word frequency_offset;  // used by rf12_config, offset 4 & 5
     byte RegPaLvl;          // See datasheet RFM69x Register 0x11, offset 6
     byte RegRssiThresh;     // See datasheet RFM69x Register 0x29, offset 7
@@ -314,8 +291,9 @@ typedef struct {
     byte ackDelay         :4;// Delay in ms added on turnaround RX to TX, RFM69 offset 9
     byte verbosity        :4;// Controls output format offset 9
     byte clearAir;          // Transmit permit threshold, offset 10
-    byte rateInterval;      // Seconds between rate updates offset 11
-    byte pad[RF12_EEPROM_SIZE - 14];
+    byte rateInterval;      // Seconds between rate updates, offset 11
+    byte chkNoise;			// Seconds between noise floor checks, offset 12
+    byte pad[RF12_EEPROM_SIZE - 15];
     word crc;
 
 } RF12Config;
@@ -352,6 +330,34 @@ byte sendRetry = 0;
 unsigned int packetAborts;
 unsigned int testTX;
 unsigned int testRX;
+
+ISR(WDT_vect) { Sleepy::watchdogEvent(); }
+
+volatile unsigned long elapsedSeconds;
+volatile unsigned long previousRestarts;
+volatile unsigned long chkNoise;
+volatile unsigned int restartRate;
+volatile unsigned int maxRestartRate;
+volatile byte ping = false;
+ISR(TIMER1_COMPA_vect){
+	elapsedSeconds++;
+
+#if RF69_COMPAT        
+    // Update restart rate
+    restartRate = (rfapi.RSSIrestart - previousRestarts);
+    previousRestarts = rfapi.RSSIrestart;
+              	
+    if (restartRate > maxRestartRate) { 
+    	maxRestartRate = restartRate;
+    }
+    if (config.chkNoise) {
+    	if (elapsedSeconds > chkNoise) {
+    		ping = true;
+    		chkNoise = elapsedSeconds + (unsigned long)config.chkNoise;
+    	}
+    }                     
+#endif
+}
 
 #if MESSAGING
 static byte semaphores[MAX_NODES];
@@ -438,6 +444,7 @@ static void loadConfig () {
         ((byte*) &config)[i] = eeprom_read_byte(RF12_EEPROM_ADDR + i);
     lastrssiThreshold = rfapi.rssiThreshold = config.RegRssiThresh;
     rfapi.rateInterval = (uint32_t)config.rateInterval << 10;    
+    chkNoise = elapsedSeconds + (unsigned long)config.chkNoise;
     config.defaulted = false;   // Value if UI saves config
 }
 
@@ -455,7 +462,9 @@ static void saveConfig () {
             eepromWrite++;
         }
     }
-
+    
+	loadConfig();
+	
     salusMode = false;
 #if STATISTICS    
     messageCount = nonBroadcastCount = CRCbadCount = 0; // Clear stats counters
@@ -1218,7 +1227,12 @@ static void handleInput (char c) {
 
                      break;
 
-                     // the following commands all get optimised away when TINY is set 
+            case 'N': // Set Noise check interval in seconds
+					config.chkNoise = value;
+					saveConfig();
+					break;
+
+			// the following commands all get optimised away when TINY is set 
 
             case 'l': // turn activity LED on or off
                      activityLed(value);
@@ -2282,6 +2296,8 @@ Serial.print(")");
 #endif                                        
                     rf12_sendStart(RF12_ACK_REPLY, &stack[sizeof stack - ackLen], ackLen);
                     rf12_sendWait(1);
+    				chkNoise = elapsedSeconds + (unsigned long)config.chkNoise;// Delay check
+    				ping = false;		//Cancel any pending Noise Floor checks
                     
                 } else {
                     packetAborts++;   
@@ -2394,7 +2410,7 @@ Serial.print(")");
             activityLed(1);
             showString(PSTR("TX "));
 			Serial.print(r);
-            if (!ping) {
+            if (cmd) {
             	showString(PSTR(" -> "));
             	showByte(sendLen);
             	showString(PSTR(" b\n"));
@@ -2418,9 +2434,11 @@ Serial.print(")");
             	rf12_sendWait(1);  // Wait for transmission complete
             	cmd = 0;
             	activityLed(0);
-            } else { // !ping
+    			chkNoise = elapsedSeconds + (unsigned long)config.chkNoise;// Delay check
+            	ping = false;	// Clear any pending radio pings            
+            } else { // cmd
             	showString(PSTR(" Clear\n"));
-            	ping = false;
+            	ping = false;	// Ping completed
             }
         } else { // rf12_canSend
             uint16_t s = rf12_status();            
@@ -2440,8 +2458,8 @@ Serial.print(")");
                 showString(ABORTED);					// Drop the command
                 cmd = 0;								// Request dropped
                 // Consider forcing a TX here to clear the air, use low power //
-           		rf12_sendStart(0, 0, 0);				// Trigger a *null* transmit
-            	rf12_sendWait(1);  						// Wait for transmission complete
+ //          		rf12_sendStart(0, 0, 0);				// Trigger a *null* transmit
+ //           	rf12_sendWait(1);  						// Wait for transmission complete
             } else {
                 delay(sendRetry << 2);					// or try a little later
             }
