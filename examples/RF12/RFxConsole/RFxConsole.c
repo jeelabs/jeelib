@@ -104,8 +104,7 @@ fprintf (stderr, "Pipe Open\n") ;
             	|| ((rx_buf[14] == 'R') && (rx_buf[15] == 'X'))
             	|| ((rx_buf[14] == 'R') && (rx_buf[15] == 'F'))
 	      		|| ((rx_buf[14] == 'T') && (rx_buf[15] == 'X'))
-	      	)
-			{
+	      	) {
                 int ret = system(rx_buf);
                 if (ret)
                   printf("System(1) Returned %i\n", ret);
@@ -148,7 +147,7 @@ fprintf (stderr, "Pipe Open\n") ;
         delivered the next time that node 17 requests a ACK with a packet.
         
         The commands so delivered may be delayed before being issued since
-        the fifi queue is only checked when the serial queue times out. This
+        the fifo queue is only checked when the serial queue times out. This
         timeout is 10 seconds after deliver of the last serial character.
         
         */

@@ -52,6 +52,7 @@
 // Tweaks around <cr> handling to better fit use of folie as a terminal emulator 2017-01-5
 // Add 1Hz Timer1 for rate calculation and longer elapsed duration 2017-02-28
 // Remove Noise Floor check before entering RX mode 2017-04-18
+// Added the 'N' command, setting an interval in seconds for a Noise Floor check 2017-04-19
 
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
 #define TINY 1
@@ -2395,12 +2396,10 @@ Serial.print(")");
             }
         }
         lastRSSIrestart = rfapi.RSSIrestart;
-    } // rf12_recvDone
+    } // !rf12_recvDone
 #endif    
-    byte r;
-//    sendRetry = 0;
     if ((cmd) || (ping)) {
-        r = rf12_canSend(config.clearAir);
+        byte r = rf12_canSend(config.clearAir);
         if (r) {
 			sendRetry = 0;
 #if RF69_COMPAT        
@@ -2437,12 +2436,13 @@ Serial.print(")");
     			chkNoise = elapsedSeconds + (unsigned long)config.chkNoise;// Delay check
             	ping = false;	// Clear any pending radio pings            
             } else { // cmd
-            	showString(PSTR(" Clear\n"));
+            	showString(PSTR(" Clear\n"));	// Airwaves are available
             	ping = false;	// Ping completed
             }
-        } else { // rf12_canSend
+        } else { // r == 0
+        
             uint16_t s = rf12_status();            
-            showString(PSTR("TX "));					// Not ready to send
+            showString(PSTR("TX "));
 #if RF69_COMPAT && !TINY
             Serial.print(rfapi.sendRSSI);
             printOneChar(' ');
@@ -2453,17 +2453,12 @@ Serial.print(")");
             showString(PSTR(" Busy 0x"));				// Not ready to send            
             Serial.print(s, HEX);
             busyCount++;
-            if ((++sendRetry & 3) == 0) {
-                showString(PSTR(" Command"));
+            if ((++sendRetry & 3) > 0) {
                 showString(ABORTED);					// Drop the command
                 cmd = 0;								// Request dropped
-                // Consider forcing a TX here to clear the air, use low power //
- //          		rf12_sendStart(0, 0, 0);				// Trigger a *null* transmit
- //           	rf12_sendWait(1);  						// Wait for transmission complete
-            } else {
-                delay(sendRetry << 2);					// or try a little later
+                ping = false;							// Drop Noise level check
             }
             Serial.println();   
-        }
-    } // cmd
+        } // (r)
+    } // (cmd || ping)
 } // loop
