@@ -1269,8 +1269,8 @@ static void handleInput (char c) {
 
             case 'z': // put the ATmega in ultra-low power mode (reset needed)
             		 if (value == 1) {
-            		 	minGap = ~0;
-            		 	maxGap = maxRestartRate = 0;
+            		 	minGap = minCrcGap = ~0;
+            		 	maxGap = maxCrcGap = maxRestartRate = 0;
             		 }
                      if (value == 123) {
                          clrConfig();
@@ -2298,7 +2298,7 @@ Serial.print(")");
                     rf12_sendStart(RF12_ACK_REPLY, &stack[sizeof stack - ackLen], ackLen);
                     rf12_sendWait(1);
     				chkNoise = elapsedSeconds + (unsigned long)config.chkNoise;// Delay check
-    				ping = false;		//Cancel any pending Noise Floor checks
+    				ping = false;		// Cancel any pending Noise Floor checks
                     
                 } else {
                     packetAborts++;   
@@ -2453,7 +2453,7 @@ Serial.print(")");
             showString(PSTR(" Busy 0x"));				// Not ready to send            
             Serial.print(s, HEX);
             busyCount++;
-            if ((++sendRetry & 3) > 0) {
+            if ((++sendRetry & 3) > 3) {
                 showString(ABORTED);					// Drop the command
                 cmd = 0;								// Request dropped
                 ping = false;							// Drop Noise level check

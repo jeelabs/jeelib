@@ -1,0 +1,9 @@
+Non hardware adjusted RFM12B, old style big crystal and resin blob running vanilla rf12Demo:
+3i is able to be received using 'a' only
+21i is able to be received using 's' or 'a' no joy on 't'
+1617o reliable for s & a, 1618o less so and 1619o not so
+1590o reliable for s & a, anything less is quite poor
+May be *other* issues with 't' since code crashes after outputting "test 0 -> 66 b"
+
+Switched to RFxConsole branch and RFxConsole.ino
+'t' command working again
