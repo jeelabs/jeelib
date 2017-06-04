@@ -69,11 +69,23 @@ typedef struct {
     byte start;
     uint16_t MEASURE_PERIOD;
     uint16_t REPORT_EVERY;
-    uint8_t MEASURE;
-    uint8_t REPORT;
+    bool MEASURE :1;
+    bool REPORT :1;
+    bool changedLight :1;
+    bool changedHumi :1;
+    bool changedTemp :1;
+    bool spareOne :1;
+    bool spareTwo :1;
+    bool spareThree :1;
     word crc;
 } eeprom;
 static eeprom settings;
+
+int lastTemp;
+byte firstTime = true;
+byte lastLight;
+byte lastHumi;
+bool changed;
 
 // Conditional code, depending on which sensors are connected and how:
 
@@ -121,7 +133,7 @@ static eeprom settings;
             byte f = value;
             if (lastOn > 0)
                 ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-                    if (millis() - lastOn < 1000 * PIR_HOLD_TIME)
+                    if (millis() - lastOn < (uint32_t)(1000 * PIR_HOLD_TIME))
                         f = 1;
                 }
             return f;
@@ -164,9 +176,7 @@ static void shtDelay () {
 }
 
 // readout all the sensors and other values
-static void doMeasure() {
-    byte firstTime = payload.humi == 0; // special case to init running avg
-    
+static void doMeasure() {    
     payload.lobat = rf12_lowbat();
 
     #if SHT11_PORT
@@ -175,7 +185,6 @@ static void doMeasure() {
         sht11.measure(SHT11::TEMP, shtDelay);
         float h, t;
         sht11.calculate(h, t);
-//        int humi = h + 0.5, temp = 10 * t + 0.5;
         int humi = h, temp = 10 * t;
 #else
         //XXX TINY!
@@ -195,7 +204,16 @@ static void doMeasure() {
         byte light = ~ ldr.anaRead() >> 2;
         ldr.digiWrite2(0);  // disable pull-up to reduce current draw
         payload.light = smoothedAverage(payload.light, light, firstTime);
+    
+    	firstTime = false;
     #endif
+    	
+    	if (payload.humi != lastHumi) changed = true;
+    	if (payload.temp != lastTemp) changed = true; 
+    	if (payload.light != lastLight) changed = true; 
+	    lastLight = payload.light;
+	    lastTemp = payload.temp;
+	    lastHumi = payload.humi;
     #if PIR_PORT
         payload.moved = pir.state();
     #endif
@@ -210,7 +228,6 @@ static void serialFlush () {
 
 // periodic report, i.e. send out a packet and optionally report on serial port
 static void doReport() {
-//	payload.count = countPCINT;
     rf12_sleep(RF12_WAKEUP);
     rf12_sendNow(0, &payload, ((sizeof payload) - 3));
     rf12_sendWait(RADIO_SYNC_MODE);
@@ -264,6 +281,24 @@ static void doTrigger() {
 	            payload.command = rf12_buf[3];		// Acknowledge the command
 
 				switch (rf12_buf[3]) {
+					case 10:
+						settings.changedLight = false;
+                      	break;      
+					case 11:
+						settings.changedLight = true;
+                      	break;      
+					case 20:
+						settings.changedHumi = false;
+                      	break;      
+					case 21:
+						settings.changedHumi = true;
+                      	break;      
+					case 30:
+						settings.changedTemp = false;
+                      	break;      
+					case 31:
+						settings.changedLight = true;
+                      	break;      
 					case 99:
 						//Serial.println("Saving settings to eeprom");
                       	saveSettings();
@@ -359,16 +394,17 @@ static void loadSettings () {
     if (crc) {
          //Serial.println("is bad, defaulting");
          //Serial.println(crc, HEX);
-        settings.MEASURE_PERIOD = 540;
-        settings.REPORT_EVERY = 60;
-        settings.MEASURE = true;
-        settings.REPORT = true;
+        settings.MEASURE_PERIOD = 540;	// approximately 60 seconds
+        settings.REPORT_EVERY = 60;		// approximately 60 minutes
+        settings.MEASURE = settings.REPORT = true;
+        settings.changedLight = settings.changedHumi = settings.changedTemp = true;
     } else {
          //Serial.println("is good");
     }
 } // loadSettings
 
 void setup () {
+	    payload.light = payload.humi = payload.temp = 0;
     #if SERIAL || DEBUG
         Serial.begin(115200);
         Serial.print("\n[roomNode.3.1]");
@@ -396,9 +432,6 @@ void setup () {
     scheduler.timer(MEASURE, 0);    // start the measurement loop going
 }
 
-byte lastLight;
-byte lastHumi;
-int lastTemp;
 void loop () {
     #if DEBUG
         Serial.print('.');
@@ -407,12 +440,8 @@ void loop () {
 
     #if PIR_PORT
         if (pir.triggered()) {
-    		maskPCINT = true;	// Airwick PIR is skittish
             payload.moved = pir.state();
 			doTrigger();
-			delay(5);
-			pir.triggered();	// Cleared any queued triggers
-    		maskPCINT = false;
         }
     #endif
     
@@ -426,16 +455,10 @@ void loop () {
 
             // every so often, a report needs to be sent out
             if (settings.REPORT) {
-	            if ((++reportCount >= settings.REPORT_EVERY) 
-	             || (payload.temp != lastTemp)
-	             || (payload.humi != lastHumi)
-	             || (payload.light != lastLight) 
-	            ){
+	            if ((++reportCount >= settings.REPORT_EVERY) || (changed)){
+	            	changed = false;
 	                reportCount = 0;
 	                scheduler.timer(REPORT, 0);
-	                lastLight = payload.light;
-	                lastTemp = payload.temp;
-	                lastHumi = payload.humi;
 	            }
             }
             break;
