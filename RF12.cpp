@@ -197,10 +197,10 @@ void rf12_spiInit () {
     pinMode(SPI_SCK, OUTPUT);
 #ifdef SPCR
     SPCR = _BV(SPE) | _BV(MSTR);
-#if F_CPU > 10000000
+	#if F_CPU > 10000000
     // use clk/2 (2x 1/4th) for sending (and clk/8 for recv, see rf12_xferSlow)
     SPSR |= _BV(SPI2X);
-#endif
+	#endif
 #else
     // ATtiny
     USICR = bit(USIWM0);
@@ -243,15 +243,19 @@ static uint8_t rf12_byte (uint8_t out) {
 
 static uint16_t rf12_xferSlow (uint16_t cmd) {
     // slow down to under 2.5 MHz
-#if F_CPU > 10000000
+#ifdef SPCR
+	#if F_CPU > 10000000
     bitSet(SPCR, SPR0);
+	#endif
 #endif
     bitClear(SS_PORT, cs_pin);
     uint16_t reply = rf12_byte(cmd >> 8) << 8;
     reply |= rf12_byte(cmd);
     bitSet(SS_PORT, cs_pin);
-#if F_CPU > 10000000
+#ifdef SPCR
+	#if F_CPU > 10000000
     bitClear(SPCR, SPR0);
+	#endif
 #endif
     return reply;
 }
