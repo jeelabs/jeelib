@@ -65,17 +65,16 @@ struct {					//0		Offset, node #
 	byte command;			//1		ACK command return field
     byte missedACK	:4;		//2
     byte attempts	:4;		//2		Transmission attempts
+	byte count		:4;		//3		Packet count 
+    byte moved 		:1;  	//3		motion detector: 0..1
+    byte lobat 		:1;  	//3		supply voltage dropped under 3.1V: 0..1
+	byte spare2		:2;		//3    
 #if BME280_PORT
-	byte count: 4;        	//3		Packet count 
-	byte spare3:	3;		//3    
-    uint32_t pressure:17;	//3&4&5
+    uint32_t pressure:24;	//4&5&6
 #endif 	   
-    byte light;     		//6		light sensor: 0..255
-    byte moved :1;  		//7		motion detector: 0..1
-    byte lobat :1;  		//7		supply voltage dropped under 3.1V: 0..1
-    unsigned int humi  :14;	//7&8	humidity: 0..100.00
-    byte spare2	:2;			//9
-    int temp   :14; 		//9&10	temperature: -5000..+5000 (hundredths)
+    byte light;     		//7		light sensor: 0..255
+    unsigned int humi:16;	//8&9	humidity: 0..100.00
+    int temp   		:16; 	//10&11	temperature: -5000..+5000 (hundredths)
 } payload;
 
 typedef struct {
@@ -176,6 +175,13 @@ bool changed;
 // has to be defined because we're using the watchdog for low-power waiting
 ISR(WDT_vect) { Sleepy::watchdogEvent(); }
 
+void clock_prescale(uint8_t factor)
+{
+ if (factor > 8) factor = 8;
+   CLKPR = (1 << CLKPCE);
+   CLKPR = factor;
+}
+
 // utility code to perform simple smoothing as a running average
 static int smoothedAverage(int prev, int next, byte firstTime =0) {
     if (firstTime)
@@ -249,18 +255,21 @@ static void serialFlush () {
 
 // periodic report, i.e. send out a packet and optionally report on serial port
 static void doReport() {
+    payload.attempts = 0;
+    payload.count++;
     rf12_sleep(RF12_WAKEUP);
     rf12_sendNow(0, &payload, ((sizeof payload) ));
     rf12_sendWait(RADIO_SYNC_MODE);
     rf12_sleep(RF12_SLEEP);
 
     #if SERIAL
+    	clock_prescale(0);
         Serial.print("\nROOM_BME280 ");
         Serial.print((int) payload.light);
         Serial.print(' ');
         Serial.print((int) payload.moved);
         Serial.print(" h=");
-        float x = payload.humi / 10.0f;
+        float x = payload.humi / 100.0f;
         Serial.print(x);
         Serial.print("% t=");
         x = payload.temp / 100.0f;
@@ -274,6 +283,7 @@ static void doReport() {
         Serial.print(x);
         Serial.println("hPa");
         serialFlush();
+		clock_prescale(8);
     #endif
 }
 
@@ -287,7 +297,7 @@ static void doTrigger() {
         serialFlush();
     #endif
     
-//	payload.count = countPCINT;
+    payload.count++;
     for (byte i = 1; i < RETRY_LIMIT; ++i) {
     	payload.attempts = i;
         rf12_sleep(RF12_WAKEUP);
@@ -430,7 +440,7 @@ static void loadSettings () {
 } // loadSettings
 
 void setup () {
-	    payload.light = payload.humi = payload.temp = 0;
+	payload.spare2 = 3;
     #if SERIAL || DEBUG
         Serial.begin(115200);
         Serial.print("\n[roomNode.3.1]");
@@ -477,11 +487,13 @@ void loop () {
         Serial.print('.');
         serialFlush();
     #endif
+    
+	clock_prescale(8);
 
     #if PIR_PORT
         if (pir.triggered()) {
+			clock_prescale(0);
             payload.moved = pir.state();
-        	payload.count++;
 			doTrigger();
         }
     #endif
@@ -492,8 +504,10 @@ void loop () {
             // reschedule these measurements periodically
             scheduler.timer(MEASURE, settings.MEASURE_PERIOD);
     
-            if (settings.MEASURE) doMeasure();
-
+            if (settings.MEASURE) {
+            	clock_prescale(0);
+            	doMeasure();
+			}
             // every so often, a report needs to be sent out
             if (settings.REPORT) {
 	            if ((++reportCount >= settings.REPORT_EVERY) || (changed)){
@@ -505,7 +519,7 @@ void loop () {
             break;
             
         case REPORT:
-        	payload.count++;
+            clock_prescale(0);
     	#if PIR_PORT
     		maskPCINT = true;	// Airwick PIR is skittish
 		#endif
