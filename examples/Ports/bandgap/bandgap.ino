@@ -28,7 +28,7 @@ static byte vccRead (byte count =4) {
 }
 
 void setup() {
-  rf12_initialize(17, RF12_868MHZ, 5);
+  rf12_initialize(18, RF12_868MHZ, 212);
 }
 
 void loop() {  

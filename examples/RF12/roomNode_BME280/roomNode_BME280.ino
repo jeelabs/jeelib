@@ -22,8 +22,8 @@
 
 #define crc_update      _crc16_update
 
-#define SERIAL  1   // set to 1 to also report readings on the serial port
-#define DEBUG   1   // set to 1 to display each loop() run and PIR trigger
+#define SERIAL  0   // set to 1 to also report readings on the serial port
+#define DEBUG   0   // set to 1 to display each loop() run and PIR trigger
 
 #define BME280_PORT  1   // defined if BME280 is connected to I2C
 // #define SHT11_PORT  1   // defined if SHT11 is connected to a port
@@ -75,6 +75,7 @@ struct {					//0		Offset, node #
     byte light;     		//7		light sensor: 0..255
     unsigned int humi:16;	//8&9	humidity: 0..100.00
     int temp   		:16; 	//10&11	temperature: -5000..+5000 (hundredths)
+    byte vcc;				//12	Bandgap battery voltage
 } payload;
 
 typedef struct {
@@ -175,6 +176,25 @@ bool changed;
 // has to be defined because we're using the watchdog for low-power waiting
 ISR(WDT_vect) { Sleepy::watchdogEvent(); }
 
+volatile bool adcDone;
+
+ISR(ADC_vect) { adcDone = true; }
+
+static byte vccRead (byte count =4) {
+  set_sleep_mode(SLEEP_MODE_ADC);
+  ADMUX = bit(REFS0) | 14; // use VCC and internal bandgap
+  bitSet(ADCSRA, ADIE);
+  while (count-- > 0) {
+    adcDone = false;
+    while (!adcDone)
+      sleep_mode();
+  }
+  bitClear(ADCSRA, ADIE);  
+  // convert ADC readings to fit in one byte, i.e. 20 mV steps:
+  //  1.0V = 0, 1.8V = 40, 3.3V = 115, 5.0V = 200, 6.0V = 250
+  return (55U * 1023U) / (ADC + 1) - 50;
+}
+
 void clock_prescale(uint8_t factor)
 {
  if (factor > 8) factor = 8;
@@ -197,6 +217,7 @@ static void shtDelay () {
 // readout all the sensors and other values
 static void doMeasure() {    
     payload.lobat = rf12_lowbat();
+    payload.vcc = vccRead();
 
 	#if SHT11_PORT
 		#ifndef __AVR_ATtiny84__
@@ -281,7 +302,8 @@ static void doReport() {
         Serial.print(" p=");
         x = payload.pressure / 100.0f;
         Serial.print(x);
-        Serial.println("hPa");
+        Serial.print("hPa VCC=");
+        Serial.println(payload.vcc);
         serialFlush();
 		clock_prescale(8);
     #endif

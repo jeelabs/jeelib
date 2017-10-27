@@ -1,6 +1,6 @@
 /// @dir RFxConsole
 ///////////////////////////////////////////////////////////////////////////////
-#define RF69_COMPAT      0   // define this to use the RF69 driver i.s.o. RF12 
+#define RF69_COMPAT      0	 // define this to use the RF69 driver i.s.o. RF12 
 ///                          // The above flag must be set similarly in RF12.cpp
 ///                          // and RF69_avr.h
 #define BLOCK  0             // Alternate LED pin?
@@ -223,7 +223,7 @@ static byte inChar () {
   #if BLOCK
     #define LED_PIN     8        // activity LED, comment out to disable
   #else
-    #define LED_PIN     9        // activity LED, comment out to disable
+//    #define LED_PIN     9        // activity LED, comment out to disable
   #endif
   #define messageStore  128
   #define MAX_NODES 31        // Contrained by RAM (9 bytes RAM per node)
