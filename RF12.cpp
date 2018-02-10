@@ -496,6 +496,7 @@ static void rf12_recvStart () {
 uint8_t rf12_recvDone () {
     if (rxstate == TXRECV &&
             (rxfill >= rf12_len + 5 + RF12_COMPAT || rxfill >= rf12_max_len)) {
+        rf12_control(RF_IDLE_MODE); // stop receiver
         rxfill = 0;
         rxstate = TXIDLE;
         rf12_crc ^= crc_endVal;
