@@ -14,7 +14,7 @@
 #endif
 
 ///////////////////////////////////////////////////////////////////////////////
-#define RF69_COMPAT 1    // Set this true to use the RF69 driver
+#define RF69_COMPAT 0    // Set this true to use the RF69 driver
 #define PINCHG_IRQ  0    // Set this true to use pin-change interrupts
                          // The above flags must be set similarly in RF69_avr.h
 
@@ -496,6 +496,7 @@ static void rf12_recvStart () {
 uint8_t rf12_recvDone () {
     if (rxstate == TXRECV &&
             (rxfill >= rf12_len + 5 + RF12_COMPAT || rxfill >= rf12_max_len)) {
+        rxfill = 0;
         rxstate = TXIDLE;
         rf12_crc ^= crc_endVal;
         if (rf12_len > RF12_MAXDATA)
@@ -540,7 +541,8 @@ uint8_t rf12_canSend (uint8_t clearAir) {
     // also see https://github.com/jcw/jeelib/issues/33
       
     status = rf12_control(0x0000);
-    if (rxstate == TXRECV && rxfill == 0 && (status & RF_RSSI_BIT) == 0) {
+    if ((rxstate == TXRECV || rxstate == TXIDLE) && rxfill == 0 && 
+      (status & RF_RSSI_BIT) == 0) {
         rf12_control(RF_IDLE_MODE); // stop receiver
         rxstate = TXIDLE;
         return 1;
@@ -725,7 +727,8 @@ uint8_t rf12_initialize (uint8_t id, uint8_t band, uint8_t g, uint16_t f) {
     //
     rf12_xfer(0xC606); // approx 49.2 Kbps, i.e. 10000/29/(1+6) Kbps
     // Note that below LNA(0-3)*8 + RSSI(0-5)*0 Threshold set from rxThreshold
-    rf12_xfer(0x94A0 | (rxThreshold & 0x1F)); // VDI,FAST,134kHz,(0dBm),(-91dBm)
+//    rf12_xfer(0x94A0 | (rxThreshold & 0x1F)); // VDI,FAST,134kHz,(0dBm),(-91dBm)
+    rf12_xfer(0x9480 | (rxThreshold & 0x1F)); // VDI,FAST,200kHz,(0dBm),(-91dBm)
     rf12_xfer(0xC2AC); // AL,!ml,DIG,DQD4
     if (group != 0) {
         rf12_xfer(0xCA83); // FIFO8,2-SYNC,!ff,DR
