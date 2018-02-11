@@ -369,7 +369,7 @@ static void rf12_interrupt () {
         uint8_t in = rf12_xferSlow(RF_RX_FIFO_READ);
 
         if (rxfill == 0 && group != 0)
-            rf12_buf[rxfill++] = group;
+            rf12_buf[rxfill++] = group;	// See CRC update in rf12_recvStart ()
 
 #if RF12_COMPAT
         in ^= whitening[rxfill-1];
