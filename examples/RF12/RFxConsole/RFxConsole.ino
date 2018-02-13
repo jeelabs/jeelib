@@ -38,7 +38,7 @@
 // Basic verification that a Posting has been received. It should appear as rf12_data[0] in following packets
 // Added min/max FEI levels per node 2016-05-13
 // Added verbosity flag, command 15v displays all extra information 2016-06-10
-//  1v displays packet reception details, fei, lna etc
+//  1v displays packet reception details, CRC, fei, lna etc
 //  2v displays a basic packet decode
 //  4v displays receiver restarts
 //	8v displays RX Threshold adjustments use with 10,200R
@@ -56,6 +56,7 @@
 // Added the 'U' command, 0 suppresses most help/config output. This hopefully stops
 //	erroneous configuration changes when UI connected to a program for text capture
 //	instead of a human. 1M restores output without changing eeprom 2017-06-07
+// Added support for displaying the CRC, received & transmitted 2018-02-13
 
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
 	#define TINY 1
@@ -1949,10 +1950,20 @@ void loop () {
             }
             lastTest = rf12_data[0];
         } else {
-            for (byte i = 0; i < n; ++i) {
+        	byte i;
+            for (i = 0; i < n; ++i) {
                 if (!(config.output & 1)) // Decimal output?
                     printOneChar(' ');
                 showByte(rf12_data[i]);
+            }
+            if (config.verbosity & 1) {
+            	printOneChar(' ');
+// Print the CRC, received byte sequence
+            	showNibble(rf12_data[(i)] >> 4);
+				showNibble(rf12_data[(i)]);
+            	showNibble(rf12_data[(i + 1)] >> 4);
+				showNibble(rf12_data[(i + 1)]);
+            	printOneChar('h');
             }
         }
 #if RF69_COMPAT && !TINY
@@ -2430,7 +2441,7 @@ Serial.print(")");
             if (cmd) {
             	showString(PSTR(" -> "));
             	showByte(sendLen);
-            	showString(PSTR(" b\n"));
+            	showString(PSTR("b "));
             	byte header = (cmd == 'a' ? RF12_HDR_ACK : 0);
             	if (dest)
                 	header |= RF12_HDR_DST | dest;
@@ -2449,6 +2460,15 @@ Serial.print(")");
             	Serial.println((rf12_crc >> 8), HEX);
 #endif
             	rf12_sendWait(1);  // Wait for transmission complete
+
+            	if (config.verbosity & 1) {
+// Display CRC transmitted           	
+            		showNibble(rf12_crc >> 4);
+            		showNibble(rf12_crc);
+            		showNibble(rf12_crc >> 12);
+            		showNibble(rf12_crc >> 8);
+            		showString(PSTR("h\n"));
+            	}
             	cmd = 0;
             	activityLed(0);
     			chkNoise = elapsedSeconds + (unsigned long)config.chkNoise;// Delay check
