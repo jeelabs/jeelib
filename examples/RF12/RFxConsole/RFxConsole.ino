@@ -1086,7 +1086,7 @@ static void handleInput (char c) {
                      displayVersion();
                      saveConfig();
 #if configSTRING
-                     Serial.println();
+//                     Serial.println();
 #endif
                      break;
 
