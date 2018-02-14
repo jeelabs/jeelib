@@ -969,7 +969,7 @@ static void handleInput (char c) {
 
             case 'T': 
                      // Set hardware specific TX power in eeprom
-                     if(value) config.RegPaLvl = value;
+                     config.RegPaLvl = value;
                      // Transmit permit threshold
                      if (top == 1 && (stack[0])) config.clearAir = stack[0];
                      saveConfig();
@@ -1938,6 +1938,7 @@ void loop () {
                 }
             }
         }
+        byte i;
         if (testPacket) {        
             testRX++;
             showString(PSTR(" t")); // Abbreviate Test string
@@ -1950,22 +1951,22 @@ void loop () {
             }
             lastTest = rf12_data[0];
         } else {
-        	byte i;
             for (i = 0; i < n; ++i) {
                 if (!(config.output & 1)) // Decimal output?
                     printOneChar(' ');
                 showByte(rf12_data[i]);
             }
-            if (config.verbosity & 1) {
-            	printOneChar(' ');
-// Print the CRC, received byte sequence
-            	showNibble(rf12_data[(i)] >> 4);
-				showNibble(rf12_data[(i)]);
-            	showNibble(rf12_data[(i + 1)] >> 4);
-				showNibble(rf12_data[(i + 1)]);
-            	printOneChar('h');
-            }
         }
+        if (config.verbosity & 1) {
+        	printOneChar(' ');
+// Print the CRC, received byte sequence
+        	showNibble(rf12_data[(i)] >> 4);
+			showNibble(rf12_data[(i)]);
+        	showNibble(rf12_data[(i + 1)] >> 4);
+			showNibble(rf12_data[(i + 1)]);
+        	printOneChar('h');
+        }
+        
 #if RF69_COMPAT && !TINY
         if ((config.verbosity & 1) || (!crc)) {
             showString(PSTR(" a="));
