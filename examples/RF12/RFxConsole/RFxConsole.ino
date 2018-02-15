@@ -1938,32 +1938,32 @@ void loop () {
                 }
             }
         }
-        byte i;
         if (testPacket) {        
             testRX++;
             showString(PSTR(" t")); // Abbreviate Test string
             showByte(rf12_data[0]);
-            byte n = rf12_data[0] - (lastTest + 1);
-            if (n) {
+            byte m = rf12_data[0] - (lastTest + 1);
+            if (m) {
                 printOneChar('-');
-                showByte(n);
-                missedTests =+ n;
+                showByte(m);
+                missedTests =+ m;
             }
             lastTest = rf12_data[0];
         } else {
-            for (i = 0; i < n; ++i) {
+            for (byte i = 0; i < n; ++i) {
                 if (!(config.output & 1)) // Decimal output?
                     printOneChar(' ');
                 showByte(rf12_data[i]);
             }
         }
+
         if (config.verbosity & 1) {
         	printOneChar(' ');
-// Print the CRC, received byte sequence
-        	showNibble(rf12_data[(i)] >> 4);
-			showNibble(rf12_data[(i)]);
-        	showNibble(rf12_data[(i + 1)] >> 4);
-			showNibble(rf12_data[(i + 1)]);
+// Print the CRC
+        	showNibble(rf12_data[(n + 1)] >> 4);
+			showNibble(rf12_data[(n + 1)]);
+        	showNibble(rf12_data[(n)] >> 4);
+			showNibble(rf12_data[(n)]);
         	printOneChar('h');
         }
         
@@ -2452,22 +2452,14 @@ Serial.print(")");
 //            	}
 //#endif
            		rf12_sendStart(header, stack, sendLen);
-#if DEBUG            
-            	for (byte i = 0; i < rf12_len + 3; i++) {
-                	showByte(rf12_data[i]);
-                	printOneChar(' ');
-            	}
-            	Serial.print((rf12_crc & 0x00FF), HEX);
-            	Serial.println((rf12_crc >> 8), HEX);
-#endif
             	rf12_sendWait(1);  // Wait for transmission complete
 
             	if (config.verbosity & 1) {
 // Display CRC transmitted           	
-            		showNibble(rf12_crc >> 4);
-            		showNibble(rf12_crc);
             		showNibble(rf12_crc >> 12);
             		showNibble(rf12_crc >> 8);
+            		showNibble(rf12_crc >> 4);
+            		showNibble(rf12_crc);
             		showString(PSTR("h\n"));
             	}
             	cmd = 0;
