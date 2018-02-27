@@ -1171,7 +1171,7 @@ static void handleInput (char c) {
 					} 
 					if (top == 1) {
 						if (getIndex(stickyGroup, stack[0])) {// Validate Group & Node 
-						
+							// NodeMap is also set by the above
 							if (semaphoreSave(stack[0], stickyGroup, value)) {							
 								postingsIn++;
 								oneShow(NodeMap);
@@ -1186,7 +1186,7 @@ static void handleInput (char c) {
                          }
                      } else {
                          // Accepts a index number and prints matching entry from the eeprom
-                         if (value) oneShow(value);
+                         if (value) oneShow(NodeMap);
                          else nodeShow(value);
                      }
 #endif
