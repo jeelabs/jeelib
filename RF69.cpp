@@ -220,10 +220,12 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 // 0x11, 0x5F, // PA1 enable, Pout = max // uncomment this for RFM69H
 */
 //  0x18, 0x02, // Manual LNA = 2 = -6dB
-  0x19, 0xE2, // RxBw 125 KHz, if DCC set to 0 is more sensitive
-  0x1A, 0xF7, // RxBwAFC 2.6 Khz Only handling initial RSSI phase, not payload!
-//  0x19, 0x42, // RxBw 125 KHz
-//  0x1A, 0x51, // AfcBw 166.7 KHz Channel filter BW
+// More prone to restarts in noisy environment
+  0x19, 0x29, // RxBw 200 KHz, DCC 16%
+  0x1A, 0x29, // RxBwAFC 200 Khz, DCC 16%. Only handling initial RSSI phase, not payload!
+// Less prone to restarts in noisy environment
+//  0x19, 0xE2, // RxBw 125 KHz, if DCC set to 0 is more sensitive
+//  0x1A, 0xF7, // RxBwAFC 2.6 Khz Only handling initial RSSI phase, not payload!
   0x1E, 0x00,
 
   0x26, 0x07, // disable clkout
@@ -656,6 +658,8 @@ second rollover and then will be 1.024 mS out.
             // The window for grabbing the above values is quite small
             // values available during transfer between the ether
             // and the inbound fifo buffer.
+            
+            IRQ_ENABLE;       // allow nested interrupts from here on
 
             if (rssi_interrupt) {
             	ms = millis();
@@ -699,7 +703,7 @@ second rollover and then will be 1.024 mS out.
             } //  RSSI
             rfapi.interpacketTS = ms;
             rxstate = RXFIFO;            
-            IRQ_ENABLE;       // allow nested interrupts from here on
+//            IRQ_ENABLE;       // allow nested interrupts from here on
             
             rtp = RssiToSync;
             rst = rfapi.RSSIrestart;
