@@ -1,6 +1,6 @@
 /// @dir RFxConsole
 ///////////////////////////////////////////////////////////////////////////////
-#define RF69_COMPAT      0	 // define this to use the RF69 driver i.s.o. RF12 
+#define RF69_COMPAT      1	 // define this to use the RF69 driver i.s.o. RF12 
 ///                          // The above flag must be set similarly in RF12.cpp
 ///                          // and RF69_avr.h
 #define BLOCK  0             // Alternate LED pin?
@@ -94,7 +94,7 @@
 
 #define MAJOR_VERSION RF12_EEPROM_VERSION // bump when EEPROM layout changes
 #define MINOR_VERSION 0                   // bump on other non-trivial changes
-#define VERSION "\n[RFxConsole.4]\n"      // keep in sync with the above
+//#define VERSION "\n[RFxConsole.4]\n"      // keep in sync with the above
 #if !configSTRING
   #define rf12_configDump()                 // Omit A i1 g210 @ 868 MHz q1
 #endif
@@ -136,7 +136,7 @@ unsigned long maxGap = 0;
 unsigned long minCrcGap = ~0; 
 unsigned long maxCrcGap = 0; 
 
-byte stickyGroup;
+byte stickyGroup = 212;
 byte eepromWrite;
 byte qMin = ~0;
 byte qMax = 0;
@@ -227,7 +227,7 @@ static byte inChar () {
     #define LED_PIN     9        // activity LED, comment out to disable
   #endif
   #define messageStore  128
-  #define MAX_NODES 31        // Contrained by RAM (9 bytes RAM per node)
+  #define MAX_NODES 31        // Contrained by RAM (12 bytes RAM per node)
 #endif
 
 static unsigned long now () {
@@ -348,6 +348,7 @@ ISR(TIMER1_COMPA_vect){
 	elapsedSeconds++;
 
 #if RF69_COMPAT        
+#pragma warn("Compiling in RF69_COMPAT mode")
     // Update restart rate
     restartRate = (rfapi.RSSIrestart - previousRestarts);
     previousRestarts = rfapi.RSSIrestart;
@@ -365,7 +366,7 @@ ISR(TIMER1_COMPA_vect){
 }
 
 #if MESSAGING
-static byte semaphores[MAX_NODES];
+static byte semaphoreStack[(MAX_NODES * 3) + 1];	// FIFO per node-group
 #endif
 static unsigned long goodCRC;
 #if RF69_COMPAT && STATISTICS
@@ -401,7 +402,6 @@ unsigned int loopCount, idleTime = 0, offTime = 0;
 #if !TINY
 const char messagesF[] PROGMEM = { 
     0x05, 'T', 'e', 's', 't', '1', 
-    0x05, 'T', 'e', 's', 't', '2', 
 
     0 }; // Mandatory delimiter
 
@@ -1097,6 +1097,7 @@ static void handleInput (char c) {
                      // messages can not be removed if queued or
                      // when any higher numbered messages are queued.
                      // TODO Bug removing entries with 131m
+                     // TODO semaphores needs to be reworked in here
                      byte *fromR;
                      getMessage(255);                // Find highest message number
                      Serial.println(topMessage);
@@ -1105,13 +1106,13 @@ static void handleInput (char c) {
                          fromR = sourceR;                // Points to next message length byte, if RAM
                          if ((sourceR) && (len)) {       // Is message in RAM?
                              byte valid = true;
-                             for (unsigned int i = 0; i < MAX_NODES; i++) {                    // Scan for message in use
-                                 if ((semaphores[i] >= value) && (semaphores[i] <= topMessage)) {   // If so, or higher then can't
-                                     showString(PSTR("In use i"));
-                                     Serial.println((word) i);
-                                     valid = false;
-                                 }
-                             }
+                 //            for (unsigned int i = 0; i < MAX_NODES; i++) {                    // Scan for message in use
+                 //                if ((semaphores[i] >= value) && (semaphores[i] <= topMessage)) {   // If so, or higher then can't
+                 //                    showString(PSTR("In use i"));
+                 //                    Serial.println((word) i);
+                 //                    valid = false;
+                 //                }
+                 //            }
                              displayString(&stack[sizeof stack - (len + 1)], len + 1);
                              Serial.println();
                              if ((valid) && (value <= topMessage)) {
@@ -1169,13 +1170,18 @@ static void handleInput (char c) {
 						top = 1;
 					} 
 					if (top == 1) {
-						if (getIndex(stickyGroup, stack[0])) { 
-							semaphores[NodeMap] = value;
-							postingsIn++;
-							oneShow(NodeMap);
-					 		c = 0;	// loose command printout
+						if (getIndex(stickyGroup, stack[0])) {// Validate Group & Node 
+						
+							if (semaphoreSave(stack[0], stickyGroup, value)) {							
+								postingsIn++;
+								oneShow(NodeMap);
+					 			c = 0;	// loose command printout
+					 		} else {
+                        		showString(PSTR("Semaphore table full"));
+					 		}
                          } else {
                          	showByte(stickyGroup);
+                         	showByte(stack[0]);
                          	showString(UNKNOWN);
                          }
                      } else {
@@ -1194,9 +1200,10 @@ static void handleInput (char c) {
             		break;	
 
             case 'n':
+#if DEBUG
                      dumpAPI();
                      dumpRegs();
-
+#endif
                      if ((top == 0) && (config.group == 0)) {
                          showByte(stickyGroup);
                          stickyGroup = (int)value;
@@ -1280,10 +1287,14 @@ static void handleInput (char c) {
                      }
                      break;
 
-            case 'z': // put the ATmega in ultra-low power mode (reset needed)
+            case 'z':
             		 if (value == 1) {
             		 	minGap = minCrcGap = ~0;
             		 	maxGap = maxCrcGap = maxRestartRate = 0;
+            		 }
+            		 if (value == 2) {
+            		 	for (int c = 0; c < MAX_NODES; ++c)
+            		 		semaphoreStack[c * 3] = 0;
             		 }
                      if (value == 123) {
                          clrConfig();
@@ -1426,7 +1437,7 @@ void resetFlagsInit(void)
 
 void setup () {
 
-    delay(5000);
+    delay(2000);
 
     //  clrConfig();
 
@@ -1591,7 +1602,7 @@ static void dumpEEprom() {
 //#if DEBUG && RF69_COMPAT
 /// Display the RFM69x registers
 static void dumpRegs() {
-    Serial.println("\nRFM69x Registers:");
+    Serial.print("\nRFM69x Registers:");
     for (byte r = 1; r < 0x80; ++r) {
         showByte(RF69::control(r, 0)); // Prints out Radio Registers.
         printOneChar(',');
@@ -1622,6 +1633,17 @@ http://forum.arduino.cc/index.php/topic,140376.msg1054626.html
     Serial.print((word) postingsIn);
     printOneChar(',');
     Serial.println((word) postingsOut);
+    int c = 0;
+    while ((semaphoreStack[c * 3]) != 0) {
+        printOneChar('g');
+	   	Serial.print(semaphoreStack[(c * 3) + 1]);	// Group
+        printOneChar(' ');
+        printOneChar('i');
+    	Serial.print(semaphoreStack[(c * 3) + 0]);	// Node
+        printOneChar(' ');
+    	Serial.println(semaphoreStack[(c * 3) + 2]);	// Posting 
+    	++c;   
+    }
 #endif
 #if RF69_COMPAT && STATISTICS
     showString(PSTR("Stability "));
@@ -1727,8 +1749,10 @@ static void oneShow(byte index) {
     Serial.print(pktCount[index]);
 #endif
 #if MESSAGING 
-    showString(PSTR(" post:"));      
-    showByte(semaphores[index]);
+    showString(PSTR(" post:")); 
+    uint16_t v = semaphoreGet(n, g);
+    if (v >> 8) showByte(v);
+    else printOneChar(' ');    
 #endif
 #if RF69_COMPAT && STATISTICS            
     if (pktCount[index]) {
@@ -1782,6 +1806,41 @@ static unsigned int getIndex (byte group, byte node) {
     } 
     return(false);
 }
+static bool semaphoreSave (byte node, byte group, byte value) {
+	for (int c = 0; c < MAX_NODES; ++c) {
+		if (semaphoreStack[(c * 3) + 0] == 0) {
+			semaphoreStack[(c * 3) + 0] = node;	
+			semaphoreStack[(c * 3) + 1] = group;	
+			semaphoreStack[(c * 3) + 2] = value;
+			return true;	
+		}
+	}
+	return false;
+}
+static bool semaphoreDrop (byte node, byte group) {
+	for (int c = 0; c < MAX_NODES; ++c) {
+		if ((semaphoreStack[(c * 3) + 0] == node) && (semaphoreStack[(c * 3) + 1] == group)) {
+			while (c < MAX_NODES || semaphoreStack[(c * 3)] != 0) {
+				// Overwrite by shifting down entries above
+				semaphoreStack[(c * 3) + 0] = semaphoreStack[(c * 3) + 3];
+				semaphoreStack[(c * 3) + 1] = semaphoreStack[(c * 3) + 4];
+				semaphoreStack[(c * 3) + 2] = semaphoreStack[(c * 3) + 5];
+				++c;
+			}
+		return true;
+		}
+	}
+	return false;
+}
+static uint16_t semaphoreGet (byte node, byte group) {
+	for (int c = 0; c < MAX_NODES; ++c) {
+		if ((semaphoreStack[(c * 3) + 0] == node) && (semaphoreStack[(c * 3) + 1] == group)) {
+			return semaphoreStack[(c * 3) + 2] | 0x0100;	// True value
+		}
+	return false;	// Not found
+	}
+}
+
 void loop () {
 
 #if TINY
@@ -2307,17 +2366,17 @@ Serial.print(")");
     	            // If a semaphore exists it is stored in the buffer. If the semaphore has a message addition associated with it then
         	        // the additional data from the message store is appended to the buffer and the whole buffer transmitted to the 
             	    // originating node with the ACK.
-                
-                	if (semaphores[NodeMap] && (!(special))) {				// Something to post?
-                    	stack[sizeof stack - 1] = semaphores[NodeMap];		// Pick up message pointer
+                	uint16_t v = semaphoreGet((rf12_hdr & RF12_HDR_MASK), rf12_grp);
+                	if ((v >> 8) && (!(special))) {				// Something to post?
+                    	stack[sizeof stack - 1] = (byte) v;		// Pick up value
 	                    ackLen = getMessage(stack[sizeof stack - 1]);		// Check for a message to be appended
     	                if (ackLen){
-        	                stack[(sizeof stack - (ackLen + 1))] = semaphores[NodeMap];
+        	                stack[(sizeof stack - (ackLen + 1))] = (byte) v;
             	        }
                 	    ackLen++;                                           // If 0 or message length then +1 for length byte
                     	showString(PSTR(" Posted "));
-	                    if (rf12_data[0] == semaphores[NodeMap]) {  // Check if previous Post value is the first byte of this payload 
-    	                    semaphores[NodeMap] = 0;                // Indicating it was received
+	                    if (rf12_data[0] == (byte) v) {  // Check if previous Post value is the first byte of this payload 
+    	                    semaphoreDrop((rf12_hdr & RF12_HDR_MASK), rf12_grp);    // Received?
         	                showString(PSTR("and cleared "));
             	        }
                     	crlf = true;
