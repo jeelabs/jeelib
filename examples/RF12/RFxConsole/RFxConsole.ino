@@ -57,6 +57,7 @@
 //	erroneous configuration changes when UI connected to a program for text capture
 //	instead of a human. 1M restores output without changing eeprom 2017-06-07
 // Added support for displaying the CRC, received & transmitted 2018-02-13
+// Added support for a semaphore queue to store and forward postings to nodes in ACK's 2018-02-27
 
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
 	#define TINY 1
@@ -118,6 +119,7 @@ const char UNSUPPORTED[] PROGMEM = "RX Unsupported ";
 const char DONE[] PROGMEM = "Done\n";
 const char ABORTED[] PROGMEM = " Aborted ";
 const char UNKNOWN[] PROGMEM = " Unknown";
+const char TX[] PROGMEM = "TX ";
 
 
 #define SALUSFREQUENCY 1660       // Default value
@@ -394,7 +396,7 @@ static unsigned int changedFEI;
 static unsigned int CRCbadCount = 0;
 static unsigned int pktCount[MAX_NODES];
 static unsigned int nonBroadcastCount = 0;
-static byte postingsIn, postingsOut;
+static unsigned int postingsIn, postingsClr, postingsOut, postingsLost;
 #endif
 
 unsigned int loopCount, idleTime = 0, offTime = 0;
@@ -581,7 +583,7 @@ const char helpText1[] PROGMEM =
 " <g>n       - set group <g> as sticky. Group 0 only, see p command\n"
 " <n>l       - turn activity LED on PB1 on or off\n"
 "  ...,m     - add message string to ram, see p command\n"
-" <g>,<i>,<s>p post semaphore <s> for group <g> node <i>, to be\n"
+" <i>,<g>,<s>p post semaphore <s> for group <g> node <i>, to be\n"
 "              sent with its next ack. Group number becomes sticky\n"
 " <n>q       - set quiet mode (1 = don't report bad packets)\n"
 " <n>x       - set reporting format (0: decimal, 2: decimal+ascii\n"
@@ -1074,10 +1076,6 @@ static void handleInput (char c) {
 
             case 'x': // set reporting mode to decimal (0), hex (1), hex+ascii (2)
                      config.output = value;
-#if RF69_COMPAT
-                     config.RegPaLvl = RF69::control(0x11, 0x9F);   // Pull the current RegPaLvl from the radio
-                     // An obscure method because one can blow the hardware
-#endif                                                     
                      saveConfig();
                      break;
 
@@ -1550,8 +1548,8 @@ showNibble(resetFlags);
 
     }
 
-    stickyGroup = config.group;
-    if (!(stickyGroup)) stickyGroup = 212;
+//    stickyGroup = config.group;
+//    if (!(stickyGroup)) stickyGroup = 212;
 
     df_initialize();
 
@@ -1612,7 +1610,7 @@ static void dumpRegs() {
     delay(10);
 }
 //#endif
-/// Display stored nodes and show the post queued for each node
+/// Display stored nodes and show the next post queued for each node
 /// the post queue is not preserved through a restart of RFxConsole
 static void nodeShow(byte group) {
     unsigned int index;
@@ -1632,7 +1630,11 @@ http://forum.arduino.cc/index.php/topic,140376.msg1054626.html
     showString(PSTR("Postings "));      
     Serial.print((word) postingsIn);
     printOneChar(',');
-    Serial.println((word) postingsOut);
+    Serial.print((word) postingsClr);
+    printOneChar(',');
+    Serial.print((word) postingsOut);
+    printOneChar(',');
+    Serial.println((word) postingsLost);
     int c = 0;
     while ((semaphoreStack[c * 3]) != 0) {
         printOneChar('g');
@@ -1752,7 +1754,6 @@ static void oneShow(byte index) {
     showString(PSTR(" post:")); 
     uint16_t v = semaphoreGet(n, g);
     if (v >> 8) showByte(v);
-    else printOneChar(' ');    
 #endif
 #if RF69_COMPAT && STATISTICS            
     if (pktCount[index]) {
@@ -1837,8 +1838,8 @@ static uint16_t semaphoreGet (byte node, byte group) {
 		if ((semaphoreStack[(c * 3) + 0] == node) && (semaphoreStack[(c * 3) + 1] == group)) {
 			return semaphoreStack[(c * 3) + 2] | 0x0100;	// True value
 		}
-	return false;	// Not found
 	}
+	return false;	// Not found
 }
 
 void loop () {
@@ -2375,13 +2376,14 @@ Serial.print(")");
             	        }
                 	    ackLen++;                                           // If 0 or message length then +1 for length byte
                     	showString(PSTR(" Posted "));
+                    	postingsOut++;
 	                    if (rf12_data[0] == (byte) v) {  // Check if previous Post value is the first byte of this payload 
     	                    semaphoreDrop((rf12_hdr & RF12_HDR_MASK), rf12_grp);    // Received?
         	                showString(PSTR("and cleared "));
+                    		postingsClr++;
             	        }
                     	crlf = true;
                     	displayString(&stack[sizeof stack - ackLen], ackLen);        // 1 more than Message length!                      
-                    	postingsOut++;
                 	}
 #endif                                        
                     rf12_sendStart(RF12_ACK_REPLY, &stack[sizeof stack - ackLen], ackLen);
@@ -2496,7 +2498,7 @@ Serial.print(")");
             if (rfapi.sendRSSI > maxTxRSSI) maxTxRSSI = rfapi.sendRSSI;
 #endif        
             activityLed(1);
-            showString(PSTR("TX "));
+            showString(TX);
 			Serial.print(r);
             if (cmd) {
             	showString(PSTR(" -> "));
@@ -2519,8 +2521,9 @@ Serial.print(")");
             		showNibble(rf12_crc >> 8);
             		showNibble(rf12_crc >> 4);
             		showNibble(rf12_crc);
-            		showString(PSTR("h\n"));
+            		printOneChar('h');
             	}
+            	Serial.println();
             	cmd = 0;
             	activityLed(0);
     			chkNoise = elapsedSeconds + (unsigned long)config.chkNoise;// Delay check
@@ -2532,7 +2535,7 @@ Serial.print(")");
         } else { // (r)
         
             uint16_t s = rf12_status();            
-            showString(PSTR("TX "));
+            showString(TX);
 #if RF69_COMPAT && !TINY
             Serial.print(rfapi.sendRSSI);
             printOneChar(' ');
