@@ -1176,6 +1176,7 @@ static void handleInput (char c) {
 					 			c = 0;	// loose command printout
 					 		} else {
                         		showString(PSTR("Semaphore table full"));
+                        		++postingsLost;
 					 		}
                          } else {
                          	showByte(stickyGroup);
@@ -1746,17 +1747,22 @@ static void oneShow(byte index) {
     showByte(g);
     showString(PSTR(" i"));      
     showByte(n & RF12_HDR_MASK);
-#if STATISTICS      
-    showString(PSTR(" rx:"));
-    Serial.print(pktCount[index]);
+#if STATISTICS 
+	byte c = pktCount[index];
+	if (c) {   
+	    showString(PSTR(" rx:"));
+	    Serial.print(c);
+	}
 #endif
 #if MESSAGING 
-    showString(PSTR(" post:")); 
     uint16_t v = semaphoreGet(n, g);
-    if (v >> 8) showByte(v);
+    if (v >> 8) {
+    	showString(PSTR(" post:")); 
+    	showByte(v);
+    }
 #endif
 #if RF69_COMPAT && STATISTICS            
-    if (pktCount[index]) {
+    if (c) {
         showString(PSTR(" fei("));
         Serial.print(minFEI[index]);
         printOneChar('/');
@@ -2300,7 +2306,7 @@ Serial.print(")");
                         // Find a spare node number within received group number
                         if (!(getIndex(rf12_grp, i ))) {         // Node/Group pair not found?
                             observedRX.offset_TX = config.frequency_offset;
-  #if RF69_COMPAT                       
+  #if RF69_COMPAT  			// Below may need rework as a result of double buffering the radio                     
                             observedRX.RegPaLvl_TX = RF69::control(0x11, 0x9F);    // Pull the current RegPaLvl from the radio
                             observedRX.RegTestLna_TX = RF69::control(0x58, 0x1B);  // Pull the current RegTestLna from the radio
                             observedRX.RegTestPa1_TX = RF69::control(0x5A, 0x55);  // Pull the current RegTestPa1 from the radio
@@ -2334,7 +2340,7 @@ Serial.print(")");
 #endif                    
                 crlf = true;
                 delay(config.ackDelay);          // changing into TX mode is quicker than changing into RX mode for RF69.     
-                showString(PSTR("TX "));
+            	showString(TX);
                 byte r = rf12_canSend(config.clearAir);
                 if (r) {
 #if RF69_COMPAT && !TINY
@@ -2374,7 +2380,7 @@ Serial.print(")");
     	                if (ackLen){
         	                stack[(sizeof stack - (ackLen + 1))] = (byte) v;
             	        }
-                	    ackLen++;                                           // If 0 or message length then +1 for length byte
+                	    ++ackLen;                                           // If 0 or message length then +1 for length byte
                     	showString(PSTR(" Posted "));
                     	postingsOut++;
 	                    if (rf12_data[0] == (byte) v) {  // Check if previous Post value is the first byte of this payload 
@@ -2507,16 +2513,12 @@ Serial.print(")");
             	byte header = (cmd == 'a' ? RF12_HDR_ACK : 0);
             	if (dest)
                 	header |= RF12_HDR_DST | dest;
-//#if RF69_COMPAT && !TINY
-//            	if (config.group == 0) {
-                //                RF69::control(REG_SYNCGROUP | 0x80, stickyGroup);  // Set a group number to use for transmission
-//            	}
-//#endif
+
            		rf12_sendStart(header, stack, sendLen);
             	rf12_sendWait(1);  // Wait for transmission complete
 
             	if (config.verbosity & 1) {
-// Display CRC transmitted           	
+					// Display CRC transmitted           	
             		showNibble(rf12_crc >> 12);
             		showNibble(rf12_crc >> 8);
             		showNibble(rf12_crc >> 4);
