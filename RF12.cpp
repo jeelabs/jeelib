@@ -19,7 +19,7 @@
                          // The above flags must be set similarly in RF69_avr.h
 
 // NOTE: The following does not apply to the ATTiny processors which uses USI
-#define OPTIMIZE_SPI 1   // uncomment this to write to the RFM12B @ 8 Mhz
+//#define OPTIMIZE_SPI 1   // uncomment this to write to the RFM12B @ 8 Mhz
 ///////////////////////////////////////////////////////////////////////////////                         
 
 #if RF12_COMPAT
@@ -110,7 +110,7 @@
 
 // ATmega168, ATmega328, etc.
 #if PINCHG_IRQ
-    #define RFM_IRQ     13		// 18=JeeNode on PB2,  1=JeeNode Block pin change
+    #define RFM_IRQ     1		// 18=JeeNode on PB2,  1=JeeNode Block pin change
 #else
     #define RFM_IRQ     2		// 2=INT0 on PB2,
 #endif 

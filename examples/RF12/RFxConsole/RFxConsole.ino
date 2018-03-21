@@ -46,7 +46,7 @@
 // Changed RX interrupt trigger to be RSSI rather than SyncMatch 2016-06-20
 // Mask two stray interrupts, sleep before reconfiguring radio 2016-06-23
 // Added dynamic control of RX Threshold based on restart rate 2016-07-12
-// Variable time constant for rate calculation stoed in eeprom
+// Variable time constant for rate calculation stored in eeprom
 // Added counter for ACK's aborted due to busy airwaves 2016-09-01
 // Added inter packet time gaps, also min/max 2016-12-12
 // Tweaks around <cr> handling to better fit use of folie as a terminal emulator 2017-01-5
@@ -1620,9 +1620,10 @@ static void nodeShow(byte group) {
 http://forum.arduino.cc/index.php/topic,140376.msg1054626.html
         if (n & 0x80) {                                                     // Erased or empty entry?
             if (n == 0xFF) break;                                           // Empty, assume end of table
-            if (!group) {
-                Serial.println(index); 
-            }         
+//				if (!group) {
+//    				printOneChar('#');
+//              	Serial.println(index); 
+//				}         
         } else {
         	oneShow(index);
         }
@@ -1748,7 +1749,7 @@ static void oneShow(byte index) {
     showString(PSTR(" i"));      
     showByte(n & RF12_HDR_MASK);
 #if STATISTICS 
-	byte c = pktCount[index];
+	unsigned int c = pktCount[index];
 	if (c) {   
 	    showString(PSTR(" rx:"));
 	    Serial.print(c);
