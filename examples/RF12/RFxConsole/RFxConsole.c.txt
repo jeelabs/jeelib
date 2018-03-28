@@ -30,16 +30,16 @@ void openPipe() {
 	result = mkfifo(OUR_INPUT_FIFO_NAME, 0777);		
   //(This will fail if the fifo already exists in the system from the app 
   // previously running, this is fine)
-	if (result == 0)
+	if (result == 0) {
 		printf("New input pipe created: %s\n", OUR_INPUT_FIFO_NAME);
-
-	our_input_fifo_filestream = open(OUR_INPUT_FIFO_NAME, (O_RDONLY | O_NONBLOCK));
+	}
+	our_input_fifo_filestream = open(OUR_INPUT_FIFO_NAME, (O_RDONLY | O_NDELAY));
 					//Possible flags:
 					//	O_RDONLY - Open for reading only.
 					//	O_WRONLY - Open for writing only.
 					//	O_NDELAY / O_NONBLOCK (same function) - Enables nonblocking mode. When set read requests on the file can return immediately with a failure status
-					//											if there is no input immediately available (instead of blocking). Likewise, write requests can also return
-					//											immediately with a failure status if the output can't be written immediately.
+					//					if there is no input immediately available (instead of blocking). Likewise, write requests can also return
+					//					immediately with a failure status if the output can't be written immediately.
 	if (our_input_fifo_filestream == -1)
 		printf("Open failed FIFO: %i\n", our_input_fifo_filestream);
 }
@@ -63,17 +63,17 @@ fprintf (stderr, "Start Up\n") ;
 
   sleep(2); //required to make flush work, for some reason
   tcflush(fd,TCIOFLUSH);
-
-fprintf (stderr, "Flushed\n") ;
+  
+  fprintf (stderr, "Flushed\n") ;
   
   fcntl(fd, F_SETFL);            // Configure port reading
   tcgetattr(fd, &options);       // Get the current options for the port
-  cfsetispeed(&options, B57600); // Set the baud rates to 57600
-  cfsetospeed(&options, B57600);
+  cfsetispeed(&options, B115200); // Set the baud rates to 115200
+  cfsetospeed(&options, B115200);
 
 	openPipe();
 
-fprintf (stderr, "Pipe Open\n") ;
+	fprintf (stderr, "Pipe Open\n") ;
 
     rx_len = 14;
 
@@ -104,7 +104,8 @@ fprintf (stderr, "Pipe Open\n") ;
             	|| ((rx_buf[14] == 'R') && (rx_buf[15] == 'X'))
             	|| ((rx_buf[14] == 'R') && (rx_buf[15] == 'F'))
 	      		|| ((rx_buf[14] == 'T') && (rx_buf[15] == 'X'))
-	      	) {
+	      	)
+			{
                 int ret = system(rx_buf);
                 if (ret)
                   printf("System(1) Returned %i\n", ret);
@@ -147,14 +148,16 @@ fprintf (stderr, "Pipe Open\n") ;
         delivered the next time that node 17 requests a ACK with a packet.
         
         The commands so delivered may be delayed before being issued since
-        the fifo queue is only checked when the serial queue times out. This
+        the fifi queue is only checked when the serial queue times out. This
         timeout is 10 seconds after deliver of the last serial character.
         
         */
         
-		    // Read up to 255 characters from the FIFO if they are there
-		    if (our_input_fifo_filestream != -1)  {
-		        fifo_length = read(our_input_fifo_filestream, (void*)fifo_buffer, 255);		
+		    // Read up to 2048 characters from the FIFO if they are there
+		    if (our_input_fifo_filestream != -1)  {		    
+		        fifo_length = read(our_input_fifo_filestream, (void*)fifo_buffer, 2048);		
+//                printf("FIFO bytes=%i\n", fifo_length);
+//                fflush (stdout);        
             //Filestream, buffer to store in, number of bytes to read (max)
 		        if (fifo_length < 0) printf("FIFO Read error\r");
             else if (fifo_length > 1) {
