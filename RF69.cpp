@@ -215,6 +215,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 // 0x08, 0x00, // FrfMib, divider = 14221312
 // 0x09, 0x00, // FrfLsb, step = 61.03515625
 // 0x0B, 0x20, // AfcCtrl, afclowbetaon
+	0x11,0x9F, // PA0 only and maximum -3dB
 /*
 // Mismatching PA1 below with the RFM69x module present risks blowing a hole in the LNA
 // 0x11, 0x5F, // PA1 enable, Pout = max // uncomment this for RFM69H

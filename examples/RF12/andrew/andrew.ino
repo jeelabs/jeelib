@@ -11,7 +11,7 @@
 #define BLIP_NODE 22  // wireless node ID to use for sending blips
 #define BLIP_GRP  212   // wireless net group to use for sending blips
 #define BLIP_ID   1   // set this to a unique ID to disambiguate multiple nodes
-#define SEND_MODE 0   // set to 3 if fuses are e=06/h=DE/l=CE, else set to 2
+#define SEND_MODE 1   // set to 3 if fuses are e=06/h=DE/l=CE, else set to 2
 
 struct {
   long ping;      // 32-bit counter
@@ -73,7 +73,10 @@ void setup() {
     bitClear(PORTB, 0);
 #endif
 */
-  rf12_initialize(BLIP_NODE, RF12_868MHZ, BLIP_GRP);
+  byte a = rf12_initialize(BLIP_NODE, RF12_868MHZ, BLIP_GRP);
+  Serial.print("Node is ");
+  Serial.println(a);
+  Serial.flush();
   // see http://tools.jeelabs.org/rfm12b
 #if !defined(RF69_COMPAT)
   rf12_control(0xC040); // set low-battery level to 2.2V i.s.o. 3.1V
@@ -91,9 +94,9 @@ static byte sendPayload () {
 
   rf12_sleep(RF12_WAKEUP);
 //  rf12_recvDone();	// Keep state machine alive
-//  rf12_sendStart(0, &payload, sizeof payload);
-  rf12_sendNow(0, &payload, sizeof payload);
-//  rf12_sendWait(SEND_MODE);
+  rf12_sendStart(0, &payload, sizeof payload);
+//  rf12_sendNow(0, &payload, sizeof payload);
+  rf12_sendWait(SEND_MODE);
   rf12_sleep(RF12_SLEEP);
 }
 
