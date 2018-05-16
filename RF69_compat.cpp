@@ -209,7 +209,7 @@ uint8_t rf69_recvDone () {
     return rf69_crc != ~0;
 }
 
-uint8_t rf69_canSend (uint8_t clearAir = 0xFF) {
+uint8_t rf69_canSend (uint8_t clearAir = 0xA0) {
     return RF69::canSend(clearAir);
 }
 
