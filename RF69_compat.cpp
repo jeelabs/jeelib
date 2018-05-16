@@ -232,7 +232,7 @@ void rf69_sendStart (uint8_t hdr, const void* ptr, uint8_t len) {
 // }
 
 void rf69_sendNow (uint8_t hdr, const void* ptr, uint8_t len) {
-    while (!rf69_canSend())
+    while (!rf69_canSend(0xA0))
         rf69_recvDone();
     rf69_sendStart(hdr, ptr, len);
 }
@@ -279,7 +279,7 @@ char rf69_easyPoll () {
     if (ezPending > 0) {
         byte newData = ezPending == RETRIES;
         long now = millis();
-        if (now >= ezNextSend[newData] && rf69_canSend()) {
+        if (now >= ezNextSend[newData] && rf69_canSend(0xA0)) {
             ezNextSend[0] = now + RETRY_MS;
             if (newData)
                 ezNextSend[1] = now +
