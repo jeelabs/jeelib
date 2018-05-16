@@ -71,6 +71,7 @@ uint8_t rf69_initialize (uint8_t id, uint8_t band, uint8_t group=0xD4, uint16_t 
     RF69::configure_compat(); 
 
     if (rfapi.txPower) RF69::control(0x91, rfapi.txPower);
+    else rfapi.txPower = 0x9F;
     
     uint8_t r = RF69::control(0x29, 0);	// Read the current RSSI Threshold value
 // TODO For some reason using 'R' command causes the above to return 0 - bug?
@@ -209,7 +210,7 @@ uint8_t rf69_recvDone () {
     return rf69_crc != ~0;
 }
 
-uint8_t rf69_canSend (uint8_t clearAir = 0xFF) {
+uint8_t rf69_canSend (uint8_t clearAir = 0xA0) {
     return RF69::canSend(clearAir);
 }
 
@@ -232,7 +233,7 @@ void rf69_sendStart (uint8_t hdr, const void* ptr, uint8_t len) {
 // }
 
 void rf69_sendNow (uint8_t hdr, const void* ptr, uint8_t len) {
-    while (!rf69_canSend())
+    while (!rf69_canSend(0xA0))
         rf69_recvDone();
     rf69_sendStart(hdr, ptr, len);
 }
@@ -279,7 +280,7 @@ char rf69_easyPoll () {
     if (ezPending > 0) {
         byte newData = ezPending == RETRIES;
         long now = millis();
-        if (now >= ezNextSend[newData] && rf69_canSend()) {
+        if (now >= ezNextSend[newData] && rf69_canSend(0xA0)) {
             ezNextSend[0] = now + RETRY_MS;
             if (newData)
                 ezNextSend[1] = now +

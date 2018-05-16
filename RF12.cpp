@@ -671,7 +671,7 @@ void rf12_sendWait (uint8_t mode) {
             sleep_mode();
         }
 }
-
+#if !RF69_COMPAT
 /// @details
 /// Call this once with the node ID (0-31), frequency band (0-3), and
 /// optional group (0-255 for RFM12B, only 212 allowed for RFM12).
@@ -802,6 +802,7 @@ uint8_t rf12_initialize (uint8_t id, uint8_t band, uint8_t g, uint16_t f) {
 
     return nodeid;
 }
+#endif
 
 /// @details
 /// This can be used to send out slow bit-by-bit On Off Keying signals to other
