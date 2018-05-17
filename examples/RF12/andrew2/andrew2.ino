@@ -24,11 +24,11 @@ struct {
 volatile bool adcDone;
 
 // for low-noise/-power ADC readouts, we'll use ADC completion interrupts
-//ISR(ADC_vect) { adcDone = true; }
+ISR(ADC_vect) { adcDone = true; }
 
 // this must be defined since we're using the watchdog for low-power waiting
 ISR(WDT_vect) { Sleepy::watchdogEvent(); }
-/*
+
 static byte vccRead (byte count =4) {
   set_sleep_mode(SLEEP_MODE_ADC);
   // use VCC as AREF and internal bandgap as input
@@ -48,17 +48,8 @@ static byte vccRead (byte count =4) {
   //  1.0V = 0, 1.8V = 40, 3.3V = 115, 5.0V = 200, 6.0V = 250
   return (55U * 1024U) / (ADC + 1) - 50;
 }
-*/
+
 void setup() {
-	delay(1000);
-#if !defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)	
-   Serial.begin(115200);
-   Serial.print((__DATE__));
-   Serial.print(" ");
-   Serial.println((__TIME__));
-   Serial.flush();
-#endif
-/*
   // get the pre-scaler into a known state
   cli();
   CLKPR = bit(CLKPCE);
@@ -74,17 +65,10 @@ void setup() {
     bitSet(DDRB, 0);
     bitClear(PORTB, 0);
 #endif
-*/
-  byte a = rf12_initialize(BLIP_NODE, RF12_868MHZ, BLIP_GRP);
-#if !defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
-  Serial.print("Node is ");
-  Serial.println(a);
-  Serial.flush();
-#endif
+
+  rf12_initialize(BLIP_NODE, RF12_868MHZ, BLIP_GRP);
   // see http://tools.jeelabs.org/rfm12b
-#if !defined(RF69_COMPAT)
-  rf12_control(0xC040); // set low-battery level to 2.2V i.s.o. 3.1V
-#endif
+//  rf12_control(0xC040); // set low-battery level to 2.2V i.s.o. 3.1V
   rf12_sleep(RF12_SLEEP);
 
   payload.id = BLIP_ID;
@@ -93,14 +77,9 @@ void setup() {
 
 static byte sendPayload () {
   ++payload.ping;
-#if !defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
-	Serial.println(payload.ping);
-	Serial.flush();
-#endif
+
   rf12_sleep(RF12_WAKEUP);
-//  rf12_recvDone();	// Keep state machine alive
-  rf12_sendStart(0, &payload, sizeof payload);
-//  rf12_sendNow(0, &payload, sizeof payload);
+  rf12_sendNow(0, &payload, sizeof payload);
   rf12_sendWait(SEND_MODE);
   rf12_sleep(RF12_SLEEP);
 }
@@ -123,12 +102,8 @@ static byte sendPayload () {
 #define VCC_FINAL 70  // <= 2.4V - send anyway, might be our last swan song
 
 void loop() {
-#if !defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
-	Serial.print("Loop ");
-	Serial.flush();
-#endif
-  byte vcc = payload.vcc1 = VCC_OK; //vccRead();
-/*
+  byte vcc = payload.vcc1 = vccRead();
+
   if (vcc <= VCC_FINAL) { // hopeless, maybe we can get one last packet out
     sendPayload();
     vcc = 1; // don't even try reading VCC after this send
@@ -138,17 +113,16 @@ void loop() {
   }
 
   if (vcc >= VCC_OK) { // enough energy for normal operation
-#if BOOST 
+#if BOOST
     payload.vcc2 = analogRead(0) >> 2;
-#endif */
+#endif
     sendPayload();
 #if !BOOST
-//    vcc = payload.vcc2 = vccRead(); // measure and remember the VCC drop
+    vcc = payload.vcc2 = vccRead(); // measure and remember the VCC drop
 #endif
-//  }
+  }
 
   //byte minutes = VCC_SLEEP_MINS(vcc);
   //while (minutes-- > 0)
     Sleepy::loseSomeTime(6000);
-	delay(1000);
 }

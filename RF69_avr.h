@@ -7,7 +7,13 @@
 #include <WProgram.h> // Arduino 0022
 #endif
 ///////////////////////////////////////////////////////////////////////////////
-#define RF69_COMPAT 1   // Set this true to use the RF69 driver
+#define RF69_COMPAT 1   /* Set this true to use the RF69 driver
+If using the above with ATTiny84 hardware the sleep functions are more limited since 
+the RFM69 only provides interrupt active high and ATTiny INT0 requires active low to 
+exit a sleep power down. 
+There are instances where using pin change interrupts (below) can bring the CPU out
+of power down sleep. */
+
 #define PINCHG_IRQ  1   // Set this true to use pin-change interrupts
                         // The above flags must be set similarly in RF12.cpp
 // NOTE: The following does not apply to the ATTiny processors which uses USI
