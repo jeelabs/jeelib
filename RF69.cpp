@@ -292,8 +292,7 @@ uint8_t setMode (uint8_t mode) {	// TODO enhance return code
         }
         writeReg(REG_DIOMAPPING1, s);        // Restore Interrupt triggers
     }
-    if (mode == 0) writeReg(REG_OPMODE, (mode)); 
-    else if (mode != MODE_FS) writeReg(REG_OPMODE, (mode | MODE_SEQUENCER_OFF));
+	if (mode != MODE_FS) writeReg(REG_OPMODE, (mode | MODE_SEQUENCER_OFF));
         
     while ((readReg(REG_IRQFLAGS1) & IRQ1_MODEREADY) == 0) {
         c++; if (c >= 254) break;
@@ -659,7 +658,8 @@ second rollover and then will be 1.024 mS out.
             
             rfapi.rssi = rssi;
           	if (rssi) {
-	          	// rssi == 0 can happen above, no idea how right now
+	          	/* rssi == 0 can happen above, no idea how right now
+	          	only seen when using int0 versus pin change interrupt. */
              	if (rssi < rfapi.noiseFloorMin) rfapi.noiseFloorMin = rssi;
 	          	if (rssi > rfapi.noiseFloorMax) rfapi.noiseFloorMax = rssi;
   			} else  rfapi.rssiZero++;
