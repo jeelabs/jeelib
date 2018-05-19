@@ -743,6 +743,8 @@ printOneChar(',');
 Serial.print(RF69::IRQFLAGS2);
 printOneChar(',');
 Serial.print(RF69::DIOMAPPING1);
+printOneChar(',');
+Serial.print(rfapi.rssiZero);
 Serial.println();
 #endif    
 Serial.flush();

@@ -645,6 +645,7 @@ It can handle one rollover (the hardware remembers that) so it doesn't matter
 if you cross a rollover point, however after 1.024 mS it will not know about the 
 second rollover and then will be 1.024 mS out.
 */
+        // N.B. millis is not updating until IRQ_ENABLE
         if (rxstate == TXRECV) {
             fei  = readReg(REG_FEIMSB);
             fei  = (fei << 8) | readReg(REG_FEILSB);
@@ -655,14 +656,18 @@ second rollover and then will be 1.024 mS out.
             // The window for grabbing the above values is quite small
             // values available during transfer between the ether
             // and the inbound fifo buffer.
+            
             rfapi.rssi = rssi;
-          	if (rssi < rfapi.noiseFloorMin) rfapi.noiseFloorMin = rssi;
-          	if (rssi > rfapi.noiseFloorMax) rfapi.noiseFloorMax = rssi;
+          	if (rssi) {
+	          	// rssi == 0 can happen above, no idea how right now
+             	if (rssi < rfapi.noiseFloorMin) rfapi.noiseFloorMin = rssi;
+	          	if (rssi > rfapi.noiseFloorMax) rfapi.noiseFloorMax = rssi;
+  			} else  rfapi.rssiZero++;
+  			       	
             IRQ_ENABLE;       // allow nested interrupts from here on
 
             if (rssi_interrupt) {
             	ms = millis();
-        		// N.B. millis is not updating until IRQ_ENABLE
                 RssiToSync = 0;
                 while (true) {  // Loop for SyncMatch or Timeout
                     if (readReg(REG_IRQFLAGS1) & IRQ1_SYNCMATCH) {
@@ -764,7 +769,7 @@ second rollover and then will be 1.024 mS out.
           	writeReg(REG_TESTPA2, TESTPA2_NORMAL);	// transmit
     		writeReg(REG_PALEVEL, ((rfapi.txPower & 0x9F) | 0x80));	// PA1/PA2 off
           	// rxstate will be TXDONE at this point
-          	IRQ_ENABLE;       // allow nested interrupts from here on
+//          	IRQ_ENABLE;       // allow nested interrupts from here on
           	txP++;
           	setMode(MODE_SLEEP);
           	rxstate = TXIDLE;

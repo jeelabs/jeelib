@@ -20,6 +20,7 @@ typedef struct {
     uint32_t syncMatch;
     uint32_t interpacketTS;
 	uint16_t RssiToSync;	//Count of loops after RSSI before a missed sync is triggered
+	uint16_t rssiZero;
 	uint8_t	configThreshold;
     uint8_t rssiThreshold;
     uint8_t rssi;
