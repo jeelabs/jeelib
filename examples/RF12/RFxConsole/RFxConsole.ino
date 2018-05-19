@@ -651,6 +651,9 @@ static void showStatus() {
     showString(PSTR(", Free Ram(b) "));
     Serial.print(freeRam());     
 #if RF69_COMPAT
+	showString(PSTR(", Temperature "));
+	Serial.print(RF69::readTemperature(-6));
+	showString(PSTR("ºC"));
     showString(PSTR(", RX Restarts "));
     Serial.print(rfapi.RSSIrestart);
     showString(PSTR(", Rate "));
@@ -662,20 +665,22 @@ static void showStatus() {
 
     showString(PSTR(", Good CRC "));
     Serial.print(goodCRC);
-    showString(PSTR(", Noise Floor "));
+    showString(PSTR(", RX Signal "));
     Serial.print(rfapi.noiseFloorMin);
     printOneChar('/');
-//    Serial.print(rfapi.rssiThreshold);
-//    printOneChar('/');
+    Serial.print(rfapi.rssi);
+    printOneChar('/');
     Serial.print(rfapi.noiseFloorMax);
+    showString(PSTR(", Tx Signal "));
+    Serial.print(minTxRSSI);
+    printOneChar('/');    
+    Serial.print(rfapi.sendRSSI);
+    printOneChar('/');
+    Serial.print(maxTxRSSI);
     showString(PSTR(", Ack Aborts "));
     Serial.print(packetAborts);
     showString(PSTR(", Busy Count "));
     Serial.print(busyCount);
-    showString(PSTR(", Floor "));
-    Serial.print(minTxRSSI);
-    printOneChar('/');
-    Serial.print(maxTxRSSI);
     showString(PSTR(", InterSync(ms) "));
     Serial.print(minGap);
     printOneChar('/');

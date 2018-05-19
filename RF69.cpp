@@ -414,10 +414,6 @@ uint8_t RF69::currentRSSI() {
       writeReg(REG_DIOMAPPING1, storeDIOM);         // Restore Interrupt trigger
       setMode(storedMode); 							// Restore mode
       
-      if (r > rfapi.rssiThreshold) {
-          if (r < rfapi.noiseFloorMin) rfapi.noiseFloorMin = r;
-          if (r > rfapi.noiseFloorMax) rfapi.noiseFloorMax = r;
-      }
       return r;
       
   } else return 0;
@@ -659,7 +655,9 @@ second rollover and then will be 1.024 mS out.
             // The window for grabbing the above values is quite small
             // values available during transfer between the ether
             // and the inbound fifo buffer.
-            
+            rfapi.rssi = rssi;
+          	if (rssi < rfapi.noiseFloorMin) rfapi.noiseFloorMin = rssi;
+          	if (rssi > rfapi.noiseFloorMax) rfapi.noiseFloorMax = rssi;
             IRQ_ENABLE;       // allow nested interrupts from here on
 
             if (rssi_interrupt) {
@@ -704,7 +702,6 @@ second rollover and then will be 1.024 mS out.
             } //  RSSI
             rfapi.interpacketTS = ms;
             rxstate = RXFIFO;            
-//            IRQ_ENABLE;       // allow nested interrupts from here on
             
             rtp = RssiToSync;
             rst = rfapi.RSSIrestart;

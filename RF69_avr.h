@@ -156,7 +156,7 @@ static void spiConfigPins () {
 #define INT          INT0   // INT0 or INT1 also used to select SYNC or RSSI
 #define INT_NUMBER      0   // 0 for INT0 and 1 for INT1
 #if PINCHG_IRQ
-    #define RFM_IRQ    13	// 18 for pin change on PD2
+    #define RFM_IRQ    18	// 18 for pin change on PD2
 #else
     #define RFM_IRQ     2	// 2 for INT0 on PD2, 3 for INT1 on PD3
 #endif 

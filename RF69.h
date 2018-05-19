@@ -22,6 +22,7 @@ typedef struct {
 	uint16_t RssiToSync;	//Count of loops after RSSI before a missed sync is triggered
 	uint8_t	configThreshold;
     uint8_t rssiThreshold;
+    uint8_t rssi;
     uint8_t	noiseFloorMin;
     uint8_t	noiseFloorMax;
     uint8_t	sendRSSI;
@@ -68,7 +69,7 @@ namespace RF69 {
     bool sending ();
     void sleep (bool off);
     uint8_t control(uint8_t cmd, uint8_t val);
-    int8_t readTemperature(int8_t);
+    int8_t readTemperature(int8_t usercal);
     uint8_t* SPI_pins();  // {OPTIMIZE_SPI, PINCHG_IRQ, RF69_COMPAT, RFM_IRQ, 
                           //  SPI_SS, SPI_MOSI, SPI_MISO, SPI_SCK }
     uint8_t currentRSSI();     
