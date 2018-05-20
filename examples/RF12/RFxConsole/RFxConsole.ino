@@ -652,7 +652,7 @@ static void showStatus() {
     Serial.print(freeRam());     
 #if RF69_COMPAT
 	showString(PSTR(", Temperature "));
-	Serial.print(RF69::readTemperature(-6));
+	Serial.print(RF69::readTemperature(0));
 	showString(PSTR("ºC"));
     showString(PSTR(", RX Restarts "));
     Serial.print(rfapi.RSSIrestart);
@@ -2061,7 +2061,7 @@ void loop () {
             Serial.print(observedRX.lna);
 
             showString(PSTR(" t="));
-            Serial.print((RF69::readTemperature(-10)));        
+            Serial.print((RF69::readTemperature(0)));        
 
             if ((CRCbadCount + 1) && (messageCount + 1) && (nonBroadcastCount + 1)) {
                 showString(PSTR(" q="));
