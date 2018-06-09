@@ -2455,7 +2455,7 @@ Serial.print(")");
                 showString(PSTR(" lna="));
                 Serial.print((RF69::lna >> 3));
 //                printOneChar(' ');
-                showString(PSTR(" rssi=="));
+                showString(PSTR(" rssi="));
                 Serial.print(RF69::rssi);
                 printOneChar(' ');
                 unsigned long m = millis();

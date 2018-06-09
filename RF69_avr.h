@@ -14,7 +14,7 @@ exit a sleep power down.
 There are instances where using pin change interrupts (below) can bring the CPU out
 of power down sleep. */
 
-#define PINCHG_IRQ  1   // Set this true to use pin-change interrupts
+#define PINCHG_IRQ  0   // Set this true to use pin-change interrupts
                         // The above flags must be set similarly in RF12.cpp
 // NOTE: The following does not apply to the ATTiny processors which uses USI
 #define OPTIMIZE_SPI 1  // comment this out to write to the RFM69x @ 125Khz

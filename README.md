@@ -8,10 +8,3 @@ License: MIT
 
 [1]: http://jeenode.com/
 [2]: http://jeelabs.org/
-
-N.B.
-When using RFM69 hardware this branch set to use DIO3 into INT1
-There appears to be an issue with my code/hardware when using RSSI 
-interrupt from DIO0 into INT0.
-
-JohnO.
