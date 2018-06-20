@@ -135,7 +135,8 @@ unsigned long rxLast;
 unsigned long rxCrcLast;
 unsigned long minGap = ~0;
 unsigned long maxGap = 0;
-unsigned long minCrcGap = ~0; 
+unsigned long minCrcGap = ~0;
+unsigned long rxCrcGap;
 unsigned long maxCrcGap = 0; 
 
 byte stickyGroup = 212;
@@ -671,7 +672,7 @@ static void showStatus() {
     Serial.print(rfapi.rssi);
     printOneChar('/');
     Serial.print(rfapi.noiseFloorMax);
-    showString(PSTR(", Tx Signal "));
+    showString(PSTR(", TX Signal "));
     Serial.print(minTxRSSI);
     printOneChar('/');    
     Serial.print(rfapi.sendRSSI);
@@ -689,6 +690,8 @@ static void showStatus() {
     Serial.print(maxGap);
     showString(PSTR(", InterCRC(ms) "));
     Serial.print(minCrcGap);
+    printOneChar('/');
+	Serial.print(rxCrcGap);
     printOneChar('/');
     Serial.print(maxCrcGap);
 
@@ -1533,6 +1536,7 @@ showNibble(resetFlags);
 #endif
     if (rf12_configSilent()) {
         loadConfig();
+        rf12_configSilent();	//TODO Second pass required to init cleanly - why?
     } else {
         dumpEEprom();
         showString(INITFAIL);
@@ -1877,7 +1881,7 @@ void loop () {
  		if (rxGap > maxGap) maxGap = rxGap;
 
         if (rf12_crc == 0) {
-         	unsigned long rxCrcGap = rf12_interpacketTS - rxCrcLast;
+         	rxCrcGap = rf12_interpacketTS - rxCrcLast;
  			rxCrcLast = rf12_interpacketTS;
  			if (rxCrcGap < minCrcGap) minCrcGap = rxGap;
  			if (rxCrcGap > maxCrcGap) maxCrcGap = rxGap;
@@ -1931,7 +1935,7 @@ void loop () {
                 Serial.println();
                 //                return;
                 n = RF69::byteCount - 3;
-            }            
+            } else           
             if(rf12_buf[0] == 212 && rf12_buf[1] >= 160 && (salusMode)) {
                 Serial.print((word) elapsedSeconds, DEC);  
                 showString(PSTR("s Salus II Device:"));
