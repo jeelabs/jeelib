@@ -18,7 +18,6 @@ static int8_t matchRF = 0;          // Hardware matching value
 static uint8_t txThre = 255;        // TX permit threshold
 static uint8_t ackDelay = 0;        // Additional delay before sending ACK's
 static uint8_t rateInterval = 10;   // Restart rate interval in seconds
-static uint8_t rxThreshold = 160;   // Receiver threshold from eeprom
 
 // same as in RF12
 #define RETRIES     8               // stop retrying after 8 times
@@ -73,23 +72,8 @@ uint8_t rf69_initialize (uint8_t id, uint8_t band, uint8_t group=0xD4, uint16_t 
     if (rfapi.txPower) RF69::control(0x91, rfapi.txPower);
     else rfapi.txPower = 0x9F;
     
-    uint8_t r = RF69::control(0x29, 0);	// Read the current RSSI Threshold value
-// TODO For some reason using 'R' command causes the above to return 0 - bug?
-//	    	Serial.print("Configure ");
-//	    	Serial.println(r);
-//	    	if (r == 0) RF69::control((0x80 | 0x29), 160);
-//	    	Serial.println(RF69::control(0x29, 159));
-    if (rxThreshold) {
-    	if ((r == 0xFF) || (r < 160)) {	// Was it a Power On Reset?
-    		rfapi.configThreshold = rxThreshold;
-			rfapi.rssiThreshold = rxThreshold;
-//        	RF69::control(0x80 | 0x29), rxThreshold);// Use current RX threshold unless POR
-    	} else {
-    		rfapi.configThreshold = rxThreshold;
-    		rfapi.rssiThreshold = rxThreshold = r;
-//	    	Serial.println(rxThreshold);
-    	}
-    }
+    if (!rfapi.configThreshold) rfapi.configThreshold = RF69::control(0x29, 0);	// Read the radio RSSI Threshold value;
+    
     return nodeid = id;
 }
 /// @details
@@ -104,7 +88,7 @@ void rf69_configDump () {
     txThre = eeprom_read_byte(RF12_EEPROM_ADDR + 10);     // Store from eeprom
     rfapi.txPower = eeprom_read_byte(RF12_EEPROM_ADDR + 6);     // Store from eeprom
     ackDelay = eeprom_read_byte(RF12_EEPROM_ADDR + 9); // Store from eeprom
-    rxThreshold = eeprom_read_byte(RF12_EEPROM_ADDR + 7); // Store from eeprom
+    rfapi.configThreshold = eeprom_read_byte(RF12_EEPROM_ADDR + 7); // Store from eeprom
     matchRF = eeprom_read_byte(RF12_EEPROM_ADDR + 8);     // Store from eeprom
     rateInterval = eeprom_read_byte(RF12_EEPROM_ADDR + 11);// Store from eeprom
     
@@ -155,12 +139,12 @@ void rf69_configDump () {
             Serial.print(rfapi.txPower);
         }
     }
-    if (rxThreshold) {
-//        if (rxThreshold != 0xA0) {
+    if (rfapi.configThreshold) {
+//        if (rfapi.configThreshold != 0xA0) {
             Serial.print(" ");
             Serial.print(rateInterval);
             Serial.print("rx");
-            Serial.print(rxThreshold);
+            Serial.print(rfapi.configThreshold);
 //       }
     }
     if (ackDelay >> 4) {
@@ -186,7 +170,7 @@ uint8_t rf69_configSilent () {
     nodeId = eeprom_read_byte(RF12_EEPROM_ADDR + 0);
     group  = eeprom_read_byte(RF12_EEPROM_ADDR + 1);
     rfapi.txPower = eeprom_read_byte(RF12_EEPROM_ADDR + 6);     // Store from eeprom
-    rxThreshold = eeprom_read_byte(RF12_EEPROM_ADDR + 7); // Store from eeprom
+    rfapi.configThreshold = eeprom_read_byte(RF12_EEPROM_ADDR + 7); // Store from eeprom
     matchRF = eeprom_read_byte(RF12_EEPROM_ADDR + 8); // Store hardware matching 
 
     frequency = eeprom_read_byte(RF12_EEPROM_ADDR + 5);// Avoid eeprom_read_word
