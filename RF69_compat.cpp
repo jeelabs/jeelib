@@ -90,7 +90,6 @@ uint8_t rf69_initialize (uint8_t id, uint8_t band, uint8_t group=0xD4, uint16_t 
 //	    	Serial.println(rxThreshold);
     	}
     }
-	RF69::control((0x80 | 0x29), rxThreshold);
     return nodeid = id;
 }
 /// @details
