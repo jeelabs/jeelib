@@ -2494,6 +2494,11 @@ Serial.print(")");
                 Serial.print(restartRate);
                 printOneChar(' ');
                 Serial.print(maxRestartRate);
+                printOneChar(' ');
+                Serial.print(rfapi.cumRSSI);
+                printOneChar(' ');
+                Serial.print(rfapi.cumFEI);
+                rfapi.cumRSSI = rfapi.cumFEI = 0;
 //                printOneChar(' ');
 //                Serial.print(millis());
                 /*

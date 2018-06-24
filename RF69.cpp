@@ -664,8 +664,6 @@ second rollover and then will be 1.024 mS out.
 	          	if (rssi > rfapi.noiseFloorMax) rfapi.noiseFloorMax = rssi;
   			} else  rfapi.rssiZero++;
   			       	
-            IRQ_ENABLE;       // allow nested interrupts from here on
-
             if (rssi_interrupt) {
             	ms = millis();
                 RssiToSync = 0;
@@ -691,6 +689,8 @@ second rollover and then will be 1.024 mS out.
       					writeReg(REG_RSSITHRESHOLD, 100); 	// Quiet the RSSI threshold
         				setMode(MODE_SLEEP);
 	                	rfapi.RSSIrestart++;
+	                	rfapi.cumRSSI = rfapi.cumRSSI + (uint32_t)rssi; 
+	                	rfapi.cumFEI = rfapi.cumFEI + (int32_t)fei; 
 
             			if ((rfapi.rateInterval) && ((noiseMillis + rfapi.rateInterval) < ms)) {
                         	// Adjust RSSI if in noise region	                	    
@@ -706,7 +706,10 @@ second rollover and then will be 1.024 mS out.
                 } //  while
             } //  RSSI
             rfapi.interpacketTS = ms;
-            rxstate = RXFIFO;            
+            rxstate = RXFIFO; 
+                       
+            IRQ_ENABLE;       // allow nested interrupts from here on
+
             
             rtp = RssiToSync;
             rst = rfapi.RSSIrestart;
