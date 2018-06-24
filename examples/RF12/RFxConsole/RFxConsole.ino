@@ -346,17 +346,21 @@ volatile unsigned long chkNoise;
 volatile unsigned int restartRate;
 volatile unsigned int maxRestartRate;
 volatile byte ping = false;
+volatile byte minuteTick = false;
 ISR(TIMER1_COMPA_vect){
 	elapsedSeconds++;
 
 #if RF69_COMPAT        
 #pragma warn("Compiling in RF69_COMPAT mode")
     // Update restart rate
-    restartRate = (rfapi.RSSIrestart - previousRestarts);
-    previousRestarts = rfapi.RSSIrestart;
+    if ((elapsedSeconds % 60UL) == 0UL) {
+    	minuteTick = true;
+    	restartRate = (rfapi.RSSIrestart - previousRestarts);
+    	previousRestarts = rfapi.RSSIrestart;
               	
-    if (restartRate > maxRestartRate) { 
-    	maxRestartRate = restartRate;
+    	if (restartRate > maxRestartRate) { 
+    		maxRestartRate = restartRate;
+    	}
     }
     if (config.chkNoise) {
     	if (elapsedSeconds > chkNoise) {
@@ -660,7 +664,7 @@ static void showStatus() {
     Serial.print(restartRate);
     printOneChar('m');
     Serial.print(maxRestartRate);
-    showString(PSTR("/s, Sync Match "));
+    showString(PSTR("/min, Sync Match "));
     Serial.print(rfapi.syncMatch);
 
     showString(PSTR(", Good CRC "));
@@ -1000,6 +1004,8 @@ static void handleInput (char c) {
                          rfapi.rateInterval = (uint32_t)(config.rateInterval) << 10;
                      }
                      saveConfig();
+                     maxRestartRate = 0;
+                     previousRestarts = rfapi.RSSIrestart;
                      break;
 
 #if !TINY
@@ -1571,6 +1577,8 @@ showNibble(resetFlags);
     }
 #endif
     Serial.flush();
+    maxRestartRate = 0;
+    previousRestarts = rfapi.RSSIrestart;
 } // setup
 
 static void clrConfig() {
@@ -2464,12 +2472,13 @@ Serial.print(")");
 				Serial.println(m);
             }
         }
-        if (rfapi.rssiThreshold != lastrssiThreshold) {
-            if (config.verbosity & 8) {
-                showString(PSTR("RX threshold change "));
-                Serial.print(lastrssiThreshold);
-            	lastrssiThreshold = rfapi.rssiThreshold;     
-                printOneChar(' ');
+//T        if (rfapi.rssiThreshold != lastrssiThreshold) {
+            if ((config.verbosity & 8) && (minuteTick)) {
+            	minuteTick = false;
+                showString(PSTR("RX Stats "));
+//                Serial.print(lastrssiThreshold);
+//            	lastrssiThreshold = rfapi.rssiThreshold;     
+//                printOneChar(' ');
                 Serial.print(rfapi.rssiThreshold);
                 printOneChar(' ');
                 Serial.print(rfapi.RSSIrestart);
@@ -2485,8 +2494,8 @@ Serial.print(")");
                 Serial.print(restartRate);
                 printOneChar(' ');
                 Serial.print(maxRestartRate);
-                printOneChar(' ');
-                Serial.print(millis());
+//                printOneChar(' ');
+//                Serial.print(millis());
                 /*
                    printOneChar('*');
                    Serial.print(rfapi.setmode);
@@ -2497,8 +2506,8 @@ Serial.print(")");
                  */
                 Serial.println();
             }
-        }
-        lastRSSIrestart = rfapi.RSSIrestart;
+//T        }
+//T        lastRSSIrestart = rfapi.RSSIrestart;
 #endif
 #if TINY						// Very weird, needed to make Tiny code compile
     } // !rf12_recvDone

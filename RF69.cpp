@@ -231,7 +231,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 
   0x26, 0x07, // disable clkout
 
-  0x29, 0xA0, // RssiThresh ... -80dB
+  0x29, 0xBE, // RssiThresh ... -95dB
 
   0x37, 0x00, // PacketConfig1 = fixed, no crc, filt off
   0x38, 0x00, // PayloadLength = 0, unlimited
