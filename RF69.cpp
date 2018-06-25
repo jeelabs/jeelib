@@ -688,6 +688,7 @@ second rollover and then will be 1.024 mS out.
     	  				writeReg(REG_LNA, 0x06); 			// Minimise LNA gain
       					writeReg(REG_RSSITHRESHOLD, 100); 	// Quiet the RSSI threshold
         				setMode(MODE_SLEEP);
+        				// Collect RX stats
 	                	rfapi.RSSIrestart++;
 	                	rfapi.cumRSSI = rfapi.cumRSSI + (uint32_t)rssi; 
 	                	rfapi.cumFEI = rfapi.cumFEI + (int32_t)fei; 

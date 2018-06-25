@@ -41,7 +41,7 @@
 //  1v displays packet reception details, CRC, fei, lna etc
 //  2v displays a basic packet decode
 //  4v displays receiver restarts
-//	8v displays RX Threshold adjustments use with 10,200R
+//	8v displays RX statistics once per minute 2018-06-24
 //  add any values above to combine display settings.
 // Changed RX interrupt trigger to be RSSI rather than SyncMatch 2016-06-20
 // Mask two stray interrupts, sleep before reconfiguring radio 2016-06-23
@@ -58,6 +58,7 @@
 //	instead of a human. 1M restores output without changing eeprom 2017-06-07
 // Added support for displaying the CRC, received & transmitted 2018-02-13
 // Added support for a semaphore queue to store and forward postings to nodes in ACK's 2018-02-27
+// Sum the RSSI & FEI of packets that trigger a restart without a sync, reported to serial using 8v
 
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
 	#define TINY 1
@@ -1971,7 +1972,6 @@ void loop () {
                 }
 
                 Serial.println();
-                //                return;
             }            
 #endif
 #if RF69_COMPAT
