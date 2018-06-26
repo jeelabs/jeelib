@@ -2477,59 +2477,40 @@ Serial.print(")");
 				Serial.println(m);
             }
         }
-//T        if (rfapi.rssiThreshold != lastrssiThreshold) {
-            if ((config.verbosity & 8) && (minuteTick)) {
-            	minuteTick = false;
-                if (restartRate) {
-                	showString(PSTR("RX Stats "));
-//                	Serial.print(lastrssiThreshold);
-//            		lastrssiThreshold = rfapi.rssiThreshold;     
-//                	printOneChar(' ');
-                	Serial.print(rfapi.rssiThreshold);
-                	printOneChar(' ');
-                	Serial.print(rfapi.RSSIrestart);
-                	printOneChar(' ');
-                	Serial.print(rfapi.syncMatch);
-                	printOneChar(' ');
-                	Serial.print(goodCRC);
-                	printOneChar(' ');
-
-                //                  Serial.print(rfapi.RSSIrestart  - lastThresholdRSSIrestart);
-                //                  lastThresholdRSSIrestart = lastRSSIrestart;
-                //                  printOneChar(' ');
-                	Serial.print(restartRate);
-                	printOneChar(' ');
-                	Serial.print(maxRestartRate);
-                	printOneChar(' ');
-                	Serial.print(rfapi.cumRSSI);
-                	printOneChar(' ');
-                	Serial.print(rfapi.cumFEI);
-	                printOneChar(' ');
-	                printOneChar('[');
-	                for (byte i = 0; i < 7; i++) {
-	                	Serial.print(rfapi.cumLNA[i]);
-	                	rfapi.cumLNA[i] = 0;
-	                	printOneChar(',');
-	                }
-					Serial.print(rfapi.cumLNA[7]);
-	                rfapi.cumLNA[7] = 0;
-	                printOneChar(']');
-	                rfapi.cumRSSI = rfapi.cumFEI = 0;
-//                printOneChar(' ');
-//                Serial.print(millis());
-                /*
-                   printOneChar('*');
-                   Serial.print(rfapi.setmode);
-                   printOneChar('*');
-                   Serial.print(rfapi.irqflags1);
-                   printOneChar('*');
-                   Serial.print(rfapi.mode);
-                 */
-                Serial.println();
-	            }
-            }
-//T        }
-//T        lastRSSIrestart = rfapi.RSSIrestart;
+        if ((config.verbosity & 8) && (minuteTick) && (rfapi.changed)) {
+            showString(PSTR("RX Stats "));
+            Serial.print(rfapi.rssiThreshold);
+            printOneChar(' ');
+        	Serial.print(rfapi.RSSIrestart);
+        	printOneChar(' ');
+            Serial.print(rfapi.syncMatch);
+        	printOneChar(' ');
+            Serial.print(goodCRC);
+        	printOneChar(' ');
+	        Serial.print(restartRate);
+            printOneChar(' ');
+            Serial.print(maxRestartRate);
+            for (byte i = 0; i < 7; i++) {
+				showString(PSTR(" ["));
+        		Serial.print(rfapi.cumRSSI[i]);
+        		printOneChar(' ');
+            	Serial.print(rfapi.cumFEI[i]);
+        		printOneChar(' ');
+	            Serial.print(rfapi.cumLNA[i]);
+	        	rfapi.cumRSSI[i] = rfapi.cumFEI[i] = rfapi.cumLNA[i] = 0;
+	        	printOneChar(']');
+	        }
+			showString(PSTR(" ["));
+        	Serial.print(rfapi.cumRSSI[7]);
+        	printOneChar(' ');
+        	Serial.print(rfapi.cumFEI[7]);
+    		printOneChar(' ');
+	        Serial.print(rfapi.cumLNA[7]);
+	    	rfapi.cumRSSI[7] = rfapi.cumFEI[7] = rfapi.cumLNA[7] = 0;
+	        printOneChar(']');
+            Serial.println();
+            minuteTick = rfapi.changed = false;            	
+        }
 #endif
 #if TINY						// Very weird, needed to make Tiny code compile
     } // !rf12_recvDone
