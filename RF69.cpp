@@ -126,13 +126,14 @@
 #define AFC_DONE            0x10
 #define AFC_CLEAR           0x02
 #define AFC_START           0x01
+#define FEI_START           0x20
 
 #define RF_MAX   72
 
 // transceiver states, these determine what to do with each interrupt
 enum { TXCRC1, TXCRC2,/* TXTAIL,*/ TXDONE, TXIDLE, TXRECV, RXFIFO };
 
-byte clearAir = 160;
+byte clearAir = 180;
 
 namespace RF69 {
     uint32_t frf;
@@ -144,8 +145,8 @@ namespace RF69 {
     uint8_t  rssiDelay;
     uint8_t  lastState;
     uint8_t  REGIRQFLAGS1;
-    int16_t  afc;                  // I wonder how to make sure these 
-    int16_t  fei;                  // are volatile
+    int16_t  afc;
+    int16_t  fei;
     uint8_t  lna;
     uint16_t interruptCount;
     uint16_t rxP;
@@ -166,15 +167,17 @@ namespace RF69 {
     uint8_t  IRQFLAGS2;
     uint8_t  DIOMAPPING1;
     }
-
+static volatile uint8_t lna;
 static volatile uint8_t rxfill;      // number of data bytes in buffer
 static volatile uint8_t rxdone;      // 
 static volatile int8_t rxstate;      // current transceiver state
 static volatile uint8_t packetBytes; // Count of bytes in packet
-static volatile uint16_t discards;   // Count of packets discarded
 static volatile uint8_t rf69_skip;   // header bytes to skip
 static volatile uint8_t rf69_fix;    // Maximum for fixed length packet
+static volatile int16_t afc;
+static volatile int16_t fei;
 static volatile int16_t lastFEI;
+static volatile uint16_t discards;   // Count of packets discarded
 static volatile uint16_t delayTXRECV;
 static volatile uint16_t rtp;
 static volatile uint16_t rst;
@@ -647,7 +650,7 @@ second rollover and then will be 1.024 mS out.
         // N.B. millis is not updating until IRQ_ENABLE
         if (rxstate == TXRECV) {
             fei  = readReg(REG_FEIMSB);
-            fei  = (fei << 8) | readReg(REG_FEILSB);
+            fei  = (fei << 8) + readReg(REG_FEILSB);
             rssi = readReg(REG_RSSIVALUE);
             lna = readReg(REG_LNA);
             afc  = readReg(REG_AFCMSB);
@@ -669,7 +672,7 @@ second rollover and then will be 1.024 mS out.
                 RssiToSync = 0;
                 while (true) {  // Loop for SyncMatch or Timeout
                     if (readReg(REG_IRQFLAGS1) & IRQ1_SYNCMATCH) {
-                        writeReg(REG_AFCFEI, AFC_START);
+                        writeReg(REG_AFCFEI, (AFC_START | FEI_START));
                         while (!readReg(REG_AFCFEI) & AFC_DONE)
                           ;
                         afc  = readReg(REG_AFCMSB);
@@ -690,9 +693,11 @@ second rollover and then will be 1.024 mS out.
         				setMode(MODE_SLEEP);
         				// Collect RX stats
 	                	rfapi.RSSIrestart++;
-	                	rfapi.cumRSSI[(lna >> 3) & 7] = rfapi.cumRSSI[(lna >> 3) & 7] + (uint32_t)rssi; 
-	                	rfapi.cumFEI[(lna >> 3) & 7] = rfapi.cumFEI[(lna >> 3) & 7] + (int32_t)fei;
-	                	rfapi.cumLNA[(lna >> 3) & 7]++; 
+	                	byte index = lna >> 3;
+	                	rfapi.cumRSSI[index] = rfapi.cumRSSI[index] + (uint32_t)rssi; 
+	                	rfapi.cumFEI[index] = rfapi.cumFEI[index] + (int32_t)fei; 
+	                	rfapi.cumAFC[index] = rfapi.cumAFC[index] + (int32_t)afc; 
+	                	rfapi.cumLNA[index]++; 
 	                	rfapi.changed = true;
 
             			if ((rfapi.rateInterval) && ((noiseMillis + rfapi.rateInterval) < ms)) {
