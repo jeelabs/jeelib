@@ -2497,13 +2497,13 @@ Serial.print(")");
         			printOneChar('[');
         			Serial.print(rfapi.cumRSSI[i]);
         			printOneChar(' ');
-        			Serial.print((int32_t)rfapi.cumFEI[i]);
+        			Serial.print(rfapi.cumFEI[i]);
     	    		printOneChar(' ');
-        			Serial.print((int32_t)rfapi.cumAFC[i]);
+        			Serial.print(rfapi.cumAFC[i]);
     	    		printOneChar(' ');
 	    	        Serial.print(rfapi.cumLNA[i]);
 	        		printOneChar(']');
-		        	rfapi.cumRSSI[i] = rfapi.cumFEI[i] = rfapi.cumLNA[i] = 0;
+		        	rfapi.cumRSSI[i] = rfapi.cumFEI[i] = rfapi.cumLNA[i] = rfapi.cumAFC[i]= 0;
 	        	}
 	        }
             Serial.println();
