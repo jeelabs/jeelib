@@ -2490,24 +2490,22 @@ Serial.print(")");
 	        Serial.print(restartRate);
             printOneChar(' ');
             Serial.print(maxRestartRate);
-            for (byte i = 0; i < 7; i++) {
-				showString(PSTR(" ["));
-        		Serial.print(rfapi.cumRSSI[i]);
-        		printOneChar(' ');
-            	Serial.print(rfapi.cumFEI[i]);
-        		printOneChar(' ');
-	            Serial.print(rfapi.cumLNA[i]);
-	        	rfapi.cumRSSI[i] = rfapi.cumFEI[i] = rfapi.cumLNA[i] = 0;
-	        	printOneChar(']');
+            for (byte i = 0; i < 8; i++) {
+            	if (rfapi.cumLNA[i]) {
+	        		printOneChar(' ');
+					Serial.print(i);
+        			printOneChar('[');
+        			Serial.print(rfapi.cumRSSI[i]);
+        			printOneChar(' ');
+        			Serial.print((int32_t)rfapi.cumFEI[i]);
+    	    		printOneChar(' ');
+        			Serial.print((int32_t)rfapi.cumAFC[i]);
+    	    		printOneChar(' ');
+	    	        Serial.print(rfapi.cumLNA[i]);
+	        		printOneChar(']');
+		        	rfapi.cumRSSI[i] = rfapi.cumFEI[i] = rfapi.cumLNA[i] = 0;
+	        	}
 	        }
-			showString(PSTR(" ["));
-        	Serial.print(rfapi.cumRSSI[7]);
-        	printOneChar(' ');
-        	Serial.print(rfapi.cumFEI[7]);
-    		printOneChar(' ');
-	        Serial.print(rfapi.cumLNA[7]);
-	    	rfapi.cumRSSI[7] = rfapi.cumFEI[7] = rfapi.cumLNA[7] = 0;
-	        printOneChar(']');
             Serial.println();
             minuteTick = rfapi.changed = false;            	
         }
