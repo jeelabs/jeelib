@@ -2498,6 +2498,16 @@ Serial.print(")");
                 Serial.print(rfapi.cumRSSI);
                 printOneChar(' ');
                 Serial.print(rfapi.cumFEI);
+                printOneChar(' ');
+                printOneChar('[');
+                for (byte i = 0; i < 7; i++) {
+                	Serial.print(rfapi.cumLNA[i]);
+                	rfapi.cumLNA[i] = 0;
+                	printOneChar(',');
+                }
+				Serial.print(rfapi.cumLNA[7]);
+                rfapi.cumLNA[7] = 0;
+                printOneChar(']');
                 rfapi.cumRSSI = rfapi.cumFEI = 0;
 //                printOneChar(' ');
 //                Serial.print(millis());
