@@ -633,22 +633,6 @@ condition is met to transmit the packet data.
 */
 
 }
-void afcfei () {
-	for (byte i = 0; i < 20; i++) {
-                    
-                    	writeReg(REG_AFCFEI, (FEI_START));
-                    	while (!readReg(REG_AFCFEI) & FEI_DONE)
-                    	  ;
-            			fei  = readReg(REG_FEIMSB);
-            			fei  = (fei << 8) + readReg(REG_FEILSB);
-            			
-	                    writeReg(REG_AFCFEI, (AFC_START));
-    	                while (!readReg(REG_AFCFEI) & AFC_DONE)
-        	              ;
-            	        afc  = readReg(REG_AFCMSB);
-                	    afc  = (afc << 8) | readReg(REG_AFCLSB);
-    }
-}
 
 void RF69::interrupt_compat (uint8_t rssi_interrupt) {
 /*
@@ -657,6 +641,7 @@ void RF69::interrupt_compat (uint8_t rssi_interrupt) {
   being driven by recvDone and the size of the radio FIFO.
 
 */
+        IRQ_ENABLE;       // allow nested interrupts from here on        
         interruptCount++;
 
 /*
@@ -668,8 +653,6 @@ second rollover and then will be 1.024 mS out.
 */
         // N.B. millis is not updating until IRQ_ENABLE
         if (rxstate == TXRECV) {
-            IRQ_ENABLE;       // allow nested interrupts from here on        
-tfr = 0; 			       	
             if (rssi_interrupt) {
             	ms = millis();
                 RssiToSync = 0;
@@ -687,12 +670,12 @@ tfr = 0;
 			  			} else  rfapi.rssiZero++;
 	                }
                     if (readReg(REG_IRQFLAGS1) & IRQ1_SYNCMATCH) {
-					if (RssiToSync > 165) {
-            			fei  = readReg(REG_FEIMSB);
-        				fei  = (fei << 8) + readReg(REG_FEILSB);
-        	        	afc  = readReg(REG_AFCMSB);
-            	    	afc  = (afc << 8) | readReg(REG_AFCLSB);
-					}            	                			
+						if (RssiToSync > 155) {
+            				fei  = readReg(REG_FEIMSB);
+        					fei  = (fei << 8) + readReg(REG_FEILSB);
+        	        		afc  = readReg(REG_AFCMSB);
+            	    		afc  = (afc << 8) | readReg(REG_AFCLSB);
+						}            	                			
                         rfapi.syncMatch++;                     
                 		noiseMillis = ms;	// Delay a reduction in sensitivity
                         break;
@@ -780,7 +763,7 @@ tfr = 0;
                 // We are exiting before a successful packet completion
                 packetShort++;
             }    
-//            tfr =  (micros() - startRX);
+            tfr =  (micros() - startRX);
             writeReg(REG_AFCFEI, AFC_CLEAR);
 	      	writeReg(REG_DIOMAPPING1, 0x00);	// Mask most radio interrupts
             setMode(MODE_SLEEP);
@@ -794,7 +777,6 @@ tfr = 0;
           	writeReg(REG_TESTPA2, TESTPA2_NORMAL);	// transmit
     		writeReg(REG_PALEVEL, ((rfapi.txPower & 0x9F) | 0x80));	// PA1/PA2 off
           	// rxstate will be TXDONE at this point
-//          	IRQ_ENABLE;       // allow nested interrupts from here on
           	txP++;
           	setMode(MODE_SLEEP);
           	rxstate = TXIDLE;

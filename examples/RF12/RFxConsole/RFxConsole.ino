@@ -811,7 +811,7 @@ static void handleInput (char c) {
         stack[top++] = value;
         // TODO: frequency offset is taken from global config, is that ok?
         // I suspect not OK, could add a new number on command line,
-        // the last value before '>' as the offset is the only place a 16 bit value will available.
+        // the last value before '>' as the offset is the only place a 16 bit value will be available.
         rf12_initialize(stack[2], bandToFreq(stack[0]), stack[1],
                 config.frequency_offset);
         rf12_sendNow(stack[3], stack + 4, top - 4);
@@ -1598,7 +1598,7 @@ static void clrConfig() {
 static void clrNodeStore() {
     // Clear Node Store eeprom
     showString(PSTR("Clearing NodeStore\n"));
-    for (unsigned int n = 0; n < 2016; n++) {
+    for (unsigned int n = 0; n < 0x3D0; n++) {
         eeprom_write_byte((RF12_EEPROM_NODEMAP) + n, 0xFF);
     }
 }
