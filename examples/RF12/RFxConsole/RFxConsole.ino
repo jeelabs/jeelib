@@ -1801,15 +1801,15 @@ static void oneShow(byte index) {
         showByte(eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4) + 2)); // Show original RSSI value
         printOneChar('/');
         showByte(minRSSI[index]);
-        printOneChar('/');
+        printOneChar('^');
         showByte(maxRSSI[index]);
         showString(PSTR(") lna("));
+        Serial.print(lastLNA[index]);
+        printOneChar(';');
         showByte(eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4) + 3)); // Show original LNA value
         printOneChar('/');
         Serial.print(minLNA[index]);
-        printOneChar('/');
-        Serial.print(lastLNA[index]);
-        printOneChar('/');
+        printOneChar('^');
         Serial.print(maxLNA[index]);
         printOneChar(')');
     }
