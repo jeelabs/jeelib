@@ -2104,9 +2104,9 @@ void loop () {
                     showString(PSTR("dB"));
                 }
             }
-
+*/
             showString(PSTR(" d=("));
-            Serial.print(rf12_tfr);*/
+            Serial.print(rf12_tfr);
             printOneChar(')');
             Serial.print(rf12_rtp);
 /*
@@ -2491,15 +2491,18 @@ Serial.print(")");
             		showString(PSTR(" ["));
 					Serial.print(i);
 	        		printOneChar(' ');
-        			Serial.print(rfapi.cumRSSI[i]);
+        			Serial.print(rfapi.cumRSSI[i] / rfapi.cumCount[i]);
         			printOneChar(' ');
-        			Serial.print(rfapi.cumFEI[i]);
+        			Serial.print(rfapi.cumFEI[i] / rfapi.cumCount[i]);
     	    		printOneChar(' ');
-        			Serial.print(rfapi.cumAFC[i]);
+        			Serial.print(rfapi.cumAFC[i] / rfapi.cumCount[i]);
     	    		printOneChar(' ');
-	    	        Serial.print(rfapi.cumLNA[i]);
+	    	        Serial.print(rfapi.cumLNA[i] / rfapi.cumCount[i]);
+    	    		printOneChar(' ');
+	    	        Serial.print(rfapi.cumCount[i]);
 	        		printOneChar(']');
-		        	rfapi.cumRSSI[i] = rfapi.cumFEI[i] = rfapi.cumLNA[i] = rfapi.cumAFC[i]= 0;
+		        	rfapi.cumRSSI[i] = rfapi.cumFEI[i] = rfapi.cumLNA[i] = rfapi.cumAFC[i]
+		        	 = rfapi.cumCount[i] = 0;
 	        	}
 	        }
             Serial.println();

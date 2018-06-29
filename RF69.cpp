@@ -678,26 +678,24 @@ second rollover and then will be 1.024 mS out.
 /*             	if (rssi < rfapi.noiseFloorMin) rfapi.noiseFloorMin = rssi;
 	          	if (rssi > rfapi.noiseFloorMax) rfapi.noiseFloorMax = rssi;
   			} else  rfapi.rssiZero++;*/
- 			       	
+tfr = 0; 			       	
             if (rssi_interrupt) {
             	ms = millis();
                 RssiToSync = 0;
                 while (true) {  // Loop for SyncMatch or Timeout
-
-	                    writeReg(REG_AFCFEI, (AFC_START | FEI_START));
-    	                while (!readReg(REG_AFCFEI) & AFC_DONE)
-        	              ;
-            			fei  = readReg(REG_FEIMSB);
-            			fei  = (fei << 8) + readReg(REG_FEILSB);
-
-//	                   	writeReg(REG_AFCFEI, (FEI_START));
-                    	while (!readReg(REG_AFCFEI) & FEI_DONE)
-                    	  ;
-            	        afc  = readReg(REG_AFCMSB);
-                	    afc  = (afc << 8) | readReg(REG_AFCLSB);
-            			
+	                if (RssiToSync == 100) writeReg(REG_AFCFEI, (AFC_START | FEI_START));
                     if (readReg(REG_IRQFLAGS1) & IRQ1_SYNCMATCH) {
-
+					if (RssiToSync > 160) {
+//	                writeReg(REG_AFCFEI, (AFC_START | FEI_START));
+	                for (int d = 0; d < 1024; d++) ;
+            		fei  = readReg(REG_FEIMSB);
+	                for (int d = 0; d < 1024; d++) ;
+        			fei  = (fei << 8) + readReg(REG_FEILSB);
+	                for (int d = 0; d < 1024; d++) ;
+        	        afc  = readReg(REG_AFCMSB);
+	                for (int d = 0; d < 1024; d++) ;
+            	    afc  = (afc << 8) | readReg(REG_AFCLSB);
+					}            	                			
                         rfapi.syncMatch++;                     
                 		noiseMillis = ms;	// Delay a reduction in sensitivity
                         break;
@@ -707,17 +705,18 @@ second rollover and then will be 1.024 mS out.
                         minimum i.e. 0.02uS per bit x 6bytes is 
                         about 1mS minimum."
                                                                 */ // CPU clock dependant
-                        rxstate = TXIDLE;   // Cause a RX restart by FSM
-	      				writeReg(REG_DIOMAPPING1, 0x00);	// Mask most radio interrupts
-    	  				writeReg(REG_LNA, 0x06); 			// Minimise LNA gain
-      					writeReg(REG_RSSITHRESHOLD, 100); 	// Quiet the RSSI threshold
         				setMode(MODE_SLEEP);
+                        rxstate = TXIDLE;   // Cause a RX restart by FSM
+/*	      				writeReg(REG_DIOMAPPING1, 0x00);	// Mask most radio interrupts
+    	  				writeReg(REG_LNA, 0x06); 			// Minimise LNA gain
+      					writeReg(REG_RSSITHRESHOLD, 40); 	// Quiet the RSSI threshold */
         				// Collect RX stats
 	                	rfapi.RSSIrestart++;
 	                	rfapi.cumRSSI[lna] = rfapi.cumRSSI[lna] + (uint32_t)rssi; 
 	                	rfapi.cumFEI[lna] = rfapi.cumFEI[lna] + (int32_t)fei; 
 	                	rfapi.cumAFC[lna] = rfapi.cumAFC[lna] + (int32_t)afc; 
-	                	rfapi.cumLNA[lna]++; 
+	                	rfapi.cumLNA[lna] = rfapi.cumLNA[lna] + (uint32_t)lna; 
+	                	rfapi.cumCount[lna]++; 
 	                	rfapi.changed = true;
 
             			if ((rfapi.rateInterval) && ((noiseMillis + rfapi.rateInterval) < ms)) {
@@ -784,7 +783,7 @@ second rollover and then will be 1.024 mS out.
                 // We are exiting before a successful packet completion
                 packetShort++;
             }    
-            tfr =  (micros() - startRX);
+//            tfr =  (micros() - startRX);
             writeReg(REG_AFCFEI, AFC_CLEAR);
 	      	writeReg(REG_DIOMAPPING1, 0x00);	// Mask most radio interrupts
             setMode(MODE_SLEEP);
