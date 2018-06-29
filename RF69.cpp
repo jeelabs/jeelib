@@ -690,13 +690,13 @@ second rollover and then will be 1.024 mS out.
 /*	      				writeReg(REG_DIOMAPPING1, 0x00);	// Mask most radio interrupts
     	  				writeReg(REG_LNA, 0x06); 			// Minimise LNA gain
       					writeReg(REG_RSSITHRESHOLD, 40); 	// Quiet the RSSI threshold */
-        				// Collect RX stats
+        				// Collect RX stats per LNA
 	                	rfapi.RSSIrestart++;
 	                	rfapi.cumRSSI[lna] = rfapi.cumRSSI[lna] + (uint32_t)rssi; 
 	                	rfapi.cumFEI[lna] = rfapi.cumFEI[lna] + (int32_t)fei; 
 	                	rfapi.cumAFC[lna] = rfapi.cumAFC[lna] + (int32_t)afc; 
 //	                	rfapi.cumLNA[lna] = rfapi.cumLNA[lna] + (uint32_t)lna; 
-	                	rfapi.cumCount[lna]++; 
+	                	rfapi.cumCount[lna]++;
 	                	rfapi.changed = true;
 
             			if ((rfapi.rateInterval) && ((noiseMillis + rfapi.rateInterval) < ms)) {

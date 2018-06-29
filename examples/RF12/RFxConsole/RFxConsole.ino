@@ -2486,6 +2486,24 @@ Serial.print(")");
 	        Serial.print(restartRate);
             printOneChar(' ');
             Serial.print(maxRestartRate);
+ 
+            
+			printOneChar(' ');
+    		Serial.print(rfapi.cumRSSI[1] +  rfapi.cumRSSI[2] + rfapi.cumRSSI[3]
+    		 + rfapi.cumRSSI[4] + rfapi.cumRSSI[5] + rfapi.cumRSSI[6] + rfapi.cumRSSI[7]);
+    		printOneChar(' ');
+   		 
+    		Serial.print(rfapi.cumFEI[1] +  rfapi.cumFEI[2] + rfapi.cumFEI[3]
+    		 + rfapi.cumFEI[4] + rfapi.cumFEI[5] + rfapi.cumFEI[6] + rfapi.cumFEI[7]);
+   			printOneChar(' ');
+    		 
+    		Serial.print(rfapi.cumAFC[1] +  rfapi.cumAFC[2] + rfapi.cumAFC[3]
+    		 + rfapi.cumAFC[4] + rfapi.cumAFC[5] + rfapi.cumAFC[6] + rfapi.cumAFC[7]);
+   			printOneChar(' ');
+    		 
+    		Serial.print(rfapi.cumCount[1] +  rfapi.cumCount[2] + rfapi.cumCount[3]
+    		 + rfapi.cumCount[4] + rfapi.cumCount[5] + rfapi.cumCount[6] + rfapi.cumCount[7]);
+            
             for (byte i = 0; i < 8; i++) {
             	if (rfapi.cumCount[i]) {
             		showString(PSTR(" ["));
@@ -2502,7 +2520,7 @@ Serial.print(")");
 	    	        Serial.print(rfapi.cumCount[i]);
 	        		printOneChar(']');
 		        	rfapi.cumRSSI[i] = rfapi.cumFEI[i] /*= rfapi.cumLNA[i]*/ = 
-		        	rfapi.cumAFC[i] = rfapi.cumCount[i] = 0;
+		        	 rfapi.cumAFC[i] = rfapi.cumCount[i] = 0;
 	        	}
 	        }
             Serial.println();
