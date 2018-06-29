@@ -379,6 +379,7 @@ static byte semaphoreStack[(MAX_NODES * 3) + 1];	// FIFO per node-group
 static unsigned long goodCRC;
 #if RF69_COMPAT && STATISTICS
 static signed int minFEI[MAX_NODES];
+static signed int lastFEI[MAX_NODES];
 static signed int maxFEI[MAX_NODES];
 static byte minRSSI[MAX_NODES];
 static byte lastRSSI[MAX_NODES];
@@ -1658,6 +1659,7 @@ http://forum.arduino.cc/index.php/topic,140376.msg1054626.html
     Serial.print((word) postingsOut);
     printOneChar(',');
     Serial.println((word) postingsLost);
+    
     int c = 0;
     while ((semaphoreStack[c * 3]) != 0) {
         printOneChar('g');
@@ -1786,23 +1788,25 @@ static void oneShow(byte index) {
 #if RF69_COMPAT && STATISTICS            
     if (c) {
         showString(PSTR(" fei("));
+     	Serial.print(lastFEI[index]);
+        printOneChar(';');
         Serial.print(minFEI[index]);
-        printOneChar('/');
+        printOneChar('-');
         Serial.print(maxFEI[index]);
-        printOneChar('/');
-        Serial.print(-((minFEI[index] + maxFEI[index]) / 2));
+        printOneChar('=');
+        Serial.print(abs(minFEI[index] - maxFEI[index]));
         showString(PSTR(") rssi("));
-        showByte(minRSSI[index]);
-        printOneChar('/');
+        showByte(lastRSSI[index]);
+        printOneChar(';');
         showByte(eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4) + 2)); // Show original RSSI value
         printOneChar('/');
-        showByte(lastRSSI[index]);
+        showByte(minRSSI[index]);
         printOneChar('/');
         showByte(maxRSSI[index]);
         showString(PSTR(") lna("));
-        Serial.print(minLNA[index]);
-        printOneChar('/');
         showByte(eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4) + 3)); // Show original LNA value
+        printOneChar('/');
+        Serial.print(minLNA[index]);
         printOneChar('/');
         Serial.print(lastLNA[index]);
         printOneChar('/');
@@ -2281,6 +2285,7 @@ Serial.print(")");
                 if (observedRX.lna > (maxLNA[NodeMap]))
                     maxLNA[NodeMap] = observedRX.lna;   
 
+				lastFEI[NodeMap] = rf12_fei;
                 if (rf12_fei < (minFEI[NodeMap]))       
                     minFEI[NodeMap] = rf12_fei;
                 if (rf12_fei > (maxFEI[NodeMap]))
@@ -2504,7 +2509,7 @@ Serial.print(")");
     		Serial.print(rfapi.cumCount[1] +  rfapi.cumCount[2] + rfapi.cumCount[3]
     		 + rfapi.cumCount[4] + rfapi.cumCount[5] + rfapi.cumCount[6] + rfapi.cumCount[7]);
             
-            for (byte i = 0; i < 8; i++) {
+            for (byte i = 1; i < 8; i++) {
             	if (rfapi.cumCount[i]) {
             		showString(PSTR(" ["));
 					Serial.print(i);
