@@ -2487,7 +2487,7 @@ Serial.print(")");
             printOneChar(' ');
             Serial.print(maxRestartRate);
             for (byte i = 0; i < 8; i++) {
-            	if (rfapi.cumLNA[i]) {
+            	if (rfapi.cumCount[i]) {
             		showString(PSTR(" ["));
 					Serial.print(i);
 	        		printOneChar(' ');
@@ -2496,13 +2496,13 @@ Serial.print(")");
         			Serial.print(rfapi.cumFEI[i] / rfapi.cumCount[i]);
     	    		printOneChar(' ');
         			Serial.print(rfapi.cumAFC[i] / rfapi.cumCount[i]);
-    	    		printOneChar(' ');
-	    	        Serial.print(rfapi.cumLNA[i] / rfapi.cumCount[i]);
+//    	    		printOneChar(' ');
+//	    	        Serial.print(rfapi.cumLNA[i] / rfapi.cumCount[i]);
     	    		printOneChar(' ');
 	    	        Serial.print(rfapi.cumCount[i]);
 	        		printOneChar(']');
-		        	rfapi.cumRSSI[i] = rfapi.cumFEI[i] = rfapi.cumLNA[i] = rfapi.cumAFC[i]
-		        	 = rfapi.cumCount[i] = 0;
+		        	rfapi.cumRSSI[i] = rfapi.cumFEI[i] /*= rfapi.cumLNA[i]*/ = 
+		        	rfapi.cumAFC[i] = rfapi.cumCount[i] = 0;
 	        	}
 	        }
             Serial.println();

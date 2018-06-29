@@ -669,32 +669,29 @@ second rollover and then will be 1.024 mS out.
         // N.B. millis is not updating until IRQ_ENABLE
         if (rxstate == TXRECV) {
             IRQ_ENABLE;       // allow nested interrupts from here on        
-            rssi = readReg(REG_RSSIVALUE);
-    		lna = (readReg(REG_LNA) >> 3) & 7;
-            rfapi.rssi = rssi;
-/*          	if (rssi) {
-	          	/* rssi == 0 can happen above, no idea how right now
-	          	only seen when using int0 versus pin change interrupt. */
-/*             	if (rssi < rfapi.noiseFloorMin) rfapi.noiseFloorMin = rssi;
-	          	if (rssi > rfapi.noiseFloorMax) rfapi.noiseFloorMax = rssi;
-  			} else  rfapi.rssiZero++;*/
 tfr = 0; 			       	
             if (rssi_interrupt) {
             	ms = millis();
                 RssiToSync = 0;
                 while (true) {  // Loop for SyncMatch or Timeout
-	                if (RssiToSync == 100) writeReg(REG_AFCFEI, (AFC_START | FEI_START));
+	                if (RssiToSync == 50) {
+	                	writeReg(REG_AFCFEI, (AFC_START | FEI_START));
+            			rssi = readReg(REG_RSSIVALUE);
+    					lna = (readReg(REG_LNA) >> 3) & 7;
+            			rfapi.rssi = rssi;
+          				if (rssi) {
+				          	/* rssi == 0 can happen above, no idea how right now
+				          	only seen when using int0 versus pin change interrupt. */
+			             	if (rssi < rfapi.noiseFloorMin) rfapi.noiseFloorMin = rssi;
+				          	if (rssi > rfapi.noiseFloorMax) rfapi.noiseFloorMax = rssi;
+			  			} else  rfapi.rssiZero++;
+	                }
                     if (readReg(REG_IRQFLAGS1) & IRQ1_SYNCMATCH) {
-					if (RssiToSync > 160) {
-//	                writeReg(REG_AFCFEI, (AFC_START | FEI_START));
-	                for (int d = 0; d < 1024; d++) ;
-            		fei  = readReg(REG_FEIMSB);
-	                for (int d = 0; d < 1024; d++) ;
-        			fei  = (fei << 8) + readReg(REG_FEILSB);
-	                for (int d = 0; d < 1024; d++) ;
-        	        afc  = readReg(REG_AFCMSB);
-	                for (int d = 0; d < 1024; d++) ;
-            	    afc  = (afc << 8) | readReg(REG_AFCLSB);
+					if (RssiToSync > 165) {
+            			fei  = readReg(REG_FEIMSB);
+        				fei  = (fei << 8) + readReg(REG_FEILSB);
+        	        	afc  = readReg(REG_AFCMSB);
+            	    	afc  = (afc << 8) | readReg(REG_AFCLSB);
 					}            	                			
                         rfapi.syncMatch++;                     
                 		noiseMillis = ms;	// Delay a reduction in sensitivity
@@ -715,7 +712,7 @@ tfr = 0;
 	                	rfapi.cumRSSI[lna] = rfapi.cumRSSI[lna] + (uint32_t)rssi; 
 	                	rfapi.cumFEI[lna] = rfapi.cumFEI[lna] + (int32_t)fei; 
 	                	rfapi.cumAFC[lna] = rfapi.cumAFC[lna] + (int32_t)afc; 
-	                	rfapi.cumLNA[lna] = rfapi.cumLNA[lna] + (uint32_t)lna; 
+//	                	rfapi.cumLNA[lna] = rfapi.cumLNA[lna] + (uint32_t)lna; 
 	                	rfapi.cumCount[lna]++; 
 	                	rfapi.changed = true;
 
