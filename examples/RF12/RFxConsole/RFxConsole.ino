@@ -230,7 +230,7 @@ static byte inChar () {
     #define LED_PIN     9        // activity LED, comment out to disable
   #endif
   #define messageStore  128
-  #define MAX_NODES 31        // Contrained by RAM (12 bytes RAM per node)
+  #define MAX_NODES 15        // Contrained by RAM (12 bytes RAM per node)
 #endif
 
 static unsigned long now () {
@@ -1900,7 +1900,7 @@ void loop () {
         observedRX.afc = rf12_afc;
         observedRX.fei = rf12_fei;
         observedRX.rssi2 = rf12_rssi;
-        observedRX.lna = rf12_lna >> 3;
+        observedRX.lna = rf12_lna;
 
         if ((observedRX.afc) && (observedRX.afc != previousAFC)) { // Track volatility of AFC
             changedAFC++;    
@@ -2072,7 +2072,7 @@ void loop () {
              */            
             showString(PSTR(" l="));
             Serial.print(observedRX.lna);
-
+/*
             showString(PSTR(" t="));
             Serial.print((RF69::readTemperature(0)));        
 
@@ -2106,10 +2106,10 @@ void loop () {
             }
 
             showString(PSTR(" d=("));
-            Serial.print(rf12_tfr);
+            Serial.print(rf12_tfr);*/
             printOneChar(')');
             Serial.print(rf12_rtp);
-
+/*
             showString(PSTR(" r="));
             Serial.print(rf12_rst);
             showString(PSTR(" i="));
@@ -2458,16 +2458,12 @@ Serial.print(")");
                 Serial.print(restartRate);
                 printOneChar(' ');
                 Serial.print(rf12_drx);
-//                printOneChar(' ');
                 showString(PSTR(" afc="));
                 Serial.print(RF69::afc);
-//                printOneChar(' ');
                 showString(PSTR(" fei="));
                 Serial.print(RF69::fei);
-//                printOneChar(' ');
                 showString(PSTR(" lna="));
-                Serial.print((RF69::lna >> 3));
-//                printOneChar(' ');
+                Serial.print((RF69::lna));
                 showString(PSTR(" rssi="));
                 Serial.print(RF69::rssi);
                 printOneChar(' ');
@@ -2492,9 +2488,9 @@ Serial.print(")");
             Serial.print(maxRestartRate);
             for (byte i = 0; i < 8; i++) {
             	if (rfapi.cumLNA[i]) {
-	        		printOneChar(' ');
+            		showString(PSTR(" ["));
 					Serial.print(i);
-        			printOneChar('[');
+	        		printOneChar(' ');
         			Serial.print(rfapi.cumRSSI[i]);
         			printOneChar(' ');
         			Serial.print(rfapi.cumFEI[i]);
