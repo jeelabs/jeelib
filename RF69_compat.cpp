@@ -174,9 +174,9 @@ uint8_t rf69_configSilent () {
     matchRF = eeprom_read_byte(RF12_EEPROM_ADDR + 8); // Store hardware matching 
 
     frequency = eeprom_read_byte(RF12_EEPROM_ADDR + 5);// Avoid eeprom_read_word
-    frequency = (frequency << 8) + (eeprom_read_byte(RF12_EEPROM_ADDR + 4)
-       + rf12_microOffset);
-                                                            
+    frequency = (frequency << 8) + eeprom_read_byte(RF12_EEPROM_ADDR + 4);
+    RF69::microOffset = (eeprom_read_byte(RF12_EEPROM_ADDR + 13) &  63);
+                                                        
     rf69_initialize(nodeId, /* band*/(nodeId >> 6), group, frequency);
     return nodeId & RF12_HDR_MASK;
 }

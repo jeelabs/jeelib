@@ -89,7 +89,7 @@ extern volatile int16_t rf12_afc;          // Only available with RFM69 hardware
 extern volatile int16_t rf12_fei;          // Only available with RFM69 hardware
 extern volatile uint16_t rf12_drx;         //
 extern volatile uint8_t rf12_sri;          // Only available with RFM69 hardware
-extern          uint8_t rf12_microOffset;
+//extern          uint8_t rf12_microOffset;
 extern volatile uint16_t rf12_rtp;          // Only available with RFM69 hardware
 extern volatile uint16_t rf12_rst;          // Only available with RFM69 hardware
 extern volatile uint32_t rf12_tfr;          // Only available with RFM69 hardware

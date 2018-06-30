@@ -347,7 +347,7 @@ void RF69::setFrequency (uint32_t freq) {
     // 868.0 MHz = 0xD90000, 868.3 MHz = 0xD91300, 915.0 MHz = 0xE4C000 
     frf = (((freq << 2) / (32000000L >> 11)) << 6) + microOffset;
     rf69_skip = 0;    // Ensure default Jeenode RF12 operation
-    
+
 	// Init RF API values
     rfapi.len = sizeof rfapi;
     rfapi.noiseFloorMin = 255;
