@@ -1,10 +1,10 @@
 #ifndef RF69_h
 #define RF69_h
 
-#define JEEPACKET8 115			// Loop limiter in RF69::interrupt_compat
-// The above value is an estimate, needs fine tuning.
-#define JEEPACKET16 230			// Loop limiter in RF69::interrupt_compat
-#define SALUSPACKET16 3200		// ditto
+#define JEEPACKET16 150					// Loop limiter in RF69::interrupt_compat
+#define JEEPACKET8 JEEPACKET16 / 2		// Loop limiter in RF69::interrupt_compat
+// 					The above value is an estimate and needs fine tuning.
+#define SALUSPACKET16 JEEPACKET16 * 18	// ditto
 
 typedef struct {
 

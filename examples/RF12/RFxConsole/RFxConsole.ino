@@ -1214,8 +1214,8 @@ static void handleInput (char c) {
                          }
                      } else {
                          // Accepts a index number and prints matching entry from the eeprom
-                         if (value) oneShow(NodeMap);
-                         else nodeShow(value);
+                         if (value > MAX_NODES) nodeShow(value);
+                         else oneShow(NodeMap);
                      }
 #endif
                      break;
@@ -2492,21 +2492,23 @@ Serial.print(")");
 				Serial.println(m);
             }
         }
-        if ((config.verbosity & 8) && (minuteTick)/* && (rfapi.changed)*/) {
-            showString(PSTR("RX Stats "));
-            Serial.print(rfapi.rssiThreshold);
-            printOneChar(' ');
-        	Serial.print(rfapi.RSSIrestart);
-        	printOneChar(' ');
-            Serial.print(rfapi.syncMatch);
-        	printOneChar(' ');
-            Serial.print(goodCRC);
-        	printOneChar(' ');
-	        Serial.print(restartRate);
-            printOneChar(' ');
-            Serial.print(maxRestartRate);
- 
+        if ((config.verbosity & 8) && (minuteTick)) {
+            minuteTick = false;            	
             if (rfapi.changed) {
+            	rfapi.changed = false;
+	            showString(PSTR("RX Stats "));
+    	        Serial.print(rfapi.rssiThreshold);
+        	    printOneChar(' ');
+        		Serial.print(rfapi.RSSIrestart);
+	        	printOneChar(' ');
+    	        Serial.print(rfapi.syncMatch);
+        		printOneChar(' ');
+            	Serial.print(goodCRC);
+	        	printOneChar(' ');
+		        Serial.print(restartRate);
+        	    printOneChar(' ');
+            	Serial.print(maxRestartRate);
+ 
 				printOneChar(' ');
     			Serial.print(rfapi.cumRSSI[1] +  rfapi.cumRSSI[2] + rfapi.cumRSSI[3]
     			 + rfapi.cumRSSI[4] + rfapi.cumRSSI[5] + rfapi.cumRSSI[6] + rfapi.cumRSSI[7]);
@@ -2542,9 +2544,8 @@ Serial.print(")");
 		        	 	rfapi.cumAFC[i] = rfapi.cumCount[i] = 0;
 		        	 }
 	        	}
+            Serial.println();	        	
 	        }
-            Serial.println();
-            minuteTick = rfapi.changed = false;            	
         }
 #endif
 #if TINY						// Very weird, needed to make Tiny code compile

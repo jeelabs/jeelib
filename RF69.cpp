@@ -657,7 +657,7 @@ second rollover and then will be 1.024 mS out.
             	ms = millis();
                 RssiToSync = 0;
                 while (true) {  // Loop for SyncMatch or Timeout
-	                if (RssiToSync == 50) {
+	                if (RssiToSync == (rfapi.RssiToSync / 4)) {
 	                	writeReg(REG_AFCFEI, (AFC_START | FEI_START));
             			rssi = readReg(REG_RSSIVALUE);
     					lna = (readReg(REG_LNA) >> 3) & 7;
@@ -668,14 +668,15 @@ second rollover and then will be 1.024 mS out.
 			             	if (rssi < rfapi.noiseFloorMin) rfapi.noiseFloorMin = rssi;
 				          	if (rssi > rfapi.noiseFloorMax) rfapi.noiseFloorMax = rssi;
 			  			} else  rfapi.rssiZero++;
-	                }
+	                } else 
+					if (RssiToSync == (rfapi.RssiToSync / 2)) {
+            			fei  = readReg(REG_FEIMSB);
+        				fei  = (fei << 8) + readReg(REG_FEILSB);
+                		afc  = readReg(REG_AFCMSB);
+        	    		afc  = (afc << 8) | readReg(REG_AFCLSB);
+					} 
+					           	                			
                     if (readReg(REG_IRQFLAGS1) & IRQ1_SYNCMATCH) {
-						if (RssiToSync > 155) {
-            				fei  = readReg(REG_FEIMSB);
-        					fei  = (fei << 8) + readReg(REG_FEILSB);
-        	        		afc  = readReg(REG_AFCMSB);
-            	    		afc  = (afc << 8) | readReg(REG_AFCLSB);
-						}            	                			
                         rfapi.syncMatch++;                     
                 		noiseMillis = ms;	// Delay a reduction in sensitivity
                         break;
