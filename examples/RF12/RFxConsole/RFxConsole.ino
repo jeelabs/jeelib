@@ -231,7 +231,7 @@ static byte inChar () {
     #define LED_PIN     9        // activity LED, comment out to disable
   #endif
   #define messageStore  128
-  #define MAX_NODES 15        // Contrained by RAM (12 bytes RAM per node)
+  #define MAX_NODES 20        // Contrained by RAM (22 bytes RAM per node)
 #endif
 
 static unsigned long now () {
@@ -379,7 +379,7 @@ ISR(TIMER1_COMPA_vect){
 #if MESSAGING
 static byte semaphoreStack[(MAX_NODES * 3) + 1];	// FIFO per node-group
 #endif
-static unsigned long goodCRC;
+//static unsigned long goodCRC;
 #if RF69_COMPAT && STATISTICS
 static signed int minFEI[MAX_NODES];
 static signed int lastFEI[MAX_NODES];
@@ -674,7 +674,7 @@ static void showStatus() {
     Serial.print(rfapi.syncMatch);
 
     showString(PSTR(", Good CRC "));
-    Serial.print(goodCRC);
+    Serial.print(rfapi.goodCRC);
     showString(PSTR(", RX Signal "));
     Serial.print(rfapi.noiseFloorMin);
     printOneChar('/');
@@ -1215,7 +1215,7 @@ static void handleInput (char c) {
                      } else {
                          // Accepts a index number and prints matching entry from the eeprom
                          if (value > MAX_NODES) nodeShow(value);
-                         else oneShow(NodeMap);
+                         else oneShow(value);
                      }
 #endif
                      break;
@@ -1924,6 +1924,7 @@ void loop () {
             changedAFC++;    
             previousAFC = observedRX.afc;
         }
+        
         if (observedRX.fei != previousFEI) {            // Track volatility of FEI
             changedFEI++;
             previousFEI = observedRX.fei;
@@ -1936,7 +1937,7 @@ void loop () {
 #if STATISTICS && !TINY
             messageCount++;                             // Count a broadcast packet
 #endif
-            goodCRC++;
+//            goodCRC++;
             if ((watchNode) && ((rf12_hdr & RF12_HDR_MASK) != watchNode)) return;
             showString(PSTR("OK"));
             crc = true;
@@ -2074,8 +2075,10 @@ void loop () {
         
 #if RF69_COMPAT && !TINY
         if ((config.verbosity & 1) || (!crc)) {
+/*        
             showString(PSTR(" a="));
             Serial.print(observedRX.afc);                      // TODO What units has this number?
+*/
             showString(PSTR(" f="));
             Serial.print(observedRX.fei);                      // TODO What units has this number?
             /*
@@ -2503,7 +2506,7 @@ Serial.print(")");
 	        	printOneChar(' ');
     	        Serial.print(rfapi.syncMatch);
         		printOneChar(' ');
-            	Serial.print(goodCRC);
+            	Serial.print(rfapi.goodCRC);
 	        	printOneChar(' ');
 		        Serial.print(restartRate);
         	    printOneChar(' ');
@@ -2518,9 +2521,9 @@ Serial.print(")");
     			 + rfapi.cumFEI[4] + rfapi.cumFEI[5] + rfapi.cumFEI[6] + rfapi.cumFEI[7]);
    				printOneChar(' ');
     		 
-	    		Serial.print(rfapi.cumAFC[1] +  rfapi.cumAFC[2] + rfapi.cumAFC[3]
-    			 + rfapi.cumAFC[4] + rfapi.cumAFC[5] + rfapi.cumAFC[6] + rfapi.cumAFC[7]);
-   				printOneChar(' ');
+//	    		Serial.print(rfapi.cumAFC[1] +  rfapi.cumAFC[2] + rfapi.cumAFC[3]
+//    			 + rfapi.cumAFC[4] + rfapi.cumAFC[5] + rfapi.cumAFC[6] + rfapi.cumAFC[7]);
+//   				printOneChar(' ');
     		 
     			Serial.print(rfapi.cumCount[1] +  rfapi.cumCount[2] + rfapi.cumCount[3]
     		 	+ rfapi.cumCount[4] + rfapi.cumCount[5] + rfapi.cumCount[6] + rfapi.cumCount[7]);
@@ -2533,15 +2536,15 @@ Serial.print(")");
         				Serial.print(rfapi.cumRSSI[i] / rfapi.cumCount[i]);
         				printOneChar(' ');
         				Serial.print(rfapi.cumFEI[i] / rfapi.cumCount[i]);
-    	    			printOneChar(' ');
-        				Serial.print(rfapi.cumAFC[i] / rfapi.cumCount[i]);
+//    	    			printOneChar(' ');
+//        				Serial.print(rfapi.cumAFC[i] / rfapi.cumCount[i]);
 //    	    			printOneChar(' ');
 //	    	        	Serial.print(rfapi.cumLNA[i] / rfapi.cumCount[i]);
     	    			printOneChar(' ');
 	    	        	Serial.print(rfapi.cumCount[i]);
 	        			printOneChar(']');
 		        		rfapi.cumRSSI[i] = rfapi.cumFEI[i] /*= rfapi.cumLNA[i]*/ = 
-		        	 	rfapi.cumAFC[i] = rfapi.cumCount[i] = 0;
+		        	 	/*rfapi.cumAFC[i] =*/ rfapi.cumCount[i] = 0;
 		        	 }
 	        	}
             Serial.println();	        	

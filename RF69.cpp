@@ -477,11 +477,10 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         writeReg(REG_OCP, OCP_NORMAL);			// Overcurrent protection on
         writeReg(REG_TESTPA1, TESTPA1_NORMAL);	// Turn off high power 
         writeReg(REG_TESTPA2, TESTPA2_NORMAL);  // transmit
-//        writeReg(REG_AFCFEI, (AFC_AUTO | AFC_AUTOCLR));
     	rfapi.setmode = setMode(MODE_RECEIVER);
         writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
         rxstate = TXRECV;
-//        writeReg(REG_AFCFEI, (AFC_CLEAR));
+// Not using AFC       writeReg(REG_AFCFEI, (AFC_CLEAR));
         startRX = micros();
         rfapi.mode = readReg(REG_OPMODE);
         rfapi.irqflags1 = readReg(REG_IRQFLAGS1); 
@@ -503,12 +502,12 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
             rf12_tfr = tfr; // Time to receive in microseconds
             for (byte i = 0; i < (payloadLen + 5); i++) {
                 rf12_buf[i] = rf69_buf[i];
-//*DEBUG*/		rf69_buf[i] = 0;
             }     
             rf12_crc = crc;
             rxstate = TXIDLE;
 
             if (rf12_crc == 0) {
+            	rfapi.goodCRC++;
                 if (!(rf69_hdr & RF12_HDR_DST) || node == 31 ||
                     (rf69_hdr & RF12_HDR_MASK) == node) {
                     return 0; // it's for us, good packet received
@@ -657,8 +656,13 @@ second rollover and then will be 1.024 mS out.
             	ms = millis();
                 RssiToSync = 0;
                 while (true) {  // Loop for SyncMatch or Timeout
-	                if (RssiToSync == (rfapi.RssiToSync / 4)) {
-	                	writeReg(REG_AFCFEI, (AFC_START | FEI_START));
+	                if (RssiToSync == (60)) {
+	                	// Tune the above value to get smallest FEI MIN/MAX spread
+	                	// 45 = 68
+	                	// 50 = 60 span
+	                	// 55 = 57 @65dB
+	                	// 60 = 69 @66 dB
+	                	writeReg(REG_AFCFEI, (/*AFC_START |*/ FEI_START));
             			rssi = readReg(REG_RSSIVALUE);
     					lna = (readReg(REG_LNA) >> 3) & 7;
             			rfapi.rssi = rssi;
@@ -672,8 +676,10 @@ second rollover and then will be 1.024 mS out.
 					if (RssiToSync == (rfapi.RssiToSync / 2)) {
             			fei  = readReg(REG_FEIMSB);
         				fei  = (fei << 8) + readReg(REG_FEILSB);
+/* AFC will be same value as FEI here       				
                 		afc  = readReg(REG_AFCMSB);
         	    		afc  = (afc << 8) | readReg(REG_AFCLSB);
+*/
 					} 
 					           	                			
                     if (readReg(REG_IRQFLAGS1) & IRQ1_SYNCMATCH) {
@@ -695,7 +701,7 @@ second rollover and then will be 1.024 mS out.
 	                	rfapi.RSSIrestart++;
 	                	rfapi.cumRSSI[lna] = rfapi.cumRSSI[lna] + (uint32_t)rssi; 
 	                	rfapi.cumFEI[lna] = rfapi.cumFEI[lna] + (int32_t)fei; 
-	                	rfapi.cumAFC[lna] = rfapi.cumAFC[lna] + (int32_t)afc; 
+//	                	rfapi.cumAFC[lna] = rfapi.cumAFC[lna] + (int32_t)afc; 
 //	                	rfapi.cumLNA[lna] = rfapi.cumLNA[lna] + (uint32_t)lna; 
 	                	rfapi.cumCount[lna]++;
 	                	rfapi.changed = true;
@@ -750,7 +756,7 @@ second rollover and then will be 1.024 mS out.
                     crc = _crc16_update(crc, in);              
                     if (rxfill >= (payloadLen + (5 - rf69_skip))) {  // Trap end of payload
                         writeReg(REG_AFCFEI, AFC_CLEAR);
-	      				writeReg(REG_DIOMAPPING1, 0x00);	// Mask most radio interrupts
+//	      				writeReg(REG_DIOMAPPING1, 0x00);	// Mask most radio interrupts
                         setMode(MODE_SLEEP);  // Get radio out of RX mode
                         stillCollecting = false;
                         break;
@@ -765,9 +771,9 @@ second rollover and then will be 1.024 mS out.
                 packetShort++;
             }    
             tfr =  (micros() - startRX);
-            writeReg(REG_AFCFEI, AFC_CLEAR);
-	      	writeReg(REG_DIOMAPPING1, 0x00);	// Mask most radio interrupts
-            setMode(MODE_SLEEP);
+//            writeReg(REG_AFCFEI, AFC_CLEAR);
+//	      	writeReg(REG_DIOMAPPING1, 0x00);	// Mask most radio interrupts
+//            setMode(MODE_SLEEP);
             rxdone = true;      // force TXRECV in RF69::recvDone_compat       
             writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
             rxstate = TXRECV;   // Restore state machine

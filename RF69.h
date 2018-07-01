@@ -11,10 +11,11 @@ typedef struct {
     uint32_t rateInterval;	// Disabled by default, set this to 10000ms
     uint32_t RSSIrestart;
     uint32_t syncMatch;
+    uint32_t goodCRC;
     uint32_t interpacketTS;
     uint32_t cumRSSI[8];
     int32_t cumFEI[8];
-    int32_t cumAFC[8];
+//    int32_t cumAFC[8];
 //    uint32_t cumLNA[8];
     uint16_t cumCount[8];
 	uint16_t RssiToSync;	//Count of loops after RSSI before a missed sync is triggered
