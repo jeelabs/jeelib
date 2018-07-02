@@ -691,8 +691,7 @@ second rollover and then will be 1.024 mS out.
         				// Collect RX stats
 	                	rfapi.RSSIrestart++;
 	                	rfapi.cumRSSI = rfapi.cumRSSI + (uint32_t)rssi; 
-	                	rfapi.cumFEI = rfapi.cumFEI + (int32_t)fei;
-	                	rfapi.cumLNA[(lna >> 3) & 7]++; 
+	                	rfapi.cumFEI = rfapi.cumFEI + (int32_t)fei; 
 
             			if ((rfapi.rateInterval) && ((noiseMillis + rfapi.rateInterval) < ms)) {
                         	// Adjust RSSI if in noise region	                	    
