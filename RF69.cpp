@@ -134,7 +134,7 @@
 #define RF_MAX   72
 
 // transceiver states, these determine what to do with each interrupt
-enum { TXCRC1, TXCRC2,/* TXTAIL,*/ TXDONE, TXIDLE, TXRECV, RXSYNC, RXFIFO };
+enum { TXCRC1, TXCRC2,/* TXTAIL,*/ TXDONE, TXIDLE, TXRECV, RXFIFO };
 
 byte clearAir = 180;
 
@@ -457,6 +457,7 @@ void RF69::configure_compat () {
 
 uint8_t* recvBuf;
 
+uint32_t startRX;
 uint32_t ms;
 
 uint16_t RF69::recvDone_compat (uint8_t* buf) {
@@ -477,9 +478,10 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         writeReg(REG_TESTPA1, TESTPA1_NORMAL);	// Turn off high power 
         writeReg(REG_TESTPA2, TESTPA2_NORMAL);  // transmit
     	rfapi.setmode = setMode(MODE_RECEIVER);
-		writeReg(REG_AFCFEI, (AFC_CLEAR));
         writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
         rxstate = TXRECV;
+		writeReg(REG_AFCFEI, (AFC_CLEAR));
+        startRX = micros();
         rfapi.mode = readReg(REG_OPMODE);
         rfapi.irqflags1 = readReg(REG_IRQFLAGS1); 
                
@@ -649,20 +651,10 @@ second rollover and then will be 1.024 mS out.
 */
         // N.B. millis is not updating until IRQ_ENABLE
         if (rxstate == TXRECV) {
-        	rxstate == RXSYNC;
-				          	
-			IRQ_ENABLE;       // allow nested interrupts from here on        
-
             if (rssi_interrupt) {
             	ms = millis();
-        		volatile uint32_t startRX = micros();
-        		rssi = 0;
-        		lna = 0;
-    			fei = 0;
                 while (true) {  // Loop for SyncMatch or Timeout
-                	volatile uint32_t ts = micros();
-//	                if (RssiToSync == 50) {
-	                if (((ts - startRX) > 100UL)  && (!(lna))) {
+	                if (RssiToSync == (40)) {
 	                	// Tune the above value to get smallest FEI MIN/MAX spread
 	                	// 30 = 
 	                	// 40 = 68s @65dB
@@ -673,10 +665,11 @@ second rollover and then will be 1.024 mS out.
 	                	writeReg(REG_AFCFEI, (AFC_START | FEI_START));
             			rssi = readReg(REG_RSSIVALUE);
     					lna = (readReg(REG_LNA) >> 3) & 7;
-	                }
-	                
-//					if (RssiToSync == 50) {
-	                if (((ts - startRX) > 1000UL) && (!(fei))) {
+				          	
+						IRQ_ENABLE;       // allow nested interrupts from here on        
+
+	                } else 
+					if (RssiToSync == 155) {
             			fei  = readReg(REG_FEIMSB);
         				fei  = (fei << 8) + readReg(REG_FEILSB);
 /* AFC will be same value as FEI here       				
@@ -686,12 +679,16 @@ second rollover and then will be 1.024 mS out.
 					} 
 					           	                			
                     if (readReg(REG_IRQFLAGS1) & IRQ1_SYNCMATCH) {
-						tfr =  (micros() - startRX);
                         rfapi.syncMatch++;                     
                 		noiseMillis = ms;	// Delay a reduction in sensitivity
-                         break;
-//                    } else if (RssiToSync++ >= rfapi.RssiToSyncLimit) {
-                    } else if ((ts - startRX) > 1200UL) {
+          				if (rssi) {
+				          	/* rssi == 0 can happen above, no idea how right now
+				          	only seen when using int0 versus pin change interrupt. */
+			             	if (rssi < rfapi.noiseFloorMin) rfapi.noiseFloorMin = rssi;
+				          	if (rssi > rfapi.noiseFloorMax) rfapi.noiseFloorMax = rssi;
+			  			} else  rfapi.rssiZero++;
+                        break;
+                    } else if (RssiToSync++ >= rfapi.RssiToSyncLimit) {
 /* CPU clock dependant: Timeout: MartynJ "Assuming you are using 5byte synch,
                         then it is just counting the bit times to find the 
                         minimum i.e. 0.02uS per bit x 6bytes is 
@@ -699,6 +696,7 @@ second rollover and then will be 1.024 mS out.
                                                                 */ // CPU clock dependant
 						writeReg(REG_AFCFEI, (AFC_CLEAR));
         				setMode(MODE_SLEEP);
+                        rxstate = TXIDLE;   // Cause a RX restart by FSM
 /*	      				writeReg(REG_DIOMAPPING1, 0x00);	// Mask most radio interrupts
     	  				writeReg(REG_LNA, 0x06); 			// Minimise LNA gain
       					writeReg(REG_RSSITHRESHOLD, 40); 	// Quiet the RSSI threshold */
@@ -720,13 +718,14 @@ second rollover and then will be 1.024 mS out.
 							}
 						}
 						lastFEI = fei;
-                        rxstate = TXIDLE;   // Cause a RX restart by FSM
                         return;
                     } // SyncMatch or Timeout 
                 } //  while
             } //  RSSI
-            rxstate = RXFIFO;                                   
+
             rfapi.interpacketTS = ms;
+            rxstate = RXFIFO;                       
+            
             rtp = RssiToSync;
             RssiToSync = 0;
             if (rtp < rfapi.rtpMin) rfapi.rtpMin = rtp;
@@ -778,12 +777,7 @@ second rollover and then will be 1.024 mS out.
                 // We are exiting before a successful packet completion
                 packetShort++;
             }    
-         	if (rssi) {
-				/* rssi == 0 can happen above, no idea how right now
-				only seen when using int0 versus pin change interrupt. */
-			    if (rssi < rfapi.noiseFloorMin) rfapi.noiseFloorMin = rssi;
-				if (rssi > rfapi.noiseFloorMax) rfapi.noiseFloorMax = rssi;
-			} else  rfapi.rssiZero++;
+            tfr =  (micros() - startRX);
             writeReg(REG_AFCFEI, AFC_CLEAR);
 //	      	writeReg(REG_DIOMAPPING1, 0x00);	// Mask most radio interrupts
             setMode(MODE_SLEEP);
@@ -804,9 +798,8 @@ second rollover and then will be 1.024 mS out.
           	if (group == 0) {               // Allow receiving from all groups
               writeReg(REG_SYNCCONFIG, threeByteSync);
           	}
-        } else if (rxstate > TXRECV) return;
 
-		else {
+        } else {
             // We get here when a interrupt that is not for RX/TX completion.
             // Appears related to receiving noise when the bad CRC
             // packet display is enabled using "0q".

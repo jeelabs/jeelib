@@ -664,11 +664,11 @@ static void showStatus() {
 	showString(PSTR(", Temperature "));
 	Serial.print(RF69::readTemperature(0));
 	showString(PSTR("ºC"));
-    showString(PSTR(", Restarts "));
+    showString(PSTR(", RX Restarts "));
     Serial.print(rfapi.RSSIrestart);
     showString(PSTR(", Rate "));
     Serial.print(restartRate);
-    printOneChar('^');
+    printOneChar('m');
     Serial.print(maxRestartRate);
     showString(PSTR("/min, Sync Match "));
     Serial.print(rfapi.syncMatch);
