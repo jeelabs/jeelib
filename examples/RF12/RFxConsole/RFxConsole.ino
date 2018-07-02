@@ -675,13 +675,23 @@ static void showStatus() {
 
     showString(PSTR(", Good CRC "));
     Serial.print(rfapi.goodCRC);
-    showString(PSTR(", RX Signal "));
+    if (rfapi.discards) {
+		showString(PSTR(", Discards "));
+   		Serial.print(rfapi.discards);
+    }
+    showString(PSTR(", Bounds "));
+    Serial.print(rf12_rtp);
+    printOneChar(';');
+    Serial.print(rfapi.rtpMin);
+    printOneChar('^');
+    Serial.println(rfapi.rtpMax);
+    showString(PSTR("RSSI Rx "));
     Serial.print(rfapi.noiseFloorMin);
     printOneChar('/');
-    Serial.print(rfapi.rssi);
+    Serial.print(rf12_rssi);
     printOneChar('/');
     Serial.print(rfapi.noiseFloorMax);
-    showString(PSTR(", Tx Signal "));
+    showString(PSTR(", Tx "));
     Serial.print(minTxRSSI);
     printOneChar('/');    
     Serial.print(rfapi.sendRSSI);
@@ -700,10 +710,10 @@ static void showStatus() {
     showString(PSTR(", InterCRC(ms) "));
     Serial.print(minCrcGap);
     printOneChar('/');
-    Serial.print(maxCrcGap);
+    Serial.println(maxCrcGap);
 
 #endif
-    showString(PSTR(", Eeprom"));
+    showString(PSTR("Eeprom"));
     rf12_configDump();
 #if RF69_COMPAT
     if (!RF69::present) {
@@ -1035,7 +1045,7 @@ static void handleInput (char c) {
                      RF69::control(REG_BITRATELSB | 0x80, 0x15);
                      RF69::control(REG_BITFDEVMSB | 0x80, 0x04);                         // 75kHz freq shift
                      RF69::control(REG_BITFDEVLSB | 0x80, 0xCE);
-                     rfapi.RssiToSync = SALUSPACKET16;
+                     rfapi.RssiToSyncLimit = SALUSPACKET16;
   #else
                      rf12_control(RF12_DATA_RATE_2);                                     // 2.4kbps
                      rf12_control(0x9830);                                               // 75khz freq shift

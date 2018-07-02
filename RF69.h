@@ -1,7 +1,7 @@
 #ifndef RF69_h
 #define RF69_h
 
-#define JEEPACKET16 150					// Loop limiter in RF69::interrupt_compat
+#define JEEPACKET16 165					// Loop limiter in RF69::interrupt_compat
 #define JEEPACKET8 JEEPACKET16 / 2		// Loop limiter in RF69::interrupt_compat
 // 					The above value is an estimate and needs fine tuning.
 #define SALUSPACKET16 JEEPACKET16 * 18	// ditto
@@ -12,14 +12,17 @@ typedef struct {
     uint32_t RSSIrestart;
     uint32_t syncMatch;
     uint32_t goodCRC;
+	uint32_t discards;   // Count of good packets discarded
     uint32_t interpacketTS;
     uint32_t cumRSSI[8];
     int32_t cumFEI[8];
 //    int32_t cumAFC[8];
 //    uint32_t cumLNA[8];
     uint16_t cumCount[8];
-	uint16_t RssiToSync;	//Count of loops after RSSI before a missed sync is triggered
+	uint16_t RssiToSyncLimit;	//Count of loops after RSSI before a missed sync is triggered
 	uint16_t rssiZero;
+    uint8_t rtpMin;    
+	uint8_t rtpMax;    
 	uint8_t	configThreshold;
     uint8_t rssiThreshold;
     uint8_t rssi;
