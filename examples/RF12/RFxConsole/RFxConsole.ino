@@ -348,14 +348,13 @@ volatile unsigned int restartRate;
 volatile unsigned int maxRestartRate;
 volatile byte ping = false;
 volatile byte minuteTick = false;
-volatile byte statsInterval = 60;
 ISR(TIMER1_COMPA_vect){
 	elapsedSeconds++;
 
 #if RF69_COMPAT        
 #pragma warn("Compiling in RF69_COMPAT mode")
     // Update restart rate
-    if ((elapsedSeconds % (uint32_t)statsInterval) == 0UL) {
+    if ((elapsedSeconds % 60UL) == 0UL) {
     	minuteTick = true;
     	restartRate = (rfapi.RSSIrestart - previousRestarts);
     	previousRestarts = rfapi.RSSIrestart;
@@ -1095,10 +1094,6 @@ static void handleInput (char c) {
                      break;
 
             case 'v': // display the interpreter version
-            		 if (top == 1) {
-            			if (stack[0] == 0) statsInterval = 60;
-            			else statsInterval = stack[0];
-            		 } else statsInterval = 60;
                      config.verbosity = value;        
                      displayVersion();
                      saveConfig();
@@ -2503,18 +2498,16 @@ Serial.print(")");
                 Serial.print(rfapi.cumRSSI);
                 printOneChar(' ');
                 Serial.print(rfapi.cumFEI);
-                if (restartRate) {
-	                printOneChar(' ');
-	                printOneChar('[');
-	                for (byte i = 0; i < 7; i++) {
-	                	Serial.print(rfapi.cumLNA[i]);
-	                	rfapi.cumLNA[i] = 0;
-	                	printOneChar(',');
-	                }
-					Serial.print(rfapi.cumLNA[7]);
-	                rfapi.cumLNA[7] = 0;
-	                printOneChar(']');
-	            }
+                printOneChar(' ');
+                printOneChar('[');
+                for (byte i = 0; i < 7; i++) {
+                	Serial.print(rfapi.cumLNA[i]);
+                	rfapi.cumLNA[i] = 0;
+                	printOneChar(',');
+                }
+				Serial.print(rfapi.cumLNA[7]);
+                rfapi.cumLNA[7] = 0;
+                printOneChar(']');
                 rfapi.cumRSSI = rfapi.cumFEI = 0;
 //                printOneChar(' ');
 //                Serial.print(millis());
