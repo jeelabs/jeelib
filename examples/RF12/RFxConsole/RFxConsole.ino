@@ -2480,30 +2480,30 @@ Serial.print(")");
 //T        if (rfapi.rssiThreshold != lastrssiThreshold) {
             if ((config.verbosity & 8) && (minuteTick)) {
             	minuteTick = false;
-                if (restartRate) {
-                	showString(PSTR("RX Stats "));
-//                	Serial.print(lastrssiThreshold);
-//            		lastrssiThreshold = rfapi.rssiThreshold;     
-//                	printOneChar(' ');
-                	Serial.print(rfapi.rssiThreshold);
-                	printOneChar(' ');
-                	Serial.print(rfapi.RSSIrestart);
-                	printOneChar(' ');
-                	Serial.print(rfapi.syncMatch);
-                	printOneChar(' ');
-                	Serial.print(goodCRC);
-                	printOneChar(' ');
+                showString(PSTR("RX Stats "));
+//                Serial.print(lastrssiThreshold);
+//            	lastrssiThreshold = rfapi.rssiThreshold;     
+//                printOneChar(' ');
+                Serial.print(rfapi.rssiThreshold);
+                printOneChar(' ');
+                Serial.print(rfapi.RSSIrestart);
+                printOneChar(' ');
+                Serial.print(rfapi.syncMatch);
+                printOneChar(' ');
+                Serial.print(goodCRC);
+                printOneChar(' ');
 
                 //                  Serial.print(rfapi.RSSIrestart  - lastThresholdRSSIrestart);
                 //                  lastThresholdRSSIrestart = lastRSSIrestart;
                 //                  printOneChar(' ');
-                	Serial.print(restartRate);
-                	printOneChar(' ');
-                	Serial.print(maxRestartRate);
-                	printOneChar(' ');
-                	Serial.print(rfapi.cumRSSI);
-                	printOneChar(' ');
-                	Serial.print(rfapi.cumFEI);
+                Serial.print(restartRate);
+                printOneChar(' ');
+                Serial.print(maxRestartRate);
+                printOneChar(' ');
+                Serial.print(rfapi.cumRSSI);
+                printOneChar(' ');
+                Serial.print(rfapi.cumFEI);
+                if (restartRate) {
 	                printOneChar(' ');
 	                printOneChar('[');
 	                for (byte i = 0; i < 7; i++) {
@@ -2514,7 +2514,8 @@ Serial.print(")");
 					Serial.print(rfapi.cumLNA[7]);
 	                rfapi.cumLNA[7] = 0;
 	                printOneChar(']');
-	                rfapi.cumRSSI = rfapi.cumFEI = 0;
+	            }
+                rfapi.cumRSSI = rfapi.cumFEI = 0;
 //                printOneChar(' ');
 //                Serial.print(millis());
                 /*
@@ -2526,7 +2527,6 @@ Serial.print(")");
                    Serial.print(rfapi.mode);
                  */
                 Serial.println();
-	            }
             }
 //T        }
 //T        lastRSSIrestart = rfapi.RSSIrestart;
