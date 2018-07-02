@@ -15,14 +15,13 @@ typedef struct {
 	uint8_t	lastLen;
 	uint8_t lastPay0;
 	uint8_t	txPower;
-	uint8_t changed;
     uint32_t rateInterval;	// Disabled by default, set this to 10000ms
     uint32_t RSSIrestart;
     uint32_t syncMatch;
     uint32_t interpacketTS;
-    uint32_t cumRSSI[8];
-    int32_t cumFEI[8];
-    uint16_t cumLNA[8];
+    uint32_t cumRSSI;
+    int32_t cumFEI;
+    uint32_t cumLNA[8];
 	uint16_t RssiToSync;	//Count of loops after RSSI before a missed sync is triggered
 	uint16_t rssiZero;
 	uint8_t	configThreshold;
