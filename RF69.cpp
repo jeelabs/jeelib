@@ -652,16 +652,17 @@ second rollover and then will be 1.024 mS out.
             if (rssi_interrupt) {
             	ms = millis();
             	RssiToSync = 0;
-				delayMicroseconds(20);	// Kill some time waiting for sync bytes (4µs precision)
+//            	for (volatile uint8_t t = 0; t < 1; t++);
+				delayMicroseconds(20);	// Kill some time waiting for sync bytes
 				// 20 yeilds 95 spread from 39 samples
-        		startRX = micros();
+        		startRX = micros();	// 4µs precision
                 while (true) {  // Loop for SyncMatch or Timeout
 	                if (RssiToSync == 0) {
 	                	writeReg(REG_AFCFEI, (AFC_START | FEI_START));
             			rssi = readReg(REG_RSSIVALUE);
     					lna = (readReg(REG_LNA) >> 3) & 7;
     					// Keep the SPI quiet while FEI calculation is done.
-    					#define dTime 1092UL		// (4µs precision)
+    					#define dTime 1094UL
 						delayMicroseconds(dTime);	// Kill some time waiting for sync match
  	                }
            			fei  = readReg(REG_FEIMSB);
@@ -669,7 +670,7 @@ second rollover and then will be 1.024 mS out.
         	        afc  = readReg(REG_AFCMSB);
             		afc  = (afc << 8) | readReg(REG_AFCLSB);
                     if (readReg(REG_IRQFLAGS1) & IRQ1_SYNCMATCH) {
-            			tfr =  micros() - startRX;
+            			tfr =  micros() - startRX;	// 4µs precision
         				IRQ_ENABLE;       // allow nested interrupts from here on        
             			if (tfr < dTime) tfr = tfr + 1024UL;
                         rfapi.syncMatch++;                     
