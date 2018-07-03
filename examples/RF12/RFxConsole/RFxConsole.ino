@@ -664,11 +664,11 @@ static void showStatus() {
 	showString(PSTR(", Temperature "));
 	Serial.print(RF69::readTemperature(0));
 	showString(PSTR("ºC"));
-    showString(PSTR(", RX Restarts "));
+    showString(PSTR(", Restarts "));
     Serial.print(rfapi.RSSIrestart);
     showString(PSTR(", Rate "));
     Serial.print(restartRate);
-    printOneChar('m');
+    printOneChar('^');
     Serial.print(maxRestartRate);
     showString(PSTR("/min, Sync Match "));
     Serial.print(rfapi.syncMatch);
@@ -1339,21 +1339,21 @@ static void handleInput (char c) {
             		 if (value == 102) {
             		 	for (int c = 0; c < MAX_NODES; ++c)
             		 		semaphoreStack[c * 3] = 0;
-            		 } else 
-                     if (value == 123) {
-                         clrConfig();
-                         showString(PSTR(" Zzz...\n"));
-                         Serial.flush();
-                         rf12_sleep(RF12_SLEEP);
-                         cli();
-                         Sleepy::powerDown();
-                     } else 
-                     if (value == 255) {
-                        clrNodeStore();
-
-                         showString(PSTR("Watchdog enabled, restarting\n"));
-                         WDTCSR |= _BV(WDE);
-                     }
+					} else 
+					if (value == 123) {
+						clrConfig();
+						showString(PSTR(" Zzz...\n"));
+                        Serial.flush();
+                        rf12_sleep(RF12_SLEEP);
+                        cli();
+                        Sleepy::powerDown();
+					} else 
+						if (value == 250) {
+                        	clrNodeStore();                        
+					} else if (value == 255) {
+						showString(PSTR("Watchdog enabled, restarting\n"));
+						WDTCSR |= _BV(WDE);
+					}
                      break;
 
             default:
