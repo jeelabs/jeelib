@@ -182,7 +182,7 @@ static volatile int16_t fei;
 static volatile int16_t lastFEI;
 static volatile uint16_t delayTXRECV;
 static volatile uint16_t rst;
-static volatile uint32_t tfr;
+volatile uint32_t tfr;
 static volatile uint32_t previousMillis;
 static volatile uint32_t noiseMillis;
 static volatile uint32_t SYNCinterruptMillis;
@@ -455,8 +455,8 @@ void RF69::configure_compat () {
 
 uint8_t* recvBuf;
 
-uint32_t startRX;
-uint32_t ms;
+volatile uint32_t startRX;
+volatile uint32_t ms;
 
 uint16_t RF69::recvDone_compat (uint8_t* buf) {
     switch (rxstate) {
@@ -479,7 +479,6 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
         rxstate = TXRECV;
 		writeReg(REG_AFCFEI, (AFC_CLEAR));
-        startRX = micros();
         rfapi.mode = readReg(REG_OPMODE);
         rfapi.irqflags1 = readReg(REG_IRQFLAGS1); 
                
@@ -639,7 +638,6 @@ void RF69::interrupt_compat (uint8_t rssi_interrupt) {
   the choices are limited because of the short time gap between RSSI & SyncMatch,
   being driven by recvDone and the size of the radio FIFO.
 */
-        IRQ_ENABLE;       // allow nested interrupts from here on        
         interruptCount++;
 
 /*
@@ -654,26 +652,26 @@ second rollover and then will be 1.024 mS out.
             if (rssi_interrupt) {
             	ms = millis();
             	RssiToSync = 0;
+				delayMicroseconds(20);	// Kill some time waiting for sync bytes (4µs precision)
+				// 20 yeilds 95 spread from 39 samples
+        		startRX = micros();
                 while (true) {  // Loop for SyncMatch or Timeout
-	                if (RssiToSync == 50) {
+	                if (RssiToSync == 0) {
 	                	writeReg(REG_AFCFEI, (AFC_START | FEI_START));
             			rssi = readReg(REG_RSSIVALUE);
     					lna = (readReg(REG_LNA) >> 3) & 7;
-            			rfapi.rssi = rssi;
-          				if (rssi) {
-				          	/* rssi == 0 can happen above, no idea how right now
-				          	only seen when using int0 versus pin change interrupt. */
-			             	if (rssi < rfapi.noiseFloorMin) rfapi.noiseFloorMin = rssi;
-				          	if (rssi > rfapi.noiseFloorMax) rfapi.noiseFloorMax = rssi;
-			  			} else  rfapi.rssiZero++;
-	                }
+    					// Keep the SPI quiet while FEI calculation is done.
+    					#define dTime 1092UL		// (4µs precision)
+						delayMicroseconds(dTime);	// Kill some time waiting for sync match
+ 	                }
+           			fei  = readReg(REG_FEIMSB);
+        			fei  = (fei << 8) + readReg(REG_FEILSB);
+        	        afc  = readReg(REG_AFCMSB);
+            		afc  = (afc << 8) | readReg(REG_AFCLSB);
                     if (readReg(REG_IRQFLAGS1) & IRQ1_SYNCMATCH) {
-						if (RssiToSync > 155) {
-            				fei  = readReg(REG_FEIMSB);
-        					fei  = (fei << 8) + readReg(REG_FEILSB);
-        	        		afc  = readReg(REG_AFCMSB);
-            	    		afc  = (afc << 8) | readReg(REG_AFCLSB);
-						}            	                			
+            			tfr =  micros() - startRX;
+        				IRQ_ENABLE;       // allow nested interrupts from here on        
+            			if (tfr < dTime) tfr = tfr + 1024UL;
                         rfapi.syncMatch++;                     
                 		noiseMillis = ms;	// Delay a reduction in sensitivity
                         break;
@@ -756,7 +754,6 @@ second rollover and then will be 1.024 mS out.
                 packetShort++;
             } 
   
-            tfr =  (micros() - startRX);
             rst = rfapi.RSSIrestart;
             rxP++;
             
