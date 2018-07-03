@@ -2548,7 +2548,7 @@ Serial.print(")");
         				Serial.print(rfapi.cumFEI[i] / rfapi.cumCount[i]);
 //    	    			printOneChar(' ');
 //        				Serial.print(rfapi.cumAFC[i] / rfapi.cumCount[i]);
-//    	    			printOneChar(' ');
+//	  	    			printOneChar(' ');
 //	    	        	Serial.print(rfapi.cumLNA[i] / rfapi.cumCount[i]);
     	    			printOneChar(' ');
 	    	        	Serial.print(rfapi.cumCount[i]);

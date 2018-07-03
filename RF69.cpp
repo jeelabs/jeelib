@@ -180,15 +180,13 @@ static volatile uint8_t rf69_fix;    // Maximum for fixed length packet
 static volatile int16_t afc;
 static volatile int16_t fei;
 static volatile int16_t lastFEI;
-static volatile uint16_t RssiToSync;
 static volatile uint16_t delayTXRECV;
-static volatile uint16_t rtp;
 static volatile uint16_t rst;
 static volatile uint32_t tfr;
 static volatile uint32_t previousMillis;
 static volatile uint32_t noiseMillis;
 static volatile uint32_t SYNCinterruptMillis;
-
+static volatile uint16_t RssiToSync;
 //static volatile uint32_t restarts;
 static volatile uint8_t startRSSI;
 
@@ -497,7 +495,9 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
             rf12_interpacketTS = rfapi.interpacketTS;
             delayTXRECV = 0;
             rf12_sri = currentRSSI();
-            rf12_rtp = rtp; // Delay between RSSI & Data Packet
+            rf12_rtp = RssiToSync; // Delay between RSSI & Data Packet
+			if (rfapi.rtpMin > RssiToSync) rfapi.rtpMin = RssiToSync;
+			if (rfapi.rtpMax < RssiToSync) rfapi.rtpMax = RssiToSync;
             rf12_rst = rst; // Count of resets used to capture packet
             rf12_tfr = tfr; // Time to receive in microseconds
             for (byte i = 0; i < (payloadLen + 5); i++) {
@@ -653,7 +653,7 @@ second rollover and then will be 1.024 mS out.
         if (rxstate == TXRECV) {
             if (rssi_interrupt) {
             	ms = millis();
-                RssiToSync = 0;
+            	RssiToSync = 0;
                 while (true) {  // Loop for SyncMatch or Timeout
 	                if (RssiToSync == 50) {
 	                	writeReg(REG_AFCFEI, (AFC_START | FEI_START));
@@ -685,15 +685,12 @@ second rollover and then will be 1.024 mS out.
                                                                 */ // CPU clock dependant
         				setMode(MODE_SLEEP);
                         rxstate = TXIDLE;   // Cause a RX restart by FSM
-/*	      				writeReg(REG_DIOMAPPING1, 0x00);	// Mask most radio interrupts
-    	  				writeReg(REG_LNA, 0x06); 			// Minimise LNA gain
-      					writeReg(REG_RSSITHRESHOLD, 40); 	// Quiet the RSSI threshold */
         				// Collect RX stats per LNA
 	                	rfapi.RSSIrestart++;
 	                	rfapi.cumRSSI[lna] = rfapi.cumRSSI[lna] + (uint32_t)rssi; 
 	                	rfapi.cumFEI[lna] = rfapi.cumFEI[lna] + (int32_t)fei; 
 //	                	rfapi.cumAFC[lna] = rfapi.cumAFC[lna] + (int32_t)afc; 
-	                	rfapi.cumLNA[lna] = rfapi.cumLNA[lna] + (uint32_t)lna; 
+//	                	rfapi.cumLNA[lna] = rfapi.cumLNA[lna] + (uint32_t)lna; 
 	                	rfapi.cumCount[lna]++;
 	                	rfapi.changed = true;
 
@@ -711,13 +708,10 @@ second rollover and then will be 1.024 mS out.
                 } //  while
             } //  RSSI
             rfapi.interpacketTS = ms;
-            rxstate = RXFIFO; 
-                       
-            
-            rtp = RssiToSync;
-            rst = rfapi.RSSIrestart;
+            rxstate = RXFIFO;                       
+//            rtp = RssiToSync;
+
             volatile uint8_t stillCollecting = true;
-            rxP++;
             crc = ~0;
             packetBytes = 0;
             payloadLen = rf69_fix; // Assumed value if no Jee header used            
@@ -760,8 +754,12 @@ second rollover and then will be 1.024 mS out.
             if (stillCollecting) {
                 // We are exiting before a successful packet completion
                 packetShort++;
-            }    
+            } 
+  
             tfr =  (micros() - startRX);
+            rst = rfapi.RSSIrestart;
+            rxP++;
+            
             writeReg(REG_AFCFEI, AFC_CLEAR);
 	      	writeReg(REG_DIOMAPPING1, 0x00);	// Mask most radio interrupts
             setMode(MODE_SLEEP);
