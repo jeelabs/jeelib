@@ -652,9 +652,12 @@ second rollover and then will be 1.024 mS out.
         // N.B. millis is not updating until IRQ_ENABLE
         if (rxstate == TXRECV) {
             if (rssi_interrupt) {
-            	ms = millis();
+				          	
+						IRQ_ENABLE;       // allow nested interrupts from here on        
+
+				ms = millis();
                 while (true) {  // Loop for SyncMatch or Timeout
-	                if (RssiToSync == (40)) {
+	                if (RssiToSync == (50)) {
 	                	// Tune the above value to get smallest FEI MIN/MAX spread
 	                	// 30 = 
 	                	// 40 = 68s @65dB
@@ -662,7 +665,7 @@ second rollover and then will be 1.024 mS out.
 	                	// 50 = 60s
 	                	// 55 = 57s @65dB
 	                	// 60 = 69s @66 dB
-	                	writeReg(REG_AFCFEI, (AFC_START | FEI_START));
+	                	writeReg(REG_AFCFEI, (/*AFC_START | */FEI_START));
             			rssi = readReg(REG_RSSIVALUE);
     					lna = (readReg(REG_LNA) >> 3) & 7;
 	                } else 
@@ -691,10 +694,10 @@ second rollover and then will be 1.024 mS out.
                         minimum i.e. 0.02uS per bit x 6bytes is 
                         about 1mS minimum."
                                                                 */ // CPU clock dependant
-						writeReg(REG_AFCFEI, (AFC_CLEAR));
-	      				writeReg(REG_DIOMAPPING1, 0x00);	// Mask most radio interrupts
         				setMode(MODE_SLEEP);
-/*    	  				writeReg(REG_LNA, 0x06); 			// Minimise LNA gain
+                        rxstate = TXIDLE;   // Cause a RX restart by FSM
+/*	      				writeReg(REG_DIOMAPPING1, 0x00);	// Mask most radio interrupts
+    	  				writeReg(REG_LNA, 0x06); 			// Minimise LNA gain
       					writeReg(REG_RSSITHRESHOLD, 40); 	// Quiet the RSSI threshold */
         				// Collect RX stats per LNA
 	                	rfapi.RSSIrestart++;
@@ -714,14 +717,11 @@ second rollover and then will be 1.024 mS out.
 							}
 						}
 						lastFEI = fei;
-                        rxstate = TXIDLE;   // Cause a RX restart by FSM
-                        return;
+						rxstate = TXIDLE;   // Cause a RX restart by FSM
+                       return;
                     } // SyncMatch or Timeout 
                 } //  while
             } //  RSSI
-				          	
-						IRQ_ENABLE;       // allow nested interrupts from here on        
-
 
             rfapi.interpacketTS = ms;
             rtp = RssiToSync;
@@ -760,8 +760,9 @@ second rollover and then will be 1.024 mS out.
                     packetBytes++;
                     crc = _crc16_update(crc, in);              
                     if (rxfill >= (payloadLen + (5 - rf69_skip))) {  // Trap end of payload
-                        writeReg(REG_AFCFEI, AFC_CLEAR);
-	      				writeReg(REG_DIOMAPPING1, 0x00);	// Mask most radio interrupts
+						writeReg(REG_DIOMAPPING1, 0x00);	// Mask most radio interrupts
+    	  				writeReg(REG_LNA, 0x06); 			// Minimise LNA gain
+      					writeReg(REG_RSSITHRESHOLD, 40); 	// Quiet the RSSI threshold
                         setMode(MODE_SLEEP);  // Get radio out of RX mode
                         stillCollecting = false;
                         break;
@@ -790,12 +791,11 @@ second rollover and then will be 1.024 mS out.
     		writeReg(REG_PALEVEL, ((rfapi.txPower & 0x9F) | 0x80));	// PA1/PA2 off
           	// rxstate will be TXDONE at this point
           	txP++;
-	      	writeReg(REG_DIOMAPPING1, 0x00);	// Mask most radio interrupts
-        	setMode(MODE_SLEEP);
+//          	setMode(MODE_SLEEP);
+          	rxstate = TXIDLE;
           	// Restore sync bytes configuration
           	if (group == 0) {               // Allow receiving from all groups
               writeReg(REG_SYNCCONFIG, threeByteSync);
-            rxstate = TXIDLE;
           	}
 
         } else {
@@ -808,9 +808,7 @@ second rollover and then will be 1.024 mS out.
             unexpectedIRQFLAGS2 = readReg(REG_IRQFLAGS2);
             unexpectedMode = readReg(REG_OPMODE);
             writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
-//            writeReg(REG_AFCFEI, AFC_CLEAR);
-//	      	writeReg(REG_DIOMAPPING1, 0x00);	// Mask most radio interrupts
-        	setMode(MODE_SLEEP);
-            rxstate = TXIDLE;
+            rxstate = TXIDLE;   // Cause a RX restart by FSM
+//        	setMode(MODE_SLEEP);
         }
 }
