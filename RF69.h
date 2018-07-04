@@ -1,8 +1,8 @@
 #ifndef RF69_h
 #define RF69_h
 
-#define JEEPACKET16 185					// Loop limiter in RF69::interrupt_compat
-#define JEEPACKET8 JEEPACKET16 / 2		// Loop limiter in RF69::interrupt_compat
+#define JEEPACKET16 5					// Loop limiter in RF69::interrupt_compat
+#define JEEPACKET8 JEEPACKET16			// Loop limiter in RF69::interrupt_compat
 // 					The above value is an estimate and needs fine tuning.
 #define SALUSPACKET16 JEEPACKET16 * 18	// ditto
 
@@ -22,8 +22,8 @@ typedef struct {
 	uint16_t RssiToSync;
 	uint16_t RssiToSyncLimit;	//Count of loops after RSSI before a missed sync is triggered
 	uint16_t rssiZero;
-    volatile uint8_t rtpMin;    
-	volatile uint8_t rtpMax;    
+    volatile uint16_t rtpMin;    
+	volatile uint16_t rtpMax;    
 	uint8_t	configThreshold;
     uint8_t rssiThreshold;
     uint8_t rssi;

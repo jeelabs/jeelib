@@ -329,7 +329,7 @@ static uint8_t initRadio (ROM_UINT8* init) {
             init += 2;
         }
 		previousMillis = millis();
-		rfapi.rtpMin = 255; rfapi.rtpMax = 0;
+		rfapi.rtpMin = 0; /*65535;*/ rfapi.rtpMax = 0;
         InitIntPin();
         
         return 1;
@@ -494,9 +494,12 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
             rf12_interpacketTS = rfapi.interpacketTS;
             delayTXRECV = 0;
             rf12_sri = currentRSSI();
-            rf12_rtp = RssiToSync; // Delay between RSSI & Data Packet
-			if (rfapi.rtpMin > RssiToSync) rfapi.rtpMin = RssiToSync;
-			if (rfapi.rtpMax < RssiToSync) rfapi.rtpMax = RssiToSync;
+            
+            rf12_rtp = RssiToSync; // Delay count between RSSI & Data Packet
+//			if (rfapi.rtpMin > RssiToSync) rfapi.rtpMin = RssiToSync;
+			if (RssiToSync > 1) rfapi.rtpMin++;	// Count none standard sync matches
+			if (rfapi.rtpMax < RssiToSync) rfapi.rtpMin++;
+
             rf12_rst = rst; // Count of resets used to capture packet
             rf12_tfr = tfr; // Time to receive in microseconds
             for (byte i = 0; i < (payloadLen + 5); i++) {
@@ -658,7 +661,7 @@ second rollover and then will be 1.024 mS out.
         		startRX = micros();	// 4µs precision
                 while (true) {  // Loop for SyncMatch or Timeout
 	                if (RssiToSync == 0) {
-	                	writeReg(REG_AFCFEI, (AFC_START | FEI_START));
+	                	writeReg(REG_AFCFEI, (/*AFC_START | */FEI_START));
             			rssi = readReg(REG_RSSIVALUE);
     					lna = (readReg(REG_LNA) >> 3) & 7;
     					// Keep the SPI quiet while FEI calculation is done.

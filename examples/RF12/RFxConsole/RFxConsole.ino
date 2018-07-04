@@ -60,6 +60,7 @@
 // Added support for a semaphore queue to store and forward postings to nodes in ACK's 2018-02-27
 // Sum the RSSI & FEI of packets that trigger a restart without a sync, reported to serial using 8v
 // Support fine radio frequency control using microOffset 32,1600o 2018-06-30
+// Assume the ACK's are sent for i31 in order to collect ACK statistics for i31 2018-07-4
 
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
 	#define TINY 1
@@ -381,6 +382,8 @@ static byte semaphoreStack[(MAX_NODES * 3) + 1];	// FIFO per node-group
 #endif
 //static unsigned long goodCRC;
 #if RF69_COMPAT && STATISTICS
+static int32_t CumNodeFEI[MAX_NODES];
+static uint32_t CumNodeTfr[MAX_NODES];
 static signed int minFEI[MAX_NODES];
 static signed int lastFEI[MAX_NODES];
 static signed int maxFEI[MAX_NODES];
@@ -679,12 +682,14 @@ static void showStatus() {
 		showString(PSTR(", Discards "));
    		Serial.print(rfapi.discards);
     }
-    showString(PSTR(", Bounds "));
-    Serial.print(rf12_rtp);
-    printOneChar(';');
-    Serial.print(rfapi.rtpMin);
-    printOneChar('^');
-    Serial.println(rfapi.rtpMax);
+    if (rfapi.rtpMin) {
+	    showString(PSTR(", Bounds "));
+    	Serial.print(rf12_rtp);
+    	printOneChar(';');
+    	Serial.print(rfapi.rtpMin);
+    	printOneChar('^');
+    	Serial.println(rfapi.rtpMax);
+    }
     showString(PSTR("RSSI Rx "));
     Serial.print(rfapi.noiseFloorMin);
     printOneChar('/');
@@ -1329,7 +1334,7 @@ static void handleInput (char c) {
 					if (value < MAX_NODES) {
 						oneShow(value);
 						pktCount[value] = lastFEI[value] = minFEI[value] = maxFEI[value]
-						= lastRSSI[value] = minRSSI[value] = maxRSSI[value] 
+						= lastRSSI[value] = minRSSI[value] = maxRSSI[value] = CumNodeFEI[value] = CumNodeTfr[MAX_NODES]
 						= lastLNA[value] = minLNA[value] = maxLNA[value] = 0;
             		 }
 					if (value == 101) {
@@ -1814,6 +1819,8 @@ static void oneShow(byte index) {
         showString(PSTR(" fei("));
      	Serial.print(lastFEI[index]);
         printOneChar(';');
+        Serial.print((CumNodeFEI[index]) / (int32_t)pktCount[index]);
+        printOneChar(';');
         Serial.print(minFEI[index]);
         printOneChar('-');
         Serial.print(maxFEI[index]);
@@ -1835,8 +1842,9 @@ static void oneShow(byte index) {
         Serial.print(minLNA[index]);
         printOneChar('^');
         Serial.print(maxLNA[index]);
-        printOneChar(')');
-    }
+        showString(PSTR(") tfr="));
+        Serial.print((CumNodeTfr[index]) / (uint32_t)pktCount[index]);
+  }
 #endif
     Serial.println();
 }
@@ -2268,13 +2276,17 @@ Serial.print(")");
             if (df_present())
                 df_append((const char*) rf12_data - 2, rf12_len + 2);
 
+			if ((rf12_hdr & (RF12_HDR_CTL | RF12_HDR_DST)) == (RF12_HDR_CTL | RF12_HDR_DST)) 
+			  rf12_hdr = 191; // (31 | RF12_HDR_CTL | RF12_HDR_ACK);	
+				// Assume ACK responder is i31 
+				         
             if (!(rf12_hdr & RF12_HDR_DST)) {
                 // This code only sees broadcast packets *from* other nodes.
                 // Packets addressed to nodes do not identify the source node!          
                 // Search RF12_EEPROM_NODEMAP for node/group match
                 // Node 31 will also be added even though a Node Allocation will
                 // be offered, to track everyone who was out there.
-#if !TINY           
+#if !TINY
                 if (!getIndex(rf12_grp, (rf12_hdr & RF12_HDR_MASK)) && (!(testPacket))) {
                     if (newNodeMap != 0xFFFF) { // Storage space available?
                         // Node 31 will also be added even though a Node Allocation will
@@ -2313,6 +2325,8 @@ Serial.print(")");
                     maxLNA[NodeMap] = observedRX.lna;   
 
 				lastFEI[NodeMap] = rf12_fei;
+				CumNodeFEI[NodeMap] = CumNodeFEI[NodeMap] + rf12_fei;
+				CumNodeTfr[NodeMap] = CumNodeTfr[NodeMap] + rf12_tfr;
                 if (rf12_fei < (minFEI[NodeMap]))       
                     minFEI[NodeMap] = rf12_fei;
                 if (rf12_fei > (maxFEI[NodeMap]))
