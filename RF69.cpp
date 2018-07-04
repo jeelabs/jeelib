@@ -187,8 +187,8 @@ static volatile uint32_t previousMillis;
 static volatile uint32_t noiseMillis;
 static volatile uint32_t SYNCinterruptMillis;
 static volatile uint16_t RssiToSync;
-//static volatile uint32_t restarts;
 static volatile uint8_t startRSSI;
+static volatile uint8_t afcfei;
 
 static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 //  0x01, 0x04, // Standby Mode
@@ -444,6 +444,7 @@ void RF69::configure_compat () {
     	while(!(readReg(REG_OSC1) & RcCalDone));    // Wait for completion
         writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
         rxstate = TXIDLE;
+
         present = 1;                                // Radio is present
 #if F_CPU == 16000000UL
         rfapi.RssiToSyncLimit = JEEPACKET16;
@@ -475,7 +476,11 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         writeReg(REG_OCP, OCP_NORMAL);			// Overcurrent protection on
         writeReg(REG_TESTPA1, TESTPA1_NORMAL);	// Turn off high power 
         writeReg(REG_TESTPA2, TESTPA2_NORMAL);  // transmit
-    	rfapi.setmode = setMode(MODE_RECEIVER);
+        
+        if (rfapi.ConfigFlags & 0x80) afcfei = AFC_START;
+        else afcfei = 0;
+
+        rfapi.setmode = setMode(MODE_RECEIVER);
         writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
         rxstate = TXRECV;
 		writeReg(REG_AFCFEI, (AFC_CLEAR));
@@ -498,7 +503,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
             rf12_rtp = RssiToSync; // Delay count between RSSI & Data Packet
 //			if (rfapi.rtpMin > RssiToSync) rfapi.rtpMin = RssiToSync;
 			if (RssiToSync > 1) rfapi.rtpMin++;	// Count none standard sync matches
-			if (rfapi.rtpMax < RssiToSync) rfapi.rtpMin++;
+			if (rfapi.rtpMax < RssiToSync) rfapi.rtpMax = RssiToSync;
 
             rf12_rst = rst; // Count of resets used to capture packet
             rf12_tfr = tfr; // Time to receive in microseconds
@@ -661,11 +666,11 @@ second rollover and then will be 1.024 mS out.
         		startRX = micros();	// 4µs precision
                 while (true) {  // Loop for SyncMatch or Timeout
 	                if (RssiToSync == 0) {
-	                	writeReg(REG_AFCFEI, (/*AFC_START | */FEI_START));
+	                	writeReg(REG_AFCFEI, (afcfei | FEI_START));
             			rssi = readReg(REG_RSSIVALUE);
     					lna = (readReg(REG_LNA) >> 3) & 7;
     					// Keep the SPI quiet while FEI calculation is done.
-    					#define dTime 1094UL
+    					#define dTime 1056UL		// 1056 yields 1096~1100 tfr
 						delayMicroseconds(dTime);	// Kill some time waiting for sync match
  	                }
            			fei  = readReg(REG_FEIMSB);
@@ -680,11 +685,12 @@ second rollover and then will be 1.024 mS out.
                 		noiseMillis = ms;	// Delay a reduction in sensitivity
                         break;
                     } else if (RssiToSync++ >= rfapi.RssiToSyncLimit) {
-/* CPU clock dependant: Timeout: MartynJ "Assuming you are using 5byte synch,
+/*
+						Timeout: MartynJ "Assuming you are using 5byte synch,
                         then it is just counting the bit times to find the 
                         minimum i.e. 0.02uS per bit x 6bytes is 
                         about 1mS minimum."
-                                                                */ // CPU clock dependant
+*/                                                                
         				setMode(MODE_SLEEP);
                         rxstate = TXIDLE;   // Cause a RX restart by FSM
         				// Collect RX stats per LNA

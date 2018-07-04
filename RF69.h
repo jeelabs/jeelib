@@ -41,6 +41,7 @@ typedef struct {
 	uint8_t lastPay0;
 	uint8_t	txPower;
 	uint8_t changed;
+	uint8_t ConfigFlags;
 
 	} RF_API;
 	extern RF_API rfapi;	// Info interchange area

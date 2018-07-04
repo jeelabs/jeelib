@@ -60,7 +60,8 @@
 // Added support for a semaphore queue to store and forward postings to nodes in ACK's 2018-02-27
 // Sum the RSSI & FEI of packets that trigger a restart without a sync, reported to serial using 8v
 // Support fine radio frequency control using microOffset 32,1600o 2018-06-30
-// Assume the ACK's are sent for i31 in order to collect ACK statistics for i31 2018-07-4
+// Assume the ACK's are sent from i31 in order to collect ACK statistics for i31 2018-07-4
+// Add rfapi.configFlags to control afc off/on using "128,8b" 2018-07-4
 
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
 	#define TINY 1
@@ -688,8 +689,9 @@ static void showStatus() {
     	printOneChar(';');
     	Serial.print(rfapi.rtpMin);
     	printOneChar('^');
-    	Serial.println(rfapi.rtpMax);
+    	Serial.print(rfapi.rtpMax);
     }
+    Serial.println();
     showString(PSTR("RSSI Rx "));
     Serial.print(rfapi.noiseFloorMin);
     printOneChar('/');
@@ -851,9 +853,18 @@ static void handleInput (char c) {
                 break;
 
             case 'b': // set band: 4 = 433, 8 = 868, 9 = 915
-                value = bandToFreq(value);
-                if (value) {
-                    config.nodeId = (value << 6) + (config.nodeId & 0x3F);
+#if RF69_COMPAT
+				if (top == 1) {
+					rfapi.ConfigFlags = rfapi.ConfigFlags = stack[0];
+				} else {
+					stack[0] = rfapi.ConfigFlags;
+					top = 1;
+				}
+				
+#endif
+                stack[1] = bandToFreq(value);
+                if (stack[1]) {
+                    config.nodeId = (stack[1] << 6) + (config.nodeId & 0x3F);
                     config.frequency_offset = 1600;
                     saveConfig();
                 }
@@ -871,9 +882,10 @@ static void handleInput (char c) {
 #if RF69_COMPAT
 						if (top == 1) {
                          	config.microOffset = (stack[0] & 63);
-						} else if (config.microOffset) {
+                            saveConfig();
+						} else {
                          	stack[0] = config.microOffset;
-							top++;
+							top = 1;
 						}
 #endif
                          if (value) {
@@ -2277,7 +2289,7 @@ Serial.print(")");
                 df_append((const char*) rf12_data - 2, rf12_len + 2);
 
 			if ((rf12_hdr & (RF12_HDR_CTL | RF12_HDR_DST)) == (RF12_HDR_CTL | RF12_HDR_DST)) 
-			  rf12_hdr = 191; // (31 | RF12_HDR_CTL | RF12_HDR_ACK);	
+			  rf12_hdr = (31 | RF12_HDR_CTL | RF12_HDR_ACK);	
 				// Assume ACK responder is i31 
 				         
             if (!(rf12_hdr & RF12_HDR_DST)) {
