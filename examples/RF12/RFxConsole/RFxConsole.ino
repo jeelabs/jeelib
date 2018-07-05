@@ -717,9 +717,10 @@ static void showStatus() {
     showString(PSTR(", InterCRC(ms) "));
     Serial.print(minCrcGap);
     printOneChar('/');
-    Serial.println(maxCrcGap);
+    Serial.print(maxCrcGap);
 
 #endif
+	Serial.println();
     showString(PSTR("Eeprom"));
     rf12_configDump();
 #if RF69_COMPAT
@@ -1345,14 +1346,18 @@ static void handleInput (char c) {
             case 'z':
 					if (value < MAX_NODES) {
 						oneShow(value);
+#if RF69_COMPAT
 						pktCount[value] = lastFEI[value] = minFEI[value] = maxFEI[value]
 						= lastRSSI[value] = minRSSI[value] = maxRSSI[value] = CumNodeFEI[value] = CumNodeTfr[MAX_NODES]
 						= lastLNA[value] = minLNA[value] = maxLNA[value] = 0;
+#endif
             		 }
+#if RF69_COMPAT
 					if (value == 101) {
             		 	minGap = minCrcGap = ~0;
             		 	maxGap = maxCrcGap = maxRestartRate = 0;
 					} else 
+#endif
             		 if (value == 102) {
             		 	for (int c = 0; c < MAX_NODES; ++c)
             		 		semaphoreStack[c * 3] = 0;
