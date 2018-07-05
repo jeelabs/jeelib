@@ -2,6 +2,7 @@
 #include <RF69.h>
 #include <RF69_avr.h>
 #define __PROG_TYPES_COMPAT__
+#define NOP __asm__ __volatile__ ("nop\n\t")
 #include <avr/pgmspace.h>
 #include <util/delay_basic.h>
 
@@ -239,6 +240,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x37, 0x00, // PacketConfig1 = fixed, no crc, filt off
   0x38, 0x00, // PayloadLength = 0, unlimited
   0x3C, 0x8F, // FifoTresh, not empty, level 15 bytes, unused here
+//  0x3C, 0x05, 	// FifoTresh, level 5 bytes, the sync length TODO This TX setting crashes remote receiver
   0x3D, 0x10, // PacketConfig2, interpkt = 1, autorxrestart off
   0x58, 0x2D, // High sensitivity mode
   0x6F, 0x30, // TestDagc ...
@@ -660,27 +662,39 @@ second rollover and then will be 1.024 mS out.
             if (rssi_interrupt) {
             	ms = millis();
             	RssiToSync = 0;
-//            	for (volatile uint8_t t = 0; t < 1; t++);
-				delayMicroseconds(20);	// Kill some time waiting for sync bytes
-				// 20 yeilds 95 spread from 39 samples
-        		startRX = micros();	// 4µs precision
+				for (volatile byte tick = 0; tick < 24; tick++) NOP;	// Kill some time waiting for sync bytes
+				// volatile above changes the timing
+/*				for (byte tick = 0; tick < 13; tick++) {
+					// (13*16* + 0)NOP and the FEI isn't calculated
+					// (13*16* + 1)NOP and the FEI is calculated some of the time
+					// (13*16* + 2)NOP and the FEI is calculated some of the time
+					// (13*16* + 3)NOP and the FEI is calculated some of the time
+					// (13*16* + 4)NOP and the FEI is calculated some of the time
+					// (13*16* + 5)NOP and the FEI is calculated some of the time
+					// (13*16* + 6)NOP and the FEI is calculated some of the time
+					// (13*16* + 8)NOP and the FEI is calculated some of the time
+					// (13*16* + 12)NOP and the FEI is calculated some of the time
+					// (13*16* + 13)NOP and the FEI is calculated OK
+					NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; }	// Delay 62.5ns
+				NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP;*/
+	        	startRX = micros();	// 4µs precision
                 while (true) {  // Loop for SyncMatch or Timeout
 	                if (RssiToSync == 0) {
 	                	writeReg(REG_AFCFEI, (afcfei | FEI_START));
+						for (volatile uint16_t tick = 0; tick < 840; tick++) NOP;	// Keep the SPI quiet while FEI calculation is done.
+//    					#define dTime 1040UL		// 1056 yields 1096~1100 tfr
+//						delayMicroseconds(dTime);	// Kill some time waiting for sync match
             			rssi = readReg(REG_RSSIVALUE);
     					lna = (readReg(REG_LNA) >> 3) & 7;
-    					// Keep the SPI quiet while FEI calculation is done.
-    					#define dTime 1056UL		// 1056 yields 1096~1100 tfr
-						delayMicroseconds(dTime);	// Kill some time waiting for sync match
- 	                }
-           			fei  = readReg(REG_FEIMSB);
-        			fei  = (fei << 8) + readReg(REG_FEILSB);
-        	        afc  = readReg(REG_AFCMSB);
-            		afc  = (afc << 8) | readReg(REG_AFCLSB);
+           				fei  = readReg(REG_FEIMSB);
+        				fei  = (fei << 8) + readReg(REG_FEILSB);
+        	        	afc  = readReg(REG_AFCMSB);
+            			afc  = (afc << 8) | readReg(REG_AFCLSB);
+            		}
                     if (readReg(REG_IRQFLAGS1) & IRQ1_SYNCMATCH) {
             			tfr =  micros() - startRX;	// 4µs precision
         				IRQ_ENABLE;       // allow nested interrupts from here on        
-            			if (tfr < dTime) tfr = tfr + 1024UL;
+            			if (tfr < 1024uL) tfr = tfr + 1024uL;
                         rfapi.syncMatch++;                     
                 		noiseMillis = ms;	// Delay a reduction in sensitivity
                         break;

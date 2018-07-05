@@ -1855,7 +1855,7 @@ static void oneShow(byte index) {
         printOneChar('^');
         Serial.print(maxLNA[index]);
         showString(PSTR(") tfr="));
-        Serial.print((CumNodeTfr[index]) / (uint32_t)pktCount[index]);
+        Serial.print(((CumNodeTfr[index]) / (uint32_t)pktCount[index]) + 1000);
   }
 #endif
     Serial.println();
@@ -1929,22 +1929,27 @@ void loop () {
     if (rf12_recvDone()) {
 
 #if RF69_COMPAT && !TINY                // At this point the radio is in Standby
-
-        rf12_recvDone();                // Attempt to buffer next RF packet
-        // At this point the receiver is active but previous buffer intact
-        
- 		unsigned long rxGap = rf12_interpacketTS - rxLast;
- 		rxLast = rf12_interpacketTS;
- 		if (rxGap < minGap) minGap = rxGap;
- 		if (rxGap > maxGap) maxGap = rxGap;
-
+		unsigned long rxGap, rxCrcGap;
         if (rf12_crc == 0) {
-         	unsigned long rxCrcGap = rf12_interpacketTS - rxCrcLast;
+        
+ 			if (!(RF12_WANTS_ACK && (config.collect_mode) == 0)) {	
+				// ACK not required for current packet 				
+        		rf12_recvDone();                // Attempt to buffer next RF packet
+        		// At this point the receiver is active but previous buffer intact
+        		     					
+ 			} 
+         	rxCrcGap = rf12_interpacketTS - rxCrcLast;
  			rxCrcLast = rf12_interpacketTS;
  			if (rxCrcGap < minCrcGap) minCrcGap = rxGap;
  			if (rxCrcGap > maxCrcGap) maxCrcGap = rxGap;
+ 			
 		}
- 		
+       
+ 		rxGap = rf12_interpacketTS - rxLast;
+ 		rxLast = rf12_interpacketTS;
+ 		if (rxGap < minGap) minGap = rxGap;
+ 		if (rxGap > maxGap) maxGap = rxGap;
+		
         observedRX.afc = rf12_afc;
         observedRX.fei = rf12_fei;
         observedRX.rssi2 = rf12_rssi;
@@ -2338,7 +2343,7 @@ Serial.print(")");
 
 				lastFEI[NodeMap] = rf12_fei;
 				CumNodeFEI[NodeMap] = CumNodeFEI[NodeMap] + rf12_fei;
-				CumNodeTfr[NodeMap] = CumNodeTfr[NodeMap] + rf12_tfr;
+				CumNodeTfr[NodeMap] = CumNodeTfr[NodeMap] + (rf12_tfr - 1000UL);	// Save capacity
                 if (rf12_fei < (minFEI[NodeMap]))       
                     minFEI[NodeMap] = rf12_fei;
                 if (rf12_fei > (maxFEI[NodeMap]))

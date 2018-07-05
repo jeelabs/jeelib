@@ -1,7 +1,7 @@
 #ifndef RF69_h
 #define RF69_h
 
-#define JEEPACKET16 5					// Loop limiter in RF69::interrupt_compat
+#define JEEPACKET16 20					// Loop limiter in RF69::interrupt_compat
 #define JEEPACKET8 JEEPACKET16			// Loop limiter in RF69::interrupt_compat
 // 					The above value is an estimate and needs fine tuning.
 #define SALUSPACKET16 JEEPACKET16 * 18	// ditto
