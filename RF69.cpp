@@ -446,8 +446,6 @@ void RF69::configure_compat () {
     	while(!(readReg(REG_OSC1) & RcCalDone));    // Wait for completion
         writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
         rxstate = TXIDLE;
-        rfapi.minGap = ~0;
-        rfapi.maxGap = 0;
 
         present = 1;                                // Radio is present
 #if F_CPU == 16000000UL
@@ -680,8 +678,7 @@ second rollover and then will be 1.024 mS out.
         	        	afc  = readReg(REG_AFCMSB);
             			afc  = (afc << 8) | readReg(REG_AFCLSB);
             			
-            			rfapi.interpacketTS = ms;            			
- 						uint32_t rxGap = ms - rfapi.rxLast;
+ 						volatile uint32_t rxGap = ms - rfapi.rxLast;
  						rfapi.rxLast = ms;
 		 				if (rxGap < rfapi.minGap) rfapi.minGap = rxGap;
  						if (rxGap > rfapi.maxGap) rfapi.maxGap = rxGap;          			
@@ -733,7 +730,8 @@ second rollover and then will be 1.024 mS out.
                     } // SyncMatch or Timeout 
                 } //  while
             } //  RSSI
-            rxstate = RXFIFO;                       
+        rfapi.interpacketTS = ms;	// Value stored at time of interrupt            			
+        rxstate = RXFIFO;                       
 //            rtp = RssiToSync;
 
             volatile uint8_t stillCollecting = true;

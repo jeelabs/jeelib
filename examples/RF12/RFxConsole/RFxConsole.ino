@@ -135,10 +135,7 @@ unsigned int NodeMap;
 unsigned int newNodeMap;
 unsigned long lastRSSIrestart;
 unsigned long lastThresholdRSSIrestart;
-unsigned long rxLast;
 unsigned long rxCrcLast;
-//unsigned long minGap = ~0;
-//unsigned long maxGap = 0;
 unsigned long minCrcGap = ~0; 
 unsigned long maxCrcGap = 0; 
 
@@ -709,13 +706,14 @@ static void showStatus() {
     showString(PSTR(", Busy Count "));
     Serial.print(busyCount);
     showString(PSTR(", InterSync(ms) "));
-    Serial.print(millis() - rfapi.interpacketTS);
+    uint32_t ms = millis();
+    Serial.print(ms - rfapi.rxLast);
     printOneChar(';');
     Serial.print(rfapi.minGap);
     printOneChar('^');
     Serial.print(rfapi.maxGap);
     showString(PSTR(", InterCRC(ms) "));
-    Serial.print(millis() - rxCrcLast);
+    Serial.print(ms - rxCrcLast);
     printOneChar(';');
     Serial.print(minCrcGap);
     printOneChar('^');
@@ -1572,8 +1570,11 @@ showNibble(resetFlags);
 #if RF69_COMPAT && STATISTICS
     // Initialise min/max/count arrays
     for (int i = 0; i < MAX_NODES; i++) {
-        minFEI[i] = 32767;
-        maxFEI[i] = -32767;
+        minFEI[i] = ~0;
+        maxFEI[i] = ~0;
+
+    	rfapi.minGap = ~0;	//TODO Find a better place, in the driver to init structure
+
     }
     //memset(minFEI,32767,sizeof(minFEI));
     //
@@ -1634,6 +1635,7 @@ showNibble(resetFlags);
     Serial.flush();
     maxRestartRate = 0;
     previousRestarts = rfapi.RSSIrestart;
+        
 } // setup
 
 static void clrConfig() {

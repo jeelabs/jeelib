@@ -15,9 +15,9 @@ typedef struct {
 	uint32_t discards;   // Count of good packets discarded
     uint32_t interpacketTS;
     
-    uint32_t rxLast;
-    uint32_t minGap;
-    uint32_t maxGap;
+    volatile uint32_t rxLast;
+    volatile uint32_t minGap;
+    volatile uint32_t maxGap;
     
     uint32_t cumRSSI[8];
     int32_t cumFEI[8];
