@@ -137,8 +137,8 @@ unsigned long lastRSSIrestart;
 unsigned long lastThresholdRSSIrestart;
 unsigned long rxLast;
 unsigned long rxCrcLast;
-unsigned long minGap = ~0;
-unsigned long maxGap = 0;
+//unsigned long minGap = ~0;
+//unsigned long maxGap = 0;
 unsigned long minCrcGap = ~0; 
 unsigned long maxCrcGap = 0; 
 
@@ -693,30 +693,32 @@ static void showStatus() {
     }
     Serial.println();
     showString(PSTR("RSSI Rx "));
-    Serial.print(rfapi.noiseFloorMin);
-    printOneChar('/');
     Serial.print(rf12_rssi);
-    printOneChar('/');
+    printOneChar(';');
+    Serial.print(rfapi.noiseFloorMin);
+    printOneChar('^');
     Serial.print(rfapi.noiseFloorMax);
     showString(PSTR(", Tx "));
-    Serial.print(minTxRSSI);
-    printOneChar('/');    
     Serial.print(rfapi.sendRSSI);
-    printOneChar('/');
+    printOneChar(';');
+    Serial.print(minTxRSSI);
+    printOneChar('^');    
     Serial.print(maxTxRSSI);
     showString(PSTR(", Ack Aborts "));
     Serial.print(packetAborts);
     showString(PSTR(", Busy Count "));
     Serial.print(busyCount);
     showString(PSTR(", InterSync(ms) "));
-    Serial.print(minGap);
-    printOneChar('/');
-    Serial.print((millis() - rfapi.interpacketTS));
-    printOneChar('/');
-    Serial.print(maxGap);
+    Serial.print(millis() - rfapi.interpacketTS);
+    printOneChar(';');
+    Serial.print(rfapi.minGap);
+    printOneChar('^');
+    Serial.print(rfapi.maxGap);
     showString(PSTR(", InterCRC(ms) "));
+    Serial.print(millis() - rxCrcLast);
+    printOneChar(';');
     Serial.print(minCrcGap);
-    printOneChar('/');
+    printOneChar('^');
     Serial.print(maxCrcGap);
 
 #endif
@@ -1354,8 +1356,8 @@ static void handleInput (char c) {
             		 }
 #if RF69_COMPAT
 					if (value == 101) {
-            		 	minGap = minCrcGap = ~0;
-            		 	maxGap = maxCrcGap = maxRestartRate = 0;
+            		 	rfapi.minGap = minCrcGap = ~0;
+            		 	rfapi.maxGap = maxCrcGap = maxRestartRate = 0;
 					} else 
 #endif
             		 if (value == 102) {
@@ -1859,7 +1861,7 @@ static void oneShow(byte index) {
         Serial.print(minLNA[index]);
         printOneChar('^');
         Serial.print(maxLNA[index]);
-        showString(PSTR(") tfr="));
+        showString(PSTR(") tfr "));
         Serial.print(((CumNodeTfr[index]) / (uint32_t)pktCount[index]) + 1000);
   }
 #endif
@@ -1933,28 +1935,23 @@ void loop () {
 
     if (rf12_recvDone()) {
 
-#if RF69_COMPAT && !TINY                // At this point the radio is in Standby
-		unsigned long rxGap, rxCrcGap;
+#if RF69_COMPAT && !TINY                // At this point the radio is in Sleep
         if (rf12_crc == 0) {
+			unsigned long rxCrcGap;
         
  			if (!(RF12_WANTS_ACK && (config.collect_mode) == 0)) {	
 				// ACK not required for current packet 				
-        		rf12_recvDone();                // Attempt to buffer next RF packet
+        		rf12_recvDone();		// Attempt to buffer next RF packet
         		// At this point the receiver is active but previous buffer intact
         		     					
  			} 
          	rxCrcGap = rf12_interpacketTS - rxCrcLast;
  			rxCrcLast = rf12_interpacketTS;
- 			if (rxCrcGap < minCrcGap) minCrcGap = rxGap;
- 			if (rxCrcGap > maxCrcGap) maxCrcGap = rxGap;
+ 			if (rxCrcGap < minCrcGap) minCrcGap = rxCrcGap;
+ 			if (rxCrcGap > maxCrcGap) maxCrcGap = rxCrcGap;
  			
 		}
        
- 		rxGap = rf12_interpacketTS - rxLast;
- 		rxLast = rf12_interpacketTS;
- 		if (rxGap < minGap) minGap = rxGap;
- 		if (rxGap > maxGap) maxGap = rxGap;
-		
         observedRX.afc = rf12_afc;
         observedRX.fei = rf12_fei;
         observedRX.rssi2 = rf12_rssi;
@@ -2173,8 +2170,8 @@ void loop () {
 /*
             showString(PSTR(" r="));
             Serial.print(rf12_rst);
-            showString(PSTR(" i="));
-            Serial.print(rxGap);
+//            showString(PSTR(" i="));
+//            Serial.print(rxGap);
             /*
                showString(PSTR(" M="));
                Serial.print(RF69::REGIRQFLAGS1, HEX);
@@ -2541,6 +2538,7 @@ Serial.print(")");
 				Serial.println(m);
             }
         }
+
         if ((config.verbosity & 8) && (minuteTick)) {
             minuteTick = false;            	
             if (rfapi.changed) {

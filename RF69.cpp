@@ -446,6 +446,8 @@ void RF69::configure_compat () {
     	while(!(readReg(REG_OSC1) & RcCalDone));    // Wait for completion
         writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
         rxstate = TXIDLE;
+        rfapi.minGap = ~0;
+        rfapi.maxGap = 0;
 
         present = 1;                                // Radio is present
 #if F_CPU == 16000000UL
@@ -530,14 +532,14 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         }
         break;
     }
-/* Code below did not find any mode error situations.
+// Code below did not find any mode error situations.
     // Test for radio in hung state
     if (readReg(REG_OPMODE) == MODE_FS) {
 				setMode(MODE_SLEEP);	// Clear hang?
             	rxstate = TXIDLE;
-            	rfapi.modeError++;
+            	rfapi.modeError = true;
 	}
-*/
+
     return ~0; // keep going, not done yet
 }
 
@@ -664,32 +666,34 @@ second rollover and then will be 1.024 mS out.
             	RssiToSync = 0;
 				for (volatile byte tick = 0; tick < 24; tick++) NOP;	// Kill some time waiting for sync bytes
 				// volatile above changes the timing
-/*				for (byte tick = 0; tick < 13; tick++) {
-					// (13*16* + 0)NOP and the FEI isn't calculated
-					// (13*16* + 1)NOP and the FEI is calculated some of the time
-					// (13*16* + 2)NOP and the FEI is calculated some of the time
-					// (13*16* + 3)NOP and the FEI is calculated some of the time
-					// (13*16* + 4)NOP and the FEI is calculated some of the time
-					// (13*16* + 5)NOP and the FEI is calculated some of the time
-					// (13*16* + 6)NOP and the FEI is calculated some of the time
-					// (13*16* + 8)NOP and the FEI is calculated some of the time
-					// (13*16* + 12)NOP and the FEI is calculated some of the time
-					// (13*16* + 13)NOP and the FEI is calculated OK
-					NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; }	// Delay 62.5ns
-				NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP;*/
 	        	startRX = micros();	// 4µs precision
                 while (true) {  // Loop for SyncMatch or Timeout
 	                if (RssiToSync == 0) {
 	                	writeReg(REG_AFCFEI, (afcfei | FEI_START));
+	                	
 						for (volatile uint16_t tick = 0; tick < 840; tick++) NOP;	// Keep the SPI quiet while FEI calculation is done.
-//    					#define dTime 1040UL		// 1056 yields 1096~1100 tfr
-//						delayMicroseconds(dTime);	// Kill some time waiting for sync match
+						
             			rssi = readReg(REG_RSSIVALUE);
     					lna = (readReg(REG_LNA) >> 3) & 7;
            				fei  = readReg(REG_FEIMSB);
         				fei  = (fei << 8) + readReg(REG_FEILSB);
         	        	afc  = readReg(REG_AFCMSB);
             			afc  = (afc << 8) | readReg(REG_AFCLSB);
+            			
+            			rfapi.interpacketTS = ms;            			
+ 						uint32_t rxGap = ms - rfapi.rxLast;
+ 						rfapi.rxLast = ms;
+		 				if (rxGap < rfapi.minGap) rfapi.minGap = rxGap;
+ 						if (rxGap > rfapi.maxGap) rfapi.maxGap = rxGap;          			
+
+             			rfapi.rssi = rssi;
+          				if (rssi) {
+				          	/* rssi == 0 can happen above, no idea how right now
+				          	only seen when using int0 versus pin change interrupt. */
+			             	if (rssi < rfapi.noiseFloorMin) rfapi.noiseFloorMin = rssi;
+				          	if (rssi > rfapi.noiseFloorMax) rfapi.noiseFloorMax = rssi;
+			  			} else  rfapi.rssiZero++;
+
             		}
                     if (readReg(REG_IRQFLAGS1) & IRQ1_SYNCMATCH) {
             			tfr =  micros() - startRX;	// 4µs precision
@@ -729,7 +733,6 @@ second rollover and then will be 1.024 mS out.
                     } // SyncMatch or Timeout 
                 } //  while
             } //  RSSI
-            rfapi.interpacketTS = ms;
             rxstate = RXFIFO;                       
 //            rtp = RssiToSync;
 

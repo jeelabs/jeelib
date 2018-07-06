@@ -14,6 +14,11 @@ typedef struct {
     uint32_t goodCRC;
 	uint32_t discards;   // Count of good packets discarded
     uint32_t interpacketTS;
+    
+    uint32_t rxLast;
+    uint32_t minGap;
+    uint32_t maxGap;
+    
     uint32_t cumRSSI[8];
     int32_t cumFEI[8];
 //    int32_t cumAFC[8];
@@ -23,7 +28,8 @@ typedef struct {
 	uint16_t RssiToSyncLimit;	//Count of loops after RSSI before a missed sync is triggered
 	uint16_t rssiZero;
     volatile uint16_t rtpMin;    
-	volatile uint16_t rtpMax;    
+	volatile uint16_t rtpMax;
+	uint8_t modeError;    
 	uint8_t	configThreshold;
     uint8_t rssiThreshold;
     uint8_t rssi;
