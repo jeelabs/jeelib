@@ -1,10 +1,10 @@
 #ifndef RF69_h
 #define RF69_h
 
-#define JEEPACKET16 20					// Loop limiter in RF69::interrupt_compat
-#define JEEPACKET8 JEEPACKET16			// Loop limiter in RF69::interrupt_compat
+#define JEEPACKET16 10						// Loop limiter in RF69::interrupt_compat
+#define JEEPACKET8 JEEPACKET16				// Loop limiter in RF69::interrupt_compat
 // 					The above value is an estimate and needs fine tuning.
-#define SALUSPACKET16 JEEPACKET16 * 18	// ditto
+#define SALUSPACKET16  2500					// ditto
 
 typedef struct {
 
@@ -29,6 +29,7 @@ typedef struct {
 	uint16_t rssiZero;
     volatile uint16_t rtpMin;    
 	volatile uint16_t rtpMax;
+	volatile uint16_t intRXFIFO;
 	uint8_t modeError;    
 	uint8_t	configThreshold;
     uint8_t rssiThreshold;

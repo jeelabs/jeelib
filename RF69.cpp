@@ -135,7 +135,7 @@
 #define RF_MAX   72
 
 // transceiver states, these determine what to do with each interrupt
-enum { TXCRC1, TXCRC2,/* TXTAIL,*/ TXDONE, TXIDLE, TXRECV, RXFIFO };
+enum { TXCRC1, TXCRC2, TXDONE, TXIDLE, TXRECV, RXFIFO };
 
 byte clearAir = 180;
 
@@ -462,6 +462,10 @@ volatile uint32_t startRX;
 volatile uint32_t ms;
 
 uint16_t RF69::recvDone_compat (uint8_t* buf) {
+	if (rfapi.ConfigFlags) {
+		Serial.println("False");
+		return false;
+	}
     switch (rxstate) {
     
     case TXIDLE:
@@ -481,6 +485,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         
         if (rfapi.ConfigFlags & 0x80) afcfei = AFC_START;
         else afcfei = 0;
+        rfapi.ConfigFlags = (rfapi.ConfigFlags | afcfei);
 
         rfapi.setmode = setMode(MODE_RECEIVER);
         writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
@@ -649,7 +654,6 @@ void RF69::interrupt_compat (uint8_t rssi_interrupt) {
   being driven by recvDone and the size of the radio FIFO.
 */
         interruptCount++;
-
 /*
 micros() returns the hardware timer contents (which updates continuously), 
 plus a count of rollovers (ie. one rollover ever 1.024 mS). 
@@ -694,12 +698,14 @@ second rollover and then will be 1.024 mS out.
             		}
                     if (readReg(REG_IRQFLAGS1) & IRQ1_SYNCMATCH) {
             			tfr =  micros() - startRX;	// 4µs precision
+				        rxstate = RXFIFO;                       
         				IRQ_ENABLE;       // allow nested interrupts from here on        
             			if (tfr < 1024uL) tfr = tfr + 1024uL;
                         rfapi.syncMatch++;                     
                 		noiseMillis = ms;	// Delay a reduction in sensitivity
                         break;
-                    } else if (RssiToSync++ >= rfapi.RssiToSyncLimit) {
+                    } else 
+                    if (RssiToSync++ >= rfapi.RssiToSyncLimit) {
 /*
 						Timeout: MartynJ "Assuming you are using 5byte synch,
                         then it is just counting the bit times to find the 
@@ -730,10 +736,8 @@ second rollover and then will be 1.024 mS out.
                     } // SyncMatch or Timeout 
                 } //  while
             } //  RSSI
-        rfapi.interpacketTS = ms;	// Value stored at time of interrupt            			
-        rxstate = RXFIFO;                       
-//            rtp = RssiToSync;
-
+        	rfapi.interpacketTS = ms;	// Value stored at time of interrupt            			
+	
             volatile uint8_t stillCollecting = true;
             crc = ~0;
             packetBytes = 0;
@@ -789,7 +793,13 @@ second rollover and then will be 1.024 mS out.
             writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
             rxstate = TXRECV;   // Restore state machine
 
-	    } else if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
+        } else
+        if (rxstate == RXFIFO) {	// Interrupted while filling FIFO ?
+        	rfapi.intRXFIFO++;
+        	return;					// Get back to it.
+
+	    } else 
+	    if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
           	writeReg(REG_OCP, OCP_NORMAL);				// Overcurrent protection on
           	writeReg(REG_TESTPA1, TESTPA1_NORMAL);	// Turn off high power 
           	writeReg(REG_TESTPA2, TESTPA2_NORMAL);	// transmit
@@ -797,23 +807,23 @@ second rollover and then will be 1.024 mS out.
           	// rxstate will be TXDONE at this point
           	txP++;
           	setMode(MODE_SLEEP);
-          	rxstate = TXIDLE;
           	// Restore sync bytes configuration
           	if (group == 0) {               // Allow receiving from all groups
-              writeReg(REG_SYNCCONFIG, threeByteSync);
+				writeReg(REG_SYNCCONFIG, threeByteSync);             
           	}
-
+          	rxstate = TXIDLE;
         } else {
             // We get here when a interrupt that is not for RX/TX completion.
             // Appears related to receiving noise when the bad CRC
             // packet display is enabled using "0q".
-            // Many instances of an interrupt entering here while in FS mode 8 - PLL?
-            unexpected++;
+            // Instances of an interrupt entering here while in FS mode 8 - PLL?
+            // Instances of RX mode with rxstate = TXIDILE
             unexpectedFSM = rxstate; // Save Finite State Machine status
             unexpectedIRQFLAGS2 = readReg(REG_IRQFLAGS2);
-            unexpectedMode = readReg(REG_OPMODE);
-            writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
+            unexpectedMode = readReg(REG_OPMODE) >> 2;
+            unexpected++;
+//			writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
             rxstate = TXIDLE;   // Cause a RX restart by FSM
-        	setMode(MODE_SLEEP);
+//			setMode(MODE_SLEEP);
         }
 }

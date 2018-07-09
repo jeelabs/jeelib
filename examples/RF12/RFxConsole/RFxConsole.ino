@@ -138,7 +138,7 @@ unsigned long lastThresholdRSSIrestart;
 unsigned long rxCrcLast;
 unsigned long minCrcGap = ~0; 
 unsigned long maxCrcGap = 0; 
-
+byte minHdr, OldHdr, OldBadHdr, minOldHdr, minOldBadHdr;
 byte stickyGroup = 212;
 byte eepromWrite;
 byte qMin = ~0;
@@ -713,12 +713,17 @@ static void showStatus() {
     printOneChar('^');
     Serial.print(rfapi.maxGap);
     showString(PSTR(", InterCRC(ms) "));
+	Serial.print(minOldBadHdr);
+    printOneChar('&');
+	Serial.print(minOldHdr);
+    printOneChar('&');
+	Serial.print(minHdr);
+    printOneChar(';');
     Serial.print(ms - rxCrcLast);
     printOneChar(';');
     Serial.print(minCrcGap);
     printOneChar('^');
     Serial.print(maxCrcGap);
-
 #endif
 	Serial.println();
     showString(PSTR("Eeprom"));
@@ -1776,16 +1781,16 @@ http://forum.arduino.cc/index.php/topic,140376.msg1054626.html
     Serial.print((RF69::packetShort));     // Packet ended short
     printOneChar(',');
     printOneChar('[');
-    Serial.print(RF69::unexpected);
+    Serial.print(RF69::unexpectedMode);	//	0=Sleep, 1=Standby, 2=FS, 3=TX, 4=RX
     printOneChar(',');
-    Serial.print(RF69::unexpectedFSM);
+    Serial.print(RF69::unexpectedFSM);	// enum TXCRC1, TXCRC2, TXDONE, TXIDLE, TXRECV, RXFIFO
     printOneChar(',');
-    Serial.print(RF69::unexpectedIRQFLAGS2);
+    Serial.print(RF69::unexpectedIRQFLAGS2);	// Reg 0x28
     printOneChar(',');
-    Serial.print(RF69::unexpectedMode);
+    Serial.print(RF69::unexpected);		// Count
     printOneChar(']');
     printOneChar(',');
-    //    Serial.print(RF69::nestedInterrupts);
+    Serial.print(rfapi.intRXFIFO);
     printOneChar(',');
     Serial.print(RF69::IRQFLAGS2);
     printOneChar(',');
@@ -1949,7 +1954,12 @@ void loop () {
  			} 
          	rxCrcGap = rf12_interpacketTS - rxCrcLast;
  			rxCrcLast = rf12_interpacketTS;
- 			if (rxCrcGap < minCrcGap) minCrcGap = rxCrcGap;
+ 			if (rxCrcGap < minCrcGap) {
+ 				minCrcGap = rxCrcGap;
+ 				minOldHdr = OldHdr;
+ 				minOldBadHdr = OldBadHdr;
+ 				minHdr = rf12_hdr;
+ 			}
  			if (rxCrcGap > maxCrcGap) maxCrcGap = rxCrcGap;
  			
 		}
@@ -2047,8 +2057,11 @@ void loop () {
             }  
 #endif
 
-            if (config.quiet_mode) return;
-
+            if (config.quiet_mode) {
+            	OldBadHdr = rf12_hdr;	// Save node number in case next packet triggers an inquest.
+				return;
+			}
+			
             crc = false;
             showString(PSTR("   ?"));
             n = n + 2;	// Include potential CRC
@@ -2114,12 +2127,12 @@ void loop () {
         
 #if RF69_COMPAT && !TINY
         if ((config.verbosity & 1) || (!crc)) {
-/*        
-            showString(PSTR(" a="));
-            Serial.print(observedRX.afc);                      // TODO What units has this number?
-*/
+			if (observedRX.afc) {        
+            	showString(PSTR(" a="));
+            	Serial.print(observedRX.afc);		// TODO What units has this number?
+			}
             showString(PSTR(" f="));
-            Serial.print(observedRX.fei);                      // TODO What units has this number?
+            Serial.print(observedRX.fei);			// TODO What units has this number?
             /*
                LNA gain setting:
                000 gain set by the internal AGC loop
@@ -2504,6 +2517,7 @@ Serial.print(")");
             }
             if (crlf) Serial.println();
             activityLed(0);
+            OldHdr = rf12_hdr;	// Save node number in case next packet triggers an inquest.
         }
     } // rf12_recvDone
 
@@ -2589,6 +2603,7 @@ Serial.print(")");
     	    			printOneChar(' ');
 	    	        	Serial.print(rfapi.cumCount[i]);
 	        			printOneChar(']');
+	        			
 		        		rfapi.cumRSSI[i] = rfapi.cumFEI[i] /*= rfapi.cumLNA[i]*/ = 
 		        	 	/*rfapi.cumAFC[i] =*/ rfapi.cumCount[i] = 0;
 		        	 }
@@ -2597,9 +2612,11 @@ Serial.print(")");
 	        }
         }
 #endif
+
 #if TINY						// Very weird, needed to make Tiny code compile
-    } // !rf12_recvDone
-#endif	    
+//    } // !rf12_recvDone
+#endif
+	    
     if ((cmd) || (ping)) {
         byte r = rf12_canSend(config.clearAir);
         if (r) {
