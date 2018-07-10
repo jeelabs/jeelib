@@ -230,7 +230,7 @@ static byte inChar () {
     #define LED_PIN     9        // activity LED, comment out to disable
   #endif
   #define messageStore  128
-  #define MAX_NODES 20        // Contrained by RAM (22 bytes RAM per node)
+  #define MAX_NODES 15        // Contrained by RAM (22 bytes RAM per node)
 #endif
 
 static unsigned long now () {
@@ -382,6 +382,7 @@ static byte semaphoreStack[(MAX_NODES * 3) + 1];	// FIFO per node-group
 #if RF69_COMPAT && STATISTICS
 static int32_t CumNodeFEI[MAX_NODES];
 static uint32_t CumNodeTfr[MAX_NODES];
+static uint16_t CumNodeRtp[MAX_NODES];
 static signed int minFEI[MAX_NODES];
 static signed int lastFEI[MAX_NODES];
 static signed int maxFEI[MAX_NODES];
@@ -1353,8 +1354,8 @@ static void handleInput (char c) {
 						oneShow(value);
 #if RF69_COMPAT
 						pktCount[value] = lastFEI[value] = minFEI[value] = maxFEI[value]
-						= lastRSSI[value] = minRSSI[value] = maxRSSI[value] = CumNodeFEI[value] = CumNodeTfr[MAX_NODES]
-						= lastLNA[value] = minLNA[value] = maxLNA[value] = 0;
+						= lastRSSI[value] = minRSSI[value] = maxRSSI[value] = CumNodeFEI[value] = CumNodeTfr[value]
+						= CumNodeRtp[value] = lastLNA[value] = minLNA[value] = maxLNA[value] = 0;
 #endif
             		 }
 #if RF69_COMPAT
@@ -1781,13 +1782,13 @@ http://forum.arduino.cc/index.php/topic,140376.msg1054626.html
     Serial.print((RF69::packetShort));     // Packet ended short
     printOneChar(',');
     printOneChar('[');
-    Serial.print(RF69::unexpectedMode);	//	0=Sleep, 1=Standby, 2=FS, 3=TX, 4=RX
+    Serial.print(RF69::unexpectedMode);			//	0=Sleep, 1=Standby, 2=FS, 3=TX, 4=RX
     printOneChar(',');
-    Serial.print(RF69::unexpectedFSM);	// enum TXCRC1, TXCRC2, TXDONE, TXIDLE, TXRECV, RXFIFO
+    Serial.print(RF69::unexpectedFSM);			// enum TXCRC1, TXCRC2, TXDONE, TXIDLE, TXRECV, RXFIFO
     printOneChar(',');
     Serial.print(RF69::unexpectedIRQFLAGS2);	// Reg 0x28
     printOneChar(',');
-    Serial.print(RF69::unexpected);		// Count
+    Serial.print(RF69::unexpected);				// Count
     printOneChar(']');
     printOneChar(',');
     Serial.print(rfapi.intRXFIFO);
@@ -1870,6 +1871,8 @@ static void oneShow(byte index) {
         Serial.print(maxLNA[index]);
         showString(PSTR(") tfr "));
         Serial.print(((CumNodeTfr[index]) / (uint32_t)pktCount[index]) + 1000);
+        printOneChar(' ');
+        Serial.print(CumNodeRtp[index]);
   }
 #endif
     Serial.println();
@@ -2178,10 +2181,12 @@ void loop () {
                 }
             }
 */
-            showString(PSTR(" d=("));
+            showString(PSTR(" d="));
             Serial.print(rf12_tfr);
-            printOneChar(')');
-            Serial.print(rf12_rtp);
+            if (rf12_rtp) {
+	            printOneChar('~');
+				Serial.print(rf12_rtp);
+			}
 /*
             showString(PSTR(" r="));
             Serial.print(rf12_rst);
@@ -2361,6 +2366,7 @@ Serial.print(")");
 				lastFEI[NodeMap] = rf12_fei;
 				CumNodeFEI[NodeMap] = CumNodeFEI[NodeMap] + rf12_fei;
 				CumNodeTfr[NodeMap] = CumNodeTfr[NodeMap] + (rf12_tfr - 1000UL);	// Save capacity
+				CumNodeRtp[NodeMap] = CumNodeRtp[NodeMap] + rf12_rtp;
                 if (rf12_fei < (minFEI[NodeMap]))       
                     minFEI[NodeMap] = rf12_fei;
                 if (rf12_fei > (maxFEI[NodeMap]))
@@ -2584,6 +2590,10 @@ Serial.print(")");
 //	    		Serial.print(rfapi.cumAFC[1] +  rfapi.cumAFC[2] + rfapi.cumAFC[3]
 //    			 + rfapi.cumAFC[4] + rfapi.cumAFC[5] + rfapi.cumAFC[6] + rfapi.cumAFC[7]);
 //   				printOneChar(' ');
+
+    			Serial.print(rfapi.cumZeros[1] +  rfapi.cumZeros[2] + rfapi.cumZeros[3]
+    		 	+ rfapi.cumZeros[4] + rfapi.cumZeros[5] + rfapi.cumZeros[6] + rfapi.cumZeros[7]);
+   				printOneChar(' ');
     		 
     			Serial.print(rfapi.cumCount[1] +  rfapi.cumCount[2] + rfapi.cumCount[3]
     		 	+ rfapi.cumCount[4] + rfapi.cumCount[5] + rfapi.cumCount[6] + rfapi.cumCount[7]);
@@ -2601,11 +2611,13 @@ Serial.print(")");
 //	  	    			printOneChar(' ');
 //	    	        	Serial.print(rfapi.cumLNA[i] / rfapi.cumCount[i]);
     	    			printOneChar(' ');
+	    	        	Serial.print(rfapi.cumZeros[i]);
+    	    			printOneChar(' ');
 	    	        	Serial.print(rfapi.cumCount[i]);
 	        			printOneChar(']');
 	        			
 		        		rfapi.cumRSSI[i] = rfapi.cumFEI[i] /*= rfapi.cumLNA[i]*/ = 
-		        	 	/*rfapi.cumAFC[i] =*/ rfapi.cumCount[i] = 0;
+		        	 	/*rfapi.cumAFC[i] =*/ rfapi.cumZeros[i] = rfapi.cumCount[i] = 0;
 		        	 }
 	        	}
             Serial.println();	        	

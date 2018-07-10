@@ -24,6 +24,7 @@ typedef struct {
 //    int32_t cumAFC[8];
 //    uint32_t cumLNA[8];
     uint16_t cumCount[8];
+    uint16_t cumZeros[8];
 	uint16_t RssiToSync;
 	uint16_t RssiToSyncLimit;	//Count of loops after RSSI before a missed sync is triggered
 	uint16_t rssiZero;

@@ -507,7 +507,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
             delayTXRECV = 0;
             rf12_sri = currentRSSI();
             
-            rf12_rtp = RssiToSync; // Delay count between RSSI & Data Packet
+            rf12_rtp = RssiToSync; // Extra count between RSSI & Sync Match
 //			if (rfapi.rtpMin > RssiToSync) rfapi.rtpMin = RssiToSync;
 			if (RssiToSync > 1) rfapi.rtpMin++;	// Count none standard sync matches
 			if (rfapi.rtpMax < RssiToSync) rfapi.rtpMax = RssiToSync;
@@ -717,11 +717,14 @@ second rollover and then will be 1.024 mS out.
         				// Collect RX stats per LNA
 	                	rfapi.RSSIrestart++;
 	                	rfapi.cumRSSI[lna] = rfapi.cumRSSI[lna] + (uint32_t)rssi; 
-	                	rfapi.cumFEI[lna] = rfapi.cumFEI[lna] + (int32_t)fei; 
+	                	if (fei) {
+	                		rfapi.cumFEI[lna] = rfapi.cumFEI[lna] + (int32_t)fei;
+	                		rfapi.cumCount[lna]++;
+	                	} else rfapi.cumZeros[lna]++;
+	                	rfapi.changed = true;
+	                	
 //	                	rfapi.cumAFC[lna] = rfapi.cumAFC[lna] + (int32_t)afc; 
 //	                	rfapi.cumLNA[lna] = rfapi.cumLNA[lna] + (uint32_t)lna; 
-	                	rfapi.cumCount[lna]++;
-	                	rfapi.changed = true;
 
             			if ((rfapi.rateInterval) && ((noiseMillis + rfapi.rateInterval) < ms)) {
                         	// Adjust RSSI if in noise region	                	    
