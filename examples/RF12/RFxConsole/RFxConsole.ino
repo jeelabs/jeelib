@@ -1843,17 +1843,25 @@ static void oneShow(byte index) {
 #endif
 #if RF69_COMPAT && STATISTICS            
     if (c) {
-        showString(PSTR(" fei("));
+        showString(PSTR(" FEI(Cum:"));
+		Serial.print(CumNodeFEI[index]);
+//        printOneChar(' ');
+
+		int16_t delta = abs(minFEI[index] - maxFEI[index]);
+        showString(PSTR(" Last:"));
      	Serial.print(lastFEI[index]);
-        printOneChar(';');
+        showString(PSTR(" Mid:"));
+		Serial.print(minFEI[index] + (delta / 2));     	     	
+        showString(PSTR(" Avg:"));
         Serial.print((CumNodeFEI[index]) / (int32_t)pktCount[index]);
         printOneChar(';');
         Serial.print(minFEI[index]);
         printOneChar('-');
         Serial.print(maxFEI[index]);
         printOneChar('=');
-        Serial.print(abs(minFEI[index] - maxFEI[index]));
-        showString(PSTR(") rssi("));
+//        Serial.print(abs(minFEI[index] - maxFEI[index]));
+        Serial.print(delta);
+        showString(PSTR(") RSSI("));
         showByte(lastRSSI[index]);
         printOneChar(';');
         showByte(eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4) + 2)); // Show original RSSI value
@@ -1861,7 +1869,7 @@ static void oneShow(byte index) {
         showByte(minRSSI[index]);
         printOneChar('^');
         showByte(maxRSSI[index]);
-        showString(PSTR(") lna("));
+        showString(PSTR(") LNA("));
         Serial.print(lastLNA[index]);
         printOneChar(';');
         showByte(eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4) + 3)); // Show original LNA value
@@ -1869,7 +1877,7 @@ static void oneShow(byte index) {
         Serial.print(minLNA[index]);
         printOneChar('^');
         Serial.print(maxLNA[index]);
-        showString(PSTR(") tfr "));
+        showString(PSTR(") TFR "));
         Serial.print(((CumNodeTfr[index]) / (uint32_t)pktCount[index]) + 1000);
         printOneChar(' ');
         Serial.print(CumNodeRtp[index]);
