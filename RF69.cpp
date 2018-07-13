@@ -243,7 +243,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 //  0x3C, 0x05, 	// FifoTresh, level 5 bytes, the sync length TODO This TX setting crashes remote receiver
   0x3D, 0x10, // PacketConfig2, interpkt = 1, autorxrestart off
   0x58, 0x2D, // High sensitivity mode
-  0x6F, 0x30, // TestDagc ...
+//  0x6F, 0x30, // TestDagc ...
 //  0x71, 0x01, // AFC offset set for low modulation index systems, used if
               // AfcLowBetaOn=1. Offset = LowBetaAfcOffset x 488 Hz 
   0

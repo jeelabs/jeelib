@@ -96,6 +96,7 @@
 #include <avr/pgmspace.h>
 #include <util/parity.h>
 #include "release.h"    // Version tracking by dzach
+//#include <Statistic.h>  // without trailing s
 
 #define MAJOR_VERSION RF12_EEPROM_VERSION // bump when EEPROM layout changes
 #define MINOR_VERSION 0                   // bump on other non-trivial changes
@@ -1821,7 +1822,7 @@ static void oneShow(byte index) {
     byte n = eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4) + 0);	// Node number
     if (n & 0x80) return;
     byte g = eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4) + 1);	// Group number
-	printOneChar('#');         
+//	printOneChar('#');         
     showByte(index);
     showString(PSTR(" g"));      
     showByte(g);
@@ -2388,6 +2389,7 @@ Serial.print(")");
 #endif
 #if STATISTICS            
                 pktCount[NodeMap]++;
+                if ((pktCount[NodeMap] % 100) == 0) oneShow(NodeMap);
             } else {
                 nonBroadcastCount++;
 #endif
