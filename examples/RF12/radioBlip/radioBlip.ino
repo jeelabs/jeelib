@@ -27,7 +27,7 @@ void setup() {
 #endif
 
 //    rf12_initialize(22, RF12_868MHZ, 212, 1615);
-    rf12_initialize(22, RF12_868MHZ, 212, 1620);
+    rf12_initialize(22, RF12_868MHZ, 212, 1611);
     // see http://tools.jeelabs.org/rfm12b
 #if !RF69_COMPAT
 //    rf12_control(0xC040); // set low-battery level to 2.2V i.s.o. 3.1V

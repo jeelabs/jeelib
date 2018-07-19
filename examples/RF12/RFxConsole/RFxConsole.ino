@@ -690,8 +690,8 @@ static void showStatus() {
     	printOneChar('^');
     	Serial.print(rfapi.rtpMax);
     }
-    Serial.println();
-    showString(PSTR("RSSI Rx "));
+//    printOneChar('\n');
+    showString(PSTR("\nRSSI Rx "));
     Serial.print(rf12_rssi);
     printOneChar(';');
     Serial.print(rfapi.noiseFloorMin);
@@ -727,8 +727,8 @@ static void showStatus() {
     printOneChar('^');
     Serial.print(maxCrcGap);
 #endif
-	Serial.println();
-    showString(PSTR("Eeprom"));
+//    printOneChar('\n');
+    showString(PSTR("\nEeprom"));
     rf12_configDump();
 #if RF69_COMPAT
     if (!RF69::present) {
@@ -1561,13 +1561,14 @@ void setup () {
   	TIMSK1 |= (1 << OCIE1A);				// Timer1 compare interrupt
 
     // Consider adding the following equivalents for RFM12x
-    /*
+    
 #if !TINY
 showNibble(resetFlags >> 4);
 showNibble(resetFlags);
+printOneChar(' ');
+Serial.println(MCUSR, HEX);
     // TODO the above doesn't do what we need, results vary with Bootloader etc
 #endif
-     */
 
 #if MESSAGING && !TINY
     // messagesR = 0x05, 'T', 'e', 's', 't', '3'; // TODO    // Can be removed from RAM with "129m"
@@ -1659,6 +1660,13 @@ static void clrNodeStore() {
     for (unsigned int n = 0; n < 0x3D0; n++) {
         eeprom_write_byte((RF12_EEPROM_NODEMAP) + n, 0xFF);
     }
+#if RF69_COMPAT
+	for (byte i; i < MAX_NODES; i++) {
+		pktCount[i] = lastFEI[i] = minFEI[i] = maxFEI[i]
+		= lastRSSI[i] = minRSSI[i] = maxRSSI[i] = CumNodeFEI[i] = CumNodeTfr[i]
+		= CumNodeRtp[i] = lastLNA[i] = minLNA[i] = maxLNA[i] = 0;
+	}
+#endif   
 }
 
 /// Display eeprom configuration space
@@ -2539,6 +2547,7 @@ Serial.print(")");
 
 #if RF69_COMPAT && !TINY			// Weird conditional when Tiny84    
     else if (rfapi.RSSIrestart != lastRSSIrestart) {
+    		lastRSSIrestart = rfapi.RSSIrestart;
 
             if (ledStatus) activityLed(0);
             else activityLed(1);
