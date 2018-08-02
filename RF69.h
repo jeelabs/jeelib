@@ -1,28 +1,37 @@
 #ifndef RF69_h
 #define RF69_h
 
-#define JEEPACKET8 115			// Loop limiter in RF69::interrupt_compat
-// The above value is an estimate, needs fine tuning.
-#define JEEPACKET16 230			// Loop limiter in RF69::interrupt_compat
-#define SALUSPACKET16 3200		// ditto
+#define JEEPACKET16 10						// Loop limiter in RF69::interrupt_compat
+#define JEEPACKET8 JEEPACKET16				// Loop limiter in RF69::interrupt_compat
+// 					The above value is an estimate and needs fine tuning.
+#define SALUSPACKET16  2500					// ditto
 
 typedef struct {
 
-	uint8_t	len;
-	uint8_t rxfill;
-	uint8_t rxdone;
-	uint8_t	lastHdr;
-	uint8_t	lastLen;
-	uint8_t lastPay0;
-	uint8_t	txPower;
     uint32_t rateInterval;	// Disabled by default, set this to 10000ms
     uint32_t RSSIrestart;
     uint32_t syncMatch;
+    uint32_t goodCRC;
+	uint32_t discards;   // Count of good packets discarded
     uint32_t interpacketTS;
-    uint32_t cumRSSI;
-    int32_t cumFEI;
-	uint16_t RssiToSync;	//Count of loops after RSSI before a missed sync is triggered
+    
+    volatile uint32_t rxLast;
+    volatile uint32_t minGap;
+    volatile uint32_t maxGap;
+    
+    uint32_t cumRSSI[8];
+    int32_t cumFEI[8];
+//    int32_t cumAFC[8];
+//    uint32_t cumLNA[8];
+    uint16_t cumCount[8];
+    uint16_t cumZeros[8];
+	uint16_t RssiToSync;
+	uint16_t RssiToSyncLimit;	//Count of loops after RSSI before a missed sync is triggered
 	uint16_t rssiZero;
+    volatile uint16_t rtpMin;    
+	volatile uint16_t rtpMax;
+	volatile uint16_t intRXFIFO;
+	uint8_t modeError;    
 	uint8_t	configThreshold;
     uint8_t rssiThreshold;
     uint8_t rssi;
@@ -32,6 +41,15 @@ typedef struct {
     uint8_t	setmode;
     uint8_t	irqflags1;
     uint8_t	mode;
+	uint8_t	len;
+	uint8_t rxfill;
+	uint8_t rxdone;
+	uint8_t	lastHdr;
+	uint8_t	lastLen;
+	uint8_t lastPay0;
+	uint8_t	txPower;
+	uint8_t changed;
+	uint8_t ConfigFlags;
 
 	} RF_API;
 	extern RF_API rfapi;	// Info interchange area

@@ -59,6 +59,9 @@
 // Added support for displaying the CRC, received & transmitted 2018-02-13
 // Added support for a semaphore queue to store and forward postings to nodes in ACK's 2018-02-27
 // Sum the RSSI & FEI of packets that trigger a restart without a sync, reported to serial using 8v
+// Support fine radio frequency control using microOffset 32,1600o 2018-06-30
+// Assume the ACK's are sent from i31 in order to collect ACK statistics for i31 2018-07-4
+// Add rfapi.configFlags to control afc off/on using "128,8b" 2018-07-4
 
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
 	#define TINY 1
@@ -93,6 +96,7 @@
 #include <avr/pgmspace.h>
 #include <util/parity.h>
 #include "release.h"    // Version tracking by dzach
+//#include <Statistic.h>  // without trailing s
 
 #define MAJOR_VERSION RF12_EEPROM_VERSION // bump when EEPROM layout changes
 #define MINOR_VERSION 0                   // bump on other non-trivial changes
@@ -132,13 +136,10 @@ unsigned int NodeMap;
 unsigned int newNodeMap;
 unsigned long lastRSSIrestart;
 unsigned long lastThresholdRSSIrestart;
-unsigned long rxLast;
 unsigned long rxCrcLast;
-unsigned long minGap = ~0;
-unsigned long maxGap = 0;
 unsigned long minCrcGap = ~0; 
 unsigned long maxCrcGap = 0; 
-
+byte minHdr, OldHdr, OldBadHdr, minOldHdr, minOldBadHdr;
 byte stickyGroup = 212;
 byte eepromWrite;
 byte qMin = ~0;
@@ -230,7 +231,7 @@ static byte inChar () {
     #define LED_PIN     9        // activity LED, comment out to disable
   #endif
   #define messageStore  128
-  #define MAX_NODES 31        // Contrained by RAM (12 bytes RAM per node)
+  #define MAX_NODES 15        // Contrained by RAM (22 bytes RAM per node)
 #endif
 
 static unsigned long now () {
@@ -285,26 +286,28 @@ static void displayVersion () {
 // RF12 configuration area
 typedef struct {
 
-    byte nodeId;            // used by rf12_config, offset 0
-    byte group;             // used by rf12_config, offset 1
-    byte format;            // used by rf12_config, offset 2
-    byte output       :2;   // 0 = dec, 1 = hex, 2 = dec+ascii, 3 = hex+ascii
-    byte collect_mode :1;   // 0 = ack, 1 = don't send acks
-    byte quiet_mode   :1;   // 0 = show all, 1 = show only valid packets
-    byte helpMenu	  :1;	// 0 = Suppress help menu
-    byte spare_flags  :2;   // offset 3
-    byte defaulted    :1;   // 0 = config set via UI, offset 3
-    word frequency_offset;  // used by rf12_config, offset 4 & 5
-    byte RegPaLvl;          // See datasheet RFM69x Register 0x11, offset 6
-    byte RegRssiThresh;     // See datasheet RFM69x Register 0x29, offset 7
-    signed int matchingRF :8;// Frequency matching for this hardware, offset 8
-    byte ackDelay         :4;// Delay in ms added on turnaround RX to TX, RFM69 offset 9
-    byte verbosity        :4;// Controls output format offset 9
-    byte clearAir;          // Transmit permit threshold, offset 10
-    byte rateInterval;      // Seconds between rate updates, offset 11
-    byte chkNoise;			// Seconds between noise floor checks, offset 12
-    byte pad[RF12_EEPROM_SIZE - 15];
-    word crc;
+/*00*/byte nodeId;				// used by rf12_config, offset 0
+/*01*/byte group;				// used by rf12_config, offset 1
+/*02*/byte format;				// used by rf12_config, offset 2
+/*03*/byte output       :2;		// 0 = dec, 1 = hex, 2 = dec+ascii, 3 = hex+ascii
+/*03*/byte collect_mode :1;		// 0 = ack, 1 = don't send acks
+/*03*/byte quiet_mode   :1;		// 0 = show all, 1 = show only valid packets
+/*03*/byte helpMenu	  :1;		// 0 = Suppress help menu
+/*03*/byte spare_flags  :2;		// offset 3
+/*03*/byte defaulted    :1;		// 0 = config set via UI, offset 3
+/*04*/word frequency_offset;	// used by rf12_config, offset 4 & 5
+/*06*/byte RegPaLvl;			// See datasheet RFM69x Register 0x11, offset 6
+/*07*/byte RegRssiThresh;		// See datasheet RFM69x Register 0x29, offset 7
+/*08*/signed int matchingRF :8;	// Frequency matching for this hardware, offset 8
+/*09*/byte ackDelay         :4;	// Delay in ms added on turnaround RX to TX, RFM69 offset 9
+/*09*/byte verbosity        :4;	// Controls output format offset 9
+/*10*/byte clearAir;			// Transmit permit threshold, offset 10
+/*11*/byte rateInterval;		// Seconds between rate updates, offset 11
+/*12*/byte chkNoise;			// Seconds between noise floor checks, offset 12
+/*13*/byte spare_bits	:2;		// Available
+/*13*/byte microOffset	:6;		// Low order 6 bits of radio frequency
+/*14  byte pad[RF12_EEPROM_SIZE - 15];//Fully used!
+/*14*/word crc;					// Integrity CRC
 
 } RF12Config;
 static RF12Config config;
@@ -348,13 +351,14 @@ volatile unsigned int restartRate;
 volatile unsigned int maxRestartRate;
 volatile byte ping = false;
 volatile byte minuteTick = false;
+volatile byte statsInterval = 60;
 ISR(TIMER1_COMPA_vect){
 	elapsedSeconds++;
 
 #if RF69_COMPAT        
 #pragma warn("Compiling in RF69_COMPAT mode")
     // Update restart rate
-    if ((elapsedSeconds % 60UL) == 0UL) {
+    if ((elapsedSeconds % (uint32_t)statsInterval) == 0UL) {
     	minuteTick = true;
     	restartRate = (rfapi.RSSIrestart - previousRestarts);
     	previousRestarts = rfapi.RSSIrestart;
@@ -375,9 +379,13 @@ ISR(TIMER1_COMPA_vect){
 #if MESSAGING
 static byte semaphoreStack[(MAX_NODES * 3) + 1];	// FIFO per node-group
 #endif
-static unsigned long goodCRC;
+//static unsigned long goodCRC;
 #if RF69_COMPAT && STATISTICS
+static int32_t CumNodeFEI[MAX_NODES];
+static uint32_t CumNodeTfr[MAX_NODES];
+static uint16_t CumNodeRtp[MAX_NODES];
 static signed int minFEI[MAX_NODES];
+static signed int lastFEI[MAX_NODES];
 static signed int maxFEI[MAX_NODES];
 static byte minRSSI[MAX_NODES];
 static byte lastRSSI[MAX_NODES];
@@ -659,46 +667,68 @@ static void showStatus() {
 	showString(PSTR(", Temperature "));
 	Serial.print(RF69::readTemperature(0));
 	showString(PSTR("ºC"));
-    showString(PSTR(", RX Restarts "));
+    showString(PSTR(", Restarts "));
     Serial.print(rfapi.RSSIrestart);
     showString(PSTR(", Rate "));
     Serial.print(restartRate);
-    printOneChar('m');
+    printOneChar('^');
     Serial.print(maxRestartRate);
     showString(PSTR("/min, Sync Match "));
     Serial.print(rfapi.syncMatch);
 
     showString(PSTR(", Good CRC "));
-    Serial.print(goodCRC);
-    showString(PSTR(", RX Signal "));
+    Serial.print(rfapi.goodCRC);
+    if (rfapi.discards) {
+		showString(PSTR(", Discards "));
+   		Serial.print(rfapi.discards);
+    }
+    if (rfapi.rtpMin) {
+	    showString(PSTR(", Bounds "));
+    	Serial.print(rf12_rtp);
+    	printOneChar(';');
+    	Serial.print(rfapi.rtpMin);
+    	printOneChar('^');
+    	Serial.print(rfapi.rtpMax);
+    }
+//    printOneChar('\n');
+    showString(PSTR("\nRSSI Rx "));
+    Serial.print(rf12_rssi);
+    printOneChar(';');
     Serial.print(rfapi.noiseFloorMin);
-    printOneChar('/');
-    Serial.print(rfapi.rssi);
-    printOneChar('/');
+    printOneChar('^');
     Serial.print(rfapi.noiseFloorMax);
-    showString(PSTR(", Tx Signal "));
-    Serial.print(minTxRSSI);
-    printOneChar('/');    
+    showString(PSTR(", Tx "));
     Serial.print(rfapi.sendRSSI);
-    printOneChar('/');
+    printOneChar(';');
+    Serial.print(minTxRSSI);
+    printOneChar('^');    
     Serial.print(maxTxRSSI);
     showString(PSTR(", Ack Aborts "));
     Serial.print(packetAborts);
     showString(PSTR(", Busy Count "));
     Serial.print(busyCount);
     showString(PSTR(", InterSync(ms) "));
-    Serial.print(minGap);
-    printOneChar('/');
-    Serial.print((millis() - rfapi.interpacketTS));
-    printOneChar('/');
-    Serial.print(maxGap);
+    uint32_t ms = millis();
+    Serial.print(ms - rfapi.rxLast);
+    printOneChar(';');
+    Serial.print(rfapi.minGap);
+    printOneChar('^');
+    Serial.print(rfapi.maxGap);
     showString(PSTR(", InterCRC(ms) "));
+	Serial.print(minOldBadHdr);
+    printOneChar('&');
+	Serial.print(minOldHdr);
+    printOneChar('&');
+	Serial.print(minHdr);
+    printOneChar(';');
+    Serial.print(ms - rxCrcLast);
+    printOneChar(';');
     Serial.print(minCrcGap);
-    printOneChar('/');
+    printOneChar('^');
     Serial.print(maxCrcGap);
-
 #endif
-    showString(PSTR(", Eeprom"));
+//    printOneChar('\n');
+    showString(PSTR("\nEeprom"));
     rf12_configDump();
 #if RF69_COMPAT
     if (!RF69::present) {
@@ -810,7 +840,7 @@ static void handleInput (char c) {
         stack[top++] = value;
         // TODO: frequency offset is taken from global config, is that ok?
         // I suspect not OK, could add a new number on command line,
-        // the last value before '>' as the offset is the only place a 16 bit value will available.
+        // the last value before '>' as the offset is the only place a 16 bit value will be available.
         rf12_initialize(stack[2], bandToFreq(stack[0]), stack[1],
                 config.frequency_offset);
         rf12_sendNow(stack[3], stack + 4, top - 4);
@@ -831,9 +861,18 @@ static void handleInput (char c) {
                 break;
 
             case 'b': // set band: 4 = 433, 8 = 868, 9 = 915
-                value = bandToFreq(value);
-                if (value) {
-                    config.nodeId = (value << 6) + (config.nodeId & 0x3F);
+#if RF69_COMPAT
+				if (top == 1) {
+					rfapi.ConfigFlags = rfapi.ConfigFlags = stack[0];
+				} else {
+					stack[0] = rfapi.ConfigFlags;
+					top = 1;
+				}
+				
+#endif
+                stack[1] = bandToFreq(value);
+                if (stack[1]) {
+                    config.nodeId = (stack[1] << 6) + (config.nodeId & 0x3F);
                     config.frequency_offset = 1600;
                     saveConfig();
                 }
@@ -848,6 +887,15 @@ static void handleInput (char c) {
             case 'o':{	 // Offset frequency within band
                          // Stay within your country's ISM spectrum management guidelines, i.e.
                          // allowable frequencies and their use when selecting operating frequencies.
+#if RF69_COMPAT
+						if (top == 1) {
+                         	config.microOffset = (stack[0] & 63);
+                            saveConfig();
+						} else {
+                         	stack[0] = config.microOffset;
+							top = 1;
+						}
+#endif
                          if (value) {
                              if (((value + config.matchingRF + config.matchingRF) > 95) 
                                      && ((value + config.matchingRF + config.matchingRF) < 3904)) { // supported by RFM12B
@@ -859,9 +907,6 @@ static void handleInput (char c) {
                                  break;
                              } 
                          } else value = config.frequency_offset;
-#if RF69_COMPAT
-                         if (stack[0]) RF69::microOffset = (stack[0] & 63);
-#endif
 #if !TINY
                          // this code adds about 400 bytes to flash memory use
                          // display the exact frequency associated with this setting
@@ -871,7 +916,7 @@ static void handleInput (char c) {
                              case RF12_868MHZ: freq = 86; break;
                              case RF12_915MHZ: freq = 90; break;
                          }
-                         uint32_t f1 = (freq * 100000L + band * 25L * config.frequency_offset) + RF69::microOffset;
+                         uint32_t f1 = (freq * 100000L + band * 25L * config.frequency_offset) + config.microOffset;
                          Serial.print((word) (f1 / 10000));
                          printOneChar('.');
                          word f2 = f1 % 10000;
@@ -898,7 +943,8 @@ static void handleInput (char c) {
                              }
                          }
   #endif
-                         Serial.println();
+						Serial.println();
+
 #endif
                          break;
                      }
@@ -1024,7 +1070,7 @@ static void handleInput (char c) {
                      RF69::control(REG_BITRATELSB | 0x80, 0x15);
                      RF69::control(REG_BITFDEVMSB | 0x80, 0x04);                         // 75kHz freq shift
                      RF69::control(REG_BITFDEVLSB | 0x80, 0xCE);
-                     rfapi.RssiToSync = SALUSPACKET16;
+                     rfapi.RssiToSyncLimit = SALUSPACKET16;
   #else
                      rf12_control(RF12_DATA_RATE_2);                                     // 2.4kbps
                      rf12_control(0x9830);                                               // 75khz freq shift
@@ -1094,6 +1140,10 @@ static void handleInput (char c) {
                      break;
 
             case 'v': // display the interpreter version
+            		 if (top == 1) {
+            			if (stack[0] == 0) statsInterval = 60;
+            			else statsInterval = stack[0];
+            		 } else statsInterval = 60;
                      config.verbosity = value;        
                      displayVersion();
                      saveConfig();
@@ -1199,8 +1249,8 @@ static void handleInput (char c) {
                          }
                      } else {
                          // Accepts a index number and prints matching entry from the eeprom
-                         if (value) oneShow(NodeMap);
-                         else nodeShow(value);
+                         if (value > MAX_NODES) nodeShow(value);
+                         else oneShow(value);
                      }
 #endif
                      break;
@@ -1301,29 +1351,38 @@ static void handleInput (char c) {
                      break;
 
             case 'z':
-            		 if (value == 1) {
-            		 	minGap = minCrcGap = ~0;
-            		 	maxGap = maxCrcGap = maxRestartRate = 0;
+					if (value < MAX_NODES) {
+						oneShow(value);
+#if RF69_COMPAT
+						pktCount[value] = lastFEI[value] = minFEI[value] = maxFEI[value]
+						= lastRSSI[value] = minRSSI[value] = maxRSSI[value] = CumNodeFEI[value] = CumNodeTfr[value]
+						= CumNodeRtp[value] = lastLNA[value] = minLNA[value] = maxLNA[value] = 0;
+#endif
             		 }
-            		 if (value == 2) {
+#if RF69_COMPAT
+					if (value == 101) {
+            		 	rfapi.minGap = minCrcGap = ~0;
+            		 	rfapi.maxGap = maxCrcGap = maxRestartRate = 0;
+					} else 
+#endif
+            		 if (value == 102) {
             		 	for (int c = 0; c < MAX_NODES; ++c)
             		 		semaphoreStack[c * 3] = 0;
-            		 }
-                     if (value == 123) {
-                         clrConfig();
-                         showString(PSTR(" Zzz...\n"));
-                         Serial.flush();
-                         rf12_sleep(RF12_SLEEP);
-                         cli();
-                         Sleepy::powerDown();
-                     }
-                     if (value == 255) {
-
-                        clrNodeStore();
-
-                         showString(PSTR("Watchdog enabled, restarting\n"));
-                         WDTCSR |= _BV(WDE);
-                     }
+					} else 
+					if (value == 123) {
+						clrConfig();
+						showString(PSTR(" Zzz...\n"));
+                        Serial.flush();
+                        rf12_sleep(RF12_SLEEP);
+                        cli();
+                        Sleepy::powerDown();
+					} else 
+						if (value == 250) {
+                        	clrNodeStore();                        
+					} else if (value == 255) {
+						showString(PSTR("Watchdog enabled, restarting\n"));
+						WDTCSR |= _BV(WDE);
+					}
                      break;
 
             default:
@@ -1502,13 +1561,14 @@ void setup () {
   	TIMSK1 |= (1 << OCIE1A);				// Timer1 compare interrupt
 
     // Consider adding the following equivalents for RFM12x
-    /*
+    
 #if !TINY
 showNibble(resetFlags >> 4);
 showNibble(resetFlags);
+printOneChar(' ');
+Serial.println(MCUSR, HEX);
     // TODO the above doesn't do what we need, results vary with Bootloader etc
 #endif
-     */
 
 #if MESSAGING && !TINY
     // messagesR = 0x05, 'T', 'e', 's', 't', '3'; // TODO    // Can be removed from RAM with "129m"
@@ -1518,8 +1578,11 @@ showNibble(resetFlags);
 #if RF69_COMPAT && STATISTICS
     // Initialise min/max/count arrays
     for (int i = 0; i < MAX_NODES; i++) {
-        minFEI[i] = 32767;
-        maxFEI[i] = -32767;
+        minFEI[i] = ~0;
+        maxFEI[i] = ~0;
+
+    	rfapi.minGap = ~0;	//TODO Find a better place, in the driver to init structure
+
     }
     //memset(minFEI,32767,sizeof(minFEI));
     //
@@ -1580,6 +1643,7 @@ showNibble(resetFlags);
     Serial.flush();
     maxRestartRate = 0;
     previousRestarts = rfapi.RSSIrestart;
+        
 } // setup
 
 static void clrConfig() {
@@ -1593,9 +1657,16 @@ static void clrConfig() {
 static void clrNodeStore() {
     // Clear Node Store eeprom
     showString(PSTR("Clearing NodeStore\n"));
-    for (unsigned int n = 0; n < 2016; n++) {
+    for (unsigned int n = 0; n < 0x3D0; n++) {
         eeprom_write_byte((RF12_EEPROM_NODEMAP) + n, 0xFF);
     }
+#if RF69_COMPAT
+	for (byte i; i < MAX_NODES; i++) {
+		pktCount[i] = lastFEI[i] = minFEI[i] = maxFEI[i]
+		= lastRSSI[i] = minRSSI[i] = maxRSSI[i] = CumNodeFEI[i] = CumNodeTfr[i]
+		= CumNodeRtp[i] = lastLNA[i] = minLNA[i] = maxLNA[i] = 0;
+	}
+#endif   
 }
 
 /// Display eeprom configuration space
@@ -1653,6 +1724,7 @@ http://forum.arduino.cc/index.php/topic,140376.msg1054626.html
     Serial.print((word) postingsOut);
     printOneChar(',');
     Serial.println((word) postingsLost);
+    
     int c = 0;
     while ((semaphoreStack[c * 3]) != 0) {
         printOneChar('g');
@@ -1719,16 +1791,16 @@ http://forum.arduino.cc/index.php/topic,140376.msg1054626.html
     Serial.print((RF69::packetShort));     // Packet ended short
     printOneChar(',');
     printOneChar('[');
-    Serial.print(RF69::unexpected);
+    Serial.print(RF69::unexpectedMode);			//	0=Sleep, 1=Standby, 2=FS, 3=TX, 4=RX
     printOneChar(',');
-    Serial.print(RF69::unexpectedFSM);
+    Serial.print(RF69::unexpectedFSM);			// enum TXCRC1, TXCRC2, TXDONE, TXIDLE, TXRECV, RXFIFO
     printOneChar(',');
-    Serial.print(RF69::unexpectedIRQFLAGS2);
+    Serial.print(RF69::unexpectedIRQFLAGS2);	// Reg 0x28
     printOneChar(',');
-    Serial.print(RF69::unexpectedMode);
+    Serial.print(RF69::unexpected);				// Count
     printOneChar(']');
     printOneChar(',');
-    //    Serial.print(RF69::nestedInterrupts);
+    Serial.print(rfapi.intRXFIFO);
     printOneChar(',');
     Serial.print(RF69::IRQFLAGS2);
     printOneChar(',');
@@ -1758,7 +1830,7 @@ static void oneShow(byte index) {
     byte n = eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4) + 0);	// Node number
     if (n & 0x80) return;
     byte g = eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4) + 1);	// Group number
-	printOneChar('#');         
+//	printOneChar('#');         
     showByte(index);
     showString(PSTR(" g"));      
     showByte(g);
@@ -1780,30 +1852,45 @@ static void oneShow(byte index) {
 #endif
 #if RF69_COMPAT && STATISTICS            
     if (c) {
-        showString(PSTR(" fei("));
+        showString(PSTR(" FEI(Cum:"));
+		Serial.print(CumNodeFEI[index]);
+//        printOneChar(' ');
+
+		int16_t delta = abs(minFEI[index] - maxFEI[index]);
+        showString(PSTR(" Last:"));
+     	Serial.print(lastFEI[index]);
+        showString(PSTR(" Mid:"));
+		Serial.print(minFEI[index] + (delta / 2));     	     	
+        showString(PSTR(" Avg:"));
+        Serial.print((CumNodeFEI[index]) / (int32_t)pktCount[index]);
+        printOneChar(';');
         Serial.print(minFEI[index]);
-        printOneChar('/');
+        printOneChar('-');
         Serial.print(maxFEI[index]);
-        printOneChar('/');
-        Serial.print(-((minFEI[index] + maxFEI[index]) / 2));
-        showString(PSTR(") rssi("));
-        showByte(minRSSI[index]);
-        printOneChar('/');
+        printOneChar('=');
+//        Serial.print(abs(minFEI[index] - maxFEI[index]));
+        Serial.print(delta);
+        showString(PSTR(") RSSI("));
+        showByte(lastRSSI[index]);
+        printOneChar(';');
         showByte(eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4) + 2)); // Show original RSSI value
         printOneChar('/');
-        showByte(lastRSSI[index]);
-        printOneChar('/');
+        showByte(minRSSI[index]);
+        printOneChar('^');
         showByte(maxRSSI[index]);
-        showString(PSTR(") lna("));
-        Serial.print(minLNA[index]);
-        printOneChar('/');
+        showString(PSTR(") LNA("));
+        Serial.print(lastLNA[index]);
+        printOneChar(';');
         showByte(eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4) + 3)); // Show original LNA value
         printOneChar('/');
-        Serial.print(lastLNA[index]);
-        printOneChar('/');
+        Serial.print(minLNA[index]);
+        printOneChar('^');
         Serial.print(maxLNA[index]);
-        printOneChar(')');
-    }
+        showString(PSTR(") TFR "));
+        Serial.print(((CumNodeTfr[index]) / (uint32_t)pktCount[index]) + 1000);
+        printOneChar(' ');
+        Serial.print(CumNodeRtp[index]);
+  }
 #endif
     Serial.println();
 }
@@ -1875,32 +1962,38 @@ void loop () {
 
     if (rf12_recvDone()) {
 
-#if RF69_COMPAT && !TINY                // At this point the radio is in Standby
-
-        rf12_recvDone();                // Attempt to buffer next RF packet
-        // At this point the receiver is active but previous buffer intact
-        
- 		unsigned long rxGap = rf12_interpacketTS - rxLast;
- 		rxLast = rf12_interpacketTS;
- 		if (rxGap < minGap) minGap = rxGap;
- 		if (rxGap > maxGap) maxGap = rxGap;
-
+#if RF69_COMPAT && !TINY                // At this point the radio is in Sleep
         if (rf12_crc == 0) {
-         	unsigned long rxCrcGap = rf12_interpacketTS - rxCrcLast;
+			unsigned long rxCrcGap;
+        
+ 			if (!(RF12_WANTS_ACK && (config.collect_mode) == 0)) {	
+				// ACK not required for current packet 				
+        		rf12_recvDone();		// Attempt to buffer next RF packet
+        		// At this point the receiver is active but previous buffer intact
+        		     					
+ 			} 
+         	rxCrcGap = rf12_interpacketTS - rxCrcLast;
  			rxCrcLast = rf12_interpacketTS;
- 			if (rxCrcGap < minCrcGap) minCrcGap = rxGap;
- 			if (rxCrcGap > maxCrcGap) maxCrcGap = rxGap;
+ 			if (rxCrcGap < minCrcGap) {
+ 				minCrcGap = rxCrcGap;
+ 				minOldHdr = OldHdr;
+ 				minOldBadHdr = OldBadHdr;
+ 				minHdr = rf12_hdr;
+ 			}
+ 			if (rxCrcGap > maxCrcGap) maxCrcGap = rxCrcGap;
+ 			
 		}
- 		
+       
         observedRX.afc = rf12_afc;
         observedRX.fei = rf12_fei;
         observedRX.rssi2 = rf12_rssi;
-        observedRX.lna = rf12_lna >> 3;
+        observedRX.lna = rf12_lna;
 
         if ((observedRX.afc) && (observedRX.afc != previousAFC)) { // Track volatility of AFC
             changedAFC++;    
             previousAFC = observedRX.afc;
         }
+        
         if (observedRX.fei != previousFEI) {            // Track volatility of FEI
             changedFEI++;
             previousFEI = observedRX.fei;
@@ -1913,7 +2006,7 @@ void loop () {
 #if STATISTICS && !TINY
             messageCount++;                             // Count a broadcast packet
 #endif
-            goodCRC++;
+//            goodCRC++;
             if ((watchNode) && ((rf12_hdr & RF12_HDR_MASK) != watchNode)) return;
             showString(PSTR("OK"));
             crc = true;
@@ -1984,8 +2077,11 @@ void loop () {
             }  
 #endif
 
-            if (config.quiet_mode) return;
-
+            if (config.quiet_mode) {
+            	OldBadHdr = rf12_hdr;	// Save node number in case next packet triggers an inquest.
+				return;
+			}
+			
             crc = false;
             showString(PSTR("   ?"));
             n = n + 2;	// Include potential CRC
@@ -2051,10 +2147,12 @@ void loop () {
         
 #if RF69_COMPAT && !TINY
         if ((config.verbosity & 1) || (!crc)) {
-            showString(PSTR(" a="));
-            Serial.print(observedRX.afc);                      // TODO What units has this number?
+			if (observedRX.afc) {        
+            	showString(PSTR(" a="));
+            	Serial.print(observedRX.afc);		// TODO What units has this number?
+			}
             showString(PSTR(" f="));
-            Serial.print(observedRX.fei);                      // TODO What units has this number?
+            Serial.print(observedRX.fei);			// TODO What units has this number?
             /*
                LNA gain setting:
                000 gain set by the internal AGC loop
@@ -2067,7 +2165,7 @@ void loop () {
              */            
             showString(PSTR(" l="));
             Serial.print(observedRX.lna);
-
+/*
             showString(PSTR(" t="));
             Serial.print((RF69::readTemperature(0)));        
 
@@ -2099,16 +2197,18 @@ void loop () {
                     showString(PSTR("dB"));
                 }
             }
-
-            showString(PSTR(" d=("));
+*/
+            showString(PSTR(" d="));
             Serial.print(rf12_tfr);
-            printOneChar(')');
-            Serial.print(rf12_rtp);
-
+            if (rf12_rtp) {
+	            printOneChar('~');
+				Serial.print(rf12_rtp);
+			}
+/*
             showString(PSTR(" r="));
             Serial.print(rf12_rst);
-            showString(PSTR(" i="));
-            Serial.print(rxGap);
+//            showString(PSTR(" i="));
+//            Serial.print(rxGap);
             /*
                showString(PSTR(" M="));
                Serial.print(RF69::REGIRQFLAGS1, HEX);
@@ -2232,13 +2332,17 @@ Serial.print(")");
             if (df_present())
                 df_append((const char*) rf12_data - 2, rf12_len + 2);
 
+			if ((rf12_hdr & (RF12_HDR_CTL | RF12_HDR_DST)) == (RF12_HDR_CTL | RF12_HDR_DST)) 
+			  rf12_hdr = (31 | RF12_HDR_CTL | RF12_HDR_ACK);	
+				// Assume ACK responder is i31 
+				         
             if (!(rf12_hdr & RF12_HDR_DST)) {
                 // This code only sees broadcast packets *from* other nodes.
                 // Packets addressed to nodes do not identify the source node!          
                 // Search RF12_EEPROM_NODEMAP for node/group match
                 // Node 31 will also be added even though a Node Allocation will
                 // be offered, to track everyone who was out there.
-#if !TINY           
+#if !TINY
                 if (!getIndex(rf12_grp, (rf12_hdr & RF12_HDR_MASK)) && (!(testPacket))) {
                     if (newNodeMap != 0xFFFF) { // Storage space available?
                         // Node 31 will also be added even though a Node Allocation will
@@ -2276,6 +2380,10 @@ Serial.print(")");
                 if (observedRX.lna > (maxLNA[NodeMap]))
                     maxLNA[NodeMap] = observedRX.lna;   
 
+				lastFEI[NodeMap] = rf12_fei;
+				CumNodeFEI[NodeMap] = CumNodeFEI[NodeMap] + rf12_fei;
+				CumNodeTfr[NodeMap] = CumNodeTfr[NodeMap] + (rf12_tfr - 1000UL);	// Save capacity
+				CumNodeRtp[NodeMap] = CumNodeRtp[NodeMap] + rf12_rtp;
                 if (rf12_fei < (minFEI[NodeMap]))       
                     minFEI[NodeMap] = rf12_fei;
                 if (rf12_fei > (maxFEI[NodeMap]))
@@ -2289,6 +2397,7 @@ Serial.print(")");
 #endif
 #if STATISTICS            
                 pktCount[NodeMap]++;
+                if ((pktCount[NodeMap] % 100) == 0) oneShow(NodeMap);
             } else {
                 nonBroadcastCount++;
 #endif
@@ -2432,11 +2541,13 @@ Serial.print(")");
             }
             if (crlf) Serial.println();
             activityLed(0);
+            OldHdr = rf12_hdr;	// Save node number in case next packet triggers an inquest.
         }
     } // rf12_recvDone
 
 #if RF69_COMPAT && !TINY			// Weird conditional when Tiny84    
     else if (rfapi.RSSIrestart != lastRSSIrestart) {
+    		lastRSSIrestart = rfapi.RSSIrestart;
 
             if (ledStatus) activityLed(0);
             else activityLed(1);
@@ -2453,16 +2564,12 @@ Serial.print(")");
                 Serial.print(restartRate);
                 printOneChar(' ');
                 Serial.print(rf12_drx);
-//                printOneChar(' ');
                 showString(PSTR(" afc="));
                 Serial.print(RF69::afc);
-//                printOneChar(' ');
                 showString(PSTR(" fei="));
                 Serial.print(RF69::fei);
-//                printOneChar(' ');
                 showString(PSTR(" lna="));
-                Serial.print((RF69::lna >> 3));
-//                printOneChar(' ');
+                Serial.print((RF69::lna));
                 showString(PSTR(" rssi="));
                 Serial.print(RF69::rssi);
                 printOneChar(' ');
@@ -2472,51 +2579,75 @@ Serial.print(")");
 				Serial.println(m);
             }
         }
-//T        if (rfapi.rssiThreshold != lastrssiThreshold) {
-            if ((config.verbosity & 8) && (minuteTick)) {
-            	minuteTick = false;
-                showString(PSTR("RX Stats "));
-//                Serial.print(lastrssiThreshold);
-//            	lastrssiThreshold = rfapi.rssiThreshold;     
-//                printOneChar(' ');
-                Serial.print(rfapi.rssiThreshold);
-                printOneChar(' ');
-                Serial.print(rfapi.RSSIrestart);
-                printOneChar(' ');
-                Serial.print(rfapi.syncMatch);
-                printOneChar(' ');
-                Serial.print(goodCRC);
-                printOneChar(' ');
 
-                //                  Serial.print(rfapi.RSSIrestart  - lastThresholdRSSIrestart);
-                //                  lastThresholdRSSIrestart = lastRSSIrestart;
-                //                  printOneChar(' ');
-                Serial.print(restartRate);
-                printOneChar(' ');
-                Serial.print(maxRestartRate);
-                printOneChar(' ');
-                Serial.print(rfapi.cumRSSI);
-                printOneChar(' ');
-                Serial.print(rfapi.cumFEI);
-                rfapi.cumRSSI = rfapi.cumFEI = 0;
-//                printOneChar(' ');
-//                Serial.print(millis());
-                /*
-                   printOneChar('*');
-                   Serial.print(rfapi.setmode);
-                   printOneChar('*');
-                   Serial.print(rfapi.irqflags1);
-                   printOneChar('*');
-                   Serial.print(rfapi.mode);
-                 */
-                Serial.println();
-            }
-//T        }
-//T        lastRSSIrestart = rfapi.RSSIrestart;
+        if ((config.verbosity & 8) && (minuteTick)) {
+            minuteTick = false;            	
+            if (rfapi.changed) {
+            	rfapi.changed = false;
+	            showString(PSTR("RX Stats "));
+    	        Serial.print(rfapi.rssiThreshold);
+        	    printOneChar(' ');
+        		Serial.print(rfapi.RSSIrestart);
+	        	printOneChar(' ');
+    	        Serial.print(rfapi.syncMatch);
+        		printOneChar(' ');
+            	Serial.print(rfapi.goodCRC);
+	        	printOneChar(' ');
+		        Serial.print(restartRate);
+        	    printOneChar(' ');
+            	Serial.print(maxRestartRate);
+ 
+				printOneChar(' ');
+    			Serial.print(rfapi.cumRSSI[1] +  rfapi.cumRSSI[2] + rfapi.cumRSSI[3]
+    			 + rfapi.cumRSSI[4] + rfapi.cumRSSI[5] + rfapi.cumRSSI[6] + rfapi.cumRSSI[7]);
+    			printOneChar(' ');
+   		 
+	    		Serial.print(rfapi.cumFEI[1] +  rfapi.cumFEI[2] + rfapi.cumFEI[3]
+    			 + rfapi.cumFEI[4] + rfapi.cumFEI[5] + rfapi.cumFEI[6] + rfapi.cumFEI[7]);
+   				printOneChar(' ');
+    		 
+//	    		Serial.print(rfapi.cumAFC[1] +  rfapi.cumAFC[2] + rfapi.cumAFC[3]
+//    			 + rfapi.cumAFC[4] + rfapi.cumAFC[5] + rfapi.cumAFC[6] + rfapi.cumAFC[7]);
+//   				printOneChar(' ');
+
+    			Serial.print(rfapi.cumZeros[1] +  rfapi.cumZeros[2] + rfapi.cumZeros[3]
+    		 	+ rfapi.cumZeros[4] + rfapi.cumZeros[5] + rfapi.cumZeros[6] + rfapi.cumZeros[7]);
+   				printOneChar(' ');
+    		 
+    			Serial.print(rfapi.cumCount[1] +  rfapi.cumCount[2] + rfapi.cumCount[3]
+    		 	+ rfapi.cumCount[4] + rfapi.cumCount[5] + rfapi.cumCount[6] + rfapi.cumCount[7]);
+            
+            	for (byte i = 1; i < 8; i++) {
+            		if (rfapi.cumCount[i]) {
+            			showString(PSTR(" ["));
+						Serial.print(i);
+	        			printOneChar(' ');
+        				Serial.print(rfapi.cumRSSI[i] / rfapi.cumCount[i]);
+        				printOneChar(' ');
+        				Serial.print(rfapi.cumFEI[i] / rfapi.cumCount[i]);
+//    	    			printOneChar(' ');
+//        				Serial.print(rfapi.cumAFC[i] / rfapi.cumCount[i]);
+//	  	    			printOneChar(' ');
+//	    	        	Serial.print(rfapi.cumLNA[i] / rfapi.cumCount[i]);
+    	    			printOneChar(' ');
+	    	        	Serial.print(rfapi.cumZeros[i]);
+    	    			printOneChar(' ');
+	    	        	Serial.print(rfapi.cumCount[i]);
+	        			printOneChar(']');
+	        			
+		        		rfapi.cumRSSI[i] = rfapi.cumFEI[i] /*= rfapi.cumLNA[i]*/ = 
+		        	 	/*rfapi.cumAFC[i] =*/ rfapi.cumZeros[i] = rfapi.cumCount[i] = 0;
+		        	 }
+	        	}
+            Serial.println();	        	
+	        }
+        }
 #endif
+
 #if TINY						// Very weird, needed to make Tiny code compile
-    } // !rf12_recvDone
-#endif	    
+//    } // !rf12_recvDone
+#endif
+	    
     if ((cmd) || (ping)) {
         byte r = rf12_canSend(config.clearAir);
         if (r) {

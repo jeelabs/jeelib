@@ -2,6 +2,7 @@
 #include <RF69.h>
 #include <RF69_avr.h>
 #define __PROG_TYPES_COMPAT__
+#define NOP __asm__ __volatile__ ("nop\n\t")
 #include <avr/pgmspace.h>
 #include <util/delay_basic.h>
 
@@ -123,16 +124,20 @@
 #define fourByteSync        0x98
 #define fiveByteSync        0xA0
 
+#define AFC_AUTOCLR         0x80
+#define AFC_AUTO			0x40
 #define AFC_DONE            0x10
 #define AFC_CLEAR           0x02
 #define AFC_START           0x01
+#define FEI_START           0x20
+#define FEI_DONE			0x40
 
 #define RF_MAX   72
 
 // transceiver states, these determine what to do with each interrupt
-enum { TXCRC1, TXCRC2,/* TXTAIL,*/ TXDONE, TXIDLE, TXRECV, RXFIFO };
+enum { TXCRC1, TXCRC2, TXDONE, TXIDLE, TXRECV, RXFIFO };
 
-byte clearAir = 160;
+byte clearAir = 180;
 
 namespace RF69 {
     uint32_t frf;
@@ -144,8 +149,8 @@ namespace RF69 {
     uint8_t  rssiDelay;
     uint8_t  lastState;
     uint8_t  REGIRQFLAGS1;
-    int16_t  afc;                  // I wonder how to make sure these 
-    int16_t  fei;                  // are volatile
+    int16_t  afc;
+    int16_t  fei;
     uint8_t  lna;
     uint16_t interruptCount;
     uint16_t rxP;
@@ -166,26 +171,25 @@ namespace RF69 {
     uint8_t  IRQFLAGS2;
     uint8_t  DIOMAPPING1;
     }
-
+static volatile uint8_t lna;
 static volatile uint8_t rxfill;      // number of data bytes in buffer
 static volatile uint8_t rxdone;      // 
 static volatile int8_t rxstate;      // current transceiver state
 static volatile uint8_t packetBytes; // Count of bytes in packet
-static volatile uint16_t discards;   // Count of packets discarded
 static volatile uint8_t rf69_skip;   // header bytes to skip
 static volatile uint8_t rf69_fix;    // Maximum for fixed length packet
+static volatile int16_t afc;
+static volatile int16_t fei;
 static volatile int16_t lastFEI;
 static volatile uint16_t delayTXRECV;
-static volatile uint16_t rtp;
 static volatile uint16_t rst;
-static volatile uint32_t tfr;
+volatile uint32_t tfr;
 static volatile uint32_t previousMillis;
 static volatile uint32_t noiseMillis;
 static volatile uint32_t SYNCinterruptMillis;
 static volatile uint16_t RssiToSync;
-
-//static volatile uint32_t restarts;
 static volatile uint8_t startRSSI;
+static volatile uint8_t afcfei;
 
 static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 //  0x01, 0x04, // Standby Mode
@@ -236,9 +240,10 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x37, 0x00, // PacketConfig1 = fixed, no crc, filt off
   0x38, 0x00, // PayloadLength = 0, unlimited
   0x3C, 0x8F, // FifoTresh, not empty, level 15 bytes, unused here
+//  0x3C, 0x05, 	// FifoTresh, level 5 bytes, the sync length TODO This TX setting crashes remote receiver
   0x3D, 0x10, // PacketConfig2, interpkt = 1, autorxrestart off
   0x58, 0x2D, // High sensitivity mode
-  0x6F, 0x30, // TestDagc ...
+//  0x6F, 0x30, // TestDagc ...
 //  0x71, 0x01, // AFC offset set for low modulation index systems, used if
               // AfcLowBetaOn=1. Offset = LowBetaAfcOffset x 488 Hz 
   0
@@ -326,6 +331,7 @@ static uint8_t initRadio (ROM_UINT8* init) {
             init += 2;
         }
 		previousMillis = millis();
+		rfapi.rtpMin = 0; /*65535;*/ rfapi.rtpMax = 0;
         InitIntPin();
         
         return 1;
@@ -341,7 +347,7 @@ void RF69::setFrequency (uint32_t freq) {
     // 868.0 MHz = 0xD90000, 868.3 MHz = 0xD91300, 915.0 MHz = 0xE4C000 
     frf = (((freq << 2) / (32000000L >> 11)) << 6) + microOffset;
     rf69_skip = 0;    // Ensure default Jeenode RF12 operation
-    
+
 	// Init RF API values
     rfapi.len = sizeof rfapi;
     rfapi.noiseFloorMin = 255;
@@ -440,21 +446,26 @@ void RF69::configure_compat () {
     	while(!(readReg(REG_OSC1) & RcCalDone));    // Wait for completion
         writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
         rxstate = TXIDLE;
+
         present = 1;                                // Radio is present
 #if F_CPU == 16000000UL
-        rfapi.RssiToSync = JEEPACKET16;
+        rfapi.RssiToSyncLimit = JEEPACKET16;
 #elif F_CPU == 8000000UL
-		rfapi.RssiToSync = JEEPACKET8;
+		rfapi.RssiToSyncLimit = JEEPACKET8;
 #endif
     }
 }
 
 uint8_t* recvBuf;
 
-uint32_t startRX;
-uint32_t ms;
+volatile uint32_t startRX;
+volatile uint32_t ms;
 
 uint16_t RF69::recvDone_compat (uint8_t* buf) {
+	if (rfapi.ConfigFlags) {
+		Serial.println("False");
+		return false;
+	}
     switch (rxstate) {
     
     case TXIDLE:
@@ -471,11 +482,15 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         writeReg(REG_OCP, OCP_NORMAL);			// Overcurrent protection on
         writeReg(REG_TESTPA1, TESTPA1_NORMAL);	// Turn off high power 
         writeReg(REG_TESTPA2, TESTPA2_NORMAL);  // transmit
-    	rfapi.setmode = setMode(MODE_RECEIVER);
+        
+        if (rfapi.ConfigFlags & 0x80) afcfei = AFC_START;
+        else afcfei = 0;
+        rfapi.ConfigFlags = (rfapi.ConfigFlags | afcfei);
+
+        rfapi.setmode = setMode(MODE_RECEIVER);
         writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
         rxstate = TXRECV;
-        writeReg(REG_AFCFEI, AFC_CLEAR);
-        startRX = micros();
+		writeReg(REG_AFCFEI, (AFC_CLEAR));
         rfapi.mode = readReg(REG_OPMODE);
         rfapi.irqflags1 = readReg(REG_IRQFLAGS1); 
                
@@ -491,22 +506,27 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
             rf12_interpacketTS = rfapi.interpacketTS;
             delayTXRECV = 0;
             rf12_sri = currentRSSI();
-            rf12_rtp = rtp; // Delay between RSSI & Data Packet
+            
+            rf12_rtp = RssiToSync; // Extra count between RSSI & Sync Match
+//			if (rfapi.rtpMin > RssiToSync) rfapi.rtpMin = RssiToSync;
+			if (RssiToSync > 1) rfapi.rtpMin++;	// Count none standard sync matches
+			if (rfapi.rtpMax < RssiToSync) rfapi.rtpMax = RssiToSync;
+
             rf12_rst = rst; // Count of resets used to capture packet
             rf12_tfr = tfr; // Time to receive in microseconds
             for (byte i = 0; i < (payloadLen + 5); i++) {
                 rf12_buf[i] = rf69_buf[i];
-//*DEBUG*/		rf69_buf[i] = 0;
             }     
             rf12_crc = crc;
             rxstate = TXIDLE;
 
             if (rf12_crc == 0) {
+            	rfapi.goodCRC++;
                 if (!(rf69_hdr & RF12_HDR_DST) || node == 31 ||
                     (rf69_hdr & RF12_HDR_MASK) == node) {
                     return 0; // it's for us, good packet received
                 } else {
-                    discards++;
+                    rfapi.discards++;
                     // Packet wasn't for us so we want too discard it silently
                     // This will happen on next entry to recvDone_compat
                     // because rxstate == TXIDLE
@@ -515,14 +535,14 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         }
         break;
     }
-/* Code below did not find any mode error situations.
+// Code below did not find any mode error situations.
     // Test for radio in hung state
     if (readReg(REG_OPMODE) == MODE_FS) {
 				setMode(MODE_SLEEP);	// Clear hang?
             	rxstate = TXIDLE;
-            	rfapi.modeError++;
+            	rfapi.modeError = true;
 	}
-*/
+
     return ~0; // keep going, not done yet
 }
 
@@ -627,16 +647,13 @@ condition is met to transmit the packet data.
 
 }
 
-
 void RF69::interrupt_compat (uint8_t rssi_interrupt) {
 /*
   This interrupt service routine retains control for far too long. However,
   the choices are limited because of the short time gap between RSSI & SyncMatch,
   being driven by recvDone and the size of the radio FIFO.
-
 */
         interruptCount++;
-
 /*
 micros() returns the hardware timer contents (which updates continuously), 
 plus a count of rollovers (ie. one rollover ever 1.024 mS). 
@@ -646,52 +663,68 @@ second rollover and then will be 1.024 mS out.
 */
         // N.B. millis is not updating until IRQ_ENABLE
         if (rxstate == TXRECV) {
-            fei  = readReg(REG_FEIMSB);
-            fei  = (fei << 8) | readReg(REG_FEILSB);
-            rssi = readReg(REG_RSSIVALUE);
-            lna = readReg(REG_LNA);
-            afc  = readReg(REG_AFCMSB);
-            afc  = (afc << 8) | readReg(REG_AFCLSB);
-            // The window for grabbing the above values is quite small
-            // values available during transfer between the ether
-            // and the inbound fifo buffer.
-            
-            rfapi.rssi = rssi;
-          	if (rssi) {
-	          	/* rssi == 0 can happen above, no idea how right now
-	          	only seen when using int0 versus pin change interrupt. */
-             	if (rssi < rfapi.noiseFloorMin) rfapi.noiseFloorMin = rssi;
-	          	if (rssi > rfapi.noiseFloorMax) rfapi.noiseFloorMax = rssi;
-  			} else  rfapi.rssiZero++;
-  			       	
             if (rssi_interrupt) {
             	ms = millis();
-                RssiToSync = 0;
+            	RssiToSync = 0;
+				for (volatile byte tick = 0; tick < 24; tick++) NOP;	// Kill some time waiting for sync bytes
+				// volatile above changes the timing
+	        	startRX = micros();	// 4µs precision
                 while (true) {  // Loop for SyncMatch or Timeout
+	                if (RssiToSync == 0) {
+	                	writeReg(REG_AFCFEI, (afcfei | FEI_START));
+	                	
+						for (volatile uint16_t tick = 0; tick < 840; tick++) NOP;	// Keep the SPI quiet while FEI calculation is done.
+						
+            			rssi = readReg(REG_RSSIVALUE);
+    					lna = (readReg(REG_LNA) >> 3) & 7;
+           				fei  = readReg(REG_FEIMSB);
+        				fei  = (fei << 8) + readReg(REG_FEILSB);
+        	        	afc  = readReg(REG_AFCMSB);
+            			afc  = (afc << 8) | readReg(REG_AFCLSB);
+            			
+ 						volatile uint32_t rxGap = ms - rfapi.rxLast;
+ 						rfapi.rxLast = ms;
+		 				if (rxGap < rfapi.minGap) rfapi.minGap = rxGap;
+ 						if (rxGap > rfapi.maxGap) rfapi.maxGap = rxGap;          			
+
+             			rfapi.rssi = rssi;
+          				if (rssi) {
+				          	/* rssi == 0 can happen above, no idea how right now
+				          	only seen when using int0 versus pin change interrupt. */
+			             	if (rssi < rfapi.noiseFloorMin) rfapi.noiseFloorMin = rssi;
+				          	if (rssi > rfapi.noiseFloorMax) rfapi.noiseFloorMax = rssi;
+			  			} else  rfapi.rssiZero++;
+
+            		}
                     if (readReg(REG_IRQFLAGS1) & IRQ1_SYNCMATCH) {
-                        writeReg(REG_AFCFEI, AFC_START);
-                        while (!readReg(REG_AFCFEI) & AFC_DONE)
-                          ;
-                        afc  = readReg(REG_AFCMSB);
-                        afc  = (afc << 8) | readReg(REG_AFCLSB); 
+            			tfr =  micros() - startRX;	// 4µs precision
+				        rxstate = RXFIFO;                       
+        				IRQ_ENABLE;       // allow nested interrupts from here on        
+            			if (tfr < 1024uL) tfr = tfr + 1024uL;
                         rfapi.syncMatch++;                     
                 		noiseMillis = ms;	// Delay a reduction in sensitivity
                         break;
-                    } else if (RssiToSync++ >= rfapi.RssiToSync) {
-/* CPU clock dependant: Timeout: MartynJ "Assuming you are using 5byte synch,
+                    } else 
+                    if (RssiToSync++ >= rfapi.RssiToSyncLimit) {
+/*
+						Timeout: MartynJ "Assuming you are using 5byte synch,
                         then it is just counting the bit times to find the 
                         minimum i.e. 0.02uS per bit x 6bytes is 
                         about 1mS minimum."
-                                                                */ // CPU clock dependant
-                        rxstate = TXIDLE;   // Cause a RX restart by FSM
-	      				writeReg(REG_DIOMAPPING1, 0x00);	// Mask most radio interrupts
-    	  				writeReg(REG_LNA, 0x06); 			// Minimise LNA gain
-      					writeReg(REG_RSSITHRESHOLD, 100); 	// Quiet the RSSI threshold
+*/                                                                
         				setMode(MODE_SLEEP);
-        				// Collect RX stats
+                        rxstate = TXIDLE;   // Cause a RX restart by FSM
+        				// Collect RX stats per LNA
 	                	rfapi.RSSIrestart++;
-	                	rfapi.cumRSSI = rfapi.cumRSSI + (uint32_t)rssi; 
-	                	rfapi.cumFEI = rfapi.cumFEI + (int32_t)fei; 
+	                	rfapi.cumRSSI[lna] = rfapi.cumRSSI[lna] + (uint32_t)rssi; 
+	                	if (fei) {
+	                		rfapi.cumFEI[lna] = rfapi.cumFEI[lna] + (int32_t)fei;
+	                		rfapi.cumCount[lna]++;
+	                	} else rfapi.cumZeros[lna]++;
+	                	rfapi.changed = true;
+	                	
+//	                	rfapi.cumAFC[lna] = rfapi.cumAFC[lna] + (int32_t)afc; 
+//	                	rfapi.cumLNA[lna] = rfapi.cumLNA[lna] + (uint32_t)lna; 
 
             			if ((rfapi.rateInterval) && ((noiseMillis + rfapi.rateInterval) < ms)) {
                         	// Adjust RSSI if in noise region	                	    
@@ -706,16 +739,9 @@ second rollover and then will be 1.024 mS out.
                     } // SyncMatch or Timeout 
                 } //  while
             } //  RSSI
-            rfapi.interpacketTS = ms;
-            rxstate = RXFIFO; 
-                       
-            IRQ_ENABLE;       // allow nested interrupts from here on
-
-            
-            rtp = RssiToSync;
-            rst = rfapi.RSSIrestart;
+        	rfapi.interpacketTS = ms;	// Value stored at time of interrupt            			
+	
             volatile uint8_t stillCollecting = true;
-            rxP++;
             crc = ~0;
             packetBytes = 0;
             payloadLen = rf69_fix; // Assumed value if no Jee header used            
@@ -758,8 +784,11 @@ second rollover and then will be 1.024 mS out.
             if (stillCollecting) {
                 // We are exiting before a successful packet completion
                 packetShort++;
-            }    
-            tfr =  (micros() - startRX);
+            } 
+  
+            rst = rfapi.RSSIrestart;
+            rxP++;
+            
             writeReg(REG_AFCFEI, AFC_CLEAR);
 	      	writeReg(REG_DIOMAPPING1, 0x00);	// Mask most radio interrupts
             setMode(MODE_SLEEP);
@@ -767,32 +796,37 @@ second rollover and then will be 1.024 mS out.
             writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
             rxstate = TXRECV;   // Restore state machine
 
-	    } else if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
+        } else
+        if (rxstate == RXFIFO) {	// Interrupted while filling FIFO ?
+        	rfapi.intRXFIFO++;
+        	return;					// Get back to it.
+
+	    } else 
+	    if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
           	writeReg(REG_OCP, OCP_NORMAL);				// Overcurrent protection on
           	writeReg(REG_TESTPA1, TESTPA1_NORMAL);	// Turn off high power 
           	writeReg(REG_TESTPA2, TESTPA2_NORMAL);	// transmit
     		writeReg(REG_PALEVEL, ((rfapi.txPower & 0x9F) | 0x80));	// PA1/PA2 off
           	// rxstate will be TXDONE at this point
-//          	IRQ_ENABLE;       // allow nested interrupts from here on
           	txP++;
           	setMode(MODE_SLEEP);
-          	rxstate = TXIDLE;
           	// Restore sync bytes configuration
           	if (group == 0) {               // Allow receiving from all groups
-              writeReg(REG_SYNCCONFIG, threeByteSync);
+				writeReg(REG_SYNCCONFIG, threeByteSync);             
           	}
-
+          	rxstate = TXIDLE;
         } else {
             // We get here when a interrupt that is not for RX/TX completion.
             // Appears related to receiving noise when the bad CRC
             // packet display is enabled using "0q".
-            // Many instances of an interrupt entering here while in FS mode 8 - PLL?
-            unexpected++;
+            // Instances of an interrupt entering here while in FS mode 8 - PLL?
+            // Instances of RX mode with rxstate = TXIDILE
             unexpectedFSM = rxstate; // Save Finite State Machine status
             unexpectedIRQFLAGS2 = readReg(REG_IRQFLAGS2);
-            unexpectedMode = readReg(REG_OPMODE);
-            writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
+            unexpectedMode = readReg(REG_OPMODE) >> 2;
+            unexpected++;
+//			writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
             rxstate = TXIDLE;   // Cause a RX restart by FSM
-        	setMode(MODE_SLEEP);
+//			setMode(MODE_SLEEP);
         }
 }
