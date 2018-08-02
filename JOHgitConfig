@@ -1,0 +1,63 @@
+[core]
+	repositoryformatversion = 0
+	filemode = true
+	bare = false
+	logallrefupdates = true
+	ignorecase = true
+	precomposeunicode = true
+[remote "origin"]
+	url = https://github.com/jcw/jeelib.git
+	fetch = +refs/heads/*:refs/remotes/origin/*
+[branch "master"]
+	remote = origin
+	merge = refs/heads/master
+[branch "RFxConsole-RSSI"]
+	remote = origin
+	merge = refs/heads/RFxConsole-RSSI
+[branch "Combine-ISR"]
+	remote = origin
+	merge = refs/heads/Combine-ISR
+[branch "Additional-Sleepy-routine"]
+	remote = origin
+	merge = refs/heads/Additional-Sleepy-routine
+[branch "fixInterrupts"]
+	remote = origin
+	merge = refs/heads/fixInterrupts
+[branch "hdrSkip"]
+	remote = origin
+	merge = refs/heads/hdrSkip
+[branch "RFxConsole_DIO3_RSSI_Interrupt"]
+	remote = origin
+	merge = refs/heads/RFxConsole_DIO3_RSSI_Interrupt
+[branch "RFxConsole-rework"]
+	remote = origin
+	merge = refs/heads/RFxConsole-rework
+[branch "RFxConsoleRC"]
+	remote = origin
+	merge = refs/heads/RFxConsoleRC
+[branch "RFxConsoleRC-tht"]
+	remote = origin
+	merge = refs/heads/RFxConsoleRC-tht
+[branch "SerialErrors"]
+	remote = origin
+	merge = refs/heads/SerialErrors
+[branch "RFxConsole"]
+	remote = origin
+	merge = refs/heads/RFxConsole
+[branch "rf12mods"]
+	remote = origin
+	merge = refs/heads/rf12mods
+[lfs "https://github.com/jcw/jeelib.git/info/lfs"]
+	access = basic
+[branch "RoomNode-tweak"]
+	remote = origin
+	merge = refs/heads/RoomNode-tweak
+[branch "master-SPCR"]
+	remote = origin
+	merge = refs/heads/master-SPCR
+[branch "RFxPinChange"]
+	remote = origin
+	merge = refs/heads/RFxPinChange
+[branch "RFxConsole-Testing"]
+	remote = origin
+	merge = refs/heads/RFxConsole-Testing

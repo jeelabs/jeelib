@@ -69,8 +69,8 @@ uint8_t rf69_initialize (uint8_t id, uint8_t band, uint8_t group=0xD4, uint16_t 
           
     RF69::configure_compat(); 
 
-    if (!(rfapi.txPower)) rfapi.txPower = 0x9F; 
-    RF69::control(0x91, rfapi.txPower);
+    if (rfapi.txPower) RF69::control(0x91, rfapi.txPower);
+    else rfapi.txPower = 0x9F;
     
     if (!rfapi.configThreshold) rfapi.configThreshold = RF69::control(0x29, 0);	// Read the radio RSSI Threshold value;
     
@@ -174,9 +174,9 @@ uint8_t rf69_configSilent () {
     matchRF = eeprom_read_byte(RF12_EEPROM_ADDR + 8); // Store hardware matching 
 
     frequency = eeprom_read_byte(RF12_EEPROM_ADDR + 5);// Avoid eeprom_read_word
-    frequency = (frequency << 8) + eeprom_read_byte(RF12_EEPROM_ADDR + 4);
-    RF69::microOffset = (eeprom_read_byte(RF12_EEPROM_ADDR + 13) &  63);
-                                                        
+    frequency = (frequency << 8) + (eeprom_read_byte(RF12_EEPROM_ADDR + 4)
+       + rf12_microOffset);
+                                                            
     rf69_initialize(nodeId, /* band*/(nodeId >> 6), group, frequency);
     return nodeId & RF12_HDR_MASK;
 }
