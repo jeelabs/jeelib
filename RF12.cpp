@@ -110,7 +110,7 @@
 
 // ATmega168, ATmega328, etc.
 #if PINCHG_IRQ
-    #define RFM_IRQ     1		// 18=JeeNode on PB2,  1=JeeNode Block pin change
+    #define RFM_IRQ     0		// 18=JeeNode on PB2,  1=JeeNode Block pin change
 #else
     #define RFM_IRQ     2		// 2=INT0 on PB2,
 #endif 

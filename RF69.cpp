@@ -803,7 +803,7 @@ second rollover and then will be 1.024 mS out.
 
 	    } else 
 	    if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
-          	writeReg(REG_OCP, OCP_NORMAL);				// Overcurrent protection on
+          	writeReg(REG_OCP, OCP_NORMAL);			// Overcurrent protection on
           	writeReg(REG_TESTPA1, TESTPA1_NORMAL);	// Turn off high power 
           	writeReg(REG_TESTPA2, TESTPA2_NORMAL);	// transmit
     		writeReg(REG_PALEVEL, ((rfapi.txPower & 0x9F) | 0x80));	// PA1/PA2 off

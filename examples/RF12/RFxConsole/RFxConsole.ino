@@ -1,6 +1,6 @@
 /// @dir RFxConsole
 ///////////////////////////////////////////////////////////////////////////////
-#define RF69_COMPAT      1	 // define this to use the RF69 driver i.s.o. RF12 
+#define RF69_COMPAT      0	 // define this to use the RF69 driver i.s.o. RF12 
 ///                          // The above flag must be set similarly in RF12.cpp
 ///                          // and RF69_avr.h
 #define BLOCK  0             // Alternate LED pin?
@@ -1608,7 +1608,6 @@ Serial.println(MCUSR, HEX);
         showString(INITFAIL);
         memset(&config, 0, sizeof config);
         config.nodeId = 0x9F;       // 868 MHz, node 31
-        config.group = 0x00;        // Default group 0
         config.frequency_offset = 1600;
         config.collect_mode = true; // Default to no-ACK
         config.quiet_mode = true;   // Default flags, quiet on
@@ -1616,8 +1615,14 @@ Serial.println(MCUSR, HEX);
         config.ackDelay = 0;
         config.helpMenu = true;
 #if RF69_COMPAT == 0
+        config.group = 212;			// Default group 212
         config.RegRssiThresh = 2;
         config.clearAir = 160;      // 80dB
+#else
+        config.group = 0x00;        // Default group 0
+        config.RegRssiThresh = 180;	// -90dB
+        config.clearAir = 160;      // -80dB
+        config.RegPaLvl = 159;		// Maximum power TX for RFM69CW!
 #endif
         saveConfig();
         WDTCSR |= _BV(WDE);			// Trigger watchdog restart

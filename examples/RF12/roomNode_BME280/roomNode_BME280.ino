@@ -9,6 +9,11 @@
 // The complexity in the code below comes from the fact that newly detected PIR
 // motion needs to be reported as soon as possible, but only once, while all the
 // other sensor values are being collected and averaged in a more regular cycle.
+///////////////////////////////////////////////////////////////////////////////
+
+#define RF69_COMPAT      1	 // define this to use the RF69 driver i.s.o. RF12 
+///                          // The above flag must be set similarly in RF12.cpp
+///                          // and RF69_avr.h
 
 #include <JeeLib.h>
 #include <PortsSHT11.h>
@@ -65,10 +70,10 @@ struct {					//0		Offset, node #
 	byte command;			//1		ACK command return field
     byte missedACK	:4;		//2
     byte attempts	:4;		//2		Transmission attempts
-	byte count		:4;		//3		Packet count 
-    byte moved 		:1;  	//3		motion detector: 0..1
-    byte lobat 		:1;  	//3		supply voltage dropped under 3.1V: 0..1
-	byte spare2		:2;		//3    
+	byte count		:8;		//3		Packet count 
+//    byte moved 		:1;  	//3		motion detector: 0..1
+//    byte lobat 		:1;  	//3		supply voltage dropped under 3.1V: 0..1
+//	byte spare2		:2;		//3    
 #if BME280_PORT
     uint32_t pressure:24;	//4&5&6
 #endif 	   
@@ -215,8 +220,10 @@ static void shtDelay () {
 }
 
 // readout all the sensors and other values
-static void doMeasure() {    
-    payload.lobat = rf12_lowbat();
+static void doMeasure() {
+#if !RF69_COMPAT
+//    payload.lobat = 0;//rf12_lowbat();
+#endif
     payload.vcc = vccRead();
 
 	#if SHT11_PORT
@@ -263,7 +270,7 @@ static void doMeasure() {
 	    lastTemp = payload.temp;
 	    lastHumi = payload.humi;
     #if PIR_PORT
-        payload.moved = pir.state();
+//        payload.moved = 0;//pir.state();
     #endif
 }
 
@@ -277,7 +284,7 @@ static void serialFlush () {
 // periodic report, i.e. send out a packet and optionally report on serial port
 static void doReport() {
     payload.attempts = 0;
-    payload.count++;
+    payload.count = payload.count + 1;
     rf12_sleep(RF12_WAKEUP);
     rf12_sendNow(0, &payload, ((sizeof payload) ));
     rf12_sendWait(RADIO_SYNC_MODE);
@@ -288,7 +295,7 @@ static void doReport() {
         Serial.print("\nROOM_BME280 ");
         Serial.print((int) payload.light);
         Serial.print(' ');
-        Serial.print((int) payload.moved);
+//        Serial.print((int) payload.moved);
         Serial.print(" h=");
         float x = payload.humi / 100.0f;
         Serial.print(x);
@@ -296,7 +303,7 @@ static void doReport() {
         x = payload.temp / 100.0f;
         Serial.print(x);
         Serial.print("°C ");
-        Serial.print((int) payload.lobat);
+//        Serial.print((int) payload.lobat);
         Serial.print(' ');
         Serial.print((int) countPCINT);
         Serial.print(" p=");
@@ -313,13 +320,13 @@ static void doReport() {
 static void doTrigger() {
     #if DEBUG
         Serial.print("\nPIR ");
-        Serial.print((int) payload.moved);
+//        Serial.print((int) payload.moved);
         Serial.print(' ');
         Serial.print((int) countPCINT);
         serialFlush();
     #endif
     
-    payload.count++;
+//    payload.count++;
     for (byte i = 1; i < RETRY_LIMIT; ++i) {
     	payload.attempts = i;
         rf12_sleep(RF12_WAKEUP);
@@ -462,7 +469,7 @@ static void loadSettings () {
 } // loadSettings
 
 void setup () {
-	payload.spare2 = 3;
+//	payload.spare2 = 3;
     #if SERIAL || DEBUG
         Serial.begin(115200);
         Serial.print("\n[roomNode.3.1]");
@@ -515,7 +522,7 @@ void loop () {
     #if PIR_PORT
         if (pir.triggered()) {
 			clock_prescale(0);
-            payload.moved = pir.state();
+//            payload.moved = 0;//pir.state();
 			doTrigger();
         }
     #endif
