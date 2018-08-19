@@ -9,8 +9,9 @@
 #define ROM_UINT8       const uint8_t // Does this change storage to RAM?
 #define ROM_READ_UINT8  pgm_read_byte
 #define ROM_DATA        PROGMEM
-
-#define LIBRARY_VERSION     15      // Stored in REG_SYNCVALUE6 by initRadio 
+#define SX1276	1
+#if !SX1276
+#define LIBRARY_VERSION     128      // Stored in REG_SYNCVALUE6 by initRadio 
 #define REG_FIFO            0x00
 #define REG_OPMODE          0x01
 #define DATAMODUL           0x02 
@@ -87,7 +88,7 @@
 
 #define IRQ2_FIFOFULL       0x80
 #define IRQ2_FIFONOTEMPTY   0x40
-#define IRQ2_FIFOOVERRUN    0x10
+#define IRQ2_FIFOOVERRUN    0x10	// Also OK for SX1276
 #define IRQ2_PACKETSENT     0x08
 #define IRQ2_PAYLOADREADY   0x04
 
@@ -132,67 +133,7 @@
 #define FEI_START           0x20
 #define FEI_DONE			0x40
 
-#define RF_MAX   72
-
-// transceiver states, these determine what to do with each interrupt
-enum { TXCRC1, TXCRC2, TXDONE, TXIDLE, TXRECV, RXFIFO };
-
-byte clearAir = 180;
-
-namespace RF69 {
-    uint32_t frf;
-    uint8_t  group;
-    uint8_t  node;
-    uint8_t microOffset;
-    uint16_t crc;
-    uint8_t  rssi;
-    uint8_t  rssiDelay;
-    uint8_t  lastState;
-    uint8_t  REGIRQFLAGS1;
-    int16_t  afc;
-    int16_t  fei;
-    uint8_t  lna;
-    uint16_t interruptCount;
-    uint16_t rxP;
-    uint16_t txP;
-    uint16_t discards;
-    uint16_t unexpected;
-    uint8_t  unexpectedFSM;
-    uint8_t  unexpectedIRQFLAGS2;
-    uint8_t  unexpectedMode;
-    uint16_t byteCount;
-    uint16_t underrun;
-    uint8_t  present;
-    uint16_t pcIntCount;
-    uint8_t  pcIntBits;
-    int8_t   payloadLen;
-    uint16_t badLen;
-    uint16_t packetShort;
-    uint8_t  IRQFLAGS2;
-    uint8_t  DIOMAPPING1;
-    }
-static volatile uint8_t lna;
-static volatile uint8_t rxfill;      // number of data bytes in buffer
-static volatile uint8_t rxdone;      // 
-static volatile int8_t rxstate;      // current transceiver state
-static volatile uint8_t packetBytes; // Count of bytes in packet
-static volatile uint8_t rf69_skip;   // header bytes to skip
-static volatile uint8_t rf69_fix;    // Maximum for fixed length packet
-static volatile int16_t afc;
-static volatile int16_t fei;
-static volatile int16_t lastFEI;
-static volatile uint16_t delayTXRECV;
-static volatile uint16_t rst;
-volatile uint32_t tfr;
-static volatile uint32_t previousMillis;
-static volatile uint32_t noiseMillis;
-static volatile uint32_t SYNCinterruptMillis;
-static volatile uint16_t RssiToSync;
-static volatile uint8_t startRSSI;
-static volatile uint8_t afcfei;
-
 static ROM_UINT8 configRegs_compat [] ROM_DATA = {
-//  0x01, 0x04, // Standby Mode
   0x25, 0x00, // Set DIOMAPPING1 to POR value
   0x28, IRQ2_FIFOOVERRUN, // Clear the FIFO
   0x2E, 0x98, // SyncConfig = sync on, sync size = 4
@@ -250,7 +191,236 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 };
 
 RF_API rfapi;
+
+#define RF_MAX   72
+
+#else
+// SX1276 in FSK Mode
+
+#define LIBRARY_VERSION     15      // Stored in REG_SYNCVALUE6 by initRadio 
+#define REG_FIFO            0x00
+#define REG_OPMODE          0x01
+#define DATAMODUL           0x02 
+#define REG_BITRATEMSB      0x02
+#define REG_BITRATELSB      0x03
+#define REG_FRFMSB          0x06
+#define REG_OSC1            0x24
+#define REG_PACONFIG		0x09
+//#define REG_PALEVEL			0x11
+#define REG_OCP             0x0B
+#define REG_LNA             0x0C
+#define REG_AFCFEI          0x1A
+#define REG_AFCMSB          0x1B
+#define REG_AFCLSB          0x1C
+#define REG_FEIMSB          0x1D
+#define REG_FEILSB          0x1E
+//#define REG_RSSICONFIG      0x23
+#define REG_RSSITHRESHOLD   0x10
+#define REG_RSSIVALUE       0x11
+#define REG_DIOMAPPING1     0x40
+#define REG_DIOMAPPING2     0x41
+#define REG_VERSION			0x42
+#define REG_IRQFLAGS1       0x3E
+#define REG_IRQFLAGS2       0x3F
+#define REG_SYNCCONFIG      0x27
+#define REG_SYNCVALUE1      0x28
+#define REG_SYNCVALUE2      0x29
+#define REG_SYNCVALUE3      0x2A
+#define REG_SYNCVALUE4      0x2B
+#define REG_SYNCVALUE5      0x2C
+#define REG_SYNCVALUE6      0x2D
+#define REG_SYNCVALUE7      0x2E
+#define REG_SYNCVALUE8      0x2F
+#define REG_SYNCGROUP       0x2B
+#define REG_NODEADRS        0x33
+#define REG_FIFOTHRESH      0x35
+#define REG_PACKETCONFIG2   0x31
+// Unsupported #define REG_AESKEY1         0x3E
+//#define REG_TEMP1           0x4E
+#define REG_TEMPVALUE       0x3C
+//#define REG_TESTLNA         0x58
+//#define REG_TESTPA1         0x5A
+//#define REG_TESTPA2         0x5C
+
+#define MODE_SLEEP          0x00
+#define MODE_STANDBY        0x01
+#define MODE_FS_TX          0x02
+#define MODE_TRANSMITTER    0x03
+#define MODE_FS_RX          0x04
+#define MODE_RECEIVER       0x05
+//#define MODE_LISTENABORT    0x20
+//#define MODE_LISTENON       0x40
+//#define MODE_SEQUENCER_OFF  0x80
+#define MODE_MASK           0x07
+//#define TESTLNA_NORMAL      0x1B
+//#define TESTLNA_BOOST       0x2D
+//#define TESTPA1_NORMAL      0x55
+//#define TESTPA1_20DB		0x5D
+//#define TESTPA2_NORMAL      0x70
+//#define TESTPA2_20DB		0x7C
+//#define OCP_NORMAL			0x1A
+//#define OCP_20DB			0x0F
+
+#define COURSE_TEMP_COEF      -89 // starter callibration figure
+//#define RF_TEMP1_MEAS_START   0x08
+//#define RF_TEMP1_MEAS_RUNNING 0x04
+
+#define IRQ1_MODEREADY      0x80
+#define IRQ1_RXREADY        0x40
+#define IRQ1_TXREADY		0x20
+#define IRQ1_PLL            0x10
+#define IRQ1_RSSI           0x08
+#define IRQ1_TIMEOUT        0x04
+#define IRQ1_PREAMBLE		0x02
+#define IRQ1_SYNCMATCH      0x01
+
+#define START_TX            0x80  // With 125Khz SPI a minimum
+#define DELAY_TX            0x18  // 22 byte head start required, 24 to be safer 
+
+
+#define IRQ2_FIFOFULL       0x80
+#define IRQ2_FIFONOTEMPTY   0x40
+#define IRQ2_FIFOLEVEL		0x20
+#define IRQ2_FIFOOVERRUN    0x10
+#define IRQ2_PACKETSENT     0x08
+#define IRQ2_PAYLOADREADY   0x04
+#define IRQ2_CRC_OK			0x02
+#define IRQ2_LOWBAT			0x01
+
+//#define PACKET2_RESTART     0x04
+
+#define DIO0_PACKETSENT     0x00
+
+// FS Mode
+#define DIO0_FS_UNDEF_RX    0x40
+#define DIO0_FS_UNDEF_TX    0x80
+// RX Mode
+#define DIO0_CRCOK          0x00
+#define DIO0_PAYLOADREADY   0x40
+#define DIO0_SYNCADDRESS    0x80
+#define DIO0_RSSI           0xC0
+// TX Mode
+#define DIO0_TX_UNDEFINED   0x80
+#define DIO0_PACKETSENT     0x00
+#define DIO3_FIFOFULL       0x00
+#define DIO3_RSSI           0x01
+#define DIO3_SYNCADDRESS    0x02
+#define DIO3_FIFOFULL_TX    0x00
+#define DIO3_TX_UNDEFINED   0x02
+
+#define RcCalStart          0x81
+#define RcCalDone           0x40
+#define FeiStart            0x20
+#define FeiDone             0x40
+#define RssiStart           0x01
+#define RssiDone            0x02
+#define oneByteSync         0x80
+#define twoByteSync         0x88
+#define threeByteSync       0x90
+#define fourByteSync        0x98
+#define fiveByteSync        0xA0
+
+#define AFC_AUTOCLR         0x80
+#define AFC_AUTO			0x40
+#define AFC_DONE            0x10
+#define AFC_CLEAR           0x02
+#define AFC_START           0x01
+#define FEI_START           0x20
+#define FEI_DONE			0x40
+
+static ROM_UINT8 configRegs_compat [] ROM_DATA = {
+  0x40, 0x00, // Set DIOMAPPING1 to POR value
+  0x3F, IRQ2_FIFOOVERRUN, // Clear the FIFO
+  0x27, 0x13, // SyncConfig = sync on, sync size = 4
+  0x28, 0xAA, // SyncValue1 = 0xAA
+  0x29, 0xAA, // SyncValue2 = 0xAA
+  0x2A, 0x2D, // SyncValue3 = 0x2D
+  0x2B, 0xD4, // SyncValue4 = 0xD4, 212, group
+  0x2C, 0x00, // SyncValue5
+
+  0x02, 0x02, // BitRateMsb, data rate = 49,261 khz
+  0x03, 0x8A, // BitRateLsb, divider = 32 MHz / 650 == 49,230 khz
   
+  0x04, 0x05, // FdevMsb = 90 KHz
+  0x05, 0xC3, // FdevLsb = 90 KHz
+
+  0x1E, 0x00,
+
+  0x26, 0x07, // disable clkout
+
+  0x29, 0xBE, // RssiThresh ... -95dB
+
+  0x37, 0x00, // PacketConfig1 = fixed, no crc, filt off
+  0x38, 0x00, // PayloadLength = 0, unlimited
+  0x3C, 0x8F, // FifoTresh, not empty, level 15 bytes, unused here
+  0x3D, 0x10, // PacketConfig2, interpkt = 1, autorxrestart off
+  0x58, 0x2D, // High sensitivity mode
+
+  0
+};
+
+RF_API rfapi;
+
+#define RF_MAX   72
+#endif
+
+// transceiver states, these determine what to do with each interrupt
+enum { TXCRC1, TXCRC2, TXDONE, TXIDLE, TXRECV, RXFIFO };
+
+byte clearAir = 180;
+
+namespace RF69 {
+    uint32_t frf;
+    uint8_t  group;
+    uint8_t  node;
+    uint8_t microOffset;
+    uint16_t crc;
+    uint8_t  rssi;
+    uint8_t  rssiDelay;
+    uint8_t  lastState;
+    uint8_t  REGIRQFLAGS1;
+    int16_t  afc;
+    int16_t  fei;
+    uint8_t  lna;
+    uint16_t interruptCount;
+    uint16_t rxP;
+    uint16_t txP;
+    uint16_t discards;
+    uint16_t unexpected;
+    uint8_t  unexpectedFSM;
+    uint8_t  unexpectedIRQFLAGS2;
+    uint8_t  unexpectedMode;
+    uint16_t byteCount;
+    uint16_t underrun;
+    uint8_t  present;
+    uint16_t pcIntCount;
+    uint8_t  pcIntBits;
+    int8_t   payloadLen;
+    uint16_t badLen;
+    uint16_t packetShort;
+    uint8_t  IRQFLAGS2;
+    uint8_t  DIOMAPPING1;
+    }
+static volatile uint8_t lna;
+static volatile uint8_t rxfill;      // number of data bytes in buffer
+static volatile uint8_t rxdone;      // 
+static volatile int8_t rxstate;      // current transceiver state
+static volatile uint8_t packetBytes; // Count of bytes in packet
+static volatile uint8_t rf69_skip;   // header bytes to skip
+static volatile uint8_t rf69_fix;    // Maximum for fixed length packet
+static volatile int16_t afc;
+static volatile int16_t fei;
+static volatile int16_t lastFEI;
+static volatile uint16_t delayTXRECV;
+static volatile uint16_t rst;
+volatile uint32_t tfr;
+static volatile uint32_t previousMillis;
+static volatile uint32_t noiseMillis;
+static volatile uint32_t SYNCinterruptMillis;
+static volatile uint16_t RssiToSync;
+static volatile uint8_t startRSSI;
+static volatile uint8_t afcfei;
+ 
 /*
 
 0x13 RegOcp default is Current limiter active, threshold at 45+ 5*trim bits.

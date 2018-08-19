@@ -1,6 +1,6 @@
 /// @dir RFxConsole
 ///////////////////////////////////////////////////////////////////////////////
-#define RF69_COMPAT      0	 // define this to use the RF69 driver i.s.o. RF12 
+#define RF69_COMPAT      1	 // define this to use the RF69 driver i.s.o. RF12 
 ///                          // The above flag must be set similarly in RF12.cpp
 ///                          // and RF69_avr.h
 #define BLOCK  0             // Alternate LED pin?
@@ -661,7 +661,7 @@ static void showStatus() {
     Serial.print(elapsedSeconds);
 	printOneChar('s');
     showString(PSTR(", Led is ")); if (ledStatus) showString(PSTR("on")); else showString(PSTR("off"));
-    showString(PSTR(", Free Ram(b) "));
+    showString(PSTR(", Free Ram(B) "));
     Serial.print(freeRam());     
 #if RF69_COMPAT
 	showString(PSTR(", Temperature "));
