@@ -164,9 +164,9 @@ static void spiConfigPins () {
 #endif 
 #define SS_DDR      DDRB
 #define SS_PORT     PORTB
-#define SS_BIT      2       // for PORTB: 2 = d.10, 1 = d.9, 0 = d.8
+#define SS_BIT      1       // for PORTB: 2 = d.10, 1 = d.9, 0 = d.8
 
-#define SPI_SS      2       // PB2: Required to enable SPI 
+#define SPI_SS      1       // PB2: Required to enable SPI 
 #define SPI_MOSI    3       // PB3
 #define SPI_MISO    4       // PB4
 #define SPI_SCK     5       // PB5

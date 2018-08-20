@@ -206,7 +206,7 @@ RF_API rfapi;
 #define REG_FRFMSB          0x06
 #define REG_OSC1            0x24
 #define REG_PACONFIG		0x09
-//#define REG_PALEVEL			0x11
+#define REG_PALEVEL			0x09
 #define REG_OCP             0x0B
 #define REG_LNA             0x0C
 #define REG_AFCFEI          0x1A
@@ -237,7 +237,7 @@ RF_API rfapi;
 #define REG_PACKETCONFIG2   0x31
 // Unsupported #define REG_AESKEY1         0x3E
 //#define REG_TEMP1           0x4E
-#define REG_TEMPVALUE       0x3C
+#define REG_TEMP2		      0x3C
 //#define REG_TESTLNA         0x58
 //#define REG_TESTPA1         0x5A
 //#define REG_TESTPA2         0x5C
@@ -292,21 +292,22 @@ RF_API rfapi;
 #define DIO0_PACKETSENT     0x00
 
 // FS Mode
-#define DIO0_FS_UNDEF_RX    0x40
+#define DIO0_FS_UNDEF_RX    0x80
 #define DIO0_FS_UNDEF_TX    0x80
 // RX Mode
-#define DIO0_CRCOK          0x00
-#define DIO0_PAYLOADREADY   0x40
-#define DIO0_SYNCADDRESS    0x80
-#define DIO0_RSSI           0xC0
+#define DIO0_CRCOK          0x40
+//#define DIO0_PAYLOADREADY   0x40
+#define DIO0_SYNCADDRESS    0x00
+#define DIO0_RSSI           0x40
 // TX Mode
 #define DIO0_TX_UNDEFINED   0x80
 #define DIO0_PACKETSENT     0x00
-#define DIO3_FIFOFULL       0x00
-#define DIO3_RSSI           0x01
-#define DIO3_SYNCADDRESS    0x02
-#define DIO3_FIFOFULL_TX    0x00
-#define DIO3_TX_UNDEFINED   0x02
+
+//#define DIO3_FIFOFULL       0x00
+#define DIO4_RSSI           0xC0
+//#define DIO3_SYNCADDRESS    0x02
+//#define DIO3_FIFOFULL_TX    0x00
+//#define DIO3_TX_UNDEFINED   0x02
 
 #define RcCalStart          0x81
 #define RcCalDone           0x40
@@ -314,10 +315,10 @@ RF_API rfapi;
 #define FeiDone             0x40
 #define RssiStart           0x01
 #define RssiDone            0x02
-#define oneByteSync         0x80
-#define twoByteSync         0x88
-#define threeByteSync       0x90
-#define fourByteSync        0x98
+#define oneByteSync         0x10
+#define twoByteSync         0x11
+#define threeByteSync       0x12
+#define fourByteSync        0x13
 #define fiveByteSync        0xA0
 
 #define AFC_AUTOCLR         0x80
@@ -454,6 +455,7 @@ static void flushFifo () {
 }
 
 uint8_t setMode (uint8_t mode) {	// TODO enhance return code
+#if !SX1276
     uint8_t c = 0;
     if (mode >= MODE_FS) {
         uint8_t s = readReg(REG_DIOMAPPING1);// Save Interrupt triggers
@@ -473,6 +475,10 @@ uint8_t setMode (uint8_t mode) {	// TODO enhance return code
         c++; if (c >= 254) break;
     }
     return c;	// May need to beef this up since sometimes we don't appear to setmode correctly
+#else
+	writeReg(REG_OPMODE, mode);
+	return 1;
+#endif
 }
 
 static uint8_t initRadio (ROM_UINT8* init) {
@@ -554,8 +560,10 @@ void RF69::sleep (bool off) {
 // returns raw temperature from chip
 int8_t RF69::readTemperature(int8_t userCal) {
   sleep(false);        // this ensures the mode is in standby, using setMode directly had undesirable side effects.
+#if !SX1276
   writeReg(REG_TEMP1, RF_TEMP1_MEAS_START);
   while ((readReg(REG_TEMP1) & RF_TEMP1_MEAS_RUNNING));
+#endif
   return ~readReg(REG_TEMP2) + COURSE_TEMP_COEF + userCal; //'complement' corrects the slope, rising temp = rising val
 }
 
@@ -576,10 +584,12 @@ uint8_t RF69::currentRSSI() {
       setMode(MODE_RECEIVER);   // Looses contents of FIFO and 36 spins
 
       rssiDelay = 0;
+#if !SX1276
       writeReg(REG_RSSICONFIG, RssiStart);	// Trigger an RSSI measurement
       while (!(readReg(REG_IRQFLAGS1) & IRQ1_RSSI)) {
           rssiDelay++;
       }
+#endif
       uint8_t r = readReg(REG_RSSIVALUE);           // Collect RSSI value
       writeReg(REG_AFCFEI, AFC_CLEAR);
       writeReg(REG_RSSITHRESHOLD, 64);  			// Quiet down threshold
@@ -648,11 +658,12 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
 		rf12_drx = delayTXRECV;
 		writeReg(REG_DIOMAPPING1, (DIO0_RSSI /*| DIO3_RSSI  DIO0_SYNCADDRESS*/));// Interrupt triggers
 		writeReg(REG_LNA, 0x00); 			// 
+#if !SX1276
 		writeReg(REG_PALEVEL, ((rfapi.txPower & 0x9F) | 0x80));	// PA1/PA2 off
         writeReg(REG_OCP, OCP_NORMAL);			// Overcurrent protection on
         writeReg(REG_TESTPA1, TESTPA1_NORMAL);	// Turn off high power 
         writeReg(REG_TESTPA2, TESTPA2_NORMAL);  // transmit
-        
+#endif        
         if (rfapi.ConfigFlags & 0x80) afcfei = AFC_START;
         else afcfei = 0;
         rfapi.ConfigFlags = (rfapi.ConfigFlags | afcfei);
@@ -707,7 +718,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
     }
 // Code below did not find any mode error situations.
     // Test for radio in hung state
-    if (readReg(REG_OPMODE) == MODE_FS) {
+    if (readReg(REG_OPMODE) == MODE_FS_RX) {
 				setMode(MODE_SLEEP);	// Clear hang?
             	rxstate = TXIDLE;
             	rfapi.modeError = true;
@@ -754,6 +765,7 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
 //    if (rf12_len > 9)                       // Expedite short packet TX
 //      writeReg(REG_FIFOTHRESH, DELAY_TX);   // Wait for FIFO to hit 32 bytes
 //    the above code is to facilitate slow SPI bus speeds.  
+#if !SX1276
 	if (rfapi.txPower & 0x80) {
 		rfapi.txPower = (rfapi.txPower & 0x9F);
 	}
@@ -764,7 +776,8 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
           	writeReg(REG_TESTPA2, TESTPA2_20DB);    // cross your fingers
           	// Beware the duty cycle - 1% only
     	}
-    writeReg(REG_DIOMAPPING1, (DIO0_PACKETSENT | DIO3_TX_UNDEFINED));
+#endif
+    writeReg(REG_DIOMAPPING1, (DIO0_PACKETSENT /*| DIO3_TX_UNDEFINED*/));
 
     if (ptr != 0) {
     	writeReg(REG_SYNCCONFIG, fourByteSync);
@@ -973,10 +986,12 @@ second rollover and then will be 1.024 mS out.
 
 	    } else 
 	    if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
+#if !SX1276
           	writeReg(REG_OCP, OCP_NORMAL);			// Overcurrent protection on
           	writeReg(REG_TESTPA1, TESTPA1_NORMAL);	// Turn off high power 
           	writeReg(REG_TESTPA2, TESTPA2_NORMAL);	// transmit
     		writeReg(REG_PALEVEL, ((rfapi.txPower & 0x9F) | 0x80));	// PA1/PA2 off
+#endif
           	// rxstate will be TXDONE at this point
           	txP++;
           	setMode(MODE_SLEEP);

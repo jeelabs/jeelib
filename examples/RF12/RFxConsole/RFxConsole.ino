@@ -228,7 +228,7 @@ static byte inChar () {
   #if BLOCK
     #define LED_PIN     8        // activity LED, comment out to disable
   #else
-    #define LED_PIN     9        // activity LED, comment out to disable
+//    #define LED_PIN     9        // activity LED, comment out to disable
   #endif
   #define messageStore  128
   #define MAX_NODES 15        // Contrained by RAM (22 bytes RAM per node)
