@@ -228,7 +228,7 @@ static byte inChar () {
   #if BLOCK
     #define LED_PIN     8        // activity LED, comment out to disable
   #else
-//    #define LED_PIN     9        // activity LED, comment out to disable
+    #define LED_PIN     8        // activity LED, comment out to disable
   #endif
   #define messageStore  128
   #define MAX_NODES 15        // Contrained by RAM (22 bytes RAM per node)
@@ -1323,6 +1323,7 @@ static void handleInput (char c) {
                      break;
 
             case 'd': // dump all log markers
+            		 dumpRegs();
                      if (df_present())
                          df_dump();
                      break;
@@ -1603,6 +1604,7 @@ Serial.println(MCUSR, HEX);
 #endif
     if (rf12_configSilent()) {
         loadConfig();
+        dumpRegs();
     } else {
         dumpEEprom();
         showString(INITFAIL);
@@ -1693,14 +1695,17 @@ static void dumpEEprom() {
 //#if DEBUG && RF69_COMPAT
 /// Display the RFM69x registers
 static void dumpRegs() {
-    Serial.print("\nRFM69x Registers:");
-    for (byte r = 1; r < 0x80; ++r) {
-        showByte(RF69::control(r, 0)); // Prints out Radio Registers.
-        printOneChar(',');
-        delay(2);
+    Serial.print("\nRFM69x Registers:\n");
+    for (byte r = 0; r < 0x80; ++r) {
+    	Serial.print(r, HEX);
+    	printOneChar('=');
+        Serial.print(RF69::control(r, 0), HEX); // Prints out Radio Registers.
+        if (r == 16 || r == 32 || r == 48 || r == 64 || r ==80 || r == 96 || r == 112 || r == 127) Serial.println();
+        else printOneChar(',');
+//        delay(2);
     }
     Serial.println();
-    delay(10);
+//    delay(10);
 }
 //#endif
 /// Display stored nodes and show the next post queued for each node

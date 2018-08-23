@@ -10,7 +10,9 @@
 #define ROM_READ_UINT8  pgm_read_byte
 #define ROM_DATA        PROGMEM
 #define SX1276	1
+
 #if !SX1276
+/*
 #define LIBRARY_VERSION     128      // Stored in REG_SYNCVALUE6 by initRadio 
 #define REG_FIFO            0x00
 #define REG_OPMODE          0x01
@@ -141,7 +143,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x30, 0xAA, // SyncValue2 = 0xAA
   0x31, 0x2D, // SyncValue3 = 0x2D
   0x32, 0xD4, // SyncValue4 = 0xD4, 212, group
-  0x33, 0x00, // SyncValue5
+//  0x33, 0x00, // SyncValue5
 
   0x03, 0x02, // BitRateMsb, data rate = 49,261 khz
   0x04, 0x8A, // BitRateLsb, divider = 32 MHz / 650 == 49,230 khz
@@ -161,10 +163,10 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 // 0x09, 0x00, // FrfLsb, step = 61.03515625
 // 0x0B, 0x20, // AfcCtrl, afclowbetaon
 	0x11,0x9F, // PA0 only and maximum -3dB
-/*
+
 // Mismatching PA1 below with the RFM69x module present risks blowing a hole in the LNA
 // 0x11, 0x5F, // PA1 enable, Pout = max // uncomment this for RFM69H
-*/
+
 //  0x18, 0x02, // Manual LNA = 2 = -6dB
 // More prone to restarts in noisy environment
   0x19, 0x29, // RxBw 200 KHz, DCC 16%
@@ -193,7 +195,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 RF_API rfapi;
 
 #define RF_MAX   72
-
+*/
 #else
 // SX1276 in FSK Mode
 
@@ -261,7 +263,7 @@ RF_API rfapi;
 //#define OCP_NORMAL			0x1A
 //#define OCP_20DB			0x0F
 
-#define COURSE_TEMP_COEF      -89 // starter callibration figure
+#define COURSE_TEMP_COEF      14 // starter callibration figure
 //#define RF_TEMP1_MEAS_START   0x08
 //#define RF_TEMP1_MEAS_RUNNING 0x04
 
@@ -309,7 +311,7 @@ RF_API rfapi;
 //#define DIO3_FIFOFULL_TX    0x00
 //#define DIO3_TX_UNDEFINED   0x02
 
-#define RcCalStart          0x81
+#define RcCalStart          0x0F
 #define RcCalDone           0x40
 #define FeiStart            0x20
 #define FeiDone             0x40
@@ -337,7 +339,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x29, 0xAA, // SyncValue2 = 0xAA
   0x2A, 0x2D, // SyncValue3 = 0x2D
   0x2B, 0xD4, // SyncValue4 = 0xD4, 212, group
-  0x2C, 0x00, // SyncValue5
+//  0x2C, 0x00, // SyncValue5
 
   0x02, 0x02, // BitRateMsb, data rate = 49,261 khz
   0x03, 0x8A, // BitRateLsb, divider = 32 MHz / 650 == 49,230 khz
@@ -345,17 +347,14 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x04, 0x05, // FdevMsb = 90 KHz
   0x05, 0xC3, // FdevLsb = 90 KHz
 
-  0x1E, 0x00,
+//  0x1E, 0x00,
 
-  0x26, 0x07, // disable clkout
-
-  0x29, 0xBE, // RssiThresh ... -95dB
-
-  0x37, 0x00, // PacketConfig1 = fixed, no crc, filt off
-  0x38, 0x00, // PayloadLength = 0, unlimited
-  0x3C, 0x8F, // FifoTresh, not empty, level 15 bytes, unused here
-  0x3D, 0x10, // PacketConfig2, interpkt = 1, autorxrestart off
-  0x58, 0x2D, // High sensitivity mode
+  0x30, 0x00, // PacketConfig1 = fixed, no crc, filt off
+  0x31, 0x40, // Packet Mode 
+  0x32, 0x00, // Max Payload Length 0
+  0x35, 0x80, // FifoTresh, not empty
+//  0x3D, 0x10, // PacketConfig2, interpkt = 1, autorxrestart off
+//  0x58, 0x2D, // High sensitivity mode
 
   0
 };
@@ -483,21 +482,34 @@ uint8_t setMode (uint8_t mode) {	// TODO enhance return code
 
 static uint8_t initRadio (ROM_UINT8* init) {
 
+#if SX1276
+    bitClear(DDRB, 1);	// D9 wired to radio RESET line
+    delay(5);
+    bitSet(PORTB, 1);
+    delay(10);
+#endif
+
     spiInit();
+    
 // Validate SPI bus operation
     writeReg(REG_SYNCVALUE6, LIBRARY_VERSION);
     writeReg(REG_SYNCVALUE7, 0xAA);
     writeReg(REG_SYNCVALUE8, 0x55);
+/*    
+    Serial.print("SPI sync8=0x");
+    Serial.println(readReg(REG_SYNCVALUE8), HEX);
+    delay(1000);
+*/
     if ((readReg(REG_SYNCVALUE7) == 0xAA) && (readReg(REG_SYNCVALUE8) == 0x55)) {
 
         // Attempt to mitigate init loop of RSSI interrupt, symptoms are
         // not mitigated by numerically low RSSI threshold values.
         writeReg(REG_SYNCCONFIG, oneByteSync);  // Don't disturb anyone.
         writeReg(REG_DIOMAPPING1, DIO0_TX_UNDEFINED);  // No interrupt
+
         setMode(MODE_TRANSMITTER);
         writeReg(REG_FIFO, 0x55);
-        
-        setMode(MODE_SLEEP);
+//        setMode(MODE_SLEEP);
         
 // Configure radio
         for (;;) {
@@ -506,12 +518,28 @@ static uint8_t initRadio (ROM_UINT8* init) {
             writeReg(cmd, ROM_READ_UINT8(init+1));
             init += 2;
         }
+/*        
+    for (byte r = 1; r < 0x80; ++r) {
+    	Serial.print(r, HEX);
+    	Serial.print("=");
+        Serial.print(RF69::control(r, 0), HEX); // Prints out Radio Registers.
+        if (r == 0x20 || r == 0x40) Serial.println();
+        else Serial.print(",");
+    }
+    Serial.println();
+	delay(100);        
+*/        
+
 		previousMillis = millis();
 		rfapi.rtpMin = 0; /*65535;*/ rfapi.rtpMax = 0;
         InitIntPin();
         
         return 1;
     }
+/*
+    Serial.println(readReg(REG_SYNCVALUE8), HEX);
+    delay(1000);
+*/
     return 0;
 }
 
@@ -535,6 +563,8 @@ uint8_t RF69::canSend (uint8_t clear) {
 	if (((rxfill == 0) || (rxdone))) {
         setMode(MODE_SLEEP);
         rfapi.sendRSSI = currentRSSI();
+        Serial.println(rfapi.sendRSSI);
+        delay(2000);
         if(rfapi.sendRSSI >= clearAir) {
             rxstate = TXIDLE;
             return rfapi.sendRSSI;
@@ -623,7 +653,9 @@ void RF69::configure_compat () {
         writeReg(REG_FRFMSB+2, frf);
         setMode(MODE_STANDBY);
         writeReg(REG_OSC1, RcCalStart);             // Calibrate
+#if !SX1276
     	while(!(readReg(REG_OSC1) & RcCalDone));    // Wait for completion
+#endif
         writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
         rxstate = TXIDLE;
 

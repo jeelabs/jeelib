@@ -19,7 +19,7 @@ of power down sleep. */
 #define PINCHG_IRQ  0   // Set this true to use pin-change interrupts
                         // The above flags must be set similarly in RF12.cpp
 // NOTE: The following does not apply to the ATTiny processors which uses USI
-#define OPTIMIZE_SPI 1  // comment this out to write to the RFM69x @ 125Khz
+#define OPTIMIZE_SPI 1  // Set to 0 to write to the RFM69x @ 125Khz
                         // otherwise frequency is 8Mhz with 16Mhz processor
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -41,10 +41,10 @@ volatile byte lastPCInt;
 #define SS_PORT     PORTB
 #define SS_BIT      0
 
-#define SPI_SS      53    // PB0, pin 19
-#define SPI_MOSI    51    // PB2, pin 21
 #define SPI_MISO    50    // PB3, pin 22
+#define SPI_MOSI    51    // PB2, pin 21
 #define SPI_SCK     52    // PB1, pin 20
+#define SPI_SS      53    // PB0, pin 19
 
 static void spiConfigPins () {
     SS_PORT |= _BV(SS_BIT);
@@ -155,21 +155,21 @@ static void spiConfigPins () {
 
 #else // ATmega168, ATmega328, etc.
 
-#define INT          INT0   // INT0 or INT1 also used to select SYNC or RSSI
-#define INT_NUMBER      0   // 0 for INT0 and 1 for INT1
+#define INT          INT1   // INT0 or INT1 also used to select SYNC or RSSI
+#define INT_NUMBER      1   // 0 for INT0 and 1 for INT1
 #if PINCHG_IRQ
     #define RFM_IRQ    18	// 18 for pin change on PD2
 #else
-    #define RFM_IRQ     2	// 2 for INT0 on PD2, 3 for INT1 on PD3
+    #define RFM_IRQ     3	// 2 for INT0 on PD2, 3 for INT1 on PD3
 #endif 
 #define SS_DDR      DDRB
 #define SS_PORT     PORTB
-#define SS_BIT      1       // for PORTB: 2 = d.10, 1 = d.9, 0 = d.8
+#define SS_BIT      2       // for PORTB: 2 = d.10, 1 = d.9, 0 = d.8
 
-#define SPI_SS      1       // PB2: Required to enable SPI 
+#define SPI_SS      2       // PB2: Required to enable SPI 
 #define SPI_MOSI    3       // PB3
 #define SPI_MISO    4       // PB4
-#define SPI_SCK     5       // PB5
+#define SPI_SCK     5       // PB5	
 
 static void spiConfigPins () {
     SS_PORT |= _BV(SS_BIT);
@@ -309,7 +309,8 @@ static void spiInit (void) {
 #ifdef SPCR    
     SPCR = _BV(SPE) | _BV(MSTR);    
 
-  #if OPTIMIZE_SPI == 0    
+  #if OPTIMIZE_SPI == 0
+  	Serial.println("Optimize=0");    
     SPCR |= _BV(SPR0);  // Divide SPI by 4
     SPCR |= _BV(SPR1);  // Divide SPI by 16
 //    SPSR |= _BV(SPI2X);  // Double SPI
