@@ -1,7 +1,7 @@
 #ifndef RF69_h
 #define RF69_h
 
-#define JEEPACKET16 10						// Loop limiter in RF69::interrupt_compat
+#define JEEPACKET16 500						// Loop limiter in RF69::interrupt_compat
 #define JEEPACKET8 JEEPACKET16				// Loop limiter in RF69::interrupt_compat
 // 					The above value is an estimate and needs fine tuning.
 #define SALUSPACKET16  2500					// ditto
@@ -10,6 +10,7 @@ typedef struct {
 
     uint32_t rateInterval;	// Disabled by default, set this to 10000ms
     uint32_t RSSIrestart;
+    uint16_t interruptCount;
     uint32_t syncMatch;
     uint32_t goodCRC;
 	uint32_t discards;   // Count of good packets discarded

@@ -1324,6 +1324,7 @@ static void handleInput (char c) {
 
             case 'd': // dump all log markers
             		 dumpRegs();
+            		 Serial.println(rfapi.interruptCount);
                      if (df_present())
                          df_dump();
                      break;
@@ -1782,7 +1783,7 @@ http://forum.arduino.cc/index.php/topic,140376.msg1054626.html
         Serial.print(CRCbadMaxRSSI);
         printOneChar(' ');
     }
-    Serial.print(RF69::interruptCount);
+    Serial.print(rfapi.interruptCount);
     printOneChar('(');
     Serial.print(RF69::rxP);
     printOneChar(',');

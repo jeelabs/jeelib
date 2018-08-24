@@ -13,7 +13,7 @@
 
 #if !SX1276
 /*
-#define LIBRARY_VERSION     128      // Stored in REG_SYNCVALUE6 by initRadio 
+#define LIBRARY_VERSION     15      // Stored in REG_SYNCVALUE6 by initRadio 
 #define REG_FIFO            0x00
 #define REG_OPMODE          0x01
 #define DATAMODUL           0x02 
@@ -199,7 +199,7 @@ RF_API rfapi;
 #else
 // SX1276 in FSK Mode
 
-#define LIBRARY_VERSION     15      // Stored in REG_SYNCVALUE6 by initRadio 
+#define LIBRARY_VERSION     128      // Stored in REG_SYNCVALUE6 by initRadio 
 #define REG_FIFO            0x00
 #define REG_OPMODE          0x01
 #define DATAMODUL           0x02 
@@ -321,7 +321,7 @@ RF_API rfapi;
 #define twoByteSync         0x11
 #define threeByteSync       0x12
 #define fourByteSync        0x13
-#define fiveByteSync        0xA0
+//#define fiveByteSync        0xA0
 
 #define AFC_AUTOCLR         0x80
 #define AFC_AUTO			0x40
@@ -342,7 +342,8 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 //  0x2C, 0x00, // SyncValue5
 
   0x02, 0x02, // BitRateMsb, data rate = 49,261 khz
-  0x03, 0x8A, // BitRateLsb, divider = 32 MHz / 650 == 49,230 khz
+  0x03, 0x89, // BitRateLsb, divider = 32 MHz / 650 == 49,230 khz
+  0x5D,	0x0A, // RegBitRateFrac  49,259.187 kHz
   
   0x04, 0x05, // FdevMsb = 90 KHz
   0x05, 0xC3, // FdevLsb = 90 KHz
@@ -351,9 +352,10 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 
   0x30, 0x00, // PacketConfig1 = fixed, no crc, filt off
   0x31, 0x40, // Packet Mode 
-  0x32, 0x00, // Max Payload Length 0
+  0x32, 0x48, // Max Payload Length 72
   0x35, 0x80, // FifoTresh, not empty
-//  0x3D, 0x10, // PacketConfig2, interpkt = 1, autorxrestart off
+  0x41, 0xC0, // Diomapping2, RSSI on DI04
+  //  0x3D, 0x10, // PacketConfig2, interpkt = 1, autorxrestart off
 //  0x58, 0x2D, // High sensitivity mode
 
   0
@@ -367,7 +369,7 @@ RF_API rfapi;
 // transceiver states, these determine what to do with each interrupt
 enum { TXCRC1, TXCRC2, TXDONE, TXIDLE, TXRECV, RXFIFO };
 
-byte clearAir = 180;
+byte clearAir = 190;
 
 namespace RF69 {
     uint32_t frf;
@@ -382,7 +384,7 @@ namespace RF69 {
     int16_t  afc;
     int16_t  fei;
     uint8_t  lna;
-    uint16_t interruptCount;
+//    uint16_t interruptCount;
     uint16_t rxP;
     uint16_t txP;
     uint16_t discards;
@@ -501,7 +503,7 @@ static uint8_t initRadio (ROM_UINT8* init) {
     delay(1000);
 */
     if ((readReg(REG_SYNCVALUE7) == 0xAA) && (readReg(REG_SYNCVALUE8) == 0x55)) {
-
+/*
         // Attempt to mitigate init loop of RSSI interrupt, symptoms are
         // not mitigated by numerically low RSSI threshold values.
         writeReg(REG_SYNCCONFIG, oneByteSync);  // Don't disturb anyone.
@@ -509,8 +511,8 @@ static uint8_t initRadio (ROM_UINT8* init) {
 
         setMode(MODE_TRANSMITTER);
         writeReg(REG_FIFO, 0x55);
-//        setMode(MODE_SLEEP);
-        
+        setMode(MODE_SLEEP);
+*/        
 // Configure radio
         for (;;) {
             uint8_t cmd = ROM_READ_UINT8(init);
@@ -685,11 +687,11 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         rxfill = rf69_buf[2] = 0;
         recvBuf = buf;
         setMode(MODE_STANDBY);
-        startRSSI = currentRSSI();       
+//        startRSSI = currentRSSI();       
 
 		rf12_drx = delayTXRECV;
 		writeReg(REG_DIOMAPPING1, (DIO0_RSSI /*| DIO3_RSSI  DIO0_SYNCADDRESS*/));// Interrupt triggers
-		writeReg(REG_LNA, 0x00); 			// 
+//		writeReg(REG_LNA, 0x00); 			// 
 #if !SX1276
 		writeReg(REG_PALEVEL, ((rfapi.txPower & 0x9F) | 0x80));	// PA1/PA2 off
         writeReg(REG_OCP, OCP_NORMAL);			// Overcurrent protection on
@@ -868,7 +870,7 @@ void RF69::interrupt_compat (uint8_t rssi_interrupt) {
   the choices are limited because of the short time gap between RSSI & SyncMatch,
   being driven by recvDone and the size of the radio FIFO.
 */
-        interruptCount++;
+        rfapi.interruptCount++;
 /*
 micros() returns the hardware timer contents (which updates continuously), 
 plus a count of rollovers (ie. one rollover ever 1.024 mS). 
