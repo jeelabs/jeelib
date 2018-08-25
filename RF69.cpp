@@ -361,6 +361,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x31, 0x40, // Packet Mode
   0x32, 0x00, // Payload length unlimited
 //  0x35, 0x80, // FifoTresh, not empty
+  0x36, 0x40,	// SequencerStop
   0x40, 0x00, // Set DIOMAPPING1 to POR value
   0x41, 0xC0, // DIOMAPPING2, RSSI on DI04
   //  0x3D, 0x10, // PacketConfig2, interpkt = 1, autorxrestart off
@@ -652,10 +653,10 @@ uint8_t RF69::currentRSSI() {
 void RF69::configure_compat () {
     present = 0;                                    // Assume radio is absent
     if (initRadio(configRegs_compat)) {
-        writeReg(REG_SYNCGROUP, group);
         if (group == 0) {
             writeReg(REG_SYNCCONFIG, threeByteSync);
         } else {
+        	writeReg(REG_SYNCGROUP, group);
             writeReg(REG_SYNCCONFIG, fourByteSync);
         }   
 
@@ -889,6 +890,7 @@ second rollover and then will be 1.024 mS out.
 */
         // N.B. millis is not updating until IRQ_ENABLE
         if (rxstate == TXRECV) {
+/*DEBUG*/rfapi.debug++;
             if (rssi_interrupt) {
             	ms = millis();
             	RssiToSync = 0;
@@ -1051,7 +1053,7 @@ second rollover and then will be 1.024 mS out.
             // Instances of RX mode with rxstate = TXIDILE
             unexpectedFSM = rxstate; // Save Finite State Machine status
             unexpectedIRQFLAGS2 = readReg(REG_IRQFLAGS2);
-            unexpectedMode = readReg(REG_OPMODE) >> 2;
+            unexpectedMode = readReg(REG_OPMODE);
             unexpected++;
 //			writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
             rxstate = TXIDLE;   // Cause a RX restart by FSM

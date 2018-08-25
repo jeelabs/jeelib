@@ -19,6 +19,7 @@ typedef struct {
     volatile uint32_t rxLast;
     volatile uint32_t minGap;
     volatile uint32_t maxGap;
+    volatile uint32_t debug;
     
     uint32_t cumRSSI[8];
     int32_t cumFEI[8];

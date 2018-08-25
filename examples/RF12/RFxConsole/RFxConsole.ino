@@ -1330,6 +1330,9 @@ static void handleInput (char c) {
             		 Serial.println();
             		 dumpRegs();
             		 Serial.println(rfapi.interruptCount);
+            		 Serial.print("Debug=");
+            		 Serial.println(rfapi.debug);
+            		 Serial.println(rfapi.intRXFIFO);
             		 Serial.println(rfapi.rssi);
                      if (df_present())
                          df_dump();
