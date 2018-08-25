@@ -174,7 +174,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 // Less prone to restarts in noisy environment
 //  0x19, 0xE2, // RxBw 125 KHz, if DCC set to 0 is more sensitive
 //  0x1A, 0xF7, // RxBwAFC 2.6 Khz Only handling initial RSSI phase, not payload!
-  0x1E, 0x00,
+  0x1E, 0x00,	// RegAFCFEI
 
   0x26, 0x07, // disable clkout
 
@@ -332,8 +332,7 @@ RF_API rfapi;
 #define FEI_DONE			0x40
 
 static ROM_UINT8 configRegs_compat [] ROM_DATA = {
-  0x40, 0x00, // Set DIOMAPPING1 to POR value
-  0x3F, IRQ2_FIFOOVERRUN, // Clear the FIFO
+//  0x3F, IRQ2_FIFOOVERRUN, // Clear the FIFO
   0x27, 0x13, // SyncConfig = sync on, sync size = 4
   0x28, 0xAA, // SyncValue1 = 0xAA
   0x29, 0xAA, // SyncValue2 = 0xAA
@@ -343,18 +342,27 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 
   0x02, 0x02, // BitRateMsb, data rate = 49,261 khz
   0x03, 0x89, // BitRateLsb, divider = 32 MHz / 650 == 49,230 khz
-  0x5D,	0x0A, // RegBitRateFrac  49,259.187 kHz
+  0x5D,	0x0A, // RegBitRateFrac  data rate = 49,259.187 kHz
   
   0x04, 0x05, // FdevMsb = 90 KHz
   0x05, 0xC3, // FdevLsb = 90 KHz
+  
+  0x0D, 0x09, // AgcAutoOn, RxTrigger RSSI
 
-//  0x1E, 0x00,
+  0x12, 0x29, // RxBw 200 KHz, DCC 16%
+  0x13, 0x29, // RxBwAFC 200 Khz, DCC 16%. Only handling initial RSSI phase, not payload!
 
-  0x30, 0x00, // PacketConfig1 = fixed, no crc, filt off
-  0x31, 0x40, // Packet Mode 
-  0x32, 0x48, // Max Payload Length 72
-  0x35, 0x80, // FifoTresh, not empty
-  0x41, 0xC0, // Diomapping2, RSSI on DI04
+ // 0x1A, 0x00,	// RegAFCFEI
+  0x1F, 0x00,	// Preamble Detector Off
+  
+//  0x24, 0x07,	// Clkcout disabled
+
+  0x30, 0x00, // PacketConfig1 = fixed, no crc
+  0x31, 0x40, // Packet Mode
+  0x32, 0x00, // Payload length unlimited
+//  0x35, 0x80, // FifoTresh, not empty
+  0x40, 0x00, // Set DIOMAPPING1 to POR value
+  0x41, 0xC0, // DIOMAPPING2, RSSI on DI04
   //  0x3D, 0x10, // PacketConfig2, interpkt = 1, autorxrestart off
 //  0x58, 0x2D, // High sensitivity mode
 
@@ -478,6 +486,7 @@ uint8_t setMode (uint8_t mode) {	// TODO enhance return code
     return c;	// May need to beef this up since sometimes we don't appear to setmode correctly
 #else
 	writeReg(REG_OPMODE, mode);
+	delay(10);
 	return 1;
 #endif
 }
@@ -486,7 +495,7 @@ static uint8_t initRadio (ROM_UINT8* init) {
 
 #if SX1276
     bitClear(DDRB, 1);	// D9 wired to radio RESET line
-    delay(5);
+    delay(10);
     bitSet(PORTB, 1);
     delay(10);
 #endif
@@ -690,7 +699,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
 //        startRSSI = currentRSSI();       
 
 		rf12_drx = delayTXRECV;
-		writeReg(REG_DIOMAPPING1, (DIO0_RSSI /*| DIO3_RSSI  DIO0_SYNCADDRESS*/));// Interrupt triggers
+//		writeReg(REG_DIOMAPPING1, (DIO0_RSSI /*| DIO3_RSSI  DIO0_SYNCADDRESS*/));// Interrupt triggers
 //		writeReg(REG_LNA, 0x00); 			// 
 #if !SX1276
 		writeReg(REG_PALEVEL, ((rfapi.txPower & 0x9F) | 0x80));	// PA1/PA2 off
@@ -883,14 +892,14 @@ second rollover and then will be 1.024 mS out.
             if (rssi_interrupt) {
             	ms = millis();
             	RssiToSync = 0;
-				for (volatile byte tick = 0; tick < 24; tick++) NOP;	// Kill some time waiting for sync bytes
+				for (volatile byte tick = 0; tick < 10; tick++) NOP;	// Kill some time waiting for sync bytes
 				// volatile above changes the timing
 	        	startRX = micros();	// 4µs precision
                 while (true) {  // Loop for SyncMatch or Timeout
 	                if (RssiToSync == 0) {
 	                	writeReg(REG_AFCFEI, (afcfei | FEI_START));
 	                	
-						for (volatile uint16_t tick = 0; tick < 840; tick++) NOP;	// Keep the SPI quiet while FEI calculation is done.
+						for (volatile uint16_t tick = 0; tick < 500; tick++) NOP;	// Keep the SPI quiet while FEI calculation is done.
 						
             			rssi = readReg(REG_RSSIVALUE);
     					lna = (readReg(REG_LNA) >> 3) & 7;

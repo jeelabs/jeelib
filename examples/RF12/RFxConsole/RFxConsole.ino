@@ -1323,8 +1323,14 @@ static void handleInput (char c) {
                      break;
 
             case 'd': // dump all log markers
+            		 for (byte i = 0; i < 67; i++) {
+            		 	Serial.print(RF69::control(0, 0), HEX);
+            		 	Serial.print(".");
+            		 }
+            		 Serial.println();
             		 dumpRegs();
             		 Serial.println(rfapi.interruptCount);
+            		 Serial.println(rfapi.rssi);
                      if (df_present())
                          df_dump();
                      break;
