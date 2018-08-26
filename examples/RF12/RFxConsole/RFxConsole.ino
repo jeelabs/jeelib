@@ -1333,7 +1333,8 @@ static void handleInput (char c) {
             		 Serial.print("Debug=");
             		 Serial.println(rfapi.debug);
             		 Serial.println(rfapi.intRXFIFO);
-            		 Serial.println(rfapi.rssi);
+            		 Serial.print("LastLen=");
+            		 Serial.println(rfapi.lastLen);
                      if (df_present())
                          df_dump();
                      break;

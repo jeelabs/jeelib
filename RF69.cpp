@@ -463,9 +463,8 @@ static void flushFifo () {
     while (readReg(REG_IRQFLAGS2) & (IRQ2_FIFONOTEMPTY | IRQ2_FIFOOVERRUN))
         readReg(REG_FIFO);
 }
-
-uint8_t setMode (uint8_t mode) {	// TODO enhance return code
 #if !SX1276
+uint8_t setMode (uint8_t mode) {	// TODO enhance return code
     uint8_t c = 0;
     if (mode >= MODE_FS) {
         uint8_t s = readReg(REG_DIOMAPPING1);// Save Interrupt triggers
@@ -485,12 +484,21 @@ uint8_t setMode (uint8_t mode) {	// TODO enhance return code
         c++; if (c >= 254) break;
     }
     return c;	// May need to beef this up since sometimes we don't appear to setmode correctly
-#else
-	writeReg(REG_OPMODE, mode);
-	delay(10);
-	return 1;
-#endif
 }
+
+#else
+uint8_t setMode (uint8_t mode) {	// TODO enhance return code
+	if (mode == MODE_RECEIVER) {
+		writeReg(REG_OPMODE, MODE_FS_RX);
+		delay(1);
+		writeReg(REG_OPMODE, MODE_RECEIVER);
+	} else {
+		writeReg(REG_OPMODE, mode);
+	}
+	delay(1);
+	return 1;
+}
+#endif
 
 static uint8_t initRadio (ROM_UINT8* init) {
 
