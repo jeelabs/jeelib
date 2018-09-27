@@ -19,6 +19,8 @@
 #define DATAMODUL           0x02 
 #define REG_BITRATEMSB      0x03
 #define REG_BITRATELSB      0x04
+#define REG_BITFDEVMSB		0x05
+#define REG_BITFDEVLSB		0x06
 #define REG_FRFMSB          0x07
 #define REG_OSC1            0x0A
 #define REG_PALEVEL			0x11
@@ -205,6 +207,8 @@ RF_API rfapi;
 #define DATAMODUL           0x02 
 #define REG_BITRATEMSB      0x02
 #define REG_BITRATELSB      0x03
+#define REG_BITFDEVMSB		0x04
+#define REG_BITFDEVLSB		0x05
 #define REG_FRFMSB          0x06
 #define REG_OSC1            0x24
 #define REG_PACONFIG		0x09
@@ -364,7 +368,8 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 //  0x35, 0x80, // FifoTresh, not empty
   0x36, 0x40,	// SequencerStop
   0x40, 0x00, // Set DIOMAPPING1 to POR value
-  0x41, 0xC0, // DIOMAPPING2, RSSI on DI04
+  0x41, 0xC0, // DIOMAPPING2
+//  0x41, 0xC0, // DIOMAPPING2, RSSI on DI04
   //  0x3D, 0x10, // PacketConfig2, interpkt = 1, autorxrestart off
 //  0x58, 0x2D, // High sensitivity mode
 
@@ -375,12 +380,12 @@ RF_API rfapi;
 
 #define RF_MAX   72
 #endif
-
+/*
 // Radio independant access indexes
 #define BASEINDEX 128
 #define sync7 7 + BASEINDEX
 #define sync8 8 + BASEINDEX
-
+*/
 // transceiver states, these determine what to do with each interrupt
 enum { TXCRC1, TXCRC2, TXDONE, TXIDLE, TXRECV, RXFIFO };
 
@@ -459,20 +464,22 @@ uint8_t RF69::control(uint8_t cmd, uint8_t val) {
 
 // Do not change the order or values in the array below, add new values to a max of 127
 // pre-existing code is using these translate values!
+// See enum in RF69_compat.h line 52 (2018/09/28)
 const char translateReg[] PROGMEM = { 
 	REG_SYNCVALUE7,			//[0]
 	REG_SYNCVALUE8,			//[1]
-	REG_BITRATEMSB.			//[2]
+	REG_BITRATEMSB,			//[2]
 	REG_BITRATELSB,			//[3]
 	REG_BITFDEVMSB,			//[4]
 	REG_BITFDEVLSB,			//[5]
 	REG_RSSIVALUE,			//[6]
 	REG_SYNCCONFIG,			//[7]
 	REG_SYNCGROUP,			//[8]
+	REG_PALEVEL				//(9)
     };
 uint8_t RF69::radioIndex(uint8_t index, uint8_t val) {
 	uint8_t cmd = index & 128;				// Preserve the write register bit
-	radioIndex[0] = sizeoff radioIndex;
+//	radioIndex[0] = sizeoff radioIndex;
 	cmd |= translateReg[(index & 0x7F)];	// Apply translated reg number
     PreventInterrupt RF69_avr_h_INT;
     return spiTransfer(cmd, val);
@@ -738,7 +745,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
 //		writeReg(REG_DIOMAPPING1, (DIO0_RSSI /*| DIO3_RSSI  DIO0_SYNCADDRESS*/));// Interrupt triggers
 //		writeReg(REG_LNA, 0x00); 			// 
 #if !SX1276
-		writeReg(REG_PALEVEL, ((rfapi.txPower & 0x9F) | 0x80));	// PA1/PA2 off
+		writeReg(REG_PALEVEL, ((rfapi.txPower & 0x1F) | 0x80));	// PA1/PA2 off
         writeReg(REG_OCP, OCP_NORMAL);			// Overcurrent protection on
         writeReg(REG_TESTPA1, TESTPA1_NORMAL);	// Turn off high power 
         writeReg(REG_TESTPA2, TESTPA2_NORMAL);  // transmit
@@ -916,6 +923,7 @@ void RF69::interrupt_compat (uint8_t rssi_interrupt) {
   being driven by recvDone and the size of the radio FIFO.
 */
         rfapi.interruptCount++;
+        if (!rfapi.debug) rfapi.debug = rxstate;
 /*
 micros() returns the hardware timer contents (which updates continuously), 
 plus a count of rollovers (ie. one rollover ever 1.024 mS). 
@@ -924,8 +932,8 @@ if you cross a rollover point, however after 1.024 mS it will not know about the
 second rollover and then will be 1.024 mS out.
 */
         // N.B. millis is not updating until IRQ_ENABLE
-        if (rxstate == TXRECV) {
-/*DEBUG*/rfapi.debug++;
+        if (rxstate != TXRECV) {
+//DEBUG*/rfapi.debug++;
             if (rssi_interrupt) {
             	ms = millis();
             	RssiToSync = 0;

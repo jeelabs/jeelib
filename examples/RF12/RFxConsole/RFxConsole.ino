@@ -1322,16 +1322,19 @@ static void handleInput (char c) {
                      break;
 
             case 'd': // dump all log markers
-            		Serial.println(RF69::radioIndex(0, 0), HEX);
             		 for (byte i = 0; i < 67; i++) {
+            			Serial.print(RF69::radioIndex(0, 0), HEX);
             		 	if(i == 31 || i == 63 || i == 95 || i == 127) Serial.println();
             		 	else Serial.print(".");
             		 }
             		 Serial.println();
             		 dumpRegs();
+            		 Serial.print("InterruptCount=");
             		 Serial.println(rfapi.interruptCount);
             		 Serial.print("Debug=");
             		 Serial.println(rfapi.debug);
+            		 rfapi.debug = 0;
+            		 Serial.print("intRXFIFO=");
             		 Serial.println(rfapi.intRXFIFO);
             		 Serial.print("LastLen=");
             		 Serial.println(rfapi.lastLen);
@@ -1707,7 +1710,7 @@ static void dumpEEprom() {
 /// Display the RFM69x registers
 static void dumpRegs() {
     Serial.print("\nRFM69x Registers:\n");
-    for (byte r = 0; r < 0x80; ++r) {
+    for (byte r = 1; r < 0x80; ++r) {
     	Serial.print(r, HEX);
     	printOneChar('=');
         Serial.print(RF69::control(r, 0), HEX); // Prints out Radio Registers.
@@ -2452,13 +2455,14 @@ Serial.print(")");
                         // Find a spare node number within received group number
                         if (!(getIndex(rf12_grp, i ))) {         // Node/Group pair not found?
                             observedRX.offset_TX = config.frequency_offset;
+/*
   #if RF69_COMPAT  			// Below may need rework as a result of double buffering the radio                     
                             observedRX.PaLvl_TX = RF69::radioIndex(RegPaLvl, 0x9F);    // Pull the current RegPaLvl from the radio
                             observedRX.TestLna_TX = RF69::radioIndex(RegTestLna, 0x1B);  // Pull the current RegTestLna from the radio
                             observedRX.TestPa1_TX = RF69::radioIndex(RegTestPa1, 0x55);  // Pull the current RegTestPa1 from the radio
                             observedRX.TestPa2_TX = RF69::radioIndex(RegTestPa2, 0x70);  // Pull the current RegTestPa2 from the radio
   #endif
-
+*/
                             ackLen = (sizeof observedRX) + 1;
                             stack[sizeof stack - ackLen] = i + 0xE0;  // 0xE0 is an arbitary value
                             // Change Node number request - matched in RF12Tune
