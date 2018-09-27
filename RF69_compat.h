@@ -47,3 +47,9 @@ extern volatile uint8_t rf69_buf[RF69_MAXDATA + 5];
 #define rf12_control        rf69_control
 
 #endif
+
+// Index values to translateReg in rf69.cpp
+enum {SYNCVALUE7, SYNCVALUE8, BITRATEMSB, BITRATELSB, BITFDEVMSB, BITFDEVLSB, RSSIVALUE, 
+SYNCCONFIG, SYNCGROUP
+};
+

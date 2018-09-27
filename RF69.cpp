@@ -349,6 +349,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   
   0x0D, 0x09, // AgcAutoOn, RxTrigger RSSI
 
+  0x10, 0xA0, // RSSI Threshold 80dB
   0x12, 0x29, // RxBw 200 KHz, DCC 16%
   0x13, 0x29, // RxBwAFC 200 Khz, DCC 16%. Only handling initial RSSI phase, not payload!
 
@@ -374,6 +375,11 @@ RF_API rfapi;
 
 #define RF_MAX   72
 #endif
+
+// Radio independant access indexes
+#define BASEINDEX 128
+#define sync7 7 + BASEINDEX
+#define sync8 8 + BASEINDEX
 
 // transceiver states, these determine what to do with each interrupt
 enum { TXCRC1, TXCRC2, TXDONE, TXIDLE, TXRECV, RXFIFO };
@@ -447,6 +453,27 @@ The alternative would be just to disable the feature - it is only needed in the
 
 */
 uint8_t RF69::control(uint8_t cmd, uint8_t val) {
+    PreventInterrupt RF69_avr_h_INT;
+    return spiTransfer(cmd, val);
+}
+
+// Do not change the order or values in the array below, add new values to a max of 127
+// pre-existing code is using these translate values!
+const char translateReg[] PROGMEM = { 
+	REG_SYNCVALUE7,			//[0]
+	REG_SYNCVALUE8,			//[1]
+	REG_BITRATEMSB.			//[2]
+	REG_BITRATELSB,			//[3]
+	REG_BITFDEVMSB,			//[4]
+	REG_BITFDEVLSB,			//[5]
+	REG_RSSIVALUE,			//[6]
+	REG_SYNCCONFIG,			//[7]
+	REG_SYNCGROUP,			//[8]
+    };
+uint8_t RF69::radioIndex(uint8_t index, uint8_t val) {
+	uint8_t cmd = index & 128;				// Preserve the write register bit
+	radioIndex[0] = sizeoff radioIndex;
+	cmd |= translateReg[(index & 0x7F)];	// Apply translated reg number
     PreventInterrupt RF69_avr_h_INT;
     return spiTransfer(cmd, val);
 }
@@ -623,7 +650,7 @@ uint8_t* RF69::SPI_pins() {
 }
 
 uint8_t RF69::currentRSSI() {
-
+return;
   if (((rxfill == 0) || (rxdone))) {
       uint8_t storedMode = (readReg(REG_OPMODE) & MODE_MASK);
       uint8_t storeDIOM = readReg(REG_DIOMAPPING1);// Collect Interrupt triggers

@@ -433,4 +433,3 @@ static byte* SPI_Pins(void) {
                           SPI_MOSI,SPI_MISO, SPI_SCK, RFM_IRQ, INT_NUMBER };                              
     return &pins[0];
 }
-

@@ -78,18 +78,17 @@
   #define NODE31ALLOC  1   // Define to include offering of spare node numbers if node 31 requests ack
   #define DEBUG        0   //
 #endif
-
+/*
 #define REG_BITRATEMSB 0x03  // RFM69 only, 0x02, // BitRateMsb, data rate = 49,261 khz
 #define REG_BITRATELSB 0x04  // RFM69 only, 0x8A, // BitRateLsb divider = 32 MHz / 650 == 49,230 khz
 #define REG_BITFDEVMSB 0x05  // RFM69 only, 0x02, // FdevMsb = 45 KHz
 #define REG_BITFDEVLSB 0x06  // RFM69 only, 0xE1, // FdevLsb = 45 KHz
 #define REG_RSSIVALUE  0x24
 #define REG_SYNCCONFIG 0x2E  // RFM69 only, register containing sync length
-#define oneByteSync    0x87  // RFM69 only, value to get only one byte sync with max bit errors.
 #define REG_SYNCGROUP  0x32  // RFM69 only, register containing group number
 #define REG_SYNCVALUE7 0x35  // RFM69 only
 #define REG_SYNCVALUE8 0x36  // RFM69 only
-
+*/
 #include <JeeLib.h>
 #include <util/crc16.h>
 #include <avr/eeprom.h>
@@ -296,8 +295,8 @@ typedef struct {
 /*03*/byte spare_flags  :2;		// offset 3
 /*03*/byte defaulted    :1;		// 0 = config set via UI, offset 3
 /*04*/word frequency_offset;	// used by rf12_config, offset 4 & 5
-/*06*/byte RegPaLvl;			// See datasheet RFM69x Register 0x11, offset 6
-/*07*/byte RegRssiThresh;		// See datasheet RFM69x Register 0x29, offset 7
+/*06*/byte PaLvl;				// See datasheet RFM69x Register 0x11, offset 6
+/*07*/byte RssiThresh;			// See datasheet RFM69x Register 0x29, offset 7
 /*08*/signed int matchingRF :8;	// Frequency matching for this hardware, offset 8
 /*09*/byte ackDelay         :4;	// Delay in ms added on turnaround RX to TX, RFM69 offset 9
 /*09*/byte verbosity        :4;	// Controls output format offset 9
@@ -324,10 +323,10 @@ typedef struct {
     byte lna;
     byte rssi2;
     unsigned int offset_TX;
-    byte RegPaLvl_TX;
-    byte RegTestLna_TX;
-    byte RegTestPa1_TX;
-    byte RegTestPa2_TX;
+    byte PaLvl_TX;
+    byte TestLna_TX;
+    byte TestPa1_TX;
+    byte TestPa2_TX;
 } observed;
 static observed observedRX;
 
@@ -462,7 +461,7 @@ static void loadConfig () {
     // this uses 166 bytes less flash than eeprom_read_block(), no idea why
     for (byte i = 0; i < sizeof config; ++i)
         ((byte*) &config)[i] = eeprom_read_byte(RF12_EEPROM_ADDR + i);
-    lastrssiThreshold = rfapi.rssiThreshold = config.RegRssiThresh;
+    lastrssiThreshold = rfapi.rssiThreshold = config.RssiThresh;
     rfapi.rateInterval = (uint32_t)config.rateInterval << 10;    
     chkNoise = elapsedSeconds + (unsigned long)config.chkNoise;
     config.defaulted = false;   // Value if UI saves config
@@ -733,14 +732,14 @@ static void showStatus() {
 #if RF69_COMPAT
     if (!RF69::present) {
         showString(PSTR("RFM69x Problem "));        
-        Serial.print((RF69::control(REG_SYNCVALUE7,0)), HEX);
-        Serial.println((RF69::control(REG_SYNCVALUE8,0)), HEX);
+        Serial.print((RF69::radioIndex(0,0)), HEX);
+        Serial.println((RF69::radioIndex(1,0)), HEX);
         unsigned int mask = 0xAA;
         for (unsigned int i = 0; i < 8; i++) {
-            RF69::control(REG_SYNCVALUE7 | 0x80, mask);
+            RF69::radioIndex(0 | 0x80, mask);
             Serial.print(mask, BIN);
             printOneChar('?');
-            Serial.println((RF69::control(REG_SYNCVALUE7, 0)), BIN);
+            Serial.println((RF69::radioIndex(0, 0)), BIN);
             mask = mask >> 1;
         }
     }
@@ -1029,7 +1028,7 @@ static void handleInput (char c) {
 
             case 'T': 
                      // Set hardware specific TX power in eeprom
-                     config.RegPaLvl = value;
+                     config.PaLvl = value;
                      // Transmit permit threshold
                      if (top == 1 && (stack[0])) config.clearAir = stack[0];
                      saveConfig();
@@ -1037,15 +1036,15 @@ static void handleInput (char c) {
 
             case 'R': // Set hardware specific RX threshold in eeprom
                      //        	Serial.println(value);
-
+/*
 #if RF69_COMPAT
-                     RF69::control((0x80) | (0x29), value);	// Set radio
+                     RF69::control((0x80) | (0x29), value);	// Set radio register - radio type known!
                      //	    	Serial.println(RF69::control(0x29, 160));
 
-#endif
-                     //        	Serial.println(config.RegRssiThresh);
+#endif */
+                     //        	Serial.println(config.RssiThresh);
                      //        	Serial.println(rfapi.rssiThreshold);
-                     config.RegRssiThresh = rfapi.rssiThreshold = value;
+                     config.RssiThresh = rfapi.rssiThreshold = value;
                      if (top == 1) {
                          config.rateInterval = stack[0];
                          rfapi.rateInterval = (uint32_t)(config.rateInterval) << 10;
@@ -1066,10 +1065,10 @@ static void handleInput (char c) {
                      rf12_initialize (config.nodeId, RF12_868MHZ, 212, SalusFrequency);  // 868.30 MHz
                      rf12_sleep(RF12_SLEEP);                                             // Sleep while we tweak things
   #if RF69_COMPAT
-                     RF69::control(REG_BITRATEMSB | 0x80, 0x34);                         // 2.4kbps
-                     RF69::control(REG_BITRATELSB | 0x80, 0x15);
-                     RF69::control(REG_BITFDEVMSB | 0x80, 0x04);                         // 75kHz freq shift
-                     RF69::control(REG_BITFDEVLSB | 0x80, 0xCE);
+                     RF69::radioIndex(BITRATEMSB | 0x80, 0x34);                         // 2.4kbps
+                     RF69::radioIndex(BITRATELSB | 0x80, 0x15);
+                     RF69::radioIndex(BITFDEVMSB | 0x80, 0x04);                         // 75kHz freq shift
+                     RF69::radioIndex(BITFDEVLSB | 0x80, 0xCE);
                      rfapi.RssiToSyncLimit = SALUSPACKET16;
   #else
                      rf12_control(RF12_DATA_RATE_2);                                     // 2.4kbps
@@ -1127,7 +1126,7 @@ static void handleInput (char c) {
 #if RF69_COMPAT
                      // The 4 byte sync used by the RFM69 reduces detected noise dramatically.
                      // The command below sets the sync length to 1 to test radio reception.
-                     if (top == 1) RF69::control(REG_SYNCCONFIG | 0x80, oneByteSync); // Allow noise
+ //                    if (top == 1) RF69::radioIndex(SYNCCONFIG | 0x80, oneByteSync); // Allow noise
                      // Appropriate sync length will be reset by the driver after the next transmission.
                      // The 's' command is an good choice to reset the sync length. 
                      // Packets will not be recognised until until sync length is reset.
@@ -1323,9 +1322,10 @@ static void handleInput (char c) {
                      break;
 
             case 'd': // dump all log markers
+            		Serial.println(RF69::radioIndex(0, 0), HEX);
             		 for (byte i = 0; i < 67; i++) {
-            		 	Serial.print(RF69::control(0, 0), HEX);
-            		 	Serial.print(".");
+            		 	if(i == 31 || i == 63 || i == 95 || i == 127) Serial.println();
+            		 	else Serial.print(".");
             		 }
             		 Serial.println();
             		 dumpRegs();
@@ -1629,13 +1629,13 @@ Serial.println(MCUSR, HEX);
         config.helpMenu = true;
 #if RF69_COMPAT == 0
         config.group = 212;			// Default group 212
-        config.RegRssiThresh = 2;
+        config.RssiThresh = 2;
         config.clearAir = 160;      // 80dB
 #else
         config.group = 0x00;        // Default group 0
-        config.RegRssiThresh = 180;	// -90dB
+        config.RssiThresh = 180;	// -90dB
         config.clearAir = 160;      // -80dB
-        config.RegPaLvl = 159;		// Maximum power TX for RFM69CW!
+        config.PaLvl = 159;		// Maximum power TX for RFM69CW!
 #endif
         saveConfig();
         WDTCSR |= _BV(WDE);			// Trigger watchdog restart
@@ -1771,7 +1771,7 @@ http://forum.arduino.cc/index.php/topic,140376.msg1054626.html
     Serial.print(word(changedAFC));    
     printOneChar(',');
     Serial.println(word(changedFEI));
-    Serial.println(RF69::control(REG_SYNCCONFIG, 0));   
+    Serial.println(RF69::radioIndex(SYNCCONFIG, 0));   
 #endif  
 #if STATISTICS
     Serial.print(messageCount);
@@ -2453,10 +2453,10 @@ Serial.print(")");
                         if (!(getIndex(rf12_grp, i ))) {         // Node/Group pair not found?
                             observedRX.offset_TX = config.frequency_offset;
   #if RF69_COMPAT  			// Below may need rework as a result of double buffering the radio                     
-                            observedRX.RegPaLvl_TX = RF69::control(0x11, 0x9F);    // Pull the current RegPaLvl from the radio
-                            observedRX.RegTestLna_TX = RF69::control(0x58, 0x1B);  // Pull the current RegTestLna from the radio
-                            observedRX.RegTestPa1_TX = RF69::control(0x5A, 0x55);  // Pull the current RegTestPa1 from the radio
-                            observedRX.RegTestPa2_TX = RF69::control(0x5C, 0x70);  // Pull the current RegTestPa2 from the radio
+                            observedRX.PaLvl_TX = RF69::radioIndex(RegPaLvl, 0x9F);    // Pull the current RegPaLvl from the radio
+                            observedRX.TestLna_TX = RF69::radioIndex(RegTestLna, 0x1B);  // Pull the current RegTestLna from the radio
+                            observedRX.TestPa1_TX = RF69::radioIndex(RegTestPa1, 0x55);  // Pull the current RegTestPa1 from the radio
+                            observedRX.TestPa2_TX = RF69::radioIndex(RegTestPa2, 0x70);  // Pull the current RegTestPa2 from the radio
   #endif
 
                             ackLen = (sizeof observedRX) + 1;
@@ -2504,7 +2504,7 @@ Serial.print(")");
                     if (config.group == 0) {
                         showString(PSTR("g"));
                         showByte(rf12_grp);
-                        RF69::control(REG_SYNCGROUP | 0x80, rf12_grp); // Reply to incoming group number
+                        RF69::radioIndex(SYNCGROUP | 0x80, rf12_grp); // Reply to incoming group number
                         printOneChar(' ');
                     }
 #endif

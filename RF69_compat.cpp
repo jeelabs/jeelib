@@ -69,10 +69,10 @@ uint8_t rf69_initialize (uint8_t id, uint8_t band, uint8_t group=0xD4, uint16_t 
           
     RF69::configure_compat(); 
 
-    if (rfapi.txPower) RF69::control(0x91, rfapi.txPower);
-    else rfapi.txPower = 0x9F;
+//    if (rfapi.txPower) RF69::control(0x91, rfapi.txPower);
+//    else rfapi.txPower = 0x9F;
     
-    if (!rfapi.configThreshold) rfapi.configThreshold = RF69::control(0x29, 0);	// Read the radio RSSI Threshold value;
+//    if (!rfapi.configThreshold) rfapi.configThreshold = RF69::indexRadio(0x29, 0);	// Read the radio RSSI Threshold value;
     
     return nodeid = id;
 }
