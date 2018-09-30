@@ -524,12 +524,12 @@ uint8_t setMode (uint8_t mode) {	// TODO enhance return code
 uint8_t setMode (uint8_t mode) {	// TODO enhance return code
 	if (mode == MODE_RECEIVER) {
 		writeReg(REG_OPMODE, MODE_FS_RX);
-		delay(1);
+//debug		delay(1);
 		writeReg(REG_OPMODE, MODE_RECEIVER);
 	} else {
 		writeReg(REG_OPMODE, mode);
 	}
-	delay(1);
+//debug	delay(1);
 	return 1;
 }
 #endif
@@ -615,7 +615,7 @@ void RF69::setFrequency (uint32_t freq) {
 uint8_t RF69::canSend (uint8_t clear) {
 	clearAir = clear;
 	if (((rxfill == 0) || (rxdone))) {
-        setMode(MODE_SLEEP);
+//debug        setMode(MODE_SLEEP);
         rfapi.sendRSSI = currentRSSI();
         Serial.println(rfapi.sendRSSI);
         delay(2000);
@@ -663,7 +663,7 @@ return;
       uint8_t storeDIOM = readReg(REG_DIOMAPPING1);// Collect Interrupt triggers
 
       writeReg(REG_DIOMAPPING1, 0x00);      // Mask most radio interrupts
-      setMode(MODE_SLEEP);
+//debug      setMode(MODE_SLEEP);
       writeReg(REG_RSSITHRESHOLD, 0xFF); 	// Max out threshold
       setMode(MODE_RECEIVER);   // Looses contents of FIFO and 36 spins
 
@@ -677,7 +677,7 @@ return;
       uint8_t r = readReg(REG_RSSIVALUE);           // Collect RSSI value
       writeReg(REG_AFCFEI, AFC_CLEAR);
       writeReg(REG_RSSITHRESHOLD, 64);  			// Quiet down threshold
-      setMode(MODE_SLEEP);                        	// Get out of RX mode
+//debug      setMode(MODE_SLEEP);                        	// Get out of RX mode
        
       writeReg(REG_RSSITHRESHOLD, rfapi.rssiThreshold);  // Set threshold
       writeReg(REG_DIOMAPPING1, storeDIOM);         // Restore Interrupt trigger
@@ -808,7 +808,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
 // Code below did not find any mode error situations.
     // Test for radio in hung state
     if (readReg(REG_OPMODE) == MODE_FS_RX) {
-				setMode(MODE_SLEEP);	// Clear hang?
+//debug				setMode(MODE_SLEEP);	// Clear hang?
             	rxstate = TXIDLE;
             	rfapi.modeError = true;
 	}
@@ -984,6 +984,7 @@ second rollover and then will be 1.024 mS out.
                         minimum i.e. 0.02uS per bit x 6bytes is 
                         about 1mS minimum."
 */                                                                
+        				writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
 //debug        				setMode(MODE_SLEEP);
                         rxstate = TXIDLE;   // Cause a RX restart by FSM
         				// Collect RX stats per LNA
@@ -1049,7 +1050,7 @@ second rollover and then will be 1.024 mS out.
                     if (rxfill >= (payloadLen + (5 - rf69_skip))) {  // Trap end of payload
                         writeReg(REG_AFCFEI, AFC_CLEAR);
 	      				writeReg(REG_DIOMAPPING1, 0x00);	// Mask most radio interrupts
-                        setMode(MODE_SLEEP);  // Get radio out of RX mode
+//debug                        setMode(MODE_SLEEP);  // Get radio out of RX mode
                         stillCollecting = false;
                         break;
                     }
@@ -1068,7 +1069,7 @@ second rollover and then will be 1.024 mS out.
             
             writeReg(REG_AFCFEI, AFC_CLEAR);
 	      	writeReg(REG_DIOMAPPING1, 0x00);	// Mask most radio interrupts
-            setMode(MODE_SLEEP);
+//debug            setMode(MODE_SLEEP);
             rxdone = true;      // force TXRECV in RF69::recvDone_compat       
             writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
             rxstate = TXRECV;   // Restore state machine
@@ -1104,8 +1105,8 @@ second rollover and then will be 1.024 mS out.
             unexpectedIRQFLAGS2 = readReg(REG_IRQFLAGS2);
             unexpectedMode = readReg(REG_OPMODE);
             unexpected++;
-//			writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
+			writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
             rxstate = TXIDLE;   // Cause a RX restart by FSM
-//			setMode(MODE_SLEEP);
+//debug			setMode(MODE_SLEEP);
         }
 }
