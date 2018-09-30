@@ -285,7 +285,7 @@ RF_API rfapi;
 
 
 #define IRQ2_FIFOFULL       0x80
-#define IRQ2_FIFONOTEMPTY   0x40
+#define IRQ2_FIFOEMPTY   	0x40
 #define IRQ2_FIFOLEVEL		0x20
 #define IRQ2_FIFOOVERRUN    0x10
 #define IRQ2_PACKETSENT     0x08
@@ -366,7 +366,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x31, 0x40, // Packet Mode
   0x32, 0x00, // Payload length unlimited
 //  0x35, 0x80, // FifoTresh, not empty
-  0x36, 0x40,	// SequencerStop
+  0x36, 0x80,	// SequencerStop
   0x40, 0x00, // Set DIOMAPPING1 to POR value
   0x41, 0xC0, // DIOMAPPING2
 //  0x41, 0xC0, // DIOMAPPING2, RSSI on DI04
@@ -494,7 +494,7 @@ static uint8_t readReg (uint8_t addr) {
 }
 
 static void flushFifo () {
-    while (readReg(REG_IRQFLAGS2) & (IRQ2_FIFONOTEMPTY | IRQ2_FIFOOVERRUN))
+    while (readReg(REG_IRQFLAGS2) & (!IRQ2_FIFOEMPTY | IRQ2_FIFOOVERRUN))
         readReg(REG_FIFO);
 }
 #if !SX1276
@@ -728,10 +728,12 @@ volatile uint32_t startRX;
 volatile uint32_t ms;
 
 uint16_t RF69::recvDone_compat (uint8_t* buf) {
+/*
 	if (rfapi.ConfigFlags) {
 		Serial.println("False");
 		return false;
 	}
+*/
     switch (rxstate) {
     
     case TXIDLE:
@@ -753,7 +755,8 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         if (rfapi.ConfigFlags & 0x80) afcfei = AFC_START;
         else afcfei = 0;
         rfapi.ConfigFlags = (rfapi.ConfigFlags | afcfei);
-
+/////DEBUG
+        rxstate = TXRECV;
         rfapi.setmode = setMode(MODE_RECEIVER);
         writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
         rxstate = TXRECV;
@@ -923,7 +926,6 @@ void RF69::interrupt_compat (uint8_t rssi_interrupt) {
   being driven by recvDone and the size of the radio FIFO.
 */
         rfapi.interruptCount++;
-        if (!rfapi.debug) rfapi.debug = rxstate;
 /*
 micros() returns the hardware timer contents (which updates continuously), 
 plus a count of rollovers (ie. one rollover ever 1.024 mS). 
@@ -932,8 +934,7 @@ if you cross a rollover point, however after 1.024 mS it will not know about the
 second rollover and then will be 1.024 mS out.
 */
         // N.B. millis is not updating until IRQ_ENABLE
-        if (rxstate != TXRECV) {
-//DEBUG*/rfapi.debug++;
+        if (rxstate == TXRECV) {
             if (rssi_interrupt) {
             	ms = millis();
             	RssiToSync = 0;
@@ -983,7 +984,7 @@ second rollover and then will be 1.024 mS out.
                         minimum i.e. 0.02uS per bit x 6bytes is 
                         about 1mS minimum."
 */                                                                
-        				setMode(MODE_SLEEP);
+//debug        				setMode(MODE_SLEEP);
                         rxstate = TXIDLE;   // Cause a RX restart by FSM
         				// Collect RX stats per LNA
 	                	rfapi.RSSIrestart++;
@@ -1024,8 +1025,13 @@ second rollover and then will be 1.024 mS out.
             } else crc = ~0;
             
             for (;;) { // busy loop, to get each data byte as soon as it comes in 
+#if SX1276
+                if (!(readReg(REG_IRQFLAGS2) & 
+                  (IRQ2_FIFOEMPTY /*| IRQ2_FIFOOVERRUN*/))) {
+#else
                 if (readReg(REG_IRQFLAGS2) & 
                   (IRQ2_FIFONOTEMPTY /*| IRQ2_FIFOOVERRUN*/)) {
+#endif
                     volatile uint8_t in = readReg(REG_FIFO);
                     
                     if ((rxfill == 2) && (rf69_skip == 0)) {
@@ -1082,7 +1088,7 @@ second rollover and then will be 1.024 mS out.
 #endif
           	// rxstate will be TXDONE at this point
           	txP++;
-          	setMode(MODE_SLEEP);
+//debug          	setMode(MODE_SLEEP);
           	// Restore sync bytes configuration
           	if (group == 0) {               // Allow receiving from all groups
 				writeReg(REG_SYNCCONFIG, threeByteSync);             

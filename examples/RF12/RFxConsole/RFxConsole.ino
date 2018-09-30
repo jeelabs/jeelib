@@ -230,7 +230,7 @@ static byte inChar () {
     #define LED_PIN     8        // activity LED, comment out to disable
   #endif
   #define messageStore  128
-  #define MAX_NODES 15        // Contrained by RAM (22 bytes RAM per node)
+  #define MAX_NODES 10        // Contrained by RAM (22 bytes RAM per node)
 #endif
 
 static unsigned long now () {
