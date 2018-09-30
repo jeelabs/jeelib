@@ -972,7 +972,7 @@ second rollover and then will be 1.024 mS out.
             			tfr =  micros() - startRX;	// 4µs precision
 				        rxstate = RXFIFO;                       
         				IRQ_ENABLE;       // allow nested interrupts from here on        
-            			if (tfr < 1024uL) tfr = tfr + 1024uL;
+//   //debug sync timing         			if (tfr < 1024uL) tfr = tfr + 1024uL;
                         rfapi.syncMatch++;                     
                 		noiseMillis = ms;	// Delay a reduction in sensitivity
                         break;
@@ -983,7 +983,8 @@ second rollover and then will be 1.024 mS out.
                         then it is just counting the bit times to find the 
                         minimum i.e. 0.02uS per bit x 6bytes is 
                         about 1mS minimum."
-*/                                                                
+*/
+/*New*/					writeReg(REG_AFCFEI, AFC_CLEAR);                                                                
         				writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
 //debug        				setMode(MODE_SLEEP);
                         rxstate = TXIDLE;   // Cause a RX restart by FSM
@@ -1049,7 +1050,7 @@ second rollover and then will be 1.024 mS out.
                     crc = _crc16_update(crc, in);              
                     if (rxfill >= (payloadLen + (5 - rf69_skip))) {  // Trap end of payload
                         writeReg(REG_AFCFEI, AFC_CLEAR);
-	      				writeReg(REG_DIOMAPPING1, 0x00);	// Mask most radio interrupts
+//debug	      				writeReg(REG_DIOMAPPING1, 0x00);	// Mask most radio interrupts
 //debug                        setMode(MODE_SLEEP);  // Get radio out of RX mode
                         stillCollecting = false;
                         break;
@@ -1068,7 +1069,7 @@ second rollover and then will be 1.024 mS out.
             rxP++;
             
             writeReg(REG_AFCFEI, AFC_CLEAR);
-	      	writeReg(REG_DIOMAPPING1, 0x00);	// Mask most radio interrupts
+//debug	      	writeReg(REG_DIOMAPPING1, 0x00);	// Mask most radio interrupts
 //debug            setMode(MODE_SLEEP);
             rxdone = true;      // force TXRECV in RF69::recvDone_compat       
             writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
