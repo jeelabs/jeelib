@@ -523,15 +523,9 @@ uint8_t setMode (uint8_t mode) {	// TODO enhance return code
 #else
 uint8_t setMode (uint8_t mode) {	// TODO enhance return code
     uint8_t c = 0;
-//	if (mode == MODE_RECEIVER) {
-//		writeReg(REG_OPMODE, MODE_FS_RX);
-//debug		delay(1);
-//		writeReg(REG_OPMODE, MODE_RECEIVER);
-//	} else {
-		writeReg(REG_OPMODE, mode);
-//	}
+	writeReg(REG_OPMODE, mode);
     while ((readReg(REG_OPMODE) & 7) != mode) {
-		delay(1);
+		for (byte tick = 0; tick < 100; tick++) NOP;	// Kill a little time
 		writeReg(REG_OPMODE, mode);
         c++; if (c >= 254) break;
 	}
@@ -954,7 +948,7 @@ second rollover and then will be 1.024 mS out.
 	                if (RssiToSync == 0) {
 	                	writeReg(REG_AFCFEI, (afcfei | FEI_START));
 	                	
-						for (volatile uint16_t tick = 0; tick < 500; tick++) NOP;	// Keep the SPI quiet while FEI calculation is done.
+						for (volatile uint16_t tick = 0; tick < 700; tick++) NOP;	// Keep the SPI quiet while FEI calculation is done.
 						
             			rssi = readReg(REG_RSSIVALUE);
     					lna = (readReg(REG_LNA) >> 3) & 7;
@@ -1046,7 +1040,7 @@ second rollover and then will be 1.024 mS out.
                     volatile uint8_t in = readReg(REG_FIFO);
                     
                     if ((rxfill == 2) && (rf69_skip == 0)) {
-                    	rfapi.lastLen = in;
+                    	rfapi.lastLen = in;			// TODO Fix for double buffering
                         if (in <= RF12_MAXDATA) {  // capture and
                             payloadLen = in;       // validate length byte
                         } else {

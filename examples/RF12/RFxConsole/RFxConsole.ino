@@ -1994,7 +1994,7 @@ void loop () {
         
  			if (!(RF12_WANTS_ACK && (config.collect_mode) == 0)) {	
 				// ACK not required for current packet 				
-//        		rf12_recvDone();		// Attempt to buffer next RF packet
+        		rf12_recvDone();		// Attempt to buffer next RF packet
         		// At this point the receiver is active but previous buffer intact
         		     					
  			} 
