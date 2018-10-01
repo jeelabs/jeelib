@@ -1322,12 +1322,14 @@ static void handleInput (char c) {
                      break;
 
             case 'd': // dump all log markers
+            	/*
             		 for (byte i = 0; i < 67; i++) {
             			Serial.print(RF69::radioIndex(0, 0), HEX);
             		 	if(i == 31 || i == 63 || i == 95 || i == 127) Serial.println();
             		 	else Serial.print(".");
             		 }
             		 Serial.println();
+            	*/
             		 dumpRegs();
             		 Serial.print("InterruptCount=");
             		 Serial.println(rfapi.interruptCount);
@@ -1992,7 +1994,7 @@ void loop () {
         
  			if (!(RF12_WANTS_ACK && (config.collect_mode) == 0)) {	
 				// ACK not required for current packet 				
-        		rf12_recvDone();		// Attempt to buffer next RF packet
+//        		rf12_recvDone();		// Attempt to buffer next RF packet
         		// At this point the receiver is active but previous buffer intact
         		     					
  			} 
