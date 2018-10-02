@@ -353,6 +353,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x05, 0xC3, // FdevLsb = 90 KHz
   
   0x0D, 0x09, // AgcAutoOn, RxTrigger RSSI
+  0x0E, 0x00, // RSSI two sample smoothing - we are a star network
 
   0x10, 0xA0, // RSSI Threshold 80dB
   0x12, 0x29, // RxBw 200 KHz, DCC 16%
