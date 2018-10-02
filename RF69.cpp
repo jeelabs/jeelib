@@ -1039,14 +1039,15 @@ second rollover and then will be 1.024 mS out.
             } else crc = ~0;
             
             for (;;) { // busy loop, to get each data byte as soon as it comes in 
+            	if
 #if SX1276
-                if (!(readReg(REG_IRQFLAGS2) & 
-                  (IRQ2_FIFOEMPTY /*| IRQ2_FIFOOVERRUN*/))) {
+                 (!(readReg(REG_IRQFLAGS2) & 
+                  (IRQ2_FIFOEMPTY /*| IRQ2_FIFOOVERRUN*/))) 
 #else
-                if (readReg(REG_IRQFLAGS2) & 
-                  (IRQ2_FIFONOTEMPTY /*| IRQ2_FIFOOVERRUN*/)) {
+                 (readReg(REG_IRQFLAGS2) & 
+                  (IRQ2_FIFONOTEMPTY /*| IRQ2_FIFOOVERRUN*/)) 
 #endif
-                    volatile uint8_t in = readReg(REG_FIFO);
+                   { volatile uint8_t in = readReg(REG_FIFO);
                     
                     if ((rxfill == 2) && (rf69_skip == 0)) {
                     	rfapi.lastLen = in;
@@ -1126,4 +1127,4 @@ second rollover and then will be 1.024 mS out.
 			writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
             rxstate = TXIDLE;   // Cause a RX restart by FSM
         }
-}
+	}
