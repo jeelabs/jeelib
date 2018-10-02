@@ -301,7 +301,7 @@ RF_API rfapi;
 #define DIO0_FS_UNDEF_RX    0x80
 #define DIO0_FS_UNDEF_TX    0x80
 // RX Mode
-#define DIO0_CRCOK          0x40
+#define DIO4_CRCOK          0x40
 //#define DIO0_PAYLOADREADY   0x40
 #define DIO0_SYNCADDRESS    0x00
 #define DIO0_RSSI           0x40
@@ -311,6 +311,7 @@ RF_API rfapi;
 
 //#define DIO3_FIFOFULL       0x00
 #define DIO4_RSSI           0xC0
+#define DIO4_TempChangeLowBat	0x00
 //#define DIO3_SYNCADDRESS    0x02
 //#define DIO3_FIFOFULL_TX    0x00
 //#define DIO3_TX_UNDEFINED   0x02
@@ -368,7 +369,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 //  0x35, 0x80, // FifoTresh, not empty
   0x36, 0x40,	// Sequencer Stop
   0x40, 0x00, // Set DIOMAPPING1 to POR value
-  0x41, 0xC0, // DIOMAPPING2
+  0x41, 0x00, // DIOMAPPING2, Initially DIO4_TempChangeLowBat
 //  0x41, 0xC0, // DIOMAPPING2, RSSI on DI04
   //  0x3D, 0x10, // PacketConfig2, interpkt = 1, autorxrestart off
 //  0x58, 0x2D, // High sensitivity mode
@@ -759,13 +760,15 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         if (rfapi.ConfigFlags & 0x80) afcfei = AFC_START;
         else afcfei = 0;
         rfapi.ConfigFlags = (rfapi.ConfigFlags | afcfei);
-/////DEBUG
+
         rxstate = TXRECV;
+        writeReg(REG_DIOMAPPING2, DIO4_RSSI);
         rfapi.setmode = setMode(MODE_FS_RX);
 //        writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
         rfapi.setmode = setMode(MODE_RECEIVER);
         rxstate = TXRECV;
 		writeReg(REG_AFCFEI, (AFC_CLEAR));
+		
         rfapi.mode = readReg(REG_OPMODE);
         rfapi.irqflags1 = readReg(REG_IRQFLAGS1); 
                
@@ -790,6 +793,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
             rf12_rst = rst; // Count of resets used to capture packet
             rf12_tfr = tfr; // Time to receive in microseconds
             rf12_advisedLen = rfapi.lastLen;
+            
             for (byte i = 0; i < (payloadLen + 5); i++) {
                 rf12_buf[i] = rf69_buf[i];
             }     
@@ -933,6 +937,7 @@ void RF69::interrupt_compat (uint8_t rssi_interrupt) {
   being driven by recvDone and the size of the radio FIFO.
 */
         rfapi.interruptCount++;
+        writeReg(REG_DIOMAPPING2, DIO4_TempChangeLowBat);  // Disable further interrupts?
 /*
 micros() returns the hardware timer contents (which updates continuously), 
 plus a count of rollovers (ie. one rollover ever 1.024 mS). 
@@ -1017,7 +1022,7 @@ second rollover and then will be 1.024 mS out.
 						}
 						lastFEI = fei;
                         return;
-                    } // SyncMatch or Timeout 
+                    } // SyncMatch or Timeout                     
                 } //  while
             } //  RSSI
         	rfapi.interpacketTS = ms;	// Value stored at time of interrupt            			
@@ -1058,7 +1063,7 @@ second rollover and then will be 1.024 mS out.
                     if (rxfill >= (payloadLen + (5 - rf69_skip))) {  // Trap end of payload
 //debug	      				writeReg(REG_DIOMAPPING1, 0x00);	// Mask most radio interrupts
                         writeReg(REG_AFCFEI, AFC_CLEAR);
-                        setMode(MODE_FS_RX);  // Get radio out of RX mode
+                        setMode(MODE_STANDBY);  // Get radio out of RX mode
             			writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
                         stillCollecting = false;
                         break;
@@ -1099,7 +1104,7 @@ second rollover and then will be 1.024 mS out.
           	// rxstate will be TXDONE at this point
           	txP++;
             writeReg(REG_AFCFEI, AFC_CLEAR);	// If we are in RX mode
-			setMode(MODE_FS_RX);
+			setMode(MODE_STANDBY);
  			writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
          	// Restore sync bytes configuration
           	if (group == 0) {               // Allow receiving from all groups

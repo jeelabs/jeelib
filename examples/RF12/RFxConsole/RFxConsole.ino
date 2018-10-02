@@ -344,6 +344,7 @@ unsigned int testRX;
 ISR(WDT_vect) { Sleepy::watchdogEvent(); }
 
 volatile unsigned long elapsedSeconds;
+static unsigned long currentRestarts;
 volatile unsigned long previousRestarts;
 volatile unsigned long chkNoise;
 volatile unsigned int restartRate;
@@ -359,8 +360,8 @@ ISR(TIMER1_COMPA_vect){
     // Update restart rate
     if ((elapsedSeconds % (uint32_t)statsInterval) == 0UL) {
     	minuteTick = true;
-    	restartRate = (rfapi.RSSIrestart - previousRestarts);
-    	previousRestarts = rfapi.RSSIrestart;
+    	restartRate = (currentRestarts - previousRestarts);
+    	previousRestarts = currentRestarts;
               	
     	if (restartRate > maxRestartRate) { 
     		maxRestartRate = restartRate;
@@ -667,7 +668,7 @@ static void showStatus() {
 	Serial.print(RF69::readTemperature(0));
 	showString(PSTR("ºC"));
     showString(PSTR(", Restarts "));
-    Serial.print(rfapi.RSSIrestart);
+    Serial.print(currentRestarts);
     showString(PSTR(", Rate "));
     Serial.print(restartRate);
     printOneChar('^');
@@ -1051,7 +1052,7 @@ static void handleInput (char c) {
                      }
                      saveConfig();
                      maxRestartRate = 0;
-                     previousRestarts = rfapi.RSSIrestart;
+                     previousRestarts = currentRestarts;
                      break;
 
 #if !TINY
@@ -1665,7 +1666,7 @@ Serial.println(MCUSR, HEX);
 #endif
     Serial.flush();
     maxRestartRate = 0;
-    previousRestarts = rfapi.RSSIrestart;
+    previousRestarts = currentRestarts;
         
 } // setup
 
@@ -1987,6 +1988,7 @@ void loop () {
 #endif
 
     if (rf12_recvDone()) {
+    	currentRestarts = rfapi.RSSIrestart;
 
 #if RF69_COMPAT && !TINY                // At this point the radio is in Sleep
         if (rf12_crc == 0) {
@@ -1995,7 +1997,7 @@ void loop () {
  			if (!(RF12_WANTS_ACK && (config.collect_mode) == 0)) {	
 				// ACK not required for current packet 				
         		rf12_recvDone();		// Attempt to buffer next RF packet
-        		// At this point the receiver is active but previous buffer intact
+        		// At this point the receiver is active but previous buffer is intact
         		     					
  			} 
          	rxCrcGap = rf12_interpacketTS - rxCrcLast;
@@ -2308,6 +2310,10 @@ Serial.print(")");
         showString(PSTR(" Debug="));
         Serial.print(rfapi.debug);
         rfapi.debug = 0;
+        printOneChar(',');
+        Serial.print(rfapi.intRXFIFO);
+        printOneChar(',');
+		Serial.print(rfapi.interruptCount);
         Serial.println();
 
 #if !TINY
@@ -2576,8 +2582,8 @@ Serial.print(")");
     } // rf12_recvDone
 
 #if RF69_COMPAT && !TINY			// Weird conditional when Tiny84    
-    else if (rfapi.RSSIrestart != lastRSSIrestart) {
-    		lastRSSIrestart = rfapi.RSSIrestart;
+    else if (currentRestarts != lastRSSIrestart) {
+    		lastRSSIrestart = currentRestarts;
 
             if (ledStatus) activityLed(0);
             else activityLed(1);
@@ -2587,7 +2593,7 @@ Serial.print(")");
                 // RX restart 5334 0 217 1 0 0 1 208
                 //			 r	 r rss d
                 showString(PSTR("RX restart "));
-                Serial.print(rfapi.RSSIrestart);
+                Serial.print(currentRestarts);
                 printOneChar(' ');
                 Serial.print(rfapi.rssiThreshold);
                 printOneChar(' ');
@@ -2617,7 +2623,7 @@ Serial.print(")");
 	            showString(PSTR("RX Stats "));
     	        Serial.print(rfapi.rssiThreshold);
         	    printOneChar(' ');
-        		Serial.print(rfapi.RSSIrestart);
+        		Serial.print(currentRestarts);
 	        	printOneChar(' ');
     	        Serial.print(rfapi.syncMatch);
         		printOneChar(' ');
