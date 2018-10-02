@@ -180,6 +180,7 @@ volatile uint8_t rf12_buf[RF_MAX];  // recv/xmit buf, including hdr & crc bytes
 
 volatile uint8_t rf12_rssi;         // Only available with RFM69 hardware
 volatile uint8_t rf12_lna;          // Only available with RFM69 hardware
+static uint8_t rf12_advisedLen;		
 volatile int16_t rf12_afc;          // Only available with RFM69 hardware
 volatile int16_t rf12_fei;          // Only available with RFM69 hardware
 volatile uint16_t rf12_drx;

@@ -524,11 +524,14 @@ uint8_t setMode (uint8_t mode) {	// TODO enhance return code
 uint8_t setMode (uint8_t mode) {	// TODO enhance return code
     uint8_t c = 0;
 	writeReg(REG_OPMODE, mode);
-    while ((readReg(REG_OPMODE) & 7) != mode) {
-		for (byte tick = 0; tick < 100; tick++) NOP;	// Kill a little time
+	if (mode < MODE_RECEIVER) return c;
+//    while ((readReg(REG_OPMODE) & 7) < 6) {
+//		for (byte tick = 0; tick < 100; tick++) NOP;	// Kill a little time
+//		delay(1);
 		writeReg(REG_OPMODE, mode);
-        c++; if (c >= 254) break;
-	}
+    	rfapi.debug++;
+//        c++; if (c >= 254) break;
+//	}
 	return c;
 }
 #endif
@@ -786,6 +789,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
 
             rf12_rst = rst; // Count of resets used to capture packet
             rf12_tfr = tfr; // Time to receive in microseconds
+            rf12_advisedLen = rfapi.lastLen;
             for (byte i = 0; i < (payloadLen + 5); i++) {
                 rf12_buf[i] = rf69_buf[i];
             }     
@@ -1040,7 +1044,7 @@ second rollover and then will be 1.024 mS out.
                     volatile uint8_t in = readReg(REG_FIFO);
                     
                     if ((rxfill == 2) && (rf69_skip == 0)) {
-                    	rfapi.lastLen = in;			// TODO Fix for double buffering
+                    	rfapi.lastLen = in;
                         if (in <= RF12_MAXDATA) {  // capture and
                             payloadLen = in;       // validate length byte
                         } else {

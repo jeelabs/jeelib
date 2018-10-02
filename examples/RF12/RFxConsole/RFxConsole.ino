@@ -2287,9 +2287,9 @@ void loop () {
             showString(PSTR(" len "));
             Serial.print(rf12_len);
 #if RF69_COMPAT                        
-            if(rf12_len != rfapi.lastLen) {
+            if(rf12_len != rf12_advisedLen) {
                 printOneChar('(');
-                Serial.print(rfapi.lastLen);	// Show actual length received
+                Serial.print(rf12_advisedLen);	// Show actual length received
                 printOneChar(')');
             }
 #endif
@@ -2305,6 +2305,9 @@ Serial.print(" (");
 Serial.print(rf12_getRSSI());
 Serial.print(")");
          */
+        showString(PSTR(" Debug="));
+        Serial.print(rfapi.debug);
+        rfapi.debug = 0;
         Serial.println();
 
 #if !TINY
