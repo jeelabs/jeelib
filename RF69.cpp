@@ -368,6 +368,8 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x32, 0x00, // Payload length unlimited
 //  0x35, 0x80, // FifoTresh, not empty
   0x36, 0x40,	// Sequencer Stop
+  0x3B, 0x01,	// Auto temperature calibration disabled
+  0x3D,	0x00,	// LowBat detector disabled
   0x40, 0x00, // Set DIOMAPPING1 to POR value
   0x41, 0x00, // DIOMAPPING2, Initially DIO4_TempChangeLowBat
 //  0x41, 0xC0, // DIOMAPPING2, RSSI on DI04
