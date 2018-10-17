@@ -1,6 +1,6 @@
 /// @dir RFxConsole
 ///////////////////////////////////////////////////////////////////////////////
-#define RF69_COMPAT      0	 // define this to use the RF69 driver i.s.o. RF12 
+#define RF69_COMPAT      1	 // define this to use the RF69 driver i.s.o. RF12 
 ///                          // The above flag must be set similarly in RF12.cpp
 ///                          // and RF69_avr.h
 #define BLOCK  0             // Alternate LED pin?
@@ -95,6 +95,7 @@
 #include <avr/eeprom.h>
 #include <avr/pgmspace.h>
 #include <util/parity.h>
+#include <avr/wdt.h>
 #include "release.h"    // Version tracking by dzach
 //#include <Statistic.h>  // without trailing s
 
@@ -1380,8 +1381,9 @@ static void handleInput (char c) {
 						if (value == 250) {
                         	clrNodeStore();                        
 					} else if (value == 255) {
-						showString(PSTR("Watchdog enabled, restarting\n"));
-						WDTCSR |= _BV(WDE);
+						showString(PSTR("Delay, watchdog enabled\n"));
+						delay(2000);
+// Done in setup		WDTCSR |= _BV(WDE);
 					}
                      break;
 
@@ -1509,7 +1511,7 @@ void resetFlagsInit(void)
 
 void setup () {
 
-    delay(2000);
+    delay(500);
 
     //  clrConfig();
 
@@ -1563,9 +1565,9 @@ void setup () {
     // Consider adding the following equivalents for RFM12x
     
 #if !TINY
-showNibble(resetFlags >> 4);
+showString(PSTR("Re-Init:"));showNibble(resetFlags >> 4);
 showNibble(resetFlags);
-printOneChar(' ');
+printOneChar(',');
 Serial.println(MCUSR, HEX);
     // TODO the above doesn't do what we need, results vary with Bootloader etc
 #endif
@@ -1648,6 +1650,11 @@ Serial.println(MCUSR, HEX);
     Serial.flush();
     maxRestartRate = 0;
     previousRestarts = rfapi.RSSIrestart;
+// Setup WatchDog
+	wdt_reset();   			// First thing, turn it off
+	MCUSR = 0;
+	wdt_disable();
+	wdt_enable(WDTO_15MS);   // enable watchdogtimer
         
 } // setup
 
@@ -1958,7 +1965,8 @@ static uint16_t semaphoreGet (byte node, byte group) {
 }
 
 void loop () {
-
+	wdt_reset();
+//	sei();
 #if TINY
     if (_receive_buffer_index) handleInput(inChar());
 #else
