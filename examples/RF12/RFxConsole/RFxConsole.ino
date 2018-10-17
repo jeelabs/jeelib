@@ -1565,9 +1565,9 @@ void setup () {
     // Consider adding the following equivalents for RFM12x
     
 #if !TINY
-showString(PSTR("Re-Init:"));showNibble(resetFlags >> 4);
+showString(PSTR("ReInit "));showNibble(resetFlags >> 4);
 showNibble(resetFlags);
-printOneChar(',');
+printOneChar(' ');
 Serial.println(MCUSR, HEX);
     // TODO the above doesn't do what we need, results vary with Bootloader etc
 #endif
@@ -1654,7 +1654,7 @@ Serial.println(MCUSR, HEX);
 	wdt_reset();   			// First thing, turn it off
 	MCUSR = 0;
 	wdt_disable();
-	wdt_enable(WDTO_15MS);   // enable watchdogtimer
+	wdt_enable(WDTO_30MS);   // enable watchdogtimer
         
 } // setup
 
