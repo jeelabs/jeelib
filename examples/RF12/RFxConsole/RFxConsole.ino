@@ -14,7 +14,7 @@
 
    Works but somehow, with AFC active the receiver drifts off into the wilderness
    and doesn't receive unless forced to transmit. 
- */
+*/
 ///////////////////////////////////////////////////////////////////////////////
 /// Configure some values in EEPROM for easy config of the RF12 later on.
 // 2009-05-06 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
@@ -62,6 +62,7 @@
 // Support fine radio frequency control using microOffset 32,1600o 2018-06-30
 // Assume the ACK's are sent from i31 in order to collect ACK statistics for i31 2018-07-4
 // Add rfapi.configFlags to control afc off/on using "128,8b" 2018-07-4
+// Watchdog timer enabled 2018-10-17
 
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
 	#define TINY 1
@@ -72,10 +73,10 @@
   #define JNuMOSFET    1   // Define to power up RFM12B on JNu2/3 - Adds 4 bytes to Tiny image
 #else
   #define configSTRING 1   // Define to include "A i1 g210 @ 868 MHz q1" - Adds ?? bytes to Tiny image
-  #define HELP         1   // Define to include the help text
+  #define HELP         0   // Define to include the help text
   #define MESSAGING    1   // Define to include message posting code m, p - Will not fit into any Tiny image
   #define STATISTICS   1   // Define to include stats gathering - Adds ?? bytes to Tiny image
-  #define NODE31ALLOC  1   // Define to include offering of spare node numbers if node 31 requests ack
+  #define NODE31ALLOC  0   // Define to include offering of spare node numbers if node 31 requests ack
   #define DEBUG        0   //
 #endif
 
@@ -479,10 +480,11 @@ static void saveConfig () {
     for (byte i = 0; i < sizeof config; ++i) {
         byte* p = &config.nodeId;
         if (eeprom_read_byte(RF12_EEPROM_ADDR + i) != p[i]) {
+			wdt_reset();		// Eeprom writing is slow...
             eeprom_write_byte(RF12_EEPROM_ADDR + i, p[i]);
             eepromWrite++;
-        }
-    }
+		}
+	}
     
 	loadConfig();
 	
@@ -1511,7 +1513,7 @@ void resetFlagsInit(void)
 
 void setup () {
 
-    delay(500);
+    delay(380);
 
     //  clrConfig();
 
@@ -1654,7 +1656,7 @@ Serial.println(MCUSR, HEX);
 	wdt_reset();   			// First thing, turn it off
 	MCUSR = 0;
 	wdt_disable();
-	wdt_enable(WDTO_30MS);   // enable watchdogtimer
+	wdt_enable(WDTO_120MS);   // enable watchdogtimer
         
 } // setup
 
@@ -2474,8 +2476,8 @@ Serial.print(")");
                         printOneChar('g');
                     }
                     Serial.println();                    
-                }
 #endif                    
+                }
                 crlf = true;
                 delay(config.ackDelay);          // changing into TX mode is quicker than changing into RX mode for RF69.     
             	showString(TX);
