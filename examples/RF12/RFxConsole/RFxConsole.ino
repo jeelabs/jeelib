@@ -2426,6 +2426,7 @@ Serial.print(")");
 
                 byte ackLen = 0;
 				byte special = false;
+#if NODE31ALLOC                    
                 // This code is used when an incoming packet requesting an ACK is also from Node 31
                 // The purpose is to find a "spare" Node number within the incoming group and offer 
                 // it with the returning ACK.
@@ -2441,7 +2442,6 @@ Serial.print(")");
                         eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 1), config.group);
                         eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 2), 255);
                     }
-#if NODE31ALLOC                    
                     for (byte i = 1; i < 31; i++) {
                         // Find a spare node number within received group number
                         if (!(getIndex(rf12_grp, i ))) {         // Node/Group pair not found?
@@ -2452,6 +2452,7 @@ Serial.print(")");
                             observedRX.RegTestPa1_TX = RF69::control(0x5A, 0x55);  // Pull the current RegTestPa1 from the radio
                             observedRX.RegTestPa2_TX = RF69::control(0x5C, 0x70);  // Pull the current RegTestPa2 from the radio
   #endif
+  // TODO					The above doesn't realise that radio packet buffering may be happening
 
                             ackLen = (sizeof observedRX) + 1;
                             stack[sizeof stack - ackLen] = i + 0xE0;  // 0xE0 is an arbitary value
@@ -2476,8 +2477,8 @@ Serial.print(")");
                         printOneChar('g');
                     }
                     Serial.println();                    
-#endif                    
                 }
+#endif                    
                 crlf = true;
                 delay(config.ackDelay);          // changing into TX mode is quicker than changing into RX mode for RF69.     
             	showString(TX);
@@ -2634,7 +2635,7 @@ Serial.print(")");
             
             	for (byte i = 1; i < 8; i++) {
             		if (rfapi.cumCount[i]) {
-            			showString(PSTR(" ["));
+            			showString(PSTR(" [ "));
 						Serial.print(i);
 	        			printOneChar(' ');
         				Serial.print(rfapi.cumRSSI[i] / rfapi.cumCount[i]);
@@ -2648,7 +2649,7 @@ Serial.print(")");
 	    	        	Serial.print(rfapi.cumZeros[i]);
     	    			printOneChar(' ');
 	    	        	Serial.print(rfapi.cumCount[i]);
-	        			printOneChar(']');
+            			showString(PSTR(" ]"));
 	        			
 		        		rfapi.cumRSSI[i] = rfapi.cumFEI[i] /*= rfapi.cumLNA[i]*/ = 
 		        	 	/*rfapi.cumAFC[i] =*/ rfapi.cumZeros[i] = rfapi.cumCount[i] = 0;
