@@ -543,18 +543,29 @@ uint8_t setMode (uint8_t mode) {	// TODO enhance return code
 static uint8_t initRadio (ROM_UINT8* init) {
 
 #if SX1276
-    bitClear(DDRB, 1);	// D9 wired to radio RESET line
+	#if defined(__AVR_ATmega2560__) || defined(__AVR_ATmega1280__)
+    bitClear(DDRH, 6);	// D9 wired to radio RESET line
+    delay(10);
+    bitSet(PORTH, 6);
+    delay(10);
+    #else
+    bitClear(DDRB, 1);	// ATMega328 D9 wired to radio RESET line
     delay(10);
     bitSet(PORTB, 1);
     delay(10);
+    #endif
 #endif
+Serial.println("About to spiInit"); delay(100);
 
     spiInit();
+Serial.println("About to test spi"); delay(100);
     
 // Validate SPI bus operation
     writeReg(REG_SYNCVALUE6, LIBRARY_VERSION);
     writeReg(REG_SYNCVALUE7, 0xAA);
     writeReg(REG_SYNCVALUE8, 0x55);
+Serial.println("Spi write done"); delay(100);
+
 /*    
     Serial.print("SPI sync8=0x");
     Serial.println(readReg(REG_SYNCVALUE8), HEX);
@@ -562,6 +573,7 @@ static uint8_t initRadio (ROM_UINT8* init) {
 */
     if ((readReg(REG_SYNCVALUE7) == 0xAA) && (readReg(REG_SYNCVALUE8) == 0x55)) {
 /*
+
         // Attempt to mitigate init loop of RSSI interrupt, symptoms are
         // not mitigated by numerically low RSSI threshold values.
         writeReg(REG_SYNCCONFIG, oneByteSync);  // Don't disturb anyone.
@@ -572,6 +584,7 @@ static uint8_t initRadio (ROM_UINT8* init) {
         setMode(MODE_FS_RX);
 */        
 // Configure radio
+Serial.println("About to config radio"); delay(100);
         for (;;) {
             uint8_t cmd = ROM_READ_UINT8(init);
             if (cmd == 0) break;
@@ -592,10 +605,16 @@ static uint8_t initRadio (ROM_UINT8* init) {
 
 		previousMillis = millis();
 		rfapi.rtpMin = 0; /*65535;*/ rfapi.rtpMax = 0;
+
+Serial.println("About to initInt"); delay(100);
+
         InitIntPin();
+Serial.println("Returning"); delay(100);
         
         return 1;
     }
+    else Serial.println("radio reg test failed"); delay(100);
+
 /*
     Serial.println(readReg(REG_SYNCVALUE8), HEX);
     delay(1000);
@@ -701,6 +720,7 @@ return 0;
 #include <RF12.h>
 
 void RF69::configure_compat () {
+
     present = 0;                                    // Assume radio is absent
     if (initRadio(configRegs_compat)) {
         if (group == 0) {

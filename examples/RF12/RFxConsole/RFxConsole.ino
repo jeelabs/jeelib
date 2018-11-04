@@ -1623,6 +1623,7 @@ Serial.println(MCUSR, HEX);
     bitClear(PORTB, 0);
     delay(1000);
 #endif
+Serial.println("About to Init"); delay(100);
     if (rf12_configSilent()) {
         loadConfig();
         dumpRegs();
