@@ -41,10 +41,10 @@ volatile byte lastPCInt;
 #define SS_PORT     PORTB
 #define SS_BIT      4
 
+#define SPI_SS      4    // PB4, pin 23, Digital 10
 #define SPI_MISO    50    // PB3, pin 22
 #define SPI_MOSI    51    // PB2, pin 21
 #define SPI_SCK     52    // PB1, pin 20
-#define SPI_SS      10    // PB4, pin 23
 
 static void spiConfigPins () {
     SS_PORT |= _BV(SS_BIT);
