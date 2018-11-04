@@ -14,7 +14,7 @@
 
    Works but somehow, with AFC active the receiver drifts off into the wilderness
    and doesn't receive unless forced to transmit. 
- */
+*/
 ///////////////////////////////////////////////////////////////////////////////
 /// Configure some values in EEPROM for easy config of the RF12 later on.
 // 2009-05-06 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
@@ -62,6 +62,7 @@
 // Support fine radio frequency control using microOffset 32,1600o 2018-06-30
 // Assume the ACK's are sent from i31 in order to collect ACK statistics for i31 2018-07-4
 // Add rfapi.configFlags to control afc off/on using "128,8b" 2018-07-4
+// Watchdog timer enabled 2018-10-17
 
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
 	#define TINY 1
@@ -72,7 +73,7 @@
   #define JNuMOSFET    1   // Define to power up RFM12B on JNu2/3 - Adds 4 bytes to Tiny image
 #else
   #define configSTRING 1   // Define to include "A i1 g210 @ 868 MHz q1" - Adds ?? bytes to Tiny image
-  #define HELP         1   // Define to include the help text
+  #define HELP         0   // Define to include the help text
   #define MESSAGING    1   // Define to include message posting code m, p - Will not fit into any Tiny image
   #define STATISTICS   1   // Define to include stats gathering - Adds ?? bytes to Tiny image
   #define NODE31ALLOC  0   // Define to include offering of spare node numbers if node 31 requests ack
@@ -479,10 +480,11 @@ static void saveConfig () {
     for (byte i = 0; i < sizeof config; ++i) {
         byte* p = &config.nodeId;
         if (eeprom_read_byte(RF12_EEPROM_ADDR + i) != p[i]) {
+			wdt_reset();		// Eeprom writing is slow...
             eeprom_write_byte(RF12_EEPROM_ADDR + i, p[i]);
             eepromWrite++;
-        }
-    }
+		}
+	}
     
 	loadConfig();
 	
@@ -1529,7 +1531,7 @@ void resetFlagsInit(void)
 
 void setup () {
 
-    delay(500);
+    delay(380);
 
     //  clrConfig();
 
@@ -1673,7 +1675,7 @@ Serial.println(MCUSR, HEX);
 	wdt_reset();   			// First thing, turn it off
 	MCUSR = 0;
 	wdt_disable();
-	wdt_enable(WDTO_15MS);   // enable watchdogtimer
+	wdt_enable(WDTO_120MS);   // enable watchdogtimer
         
 } // setup
 
@@ -2454,6 +2456,7 @@ Serial.print(")");
 
                 byte ackLen = 0;
 				byte special = false;
+#if NODE31ALLOC                    
                 // This code is used when an incoming packet requesting an ACK is also from Node 31
                 // The purpose is to find a "spare" Node number within the incoming group and offer 
                 // it with the returning ACK.
@@ -2469,7 +2472,6 @@ Serial.print(")");
                         eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 1), config.group);
                         eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 2), 255);
                     }
-#if NODE31ALLOC                    
                     for (byte i = 1; i < 31; i++) {
                         // Find a spare node number within received group number
                         if (!(getIndex(rf12_grp, i ))) {         // Node/Group pair not found?
@@ -2482,6 +2484,8 @@ Serial.print(")");
                             observedRX.TestPa2_TX = RF69::radioIndex(RegTestPa2, 0x70);  // Pull the current RegTestPa2 from the radio
   #endif
 */
+  // TODO					The above doesn't realise that radio packet buffering may be happening
+
                             ackLen = (sizeof observedRX) + 1;
                             stack[sizeof stack - ackLen] = i + 0xE0;  // 0xE0 is an arbitary value
                             // Change Node number request - matched in RF12Tune
@@ -2663,7 +2667,7 @@ Serial.print(")");
             
             	for (byte i = 1; i < 8; i++) {
             		if (rfapi.cumCount[i]) {
-            			showString(PSTR(" ["));
+            			showString(PSTR(" [ "));
 						Serial.print(i);
 	        			printOneChar(' ');
         				Serial.print(rfapi.cumRSSI[i] / rfapi.cumCount[i]);
@@ -2677,7 +2681,7 @@ Serial.print(")");
 	    	        	Serial.print(rfapi.cumZeros[i]);
     	    			printOneChar(' ');
 	    	        	Serial.print(rfapi.cumCount[i]);
-	        			printOneChar(']');
+            			showString(PSTR(" ]"));
 	        			
 		        		rfapi.cumRSSI[i] = rfapi.cumFEI[i] /*= rfapi.cumLNA[i]*/ = 
 		        	 	/*rfapi.cumAFC[i] =*/ rfapi.cumZeros[i] = rfapi.cumCount[i] = 0;
