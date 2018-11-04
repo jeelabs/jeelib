@@ -75,7 +75,7 @@
   #define HELP         1   // Define to include the help text
   #define MESSAGING    1   // Define to include message posting code m, p - Will not fit into any Tiny image
   #define STATISTICS   1   // Define to include stats gathering - Adds ?? bytes to Tiny image
-  #define NODE31ALLOC  1   // Define to include offering of spare node numbers if node 31 requests ack
+  #define NODE31ALLOC  0   // Define to include offering of spare node numbers if node 31 requests ack
   #define DEBUG        0   //
 #endif
 /*
@@ -94,6 +94,7 @@
 #include <avr/eeprom.h>
 #include <avr/pgmspace.h>
 #include <util/parity.h>
+#include <avr/wdt.h>
 #include "release.h"    // Version tracking by dzach
 //#include <Statistic.h>  // without trailing s
 
@@ -1398,8 +1399,9 @@ static void handleInput (char c) {
 						if (value == 250) {
                         	clrNodeStore();                        
 					} else if (value == 255) {
-						showString(PSTR("Watchdog enabled, restarting\n"));
-						WDTCSR |= _BV(WDE);
+						showString(PSTR("Delay, watchdog enabled\n"));
+						delay(2000);
+// Done in setup		WDTCSR |= _BV(WDE);
 					}
                      break;
 
@@ -1527,7 +1529,7 @@ void resetFlagsInit(void)
 
 void setup () {
 
-    delay(2000);
+    delay(500);
 
     //  clrConfig();
 
@@ -1581,7 +1583,7 @@ void setup () {
     // Consider adding the following equivalents for RFM12x
     
 #if !TINY
-showNibble(resetFlags >> 4);
+showString(PSTR("ReInit "));showNibble(resetFlags >> 4);
 showNibble(resetFlags);
 printOneChar(' ');
 Serial.println(MCUSR, HEX);
@@ -1666,7 +1668,12 @@ Serial.println(MCUSR, HEX);
 #endif
     Serial.flush();
     maxRestartRate = 0;
-    previousRestarts = currentRestarts;
+    previousRestarts = rfapi.RSSIrestart;
+// Setup WatchDog
+	wdt_reset();   			// First thing, turn it off
+	MCUSR = 0;
+	wdt_disable();
+	wdt_enable(WDTO_15MS);   // enable watchdogtimer
         
 } // setup
 
@@ -1980,7 +1987,8 @@ static uint16_t semaphoreGet (byte node, byte group) {
 }
 
 void loop () {
-
+	wdt_reset();
+//	sei();
 #if TINY
     if (_receive_buffer_index) handleInput(inChar());
 #else
