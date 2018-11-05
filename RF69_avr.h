@@ -34,23 +34,28 @@ volatile byte lastPCInt;
 
 #if defined(__AVR_ATmega2560__) || defined(__AVR_ATmega1280__)
 
+// Items below are options to match your shield/cabling
 #define INT         INT1
 #define INT_NUMBER  1
 #define RFM_IRQ     3	// 2 for INT0 on PD2, 3 for INT1 on PD3
 #define SS_DDR      DDRB
 #define SS_PORT     PORTB
-#define SS_BIT      4
-
-#define SPI_SS      4    // PB4, pin 23, Digital 10
-#define SPI_MISO    50    // PB3, pin 22
-#define SPI_MOSI    51    // PB2, pin 21
-#define SPI_SCK     52    // PB1, pin 20
+#define SS_BIT      PB4
+// Items below fixed and determined by the ATMega hardware
+#define SPI_MISO    PB3		// PB3, pin 22, Digital 50
+#define SPI_MOSI    PB2		// PB2, pin 21, Digital 51
+#define SPI_SCK     PB1		// PB1, pin 20, Digital 52
+#define SPI_SS      PB0		// PB0, pin 19, Digital 53
 
 static void spiConfigPins () {
     SS_PORT |= _BV(SS_BIT);
     SS_DDR |= _BV(SS_BIT);
-    PORTB |= _BV(SPI_SS);
+    
+    PORTB |= _BV(SPI_SS);	// PB0, Digital 53 required for SPI hardware to activate
     DDRB |= _BV(SPI_SS) | _BV(SPI_MOSI) | _BV(SPI_SCK);
+    
+    Serial.println(PORTB, BIN); delay(10);
+    Serial.println(DDRB, BIN); delay(10);
 }
 
 #elif defined(__AVR_ATmega644P__)
@@ -176,6 +181,10 @@ static void spiConfigPins () {
     SS_DDR |= _BV(SS_BIT);  // Slave select, maybe same pin as SPI_SS
     PORTB |= _BV(SPI_SS);   // Required to enable SPI
     DDRB |= _BV(SPI_SS) | _BV(SPI_MOSI) | _BV(SPI_SCK);
+    
+    Serial.println(PB4); delay(10);
+    Serial.println(PORTB, BIN); delay(10);
+    Serial.println(DDRB, BIN); delay(10);
 }
 
 #endif
@@ -310,7 +319,7 @@ static void spiInit (void) {
     SPCR = _BV(SPE) | _BV(MSTR);    
 
   #if OPTIMIZE_SPI == 0
-  	Serial.println("Optimize=0");    
+//  	Serial.println("Optimize=0");    
     SPCR |= _BV(SPR0);  // Divide SPI by 4
     SPCR |= _BV(SPR1);  // Divide SPI by 16
 //    SPSR |= _BV(SPI2X);  // Double SPI
@@ -348,10 +357,12 @@ static uint8_t spiTransferByte (uint8_t out) {
 }
 
 static uint8_t spiTransfer (uint8_t cmd, uint8_t val) {
+//    PORTB &= ~ _BV(SPI_SS);	//DEBUG
     SS_PORT &= ~ _BV(SS_BIT);
     spiTransferByte(cmd);
     uint8_t in = spiTransferByte(val);
     SS_PORT |= _BV(SS_BIT);
+//    PORTB |= _BV(SPI_SS);	// DEBUG
     return in;
 }
 
@@ -429,7 +440,7 @@ static void InitIntPin () {
 }
 
 static byte* SPI_Pins(void) {
-    static byte pins[] = {OPTIMIZE_SPI, PINCHG_IRQ, RF69_COMPAT, SPI_SS,   
+    static byte pins[] = { OPTIMIZE_SPI, PINCHG_IRQ, RF69_COMPAT, SPI_SS,   
                           SPI_MOSI,SPI_MISO, SPI_SCK, RFM_IRQ, INT_NUMBER };                              
     return &pins[0];
 }
