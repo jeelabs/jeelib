@@ -40,21 +40,24 @@ volatile byte lastPCInt;
 #define RFM_IRQ     3	// 2 for INT0 on PD2, 3 for INT1 on PD3
 #define SS_DDR      DDRB
 #define SS_PORT     PORTB
-#define SS_BIT      PB4
+#define SS_BIT      PB4		// pin 23, Digital 10
 // Items below fixed and determined by the ATMega hardware
-#define SPI_MISO    PB3		// PB3, pin 22, Digital 50
-#define SPI_MOSI    PB2		// PB2, pin 21, Digital 51
-#define SPI_SCK     PB1		// PB1, pin 20, Digital 52
-#define SPI_SS      PB0		// PB0, pin 19, Digital 53
+#define SPI_MISO    PB3		// pin 22, Digital 50
+#define SPI_MOSI    PB2		// pin 21, Digital 51
+#define SPI_SCK     PB1		// pin 20, Digital 52
+#define SPI_SS      PB0		// pin 19, Digital 53
 
 static void spiConfigPins () {
     SS_PORT |= _BV(SS_BIT);
     SS_DDR |= _BV(SS_BIT);
     
     PORTB |= _BV(SPI_SS);	// PB0, Digital 53 required for SPI hardware to activate
-    DDRB |= _BV(SPI_SS) | _BV(SPI_MOSI) | _BV(SPI_SCK);
+    DDRB |= _BV(SPI_MOSI) | _BV(SPI_SCK);
     
+    Serial.println(SPSR, BIN); delay(10);
+    Serial.print("PORTB=");
     Serial.println(PORTB, BIN); delay(10);
+    Serial.print("DDRB=");
     Serial.println(DDRB, BIN); delay(10);
 }
 
@@ -317,9 +320,7 @@ static void spiInit (void) {
     
 #ifdef SPCR    
     SPCR = _BV(SPE) | _BV(MSTR);    
-
   #if OPTIMIZE_SPI == 0
-//  	Serial.println("Optimize=0");    
     SPCR |= _BV(SPR0);  // Divide SPI by 4
     SPCR |= _BV(SPR1);  // Divide SPI by 16
 //    SPSR |= _BV(SPI2X);  // Double SPI
@@ -333,6 +334,10 @@ static void spiInit (void) {
 
     // pinMode(RFM_IRQ, INPUT);
     // digitalWrite(RFM_IRQ, 1); // pull-up
+    Serial.print("SPCR=");
+    Serial.println(SPCR, BIN); delay(10);
+    Serial.print("SPSR=");
+    Serial.println(SPSR, BIN); delay(10);
 }
 
 static uint8_t spiTransferByte (uint8_t out) {
@@ -357,12 +362,10 @@ static uint8_t spiTransferByte (uint8_t out) {
 }
 
 static uint8_t spiTransfer (uint8_t cmd, uint8_t val) {
-//    PORTB &= ~ _BV(SPI_SS);	//DEBUG
     SS_PORT &= ~ _BV(SS_BIT);
     spiTransferByte(cmd);
     uint8_t in = spiTransferByte(val);
     SS_PORT |= _BV(SS_BIT);
-//    PORTB |= _BV(SPI_SS);	// DEBUG
     return in;
 }
 

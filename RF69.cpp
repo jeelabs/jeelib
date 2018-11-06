@@ -541,13 +541,13 @@ uint8_t setMode (uint8_t mode) {	// TODO enhance return code
 #endif
 
 static uint8_t initRadio (ROM_UINT8* init) {
-
+/*
 #if SX1276
 	#if defined(__AVR_ATmega2560__) || defined(__AVR_ATmega1280__)
-    bitClear(DDRH, 6);	// D9 wired to radio RESET line
-    delay(10);
     bitSet(PORTH, 6);
     delay(10);
+    bitClear(DDRH, 6);	// ATMega2560 D9 wired to radio RESET line
+    delay(100);
     #else
     bitClear(DDRB, 1);	// ATMega328 D9 wired to radio RESET line
     delay(10);
@@ -555,16 +555,25 @@ static uint8_t initRadio (ROM_UINT8* init) {
     delay(10);
     #endif
 #endif
+*/
 Serial.println("About to spiInit"); delay(100);
 
     spiInit();
 Serial.println("About to test spi"); delay(100);
-    
+    Serial.print("SPCRw=");
+    Serial.println(SPCR, BIN); delay(10);
+    Serial.print("SPSR=");
+    Serial.println(SPSR, BIN); delay(10);
+        
 // Validate SPI bus operation
     writeReg(REG_SYNCVALUE6, LIBRARY_VERSION);
+    Serial.print("SPCRx=");
+    Serial.println(SPCR, BIN); delay(10);
+    Serial.print("SPSR=");
+    Serial.println(SPSR, BIN); delay(10);
     writeReg(REG_SYNCVALUE7, 0xAA);
     writeReg(REG_SYNCVALUE8, 0x55);
-Serial.println("Spi write done"); delay(100);
+Serial.println("Spi write done"); delay(10);
 
 /*    
     Serial.print("SPI sync8=0x");
