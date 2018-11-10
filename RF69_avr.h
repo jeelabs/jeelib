@@ -54,11 +54,11 @@ static void spiConfigPins () {
     PORTB |= _BV(SPI_SS);	// PB0, Digital 53 required for SPI hardware to activate
     DDRB |= _BV(SPI_MOSI) | _BV(SPI_SCK);
     
-    Serial.println(SPSR, BIN); delay(10);
-    Serial.print("PORTB=");
-    Serial.println(PORTB, BIN); delay(10);
-    Serial.print("DDRB=");
-    Serial.println(DDRB, BIN); delay(10);
+    // Serial.println(SPSR, BIN); delay(10);
+    // Serial.print("PORTB=");
+    // Serial.println(PORTB, BIN); delay(10);
+    // Serial.print("DDRB=");
+    // Serial.println(DDRB, BIN); delay(10);
 }
 
 #elif defined(__AVR_ATmega644P__)
@@ -185,9 +185,9 @@ static void spiConfigPins () {
     PORTB |= _BV(SPI_SS);   // Required to enable SPI
     DDRB |= _BV(SPI_SS) | _BV(SPI_MOSI) | _BV(SPI_SCK);
     
-    Serial.println(PB4); delay(10);
-    Serial.println(PORTB, BIN); delay(10);
-    Serial.println(DDRB, BIN); delay(10);
+    // Serial.println(PB4); delay(10);
+    // Serial.println(PORTB, BIN); delay(10);
+    // Serial.println(DDRB, BIN); delay(10);
 }
 
 #endif
@@ -334,10 +334,10 @@ static void spiInit (void) {
 
     // pinMode(RFM_IRQ, INPUT);
     // digitalWrite(RFM_IRQ, 1); // pull-up
-    Serial.print("SPCR=");
-    Serial.println(SPCR, BIN); delay(10);
-    Serial.print("SPSR=");
-    Serial.println(SPSR, BIN); delay(10);
+    // Serial.print("SPCR=");
+    // Serial.println(SPCR, BIN); delay(10);
+    // Serial.print("SPSR=");
+    // Serial.println(SPSR, BIN); delay(10);
 }
 
 static uint8_t spiTransferByte (uint8_t out) {
@@ -402,7 +402,8 @@ static void InitIntPin () {
     #elif RF69_COMPAT
         if (RF69::node != 0) {
             XXMSK &= ~ _BV(INT_BIT);          // Mask radio interrupt
-            attachInterrupt(INT_NUMBER, interrupt_stub, RISING);
+//            attachInterrupt(0, interrupt_stub, RISING);				// Transmit vector            
+            attachInterrupt(INT_NUMBER, interrupt_stub, RISING);	// Receive vector
             XXMSK |= _BV(INT_BIT);            // Enable radio interrupt
         } else {
             detachInterrupt(INT_NUMBER);
@@ -432,10 +433,12 @@ static void InitIntPin () {
     #elif RF69_COMPAT
         if (RF69::node != 0) {
             XXMSK &= ~ _BV(INT_BIT);          // Mask radio interrupt
-            attachInterrupt(INT_NUMBER, interrupt_stub, RISING);
+//            attachInterrupt(0, interrupt_stub, RISING);				// Transmit vector            
+            attachInterrupt(INT_NUMBER, interrupt_stub, RISING);	// Receiver vector
             XXMSK |= _BV(INT_BIT);            // Enable radio interrupt
         } else {
-            detachInterrupt(INT_NUMBER);
+//            detachInterrupt(0);			// Transmit vector
+            detachInterrupt(INT_NUMBER);// Receiver vector
         }
     #endif
 #endif

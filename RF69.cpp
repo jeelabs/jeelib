@@ -355,7 +355,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x0D, 0x09, // AgcAutoOn, RxTrigger RSSI
   0x0E, 0x00, // RSSI two sample smoothing - we are a star network
 
-  0x10, 0xA0, // RSSI Threshold 80dB
+  0x10, 0xC8, // RSSI Threshold -100dB
   0x12, 0x29, // RxBw 200 KHz, DCC 16%
   0x13, 0x29, // RxBwAFC 200 Khz, DCC 16%. Only handling initial RSSI phase, not payload!
 
@@ -556,28 +556,28 @@ static uint8_t initRadio (ROM_UINT8* init) {
     #endif
 #endif
 */
-Serial.println("About to spiInit"); delay(100);
+// Serial.println("About to spiInit"); delay(100);
 
     spiInit();
-Serial.println("About to test spi"); delay(100);
-    Serial.print("SPCRw=");
-    Serial.println(SPCR, BIN); delay(10);
-    Serial.print("SPSR=");
-    Serial.println(SPSR, BIN); delay(10);
+// Serial.println("About to test spi"); delay(100);
+    // Serial.print("SPCRw=");
+    // Serial.println(SPCR, BIN); delay(10);
+    // Serial.print("SPSR=");
+    // Serial.println(SPSR, BIN); delay(10);
         
 // Validate SPI bus operation
     writeReg(REG_SYNCVALUE6, LIBRARY_VERSION);
-    Serial.print("SPCRx=");
-    Serial.println(SPCR, BIN); delay(10);
-    Serial.print("SPSR=");
-    Serial.println(SPSR, BIN); delay(10);
+    // Serial.print("SPCRx=");
+    // Serial.println(SPCR, BIN); delay(10);
+    // Serial.print("SPSR=");
+    // Serial.println(SPSR, BIN); delay(10);
     writeReg(REG_SYNCVALUE7, 0xAA);
     writeReg(REG_SYNCVALUE8, 0x55);
-Serial.println("Spi write done"); delay(10);
+// Serial.println("Spi write done"); delay(10);
 
 /*    
-    Serial.print("SPI sync8=0x");
-    Serial.println(readReg(REG_SYNCVALUE8), HEX);
+    // Serial.print("SPI sync8=0x");
+    // Serial.println(readReg(REG_SYNCVALUE8), HEX);
     delay(1000);
 */
     if ((readReg(REG_SYNCVALUE7) == 0xAA) && (readReg(REG_SYNCVALUE8) == 0x55)) {
@@ -593,7 +593,7 @@ Serial.println("Spi write done"); delay(10);
         setMode(MODE_FS_RX);
 */        
 // Configure radio
-Serial.println("About to config radio"); delay(100);
+// Serial.println("About to config radio"); delay(100);
         for (;;) {
             uint8_t cmd = ROM_READ_UINT8(init);
             if (cmd == 0) break;
@@ -602,30 +602,30 @@ Serial.println("About to config radio"); delay(100);
         }
 /*        
     for (byte r = 1; r < 0x80; ++r) {
-    	Serial.print(r, HEX);
-    	Serial.print("=");
-        Serial.print(RF69::control(r, 0), HEX); // Prints out Radio Registers.
-        if (r == 0x20 || r == 0x40) Serial.println();
-        else Serial.print(",");
+    	// Serial.print(r, HEX);
+    	// Serial.print("=");
+        // Serial.print(RF69::control(r, 0), HEX); // Prints out Radio Registers.
+        if (r == 0x20 || r == 0x40) // Serial.println();
+        else // Serial.print(",");
     }
-    Serial.println();
+    // Serial.println();
 	delay(100);        
 */        
 
 		previousMillis = millis();
 		rfapi.rtpMin = 0; /*65535;*/ rfapi.rtpMax = 0;
 
-Serial.println("About to initInt"); delay(100);
+// Serial.println("About to initInt"); delay(100);
 
         InitIntPin();
-Serial.println("Returning"); delay(100);
+// Serial.println("Returning"); delay(100);
         
         return 1;
     }
-    else Serial.println("radio reg test failed"); delay(100);
+    else // Serial.println("radio reg test failed"); delay(100);
 
 /*
-    Serial.println(readReg(REG_SYNCVALUE8), HEX);
+    // Serial.println(readReg(REG_SYNCVALUE8), HEX);
     delay(1000);
 */
     return 0;
@@ -647,14 +647,15 @@ void RF69::setFrequency (uint32_t freq) {
 }
 
 uint8_t RF69::canSend (uint8_t clear) {
-	clearAir = clear;
+/*	clearAir = clear;
 	if (((rxfill == 0) || (rxdone))) {
 		setMode(MODE_FS_RX);
         rfapi.sendRSSI = currentRSSI();
-        Serial.println(rfapi.sendRSSI);
-        delay(2000);
+Serial.println("TX3"); delay(100); 
+   
         if(rfapi.sendRSSI >= clearAir) {
             rxstate = TXIDLE;
+Serial.println("TX4"); delay(100);    
             return rfapi.sendRSSI;
         }
     } else {
@@ -662,6 +663,9 @@ uint8_t RF69::canSend (uint8_t clear) {
     	rfapi.rxfill = rxfill;
     	rfapi.rxdone = rxdone;
     }
+*/
+Serial.println("TX5"); delay(100);  
+return clear;  
     return false;
 }
 
@@ -691,7 +695,7 @@ uint8_t* RF69::SPI_pins() {
 }
 
 uint8_t RF69::currentRSSI() {
-return 0;
+return 120;
 /*
   if (((rxfill == 0) || (rxdone))) {
       uint8_t storedMode = (readReg(REG_OPMODE) & MODE_MASK);
@@ -767,7 +771,7 @@ volatile uint32_t ms;
 uint16_t RF69::recvDone_compat (uint8_t* buf) {
 /*
 	if (rfapi.ConfigFlags) {
-		Serial.println("False");
+		// Serial.println("False");
 		return false;
 	}
 */
@@ -887,7 +891,6 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
     rxstate = - (2 + rf12_len);// Preamble/SYN1/SYN2/2D/Group are inserted by hardware
     flushFifo();
     writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
-    
 /*  All packets are transmitted with a 4 byte header SYN1/SYN2/2D/Group  
     even when the group is zero                                               */
     
@@ -908,8 +911,8 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
           	writeReg(REG_TESTPA2, TESTPA2_20DB);    // cross your fingers
           	// Beware the duty cycle - 1% only
     	}
-#endif
     writeReg(REG_DIOMAPPING1, (DIO0_PACKETSENT /*| DIO3_TX_UNDEFINED*/));
+#endif
 
     if (ptr != 0) {
     	writeReg(REG_SYNCCONFIG, fourByteSync);

@@ -222,17 +222,24 @@ static byte inChar () {
   #define LED_PIN     15       // activity LED, comment out to disable on/off operation is reversed to a normal Jeenode
   #define LED_ON       1
   #define LED_OFF      0
-  #define messageStore  255    // Contrained by byte variables
-  #define MAX_NODES 1004       // Constrained by eeprom
+  #define messageStore  255		// Contrained by byte variables
+  #define MAX_NODES 100			// Constrained by eeprom
+
+#elif defined(__AVR_ATmega2560__) || defined(__AVR_ATmega1280__)
+  #define LED_PIN     13		// activity LED, comment out to disable on/off operation is reversed to a normal Jeenode
+  #define LED_ON       1
+  #define LED_OFF      0
+  #define messageStore  255		// Contrained by byte variables
+  #define MAX_NODES 100			// Constrained by eeprom
 
 #else
   #if BLOCK
-    #define LED_PIN     8        // activity LED, comment out to disable
+    #define LED_PIN     8		// activity LED, comment out to disable
   #else
-    #define LED_PIN     8        // activity LED, comment out to disable
+    #define LED_PIN     8		// activity LED, comment out to disable
   #endif
   #define messageStore  128
-  #define MAX_NODES 10        // Contrained by RAM (22 bytes RAM per node)
+  #define MAX_NODES 10			// Contrained by RAM (22 bytes RAM per node)
 #endif
 
 static unsigned long now () {
@@ -246,7 +253,7 @@ static void activityLed (byte on) {
     pinMode(LED_PIN, OUTPUT);
 #endif
 #if INVERT_LED
-    ledStatus = on;            // Reported by the software
+    ledStatus = on;				// Reported by the software
   #ifdef LED_PIN
     digitalWrite(LED_PIN, on);  // Inverted by the hardware
   #endif
@@ -482,6 +489,7 @@ static void saveConfig () {
         if (eeprom_read_byte(RF12_EEPROM_ADDR + i) != p[i]) {
 			wdt_reset();		// Eeprom writing is slow...
             eeprom_write_byte(RF12_EEPROM_ADDR + i, p[i]);
+            delay(4);
             eepromWrite++;
 		}
 	}
@@ -1028,6 +1036,7 @@ static void handleInput (char c) {
                      cmd = c;
                      sendLen = top;
                      dest = (byte)value;
+Serial.println("TX1"); delay(100);    
                      break;
 
             case 'T': 
@@ -1285,6 +1294,7 @@ static void handleInput (char c) {
                              if ((stack[0] >= 0x80) & (i == 0)) {
                                  // Set the removed flag 0x80
                                  eeprom_write_byte((RF12_EEPROM_NODEMAP) + (value * 4) + i, (b | stack[0]));
+                                 delay(4);
                              }
                          }
                      }
@@ -1686,6 +1696,7 @@ static void clrConfig() {
     for (byte i = 0; i < sizeof config; i++) {
         eeprom_write_byte((RF12_EEPROM_ADDR) + i, 0xFF);
     }
+    delay(4);
 }
 
 static void clrNodeStore() {
@@ -1694,6 +1705,7 @@ static void clrNodeStore() {
     for (unsigned int n = 0; n < 0x3D0; n++) {
         eeprom_write_byte((RF12_EEPROM_NODEMAP) + n, 0xFF);
     }
+    delay(4);
 #if RF69_COMPAT
 	for (byte i; i < MAX_NODES; i++) {
 		pktCount[i] = lastFEI[i] = minFEI[i] = maxFEI[i]
@@ -2405,6 +2417,7 @@ Serial.print(")");
                         eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 2), observedRX.rssi2);      //  First RSSI value
                         eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 3), observedRX.lna);        //  First LNA value
   #endif
+                        delay(4);
                         NodeMap = newNodeMap;
                         newNodeMap = 0xFFFF;
                     } else {
@@ -2473,6 +2486,7 @@ Serial.print(")");
                         eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 1), config.group);
                         eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 2), 255);
                     }
+                    delay(4);
                     for (byte i = 1; i < 31; i++) {
                         // Find a spare node number within received group number
                         if (!(getIndex(rf12_grp, i ))) {         // Node/Group pair not found?
@@ -2518,7 +2532,7 @@ Serial.print(")");
                 byte r = rf12_canSend(config.clearAir);
                 if (r) {
 #if RF69_COMPAT && !TINY
-                    Serial.print(rfapi.sendRSSI);
+                    Serial.print(rfapi.sendRSSI); delay(10);
                     if (rfapi.sendRSSI < minTxRSSI) minTxRSSI = rfapi.sendRSSI;
                     if (rfapi.sendRSSI > maxTxRSSI) maxTxRSSI = rfapi.sendRSSI;
 #endif            
@@ -2700,6 +2714,7 @@ Serial.print(")");
     if ((cmd) || (ping)) {
         byte r = rf12_canSend(config.clearAir);
         if (r) {
+Serial.println("TX3"); delay(100);    
 			sendRetry = 0;
 #if RF69_COMPAT        
             if (rfapi.sendRSSI < minTxRSSI) minTxRSSI = rfapi.sendRSSI;
@@ -2707,7 +2722,7 @@ Serial.print(")");
 #endif        
             activityLed(1);
             showString(TX);
-			Serial.print(r);
+			Serial.print(r); delay(10);
             if (cmd) {
             	showString(PSTR(" -> "));
             	showByte(sendLen);
@@ -2737,6 +2752,7 @@ Serial.print(")");
             	ping = false;	// Ping completed
             }
         } else { // (r)
+Serial.println("TX6"); delay(100);    
         
             uint16_t s = rf12_status();            
             showString(TX);
