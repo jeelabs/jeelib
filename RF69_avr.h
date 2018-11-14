@@ -34,25 +34,27 @@ volatile byte lastPCInt;
 
 #if defined(__AVR_ATmega2560__) || defined(__AVR_ATmega1280__)
 
-#define INT         INT0
-#define INT_NUMBER  0
-#define RFM_IRQ     2
+// Items below are options to match your shield/cabling
+#define INT         INT1
+#define INT_NUMBER  1
+#define RFM_IRQ     3	// 2 for INT0 on PD2, 3 for INT1 on PD3
 #define SS_DDR      DDRB
 #define SS_PORT     PORTB
-#define SS_BIT      0
-
-#define SPI_SS      53    // PB0, pin 19
-#define SPI_MOSI    51    // PB2, pin 21
-#define SPI_MISO    50    // PB3, pin 22
-#define SPI_SCK     52    // PB1, pin 20
+#define SS_BIT      PB4		// pin 23, Digital 10
+// Items below fixed and determined by the ATMega hardware
+#define SPI_MISO    PB3		// pin 22, Digital 50
+#define SPI_MOSI    PB2		// pin 21, Digital 51
+#define SPI_SCK     PB1		// pin 20, Digital 52
+#define SPI_SS      PB0		// pin 19, Digital 53
 
 static void spiConfigPins () {
     SS_PORT |= _BV(SS_BIT);
     SS_DDR |= _BV(SS_BIT);
-    PORTB |= _BV(SPI_SS);
-    DDRB |= _BV(SPI_SS) | _BV(SPI_MOSI) | _BV(SPI_SCK);
+    
+    PORTB |= _BV(SPI_SS);	// PB0, Digital 53 required for SPI hardware to activate
+    DDRB |= _BV(SPI_MOSI) | _BV(SPI_SCK);
 }
-
+    
 #elif defined(__AVR_ATmega644P__)
 
 #define INT         INT0
