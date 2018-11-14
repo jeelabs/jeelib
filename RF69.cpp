@@ -338,6 +338,7 @@ RF_API rfapi;
 
 static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 //  0x3F, IRQ2_FIFOOVERRUN, // Clear the FIFO
+  0x26, 0x04, // Sync bytes	
   0x27, 0x13, // SyncConfig = sync on, sync size = 4
   0x28, 0xAA, // SyncValue1 = 0xAA
   0x29, 0xAA, // SyncValue2 = 0xAA
@@ -354,6 +355,8 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   
   0x0D, 0x09, // AgcAutoOn, RxTrigger RSSI
   0x0E, 0x00, // RSSI two sample smoothing - we are a star network
+  
+  0x09, 0x4F, // RegPaConfig
 
   0x10, 0xC8, // RSSI Threshold -100dB
   0x12, 0x29, // RxBw 200 KHz, DCC 16%
@@ -528,12 +531,12 @@ uint8_t setMode (uint8_t mode) {	// TODO enhance return code
 uint8_t setMode (uint8_t mode) {	// TODO enhance return code
     uint8_t c = 0;
 	writeReg(REG_OPMODE, mode);
-	if (mode < MODE_RECEIVER) return c;
+//	if (mode < MODE_RECEIVER) return c;
 //    while ((readReg(REG_OPMODE) & 7) < 6) {
 //		for (byte tick = 0; tick < 100; tick++) NOP;	// Kill a little time
-//		delay(1);
-		writeReg(REG_OPMODE, mode);
-    	rfapi.debug++;
+		delay(1);
+//		writeReg(REG_OPMODE, mode);
+//    	rfapi.debug++;
 //        c++; if (c >= 254) break;
 //	}
 	return c;
@@ -651,11 +654,9 @@ uint8_t RF69::canSend (uint8_t clear) {
 	if (((rxfill == 0) || (rxdone))) {
 		setMode(MODE_FS_RX);
         rfapi.sendRSSI = currentRSSI();
-Serial.println("TX3"); delay(100); 
    
         if(rfapi.sendRSSI >= clearAir) {
             rxstate = TXIDLE;
-Serial.println("TX4"); delay(100);    
             return rfapi.sendRSSI;
         }
     } else {
@@ -664,7 +665,7 @@ Serial.println("TX4"); delay(100);
     	rfapi.rxdone = rxdone;
     }
 */
-Serial.println("TX5"); delay(100);  
+rxstate = TXIDLE;
 return clear;  
     return false;
 }
@@ -882,7 +883,6 @@ uint16_t rf69_status () {
 }
 
 void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
-
 // Uses rf12_buf as the send buffer, rf69_buf reserved for RX
     for (int i = 0; i < len; ++i)
         rf12_data[i] = ((const uint8_t*) ptr)[i];
@@ -916,12 +916,14 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
 
     if (ptr != 0) {
     	writeReg(REG_SYNCCONFIG, fourByteSync);
-    	writeReg(REG_PALEVEL, rfapi.txPower);
+//    	writeReg(REG_PALEVEL, rfapi.txPower);
     } else {
     	writeReg(REG_SYNCCONFIG, 0);	// Turn off sync generation
 	    writeReg(REG_PALEVEL, 0);
     }
-
+    setMode(MODE_STANDBY);
+    setMode(MODE_FS_TX);
+Serial.println("Setting TX"); Serial.flush();   delay(10);    
     setMode(MODE_TRANSMITTER);
     
 /*  We must begin transmission to avoid overflowing the FIFO since
@@ -955,6 +957,7 @@ condition is met to transmit the packet data.
             }
             writeReg(REG_FIFO, out);
             ++rxstate;
+            Serial.print(out, HEX); Serial.print(".");
         }
     }
 //        writeReg(REG_FIFOTHRESH, START_TX);     // if < 32 bytes, release FIFO
@@ -962,6 +965,7 @@ condition is met to transmit the packet data.
 /*  At this point packet is typically in the FIFO but not fully transmitted.
     transmission complete will be indicated by an interrupt.                   
 */
+Serial.println("Exiting TX"); Serial.flush();   delay(10);    
 
 }
 

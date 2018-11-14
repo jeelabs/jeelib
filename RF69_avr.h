@@ -402,10 +402,11 @@ static void InitIntPin () {
     #elif RF69_COMPAT
         if (RF69::node != 0) {
             XXMSK &= ~ _BV(INT_BIT);          // Mask radio interrupt
-//            attachInterrupt(0, interrupt_stub, RISING);				// Transmit vector            
+            attachInterrupt(0, interrupt_stub, RISING);				// Transmit vector            
             attachInterrupt(INT_NUMBER, interrupt_stub, RISING);	// Receive vector
             XXMSK |= _BV(INT_BIT);            // Enable radio interrupt
         } else {
+            detachInterrupt(0);
             detachInterrupt(INT_NUMBER);
         }
     #endif
@@ -433,11 +434,11 @@ static void InitIntPin () {
     #elif RF69_COMPAT
         if (RF69::node != 0) {
             XXMSK &= ~ _BV(INT_BIT);          // Mask radio interrupt
-//            attachInterrupt(0, interrupt_stub, RISING);				// Transmit vector            
+            attachInterrupt(0, interrupt_stub, RISING);				// Transmit vector            
             attachInterrupt(INT_NUMBER, interrupt_stub, RISING);	// Receiver vector
             XXMSK |= _BV(INT_BIT);            // Enable radio interrupt
         } else {
-//            detachInterrupt(0);			// Transmit vector
+            detachInterrupt(0);			// Transmit vector
             detachInterrupt(INT_NUMBER);// Receiver vector
         }
     #endif

@@ -236,7 +236,7 @@ static byte inChar () {
   #if BLOCK
     #define LED_PIN     8		// activity LED, comment out to disable
   #else
-    #define LED_PIN     8		// activity LED, comment out to disable
+//    #define LED_PIN     13		// activity LED, comment out to disable
   #endif
   #define messageStore  128
   #define MAX_NODES 10			// Contrained by RAM (22 bytes RAM per node)
@@ -791,7 +791,8 @@ printOneChar(',');
 Serial.print(RF69::DIOMAPPING1);
 printOneChar(',');
 Serial.print(rfapi.rssiZero);
-Serial.println();
+Serial.println(); Serial.flush();
+Serial.print("Micros="); Serial.println((uint32_t)micros());        
 #endif    
 Serial.flush();
 }
@@ -1555,6 +1556,7 @@ void setup () {
 
     Serial.begin(SERIAL_BAUD);
     displayVersion();
+	Serial.print("Micros="); Serial.println((uint32_t)micros()); Serial.flush();       
 #if LED_PIN == 8
     showString(BLOC);
 #endif
@@ -1686,8 +1688,7 @@ Serial.println("About to Init"); delay(100);
 	wdt_reset();   			// First thing, turn it off
 	MCUSR = 0;
 	wdt_disable();
-	wdt_enable(WDTO_120MS);   // enable watchdogtimer
-        
+	wdt_enable(WDTO_8S);   // enable watchdogtimer
 } // setup
 
 static void clrConfig() {
@@ -2710,11 +2711,13 @@ Serial.print(")");
 #if TINY						// Very weird, needed to make Tiny code compile
 //    } // !rf12_recvDone
 #endif
+
+wdt_reset(); //DEBUG
 	    
     if ((cmd) || (ping)) {
         byte r = rf12_canSend(config.clearAir);
         if (r) {
-Serial.println("TX3"); delay(100);    
+Serial.println("TX3"); delay(10);    
 			sendRetry = 0;
 #if RF69_COMPAT        
             if (rfapi.sendRSSI < minTxRSSI) minTxRSSI = rfapi.sendRSSI;
@@ -2732,7 +2735,8 @@ Serial.println("TX3"); delay(100);
                 	header |= RF12_HDR_DST | dest;
 
            		rf12_sendStart(header, stack, sendLen);
-            	rf12_sendWait(1);  // Wait for transmission complete
+Serial.println("Sent!"); delay(10);
+//            	rf12_sendWait(1);  // Wait for transmission complete
 
             	if (config.verbosity & 1) {
 					// Display CRC transmitted           	
