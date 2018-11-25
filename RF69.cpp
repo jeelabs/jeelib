@@ -596,11 +596,11 @@ static uint8_t initRadio (ROM_UINT8* init) {
         setMode(MODE_FS_RX);
 */        
 // Configure radio
-// Serial.println("About to config radio"); delay(100);
         for (;;) {
             uint8_t cmd = ROM_READ_UINT8(init);
             if (cmd == 0) break;
             writeReg(cmd, ROM_READ_UINT8(init+1));
+            delay(2);
             init += 2;
         }
 /*        

@@ -132,7 +132,6 @@ const char TX[] PROGMEM = "TX ";
 byte salusMode = false;
 unsigned int SalusFrequency = SALUSFREQUENCY;
 
-
 unsigned int NodeMap;
 unsigned int newNodeMap;
 unsigned long lastRSSIrestart;
@@ -487,7 +486,7 @@ static void saveConfig () {
     for (byte i = 0; i < sizeof config; ++i) {
         byte* p = &config.nodeId;
         if (eeprom_read_byte(RF12_EEPROM_ADDR + i) != p[i]) {
-			wdt_reset();		// Eeprom writing is slow...
+//			wdt_reset();		// Eeprom writing is slow...
             eeprom_write_byte(RF12_EEPROM_ADDR + i, p[i]);
             delay(4);
             eepromWrite++;
@@ -1037,7 +1036,6 @@ static void handleInput (char c) {
                      cmd = c;
                      sendLen = top;
                      dest = (byte)value;
-Serial.println("TX1"); delay(100);    
                      break;
 
             case 'T': 
@@ -1635,10 +1633,10 @@ Serial.println(MCUSR, HEX);
     bitClear(PORTB, 0);
     delay(1000);
 #endif
-Serial.println("About to Init"); delay(100);
+
     if (rf12_configSilent()) {
         loadConfig();
-        dumpRegs();
+//        dumpRegs();
     } else {
         dumpEEprom();
         showString(INITFAIL);
@@ -1661,7 +1659,7 @@ Serial.println("About to Init"); delay(100);
         config.PaLvl = 159;		// Maximum power TX for RFM69CW!
 #endif
         saveConfig();
-        WDTCSR |= _BV(WDE);			// Trigger watchdog restart
+//        WDTCSR |= _BV(WDE);			// Trigger watchdog restart
         //        if (!(rf12_configSilent()))
         //          showString(INITFAIL);
 
@@ -1685,10 +1683,13 @@ Serial.println("About to Init"); delay(100);
     maxRestartRate = 0;
     previousRestarts = rfapi.RSSIrestart;
 // Setup WatchDog
-	wdt_reset();   			// First thing, turn it off
-	MCUSR = 0;
-	wdt_disable();
-	wdt_enable(WDTO_8S);   // enable watchdogtimer
+
+//	wdt_reset();   			// First thing, turn it off
+//	MCUSR = 0;
+//	wdt_disable();
+//	wdt_enable(WDTO_8S);   // enable watchdogtimer
+
+delay(1000);
 } // setup
 
 static void clrConfig() {
@@ -2003,7 +2004,7 @@ static uint16_t semaphoreGet (byte node, byte group) {
 }
 
 void loop () {
-	wdt_reset();
+//	wdt_reset();
 //	sei();
 #if TINY
     if (_receive_buffer_index) handleInput(inChar());
@@ -2011,7 +2012,8 @@ void loop () {
     if (Serial.available()) handleInput(Serial.read());
 #endif
 
-    if (rf12_recvDone()) {
+    if (false) {
+//    if (rf12_recvDone()) {
     	currentRestarts = rfapi.RSSIrestart;
 
 #if RF69_COMPAT && !TINY                // At this point the radio is in Sleep
@@ -2020,7 +2022,7 @@ void loop () {
         
  			if (!(RF12_WANTS_ACK && (config.collect_mode) == 0)) {	
 				// ACK not required for current packet 				
-        		rf12_recvDone();		// Attempt to buffer next RF packet
+//        		rf12_recvDone();		// Attempt to buffer next RF packet
         		// At this point the receiver is active but previous buffer is intact
         		     					
  			} 
@@ -2712,7 +2714,7 @@ Serial.print(")");
 //    } // !rf12_recvDone
 #endif
 
-wdt_reset(); //DEBUG
+//wdt_reset(); //DEBUG
 	    
     if ((cmd) || (ping)) {
         byte r = rf12_canSend(config.clearAir);
