@@ -1,6 +1,6 @@
 /// @dir RFxConsole
 ///////////////////////////////////////////////////////////////////////////////
-#define RF69_COMPAT      1	 // define this to use the RF69 driver i.s.o. RF12 
+#define RF69_COMPAT      0	 // define this to use the RF69 driver i.s.o. RF12 
 ///                          // The above flag must be set similarly in RF12.cpp
 ///                          // and RF69_avr.h
 #define BLOCK  0             // Alternate LED pin?
@@ -676,7 +676,7 @@ static void showStatus() {
     Serial.print(restartRate);
     printOneChar('^');
     Serial.print(maxRestartRate);
-    showString(PSTR("/min, Sync Match "));
+    showString(PSTR("/min,\nSync Match "));
     Serial.print(rfapi.syncMatch);
 
     showString(PSTR(", Good CRC "));
@@ -2528,6 +2528,10 @@ Serial.print(")");
     	                    semaphoreDrop((rf12_hdr & RF12_HDR_MASK), rf12_grp);    // Received?
         	                showString(PSTR("and cleared "));
                     		postingsClr++;
+            	        } else {
+                    		printOneChar('(');
+            	        	showByte(rf12_data[0]);
+        	                showString(PSTR(") "));
             	        }
                     	crlf = true;
                     	displayString(&stack[sizeof stack - ackLen], ackLen);        // 1 more than Message length!                      
