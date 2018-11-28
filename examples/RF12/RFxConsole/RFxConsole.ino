@@ -1,6 +1,6 @@
 /// @dir RFxConsole
 ///////////////////////////////////////////////////////////////////////////////
-#define RF69_COMPAT      0	 // define this to use the RF69 driver i.s.o. RF12 
+#define RF69_COMPAT      1	 // define this to use the RF69 driver i.s.o. RF12 
 ///                          // The above flag must be set similarly in RF12.cpp
 ///                          // and RF69_avr.h
 #define BLOCK  0             // Alternate LED pin?
@@ -694,7 +694,7 @@ static void showStatus() {
     	Serial.print(rfapi.rtpMax);
     }
 //    printOneChar('\n');
-    showString(PSTR("\nRSSI Rx "));
+    showString(PSTR(", RSSI Rx "));
     Serial.print(rf12_rssi);
     printOneChar(';');
     Serial.print(rfapi.noiseFloorMin);
@@ -706,7 +706,7 @@ static void showStatus() {
     Serial.print(minTxRSSI);
     printOneChar('^');    
     Serial.print(maxTxRSSI);
-    showString(PSTR(", Ack Aborts "));
+    showString(PSTR(",\nAck Aborts "));
     Serial.print(packetAborts);
     showString(PSTR(", Busy Count "));
     Serial.print(busyCount);

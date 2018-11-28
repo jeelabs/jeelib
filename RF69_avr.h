@@ -8,7 +8,7 @@
 #endif
 ///////////////////////////////////////////////////////////////////////////////
 
-#define RF69_COMPAT 0   /* Set this true to use the RF69 driver
+#define RF69_COMPAT 1   /* Set this true to use the RF69 driver
 
 If using the above with ATTiny84 hardware the sleep functions are more limited since 
 the RFM69 only provides interrupt active high and ATTiny INT0 requires active low to 
