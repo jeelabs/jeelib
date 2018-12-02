@@ -921,7 +921,7 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
     	writeReg(REG_SYNCCONFIG, 0);	// Turn off sync generation
 	    writeReg(REG_PALEVEL, 0);
     }
-    setMode(MODE_STANDBY);
+//    setMode(MODE_STANDBY);
     setMode(MODE_FS_TX);
 //Serial.println("Setting TX"); Serial.flush();   delay(10);    
     setMode(MODE_TRANSMITTER);
