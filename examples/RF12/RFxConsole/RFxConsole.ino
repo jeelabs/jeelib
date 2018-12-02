@@ -791,7 +791,7 @@ Serial.print(RF69::DIOMAPPING1);
 printOneChar(',');
 Serial.print(rfapi.rssiZero);
 Serial.println(); Serial.flush();
-Serial.print("Micros="); Serial.println((uint32_t)micros());        
+//Serial.print("Micros="); Serial.println((uint32_t)micros());        
 #endif    
 Serial.flush();
 }
@@ -1554,13 +1554,9 @@ void setup () {
 
     Serial.begin(SERIAL_BAUD);
     displayVersion();
-	Serial.print("Micros="); Serial.println((uint32_t)micros()); Serial.flush();       
+//	Serial.print("Micros="); Serial.println((uint32_t)micros()); Serial.flush();       
 #if LED_PIN == 8
     showString(BLOC);
-#endif
-#if DEBUG
-    //    dumpRegs();
-    //    dumpEEprom();
 #endif
 
 #ifndef PRR
@@ -1733,7 +1729,6 @@ static void dumpEEprom() {
     else Serial.print(" GOOD CRC ");
 }
 
-//#if DEBUG && RF69_COMPAT
 /// Display the RFM69x registers
 static void dumpRegs() {
     Serial.print("\nRFM69x Registers:\n");
@@ -2332,6 +2327,7 @@ Serial.print(" (");
 Serial.print(rf12_getRSSI());
 Serial.print(")");
          */
+/*
         showString(PSTR(" Debug="));
         Serial.print(rfapi.debug);
         rfapi.debug = 0;
@@ -2339,8 +2335,8 @@ Serial.print(")");
         Serial.print(rfapi.intRXFIFO);
         printOneChar(',');
 		Serial.print(rfapi.interruptCount);
+*/
         Serial.println();
-
 #if !TINY
         if (config.output & 0x2) { // also print a line as ascii
             showString(PSTR("ASC"));                         // 'OK'
@@ -2718,7 +2714,7 @@ Serial.print(")");
     if ((cmd) || (ping)) {
         byte r = rf12_canSend(config.clearAir);
         if (r) {
-Serial.println("TX3"); delay(10);    
+//Serial.println("TX3"); delay(10);    
 			sendRetry = 0;
 #if RF69_COMPAT        
             if (rfapi.sendRSSI < minTxRSSI) minTxRSSI = rfapi.sendRSSI;
@@ -2726,7 +2722,7 @@ Serial.println("TX3"); delay(10);
 #endif        
             activityLed(1);
             showString(TX);
-			Serial.print(r); delay(10);
+//			Serial.print(r); delay(10);
             if (cmd) {
             	showString(PSTR(" -> "));
             	showByte(sendLen);
@@ -2736,9 +2732,9 @@ Serial.println("TX3"); delay(10);
                 	header |= RF12_HDR_DST | dest;
 
            		rf12_sendStart(header, stack, sendLen);
-Serial.println("Sent!"); delay(10);
+//Serial.println("Sent!"); delay(10);
             	rf12_sendWait(1);  // Wait for transmission complete
-Serial.println("Done looping!"); delay(10);
+//Serial.println("Done looping!"); delay(10);
 
             	if (config.verbosity & 1) {
 					// Display CRC transmitted           	
@@ -2758,7 +2754,7 @@ Serial.println("Done looping!"); delay(10);
             	ping = false;	// Ping completed
             }
         } else { // (r)
-Serial.println("TX6"); delay(100);    
+//Serial.println("TX6"); delay(100);    
         
             uint16_t s = rf12_status();            
             showString(TX);

@@ -356,9 +356,9 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x0D, 0x09, // AgcAutoOn, RxTrigger RSSI
   0x0E, 0x00, // RSSI two sample smoothing - we are a star network
   
-  0x09, 0x4F, // RegPaConfig
+//  0x09, 0xFF, // RegPaConfig
 
-  0x10, 0xC8, // RSSI Threshold -100dB
+  0x10, 0xA0, // RSSI Threshold -100dB
   0x12, 0x29, // RxBw 200 KHz, DCC 16%
   0x13, 0x29, // RxBwAFC 200 Khz, DCC 16%. Only handling initial RSSI phase, not payload!
 
@@ -923,7 +923,7 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
     }
     setMode(MODE_STANDBY);
     setMode(MODE_FS_TX);
-Serial.println("Setting TX"); Serial.flush();   delay(10);    
+//Serial.println("Setting TX"); Serial.flush();   delay(10);    
     setMode(MODE_TRANSMITTER);
     
 /*  We must begin transmission to avoid overflowing the FIFO since
@@ -957,7 +957,7 @@ condition is met to transmit the packet data.
             }
             writeReg(REG_FIFO, out);
             ++rxstate;
-            Serial.print(out, HEX); Serial.print(".");
+//            Serial.print(out, HEX); Serial.print(".");
         }
     }
 //        writeReg(REG_FIFOTHRESH, START_TX);     // if < 32 bytes, release FIFO
@@ -965,7 +965,7 @@ condition is met to transmit the packet data.
 /*  At this point packet is typically in the FIFO but not fully transmitted.
     transmission complete will be indicated by an interrupt.                   
 */
-Serial.println("Exiting TX"); Serial.flush();   delay(10);    
+//Serial.println("Exiting TX"); Serial.flush();   delay(10);    
 
 }
 
