@@ -1411,7 +1411,7 @@ static void handleInput (char c) {
                         	clrNodeStore();                        
 					} else if (value == 255) {
 						showString(PSTR("Delay, watchdog enabled\n"));
-						delay(2000);
+						delay(10000);
 // Done in setup		WDTCSR |= _BV(WDE);
 					}
                      break;
@@ -1685,7 +1685,7 @@ Serial.println(MCUSR, HEX);
 	wdt_disable();
 	wdt_enable(WDTO_8S);   // enable watchdogtimer
 
-delay(1000);
+//delay(1000);
 } // setup
 
 static void clrConfig() {
@@ -2016,7 +2016,7 @@ void loop () {
         
  			if (!(RF12_WANTS_ACK && (config.collect_mode) == 0)) {	
 				// ACK not required for current packet 				
-//        		rf12_recvDone();		// Attempt to buffer next RF packet
+        		rf12_recvDone();		// Attempt to buffer next RF packet
         		// At this point the receiver is active but previous buffer is intact
         		     					
  			} 
@@ -2530,7 +2530,7 @@ Serial.print(")");
                 byte r = rf12_canSend(config.clearAir);
                 if (r) {
 #if RF69_COMPAT && !TINY
-                    Serial.print(rfapi.sendRSSI); delay(10);
+                    Serial.print(rfapi.sendRSSI);	//delay(10);
                     if (rfapi.sendRSSI < minTxRSSI) minTxRSSI = rfapi.sendRSSI;
                     if (rfapi.sendRSSI > maxTxRSSI) maxTxRSSI = rfapi.sendRSSI;
 #endif            

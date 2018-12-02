@@ -922,7 +922,7 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
 	    writeReg(REG_PALEVEL, 0);
     }
 //    setMode(MODE_STANDBY);
-    setMode(MODE_FS_TX);
+//    setMode(MODE_FS_TX);
 //Serial.println("Setting TX"); Serial.flush();   delay(10);    
     setMode(MODE_TRANSMITTER);
     
@@ -989,14 +989,14 @@ second rollover and then will be 1.024 mS out.
             if (rssi_interrupt) {
             	ms = millis();
             	RssiToSync = 0;
-				for (volatile byte tick = 0; tick < 10; tick++) NOP;	// Kill some time waiting for sync bytes
+	///			for (volatile byte tick = 0; tick < 1; tick++) NOP;	// Kill some time waiting for sync bytes
 				// volatile above changes the timing
 	        	startRX = micros();	// 4µs precision
                 while (true) {  // Loop for SyncMatch or Timeout
 	                if (RssiToSync == 0) {
 	                	writeReg(REG_AFCFEI, (afcfei | FEI_START));
 	                	
-						for (volatile uint16_t tick = 0; tick < 700; tick++) NOP;	// Keep the SPI quiet while FEI calculation is done.
+						for (volatile uint16_t tick = 0; tick < 900; tick++) NOP;	// Keep the SPI quiet while FEI calculation is done.
 						
             			rssi = readReg(REG_RSSIVALUE);
     					lna = (readReg(REG_LNA) >> 3) & 7;
