@@ -317,10 +317,9 @@ static void spiInit (void) {
   #if OPTIMIZE_SPI == 0
     SPCR |= _BV(SPR0);  // Divide SPI by 4
     SPCR |= _BV(SPR1);  // Divide SPI by 16
-    SPSR |= _BV(SPI2X);  // Double SPI
-  #else    
-    SPCR |= _BV(SPR1);  // Divide SPI by 16
 //    SPSR |= _BV(SPI2X);  // Double SPI
+  #else    
+    SPSR |= _BV(SPI2X);  // Double SPI
   #endif
   
 #else
@@ -340,7 +339,6 @@ static uint8_t spiTransferByte (uint8_t out) {
     SPDR = out;
     while (!(SPSR & _BV(SPIF)))
         ;
-delay(1);
     return SPDR;
 #else
 //setPrescaler(2);  // div 4, i.e. 2 MHz

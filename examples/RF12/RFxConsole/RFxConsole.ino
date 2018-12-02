@@ -486,7 +486,7 @@ static void saveConfig () {
     for (byte i = 0; i < sizeof config; ++i) {
         byte* p = &config.nodeId;
         if (eeprom_read_byte(RF12_EEPROM_ADDR + i) != p[i]) {
-//			wdt_reset();		// Eeprom writing is slow...
+			wdt_reset();		// Eeprom writing is slow...
             eeprom_write_byte(RF12_EEPROM_ADDR + i, p[i]);
             delay(4);
             eepromWrite++;
@@ -1659,7 +1659,7 @@ Serial.println(MCUSR, HEX);
         config.PaLvl = 159;		// Maximum power TX for RFM69CW!
 #endif
         saveConfig();
-//        WDTCSR |= _BV(WDE);			// Trigger watchdog restart
+        WDTCSR |= _BV(WDE);			// Trigger watchdog restart
         //        if (!(rf12_configSilent()))
         //          showString(INITFAIL);
 
@@ -1684,10 +1684,10 @@ Serial.println(MCUSR, HEX);
     previousRestarts = rfapi.RSSIrestart;
 // Setup WatchDog
 
-//	wdt_reset();   			// First thing, turn it off
-//	MCUSR = 0;
-//	wdt_disable();
-//	wdt_enable(WDTO_8S);   // enable watchdogtimer
+	wdt_reset();   			// First thing, turn it off
+	MCUSR = 0;
+	wdt_disable();
+	wdt_enable(WDTO_8S);   // enable watchdogtimer
 
 delay(1000);
 } // setup
@@ -2004,16 +2004,15 @@ static uint16_t semaphoreGet (byte node, byte group) {
 }
 
 void loop () {
-//	wdt_reset();
-//	sei();
+	wdt_reset();
+	sei();
 #if TINY
     if (_receive_buffer_index) handleInput(inChar());
 #else
     if (Serial.available()) handleInput(Serial.read());
 #endif
 
-    if (false) {
-//    if (rf12_recvDone()) {
+    if (rf12_recvDone()) {
     	currentRestarts = rfapi.RSSIrestart;
 
 #if RF69_COMPAT && !TINY                // At this point the radio is in Sleep
@@ -2714,7 +2713,7 @@ Serial.print(")");
 //    } // !rf12_recvDone
 #endif
 
-//wdt_reset(); //DEBUG
+	wdt_reset();
 	    
     if ((cmd) || (ping)) {
         byte r = rf12_canSend(config.clearAir);
@@ -2738,7 +2737,8 @@ Serial.println("TX3"); delay(10);
 
            		rf12_sendStart(header, stack, sendLen);
 Serial.println("Sent!"); delay(10);
-//            	rf12_sendWait(1);  // Wait for transmission complete
+            	rf12_sendWait(1);  // Wait for transmission complete
+Serial.println("Done looping!"); delay(10);
 
             	if (config.verbosity & 1) {
 					// Display CRC transmitted           	

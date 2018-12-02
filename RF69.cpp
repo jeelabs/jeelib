@@ -338,7 +338,7 @@ RF_API rfapi;
 
 static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 //  0x3F, IRQ2_FIFOOVERRUN, // Clear the FIFO
-  0x26, 0x04, // Sync bytes	
+//  0x26, 0x03, // Preamble bytes	
   0x27, 0x13, // SyncConfig = sync on, sync size = 4
   0x28, 0xAA, // SyncValue1 = 0xAA
   0x29, 0xAA, // SyncValue2 = 0xAA
@@ -370,7 +370,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x30, 0x00, // PacketConfig1 = fixed, no crc
   0x31, 0x40, // Packet Mode
   0x32, 0x00, // Payload length unlimited
-//  0x35, 0x80, // FifoTresh, not empty
+  0x35, 0x80, // FifoTresh, not empty
   0x36, 0x40,	// Sequencer Stop
   0x3B, 0x01,	// Auto temperature calibration disabled
   0x3D,	0x00,	// LowBat detector disabled
@@ -544,7 +544,7 @@ uint8_t setMode (uint8_t mode) {	// TODO enhance return code
 #endif
 
 static uint8_t initRadio (ROM_UINT8* init) {
-/*
+
 #if SX1276
 	#if defined(__AVR_ATmega2560__) || defined(__AVR_ATmega1280__)
     bitSet(PORTH, 6);
@@ -558,7 +558,7 @@ static uint8_t initRadio (ROM_UINT8* init) {
     delay(10);
     #endif
 #endif
-*/
+
 // Serial.println("About to spiInit"); delay(100);
 
     spiInit();
@@ -782,7 +782,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         rxdone = false;
         rxfill = rf69_buf[2] = 0;
         recvBuf = buf;
-//        setMode(MODE_STANDBY);
+        setMode(MODE_STANDBY);
 //        startRSSI = currentRSSI();       
 
 		rf12_drx = delayTXRECV;
