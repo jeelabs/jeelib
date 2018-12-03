@@ -534,7 +534,7 @@ uint8_t setMode (uint8_t mode) {	// TODO enhance return code
 //	if (mode < MODE_RECEIVER) return c;
 //    while ((readReg(REG_OPMODE) & 7) < 6) {
 //		for (byte tick = 0; tick < 100; tick++) NOP;	// Kill a little time
-		delay(1);
+//		delay(1);
 //		writeReg(REG_OPMODE, mode);
 //    	rfapi.debug++;
 //        c++; if (c >= 254) break;
@@ -989,14 +989,14 @@ second rollover and then will be 1.024 mS out.
             if (rssi_interrupt) {
             	ms = millis();
             	RssiToSync = 0;
-				for (volatile byte tick = 0; tick < 8; tick++) NOP;	// Kill some time waiting for sync bytes
+				for (volatile byte tick = 0; tick < 1; tick++) NOP;	// Kill some time waiting for sync bytes
 				// volatile above changes the timing
 	        	startRX = micros();	// 4µs precision
                 while (true) {  // Loop for SyncMatch or Timeout
 	                if (RssiToSync == 0) {
 	                	writeReg(REG_AFCFEI, (afcfei | FEI_START));
 	                	
-						for (volatile uint16_t tick = 0; tick < 800; tick++) NOP;	// Keep the SPI quiet while FEI calculation is done.
+						for (volatile uint16_t tick = 0; tick < 890; tick++) NOP;	// Keep the SPI quiet while FEI calculation is done.
 						
             			rssi = readReg(REG_RSSIVALUE);
     					lna = (readReg(REG_LNA) >> 3) & 7;
@@ -1144,7 +1144,7 @@ second rollover and then will be 1.024 mS out.
           	// rxstate will be TXDONE at this point
           	txP++;
             writeReg(REG_AFCFEI, AFC_CLEAR);	// If we are in RX mode
-//			setMode(MODE_STANDBY);
+			setMode(MODE_STANDBY);
  			writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
          	// Restore sync bytes configuration
           	if (group == 0) {               // Allow receiving from all groups
@@ -1162,7 +1162,7 @@ second rollover and then will be 1.024 mS out.
             unexpectedMode = readReg(REG_OPMODE);
             unexpected++;
 			writeReg(REG_AFCFEI, AFC_CLEAR);			// If we are in RX mode
-			setMode(MODE_FS_RX);
+			setMode(MODE_STANDBY);
 			writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
             rxstate = TXIDLE;   // Cause a RX restart by FSM
         }

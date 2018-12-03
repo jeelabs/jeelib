@@ -63,7 +63,8 @@
 // Assume the ACK's are sent from i31 in order to collect ACK statistics for i31 2018-07-4
 // Add rfapi.configFlags to control afc off/on using "128,8b" 2018-07-4
 // Watchdog timer enabled 2018-10-17
-
+// Added an elapsed timer before "OK", use "1U" to activate
+ 
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
 	#define TINY 1
 #endif
@@ -797,6 +798,8 @@ Serial.flush();
 }
 
 bool cr = false;
+bool outputTime;
+
 static void handleInput (char c) {
     //      Variable value is now 16 bits to permit offset command, stack only stores 8 bits
     //      not a problem for offset command but beware.
@@ -1267,6 +1270,7 @@ static void handleInput (char c) {
                      break;
             
             case 'U':
+					if (value == 1) outputTime = true;
             		if (value == 123) showStatus();
             		else config.helpMenu = value & 1;
 //            		saveConfig();
@@ -2056,6 +2060,19 @@ void loop () {
 #endif
 //            goodCRC++;
             if ((watchNode) && ((rf12_hdr & RF12_HDR_MASK) != watchNode)) return;
+            
+            if (outputTime) {
+				unsigned long s = elapsedSeconds;
+    			Serial.print(s / 86400UL);
+				printOneChar('d');
+    			Serial.print((s%86400UL) / 3600UL);
+				printOneChar('h');
+    			Serial.print((s%3600UL) / 60UL);
+				printOneChar('m');
+    			Serial.print(s%60UL);
+            	showString(PSTR("s "));
+            }
+            
             showString(PSTR("OK"));
             crc = true;
         } else {
