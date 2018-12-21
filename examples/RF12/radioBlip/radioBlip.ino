@@ -2,7 +2,7 @@
 /// Send out a radio packet every minute, consuming as little power as possible.
 // 2010-08-29 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
-//#define RF69_COMPAT      1	 // define this to use the RF69 driver i.s.o. RF12 
+#define RF69_COMPAT      0	 // define this to use the RF69 driver i.s.o. RF12 
 #include <JeeLib.h>
 
 static long payload;
@@ -27,10 +27,10 @@ void setup() {
 #endif
 
 //    rf12_initialize(22, RF12_868MHZ, 212, 1615);
-    rf12_initialize(22, RF12_868MHZ, 212, 1592);
+    rf12_initialize(23, RF12_868MHZ, 212, 1600);
     // see http://tools.jeelabs.org/rfm12b
 #if !RF69_COMPAT
-//    rf12_control(0xC040); // set low-battery level to 2.2V i.s.o. 3.1V
+    rf12_control(0xC040); // set low-battery level to 2.2V i.s.o. 3.1V
 #endif
 }
 
@@ -43,6 +43,6 @@ void loop() {
     rf12_sendWait(2);
     
     rf12_sleep(RF12_SLEEP);
-    Sleepy::loseSomeTime(10000);
+    Sleepy::loseSomeTime(1000);
     rf12_sleep(RF12_WAKEUP);
 }

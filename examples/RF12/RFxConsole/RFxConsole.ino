@@ -4,7 +4,7 @@
 ///                          // The above flag must be set similarly in RF12.cpp
 ///                          // and RF69_avr.h
 #define BLOCK  0             // Alternate LED pin?
-#define INVERT_LED       0   // 0 is Jeenode usual and 1 inverse
+#define INVERT_LED       1   // 0 is Jeenode usual and 1 inverse
 //
 /* AutoRxRestartOn = 1, page 24:
    after the controller has emptied the FIFO the receiver will re-enter the WAIT mode described
@@ -1687,7 +1687,7 @@ Serial.println(MCUSR, HEX);
 	wdt_reset();   			// First thing, turn it off
 	MCUSR = 0;
 	wdt_disable();
-	wdt_enable(WDTO_8S);   // enable watchdogtimer
+	wdt_enable(WDTO_2S);   // enable watchdogtimer
 
 //delay(1000);
 } // setup

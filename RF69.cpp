@@ -356,7 +356,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x0D, 0x09, // AgcAutoOn, RxTrigger RSSI
   0x0E, 0x00, // RSSI two sample smoothing - we are a star network
   
-  0x09, 0x7F, // RegPaConfig
+  0x09, 0xFF, // RegPaConfig
 
   0x10, 0xC0, // RSSI Threshold -100dB
   0x12, 0x29, // RxBw 200 KHz, DCC 16%
@@ -600,7 +600,7 @@ static uint8_t initRadio (ROM_UINT8* init) {
             uint8_t cmd = ROM_READ_UINT8(init);
             if (cmd == 0) break;
             writeReg(cmd, ROM_READ_UINT8(init+1));
-            delay(2);
+//            delay(2);
             init += 2;
         }
 /*        
@@ -793,6 +793,8 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         writeReg(REG_OCP, OCP_NORMAL);			// Overcurrent protection on
         writeReg(REG_TESTPA1, TESTPA1_NORMAL);	// Turn off high power 
         writeReg(REG_TESTPA2, TESTPA2_NORMAL);  // transmit
+#else
+		writeReg(REG_PALEVEL, (rfapi.txPower));	// PA1/PA2 off		
 #endif        
         if (rfapi.ConfigFlags & 0x80) afcfei = AFC_START;
         else afcfei = 0;
@@ -989,14 +991,14 @@ second rollover and then will be 1.024 mS out.
             if (rssi_interrupt) {
             	ms = millis();
             	RssiToSync = 0;
-				for (volatile byte tick = 0; tick < 1; tick++) NOP;	// Kill some time waiting for sync bytes
+				for (volatile byte tick = 0; tick < 10; tick++) NOP;	// Kill some time waiting for sync bytes
 				// volatile above changes the timing
 	        	startRX = micros();	// 4µs precision
                 while (true) {  // Loop for SyncMatch or Timeout
 	                if (RssiToSync == 0) {
 	                	writeReg(REG_AFCFEI, (afcfei | FEI_START));
 	                	
-						for (volatile uint16_t tick = 0; tick < 890; tick++) NOP;	// Keep the SPI quiet while FEI calculation is done.
+						for (volatile uint16_t tick = 0; tick < 865; tick++) NOP;	// Keep the SPI quiet while FEI calculation is done.
 						
             			rssi = readReg(REG_RSSIVALUE);
     					lna = (readReg(REG_LNA) >> 3) & 7;
@@ -1036,7 +1038,7 @@ second rollover and then will be 1.024 mS out.
                         about 1mS minimum."
 */
 /*New*/					writeReg(REG_AFCFEI, AFC_CLEAR);                                                                
-//        				setMode(MODE_FS_RX);
+        				setMode(MODE_FS_RX);
         				writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
                         rxstate = TXIDLE;   // Cause a RX restart by FSM
         				// Collect RX stats per LNA
@@ -1103,7 +1105,7 @@ second rollover and then will be 1.024 mS out.
                     if (rxfill >= (payloadLen + (5 - rf69_skip))) {  // Trap end of payload
 //debug	      				writeReg(REG_DIOMAPPING1, 0x00);	// Mask most radio interrupts
                         writeReg(REG_AFCFEI, AFC_CLEAR);
-                        setMode(MODE_STANDBY);  // Get radio out of RX mode
+//                        setMode(MODE_STANDBY);  // Get radio out of RX mode
             			writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
                         stillCollecting = false;
                         break;
@@ -1123,7 +1125,8 @@ second rollover and then will be 1.024 mS out.
             
 //debug	      	writeReg(REG_DIOMAPPING1, 0x00);	// Mask most radio interrupts
             writeReg(REG_AFCFEI, AFC_CLEAR);
-			setMode(MODE_STANDBY);
+        	setMode(MODE_FS_RX);
+//			setMode(MODE_STANDBY);
             rxdone = true;      // force TXRECV in RF69::recvDone_compat       
             rxstate = TXRECV;   // Restore state machine
             writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
