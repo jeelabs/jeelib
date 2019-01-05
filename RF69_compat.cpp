@@ -135,7 +135,7 @@ void rf69_configDump () {
         if (rfapi.txPower != 0x9F) {
             Serial.print(" ");
             Serial.print(txThre);
-            Serial.print("tx");
+            Serial.print("Tx");
             Serial.print(rfapi.txPower);
         }
     }
@@ -143,7 +143,7 @@ void rf69_configDump () {
 //        if (rfapi.configThreshold != 0xA0) {
             Serial.print(" ");
             Serial.print(rateInterval);
-            Serial.print("rx");
+            Serial.print("Rx");
             Serial.print(rfapi.configThreshold);
 //       }
     }

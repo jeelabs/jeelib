@@ -224,7 +224,7 @@ static byte inChar () {
   #define LED_ON       1
   #define LED_OFF      0
   #define messageStore  255    // Contrained by byte variables
-  #define MAX_NODES 1004       // Constrained by eeprom
+  #define MAX_NODES 500       // Constrained by eeprom
 
 #else
   #if BLOCK
@@ -233,7 +233,7 @@ static byte inChar () {
     #define LED_PIN     9        // activity LED, comment out to disable
   #endif
   #define messageStore  128
-  #define MAX_NODES 15        // Contrained by RAM (22 bytes RAM per node)
+  #define MAX_NODES 10        // Contrained by RAM (22 bytes RAM per node)
 #endif
 
 static unsigned long now () {
@@ -480,7 +480,7 @@ static void saveConfig () {
     for (byte i = 0; i < sizeof config; ++i) {
         byte* p = &config.nodeId;
         if (eeprom_read_byte(RF12_EEPROM_ADDR + i) != p[i]) {
-			wdt_reset();		// Eeprom writing is slow...
+			wdt_reset();		// Hold off Watchdog: Eeprom writing is slow...
             eeprom_write_byte(RF12_EEPROM_ADDR + i, p[i]);
             eepromWrite++;
 		}
