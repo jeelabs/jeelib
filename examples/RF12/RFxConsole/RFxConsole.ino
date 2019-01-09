@@ -233,7 +233,7 @@ static byte inChar () {
     #define LED_PIN     9        // activity LED, comment out to disable
   #endif
   #define messageStore  128
-  #define MAX_NODES 10        // Contrained by RAM (22 bytes RAM per node)
+  #define MAX_NODES 15        // Contrained by RAM (22 bytes RAM per node)
 #endif
 
 static unsigned long now () {
@@ -731,7 +731,8 @@ static void showStatus() {
     Serial.print(maxCrcGap);
 #endif
 //    printOneChar('\n');
-    showString(PSTR("\nEeprom"));
+    showString(PSTR("\nEeprom U"));
+    Serial.print(config.helpMenu);
     rf12_configDump();
 #if RF69_COMPAT
     if (!RF69::present) {
@@ -1032,7 +1033,7 @@ static void handleInput (char c) {
 
             case 'T': 
                      // Set hardware specific TX power in eeprom
-                     config.RegPaLvl = value;
+                     if (value) config.RegPaLvl = value;
                      // Transmit permit threshold
                      if (top == 1 && (stack[0])) config.clearAir = stack[0];
                      saveConfig();
@@ -1040,15 +1041,16 @@ static void handleInput (char c) {
 
             case 'R': // Set hardware specific RX threshold in eeprom
                      //        	Serial.println(value);
-
+					if (value) {
 #if RF69_COMPAT
-                     RF69::control((0x80) | (0x29), value);	// Set radio
-                     //	    	Serial.println(RF69::control(0x29, 160));
+	                     RF69::control((0x80) | (0x29), value);	// Set radio
+                     	//	    	Serial.println(RF69::control(0x29, 160));
 
 #endif
-                     //        	Serial.println(config.RegRssiThresh);
-                     //        	Serial.println(rfapi.rssiThreshold);
-                     config.RegRssiThresh = rfapi.rssiThreshold = value;
+                     	//        	Serial.println(config.RegRssiThresh);
+                     	//        	Serial.println(rfapi.rssiThreshold);
+                     	config.RegRssiThresh = rfapi.rssiThreshold = value;
+                     }
                      if (top == 1) {
                          config.rateInterval = stack[0];
                          rfapi.rateInterval = (uint32_t)(config.rateInterval) << 10;
