@@ -791,6 +791,10 @@ Serial.flush();
 
 bool cr = false;
 static void handleInput (char c) {
+	if (c == '.') {
+    	value = top = 0;
+    	return;
+	} else
     //      Variable value is now 16 bits to permit offset command, stack only stores 8 bits
     //      not a problem for offset command but beware.
     if ('0' <= c && c <= '9') {
@@ -1249,6 +1253,7 @@ static void handleInput (char c) {
 					 		}
                          } else {
                          	showByte(stickyGroup);
+                         	printOneChar(',');
                          	showByte(stack[0]);
                          	showString(UNKNOWN);
                          }
@@ -1264,7 +1269,7 @@ static void handleInput (char c) {
             		if (value == 123) showStatus();
             		else config.helpMenu = value & 1;
 //            		saveConfig();
-					c = 0;	// loose command printout
+//					c = 0;	// loose command printout
             		break;	
 
             case 'n':
@@ -1743,13 +1748,15 @@ http://forum.arduino.cc/index.php/topic,140376.msg1054626.html
     
     int c = 0;
     while ((semaphoreStack[c * 3]) != 0) {
+        printOneChar('p');
+    	Serial.print(c); printOneChar(' ');
         printOneChar('g');
 	   	Serial.print(semaphoreStack[(c * 3) + 1]);	// Group
         printOneChar(' ');
         printOneChar('i');
     	Serial.print(semaphoreStack[(c * 3) + 0]);	// Node
         printOneChar(' ');
-    	Serial.println(semaphoreStack[(c * 3) + 2]);	// Posting 
+    	Serial.println(semaphoreStack[(c * 3) + 2]);// Posting 
     	++c;   
     }
 #endif

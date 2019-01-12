@@ -131,22 +131,22 @@ void rf69_configDump () {
         Serial.print(" x");
         Serial.print(flags & 0x03);
     }
-    if (rfapi.txPower) {
-        if (rfapi.txPower != 0x9F) {
+//    if (rfapi.txPower) {
+//        if (rfapi.txPower != 0x9F) {
             Serial.print(" ");
             Serial.print(txThre);
             Serial.print("T");
             Serial.print(rfapi.txPower);
-        }
-    }
-    if (rfapi.configThreshold) {
+//        }
+//    }
+//    if (rfapi.configThreshold) {
 //        if (rfapi.configThreshold != 0xA0) {
             Serial.print(" ");
             Serial.print(rateInterval);
             Serial.print("R");
             Serial.print(rfapi.configThreshold);
 //       }
-    }
+//    }
     if (ackDelay >> 4) {
             Serial.print(" v");
             Serial.print(ackDelay >> 4);
