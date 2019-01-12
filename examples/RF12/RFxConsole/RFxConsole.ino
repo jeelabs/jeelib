@@ -791,7 +791,7 @@ Serial.flush();
 
 bool cr = false;
 static void handleInput (char c) {
-	if (c == '.') {
+	if ((c == '.') || (c == 10)) {	// Full stop or <LF>
     	value = top = 0;
     	return;
 	} else
@@ -830,7 +830,8 @@ static void handleInput (char c) {
         	showWord(value);
         	showString(PSTR(",Key="));
         	showByte(c);          // Highlight Tiny serial framing errors.  
-        	printOneChar(',');
+//        	printOneChar(',');
+			Serial.println();
         }
         
         if (config.helpMenu) showStatus();

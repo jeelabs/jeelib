@@ -156,24 +156,18 @@ fprintf (stderr, "Start Up\n") ;
 		    // Read up to 2048 characters from the FIFO if they are there
 		    if (our_input_fifo_filestream != -1)  {		    
 		        fifo_length = read(our_input_fifo_filestream, (void*)fifo_buffer, 2048);
-		        if (fifo_length) {		
-					fifo_buffer[fifo_length - 1] = '\0';  // Terminate the char
-                	printf("FIFO bytes=%i\n", fifo_length);
-                	printf("FIFO buffer=%s\n", fifo_buffer);
-                	fflush (stdout);
-                }        
-            //Filestream, buffer to store in, number of bytes to read (max)
-		        if (fifo_length < 0) printf("FIFO Read error\r");
-            	else if (fifo_length > 0) {
-				    // Bytes received
-//                int ret = system("echo > /tmp/RFxConsole.txt"); // Clr log
-//                if (ret)
-//                  printf("System(2)Returned %i\n", ret);
-//                fflush (stdout);        
-                
+		        if (fifo_length > 0) {
+		        	if (fifo_buffer[fifo_length - 1] == 10) { 		
+						fifo_buffer[fifo_length - 1] = '\0';// Loose <LF>, terminate the char
+					} else {
+						fifo_buffer[fifo_length] = '\0';  // Terminate the char	string				
+					}
                 	serialPrintf (fd, fifo_buffer); // Send string to RFxConsole
+                	printf("FIFO bytes=%i buffer=%s\n", fifo_length, fifo_buffer);
                 	fifo_buffer[0] = '\0';  		// Mark buffer empty
-            }
+                } else if (fifo_length > 0) printf("FIFO Read error\n");
+                fflush (stdout);
+                
         	} else {
         		delayMicroseconds(10);
 			}
