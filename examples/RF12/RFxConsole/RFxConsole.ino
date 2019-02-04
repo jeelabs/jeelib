@@ -2530,12 +2530,17 @@ Serial.print(")");
 	                    ackLen = getMessage(stack[sizeof stack - 1]);		// Check for a message to be appended
     	                if (ackLen){
         	                stack[(sizeof stack - (ackLen + 1))] = (byte) v;
+/*
+							Code to append from message store is missing from here I think.	
+TODO
+*/
             	        }
-                	    ++ackLen;                                           // If 0 or message length then +1 for length byte
+                	    ++ackLen;								// If 0 or message length then +1 for length byte
                     	showString(PSTR(" Posted "));
                     	postingsOut++;
 	                    if (rf12_data[0] == (byte) v) {  // Check if previous Post value is the first byte of this payload 
     	                    semaphoreDrop((rf12_hdr & RF12_HDR_MASK), rf12_grp);    // Received?
+                	    	++ackLen;					// Indicate clearing by length byte
         	                showString(PSTR("and cleared "));
                     		postingsClr++;
             	        } else {
