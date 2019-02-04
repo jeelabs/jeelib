@@ -63,6 +63,7 @@
 // Assume the ACK's are sent from i31 in order to collect ACK statistics for i31 2018-07-4
 // Add rfapi.configFlags to control afc off/on using "128,8b" 2018-07-4
 // Watchdog timer enabled 2018-10-17
+// Allow semaphores to be updated using node,group,oldvalue,newvalue 2019-02-04
 
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
 	#define TINY 1
@@ -1237,6 +1238,13 @@ static void handleInput (char c) {
                      // The byte stack[1] contains the target group and stack[0] contains the 
                      // node number. The message string to be posted is in value
 #if MESSAGING
+					if (top == 3) {
+						if (semaphoreUpdate(stack[0], stack[1], stack[2], value)) {
+							showPost();
+					 		c = 0;	// loose command printout
+							break;
+						} else top = 2;
+					} 
 					if (top == 2) {
 						stickyGroup = stack[1];
 						top = 1;
@@ -1246,7 +1254,8 @@ static void handleInput (char c) {
 							// NodeMap is also set by the above
 							if (semaphoreSave(stack[0], stickyGroup, value)) {							
 								postingsIn++;
-								oneShow(NodeMap);
+//								oneShow(NodeMap);
+								showPost();
 					 			c = 0;	// loose command printout
 					 		} else {
                         		showString(PSTR("Semaphore table full"));
@@ -1720,6 +1729,26 @@ static void dumpRegs() {
     delay(10);
 }
 //#endif
+static void showPost() {
+#if MESSAGING    
+    int c = 0;
+    while ((semaphoreStack[c * 3]) != 0) {
+        printOneChar('p');
+    	Serial.print(c); printOneChar(' ');
+        printOneChar('i');
+    	Serial.print(semaphoreStack[(c * 3) + 0]);	// Node
+        printOneChar(' ');
+        printOneChar('g');
+	   	Serial.print(semaphoreStack[(c * 3) + 1]);	// Group
+        printOneChar(' ');
+    	Serial.println(semaphoreStack[(c * 3) + 2]);// Posting 
+    	++c;   
+    }
+return;
+}
+#endif
+
+
 /// Display stored nodes and show the next post queued for each node
 /// the post queue is not preserved through a restart of RFxConsole
 static void nodeShow(byte group) {
@@ -1747,19 +1776,7 @@ http://forum.arduino.cc/index.php/topic,140376.msg1054626.html
     printOneChar(',');
     Serial.println((word) postingsLost);
     
-    int c = 0;
-    while ((semaphoreStack[c * 3]) != 0) {
-        printOneChar('p');
-    	Serial.print(c); printOneChar(' ');
-        printOneChar('g');
-	   	Serial.print(semaphoreStack[(c * 3) + 1]);	// Group
-        printOneChar(' ');
-        printOneChar('i');
-    	Serial.print(semaphoreStack[(c * 3) + 0]);	// Node
-        printOneChar(' ');
-    	Serial.println(semaphoreStack[(c * 3) + 2]);// Posting 
-    	++c;   
-    }
+	showPost();
 #endif
 #if RF69_COMPAT && STATISTICS
     showString(PSTR("Stability "));
@@ -1947,6 +1964,17 @@ static bool semaphoreSave (byte node, byte group, byte value) {
 			semaphoreStack[(c * 3) + 0] = node;	
 			semaphoreStack[(c * 3) + 1] = group;	
 			semaphoreStack[(c * 3) + 2] = value;
+			return true;	
+		}
+	}
+	return false;
+}
+static bool semaphoreUpdate (byte node, byte group, byte value, byte newValue) {
+	for (int c = 0; c < MAX_NODES; ++c) {
+		if ((semaphoreStack[(c * 3) + 0] == node	
+		&& semaphoreStack[(c * 3) + 1] == group)				
+		&&	semaphoreStack[(c * 3) + 2] == value) {
+			semaphoreStack[(c * 3) + 2] = newValue;
 			return true;	
 		}
 	}
@@ -2526,20 +2554,23 @@ Serial.print(")");
             	    // originating node with the ACK.
                 	uint16_t v = semaphoreGet((rf12_hdr & RF12_HDR_MASK), rf12_grp);
                 	if ((v >> 8) && (!(special))) {				// Something to post?
-                    	stack[sizeof stack - 1] = (byte) v;		// Pick up value
+                    	stack[sizeof stack - 2] = (byte) v;		// Pick up value
+                    	++ackLen;								// If 0 or message length then +1 for length byte
+/*
 	                    ackLen = getMessage(stack[sizeof stack - 1]);		// Check for a message to be appended
     	                if (ackLen){
         	                stack[(sizeof stack - (ackLen + 1))] = (byte) v;
-/*
+
 							Code to append from message store is missing from here I think.	
 TODO
-*/
+
             	        }
-                	    ++ackLen;								// If 0 or message length then +1 for length byte
+*/
                     	showString(PSTR(" Posted "));
                     	postingsOut++;
 	                    if (rf12_data[0] == (byte) v) {  // Check if previous Post value is the first byte of this payload 
     	                    semaphoreDrop((rf12_hdr & RF12_HDR_MASK), rf12_grp);    // Received?
+    	                    stack[sizeof stack - 1] = (byte) 85;	// Until we find a better use	
                 	    	++ackLen;					// Indicate clearing by length byte
         	                showString(PSTR("and cleared "));
                     		postingsClr++;
@@ -2549,10 +2580,10 @@ TODO
         	                showString(PSTR(") "));
             	        }
                     	crlf = true;
-                    	displayString(&stack[sizeof stack - ackLen], ackLen);        // 1 more than Message length!                      
+                    	displayString(&stack[sizeof stack - 2], ackLen);        // 1 more than Message length!                      
                 	}
 #endif                                        
-                    rf12_sendStart(RF12_ACK_REPLY, &stack[sizeof stack - ackLen], ackLen);
+                    rf12_sendStart(RF12_ACK_REPLY, &stack[sizeof stack - 2], ackLen);
                     rf12_sendWait(1);
     				chkNoise = elapsedSeconds + (unsigned long)config.chkNoise;// Delay check
     				ping = false;		// Cancel any pending Noise Floor checks
