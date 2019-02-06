@@ -64,6 +64,7 @@
 // Add rfapi.configFlags to control afc off/on using "128,8b" 2018-07-4
 // Watchdog timer enabled 2018-10-17
 // Allow semaphores to be updated using node,group,oldvalue,newvalue 2019-02-04
+// Removed the 'm' command, replaced by semaphoreINT approach
 
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
 	#define TINY 1
@@ -128,7 +129,7 @@ const char DONE[] PROGMEM = "Done\n";
 const char ABORTED[] PROGMEM = " Aborted ";
 const char UNKNOWN[] PROGMEM = " Unknown";
 const char TX[] PROGMEM = "TX ";
-
+const char SEMAPHOREFULL[] PROGMEM = "Semaphore table full";
 
 #define SALUSFREQUENCY 1660       // Default value
 byte salusMode = false;
@@ -316,10 +317,11 @@ typedef struct {
 static RF12Config config;
 
 static char cmd;
+static bool nullValue = true;
 static unsigned int value;
+static word messageCount = 0;
 static byte stack[RF12_MAXDATA+4], top, sendLen, dest;
 static byte testCounter;
-static word messageCount = 0;
 
 typedef struct {
     signed int afc;
@@ -379,8 +381,10 @@ ISR(TIMER1_COMPA_vect){
 #endif
 }
 
+unsigned int loopCount, idleTime = 0, offTime = 0;
 #if MESSAGING
-static byte semaphoreStack[(MAX_NODES * 3) + 1];	// FIFO per node-group
+#define ackQueue 16
+static byte semaphoreStack[ (ackQueue * 6) + 1];	// FIFO per node group /* integer aligned */
 #endif
 //static unsigned long goodCRC;
 #if RF69_COMPAT && STATISTICS
@@ -413,22 +417,6 @@ static unsigned int CRCbadCount = 0;
 static unsigned int pktCount[MAX_NODES];
 static unsigned int nonBroadcastCount = 0;
 static unsigned int postingsIn, postingsClr, postingsOut, postingsLost;
-#endif
-
-unsigned int loopCount, idleTime = 0, offTime = 0;
-
-#if !TINY
-const char messagesF[] PROGMEM = { 
-    0x05, 'T', 'e', 's', 't', '1', 
-
-    0 }; // Mandatory delimiter
-
-  #define MessagesStart 129
-
-byte messagesR[messageStore];
-
-byte *sourceR;
-byte topMessage;    // Used to store highest message number
 #endif
 
 static void showNibble (byte nibble) {
@@ -794,17 +782,20 @@ bool cr = false;
 static void handleInput (char c) {
 	if ((c == '.') || (c == 10)) {	// Full stop or <LF>
     	value = top = 0;
+        nullValue = true;
     	return;
 	} else
     //      Variable value is now 16 bits to permit offset command, stack only stores 8 bits
     //      not a problem for offset command but beware.
     if ('0' <= c && c <= '9') {
+        nullValue = false;
         if (config.output & 0x1) value = 16 * value + c - '0';
         else value = 10 * value + c - '0';
         return;
     }
 
     if (('A' <= c && c <= 'F') && (config.output & 0x1)) {
+        nullValue = false;
         value = 16 * value + (c - 'A' + 0xA);
         return;
     }
@@ -813,6 +804,7 @@ static void handleInput (char c) {
         if (top < sizeof stack)
             stack[top++] = value; // truncated to 8 bits
         value = 0;
+        nullValue = true;
         return;
     }
 
@@ -838,6 +830,7 @@ static void handleInput (char c) {
         if (config.helpMenu) showStatus();
 
         value = top = 0;	// Clear up
+        nullValue = true;
         ones = 0;
         other = 0;
     } else cr = true;		// Loose next <cr> to work with folie
@@ -1163,115 +1156,78 @@ static void handleInput (char c) {
 #endif
                      break;
 
-#if MESSAGING         
-            case 'm': 
-                     // Message storage handliing
-                     // Remove a message string from RAM:
-                     // messages can not be removed if queued or
-                     // when any higher numbered messages are queued.
-                     // TODO Bug removing entries with 131m
-                     // TODO semaphores needs to be reworked in here
-                     byte *fromR;
-                     getMessage(255);                // Find highest message number
-                     Serial.println(topMessage);
-                     if ((value >= MessagesStart) && (value <= topMessage)) {
-                         byte len = getMessage(value);
-                         fromR = sourceR;                // Points to next message length byte, if RAM
-                         if ((sourceR) && (len)) {       // Is message in RAM?
-                             byte valid = true;
-                 //            for (unsigned int i = 0; i < MAX_NODES; i++) {                    // Scan for message in use
-                 //                if ((semaphores[i] >= value) && (semaphores[i] <= topMessage)) {   // If so, or higher then can't
-                 //                    showString(PSTR("In use i"));
-                 //                    Serial.println((word) i);
-                 //                    valid = false;
-                 //                }
-                 //            }
-                             displayString(&stack[sizeof stack - (len + 1)], len + 1);
-                             Serial.println();
-                             if ((valid) && (value <= topMessage)) {
-                                 Serial.print("Copying memory len=");
-                                 Serial.println(((sourceR - fromR) + 1));
-                                 memcpy((fromR - (len + 1)), fromR, ((sourceR - fromR) + 1));  
-                             }                      
-                         } 
-                     }
-
-                     if (top) {
-                         // Store a message string in RAM, to be used by the 'p' command
-                         getMessage(255);    // Get pointer to end of messages
-                         if ((((sourceR + 1) - &messagesR[0]) + top + 1 ) <= sizeof messagesR) {
-                             *sourceR = top; // Start message, overwrite null length byte
-                             memcpy((sourceR + 1), &stack, top);
-                             sourceR = (sourceR + 1) + top;
-                             *sourceR = 0;   // create message string terminator
-                             value = ~0;
-                         }
-                     }             
-                     if (value == 0) {
-                         for (byte i = MessagesStart; i <= 254; i++) {
-                             byte len = getMessage(i); 
-                             if (!len) break;
-                             printOneChar('m'); 
-                             stack[sizeof stack - (len + 1)] = i;  // Store message number  
-                             displayString(&stack[sizeof stack - (len + 1)], len + 1);
-                             Serial.println();
-                             if (config.output & 2) {
-                                 printOneChar(' '); 
-                                 displayASCII(&stack[sizeof stack - (len + 1)], len + 1);
-                                 Serial.println();
-                             }
-                         }
-
-                         showByte(((sourceR) - &messagesR[0]) + 1);
-                         printOneChar('/');                    
-                         showByte(sizeof messagesR);
-                         Serial.println();
-                     }
-
-                     break;
-#endif
-
             case 'p':
+            
+            		Serial.print("Top=");
+            		Serial.print(top);
+                    printOneChar(' ');
+            		for (byte i=0; i<5;i++) {
+            			Serial.print(stack[i]);
+                         printOneChar(' ');
+            		}
+            		Serial.print(" nullValue=");
+            		Serial.print(nullValue);
+            		Serial.print(" Value=");
+            		Serial.println(value);
                      // Post a semaphore for a remote node, to be collected along with
                      // the next ACK. Format is 20,212,127p where 20 is the node and 212 
                      // is the group number 127 is the desired value to be posted. 
                      // The byte stack[1] contains the target group and stack[0] contains the 
                      // node number. The message string to be posted is in value
 #if MESSAGING
-					if (top == 3) {
-						if (semaphoreUpdate(stack[0], stack[1], stack[2], value)) {
-							showPost();
-					 		c = 0;	// loose command printout
-							break;
-						} else top = 2;
-					} 
-					if (top == 2) {
+					if (top == 1) stack[1] = stickyGroup;
+					else if (top == 2) {
 						stickyGroup = stack[1];
 						top = 1;
-					} 
-					if (top == 1) {
-						if (getIndex(stickyGroup, stack[0])) {// Validate Group & Node 
-							// NodeMap is also set by the above
-							if (semaphoreSave(stack[0], stickyGroup, value)) {							
-								postingsIn++;
-//								oneShow(NodeMap);
-								showPost();
-					 			c = 0;	// loose command printout
-					 		} else {
-                        		showString(PSTR("Semaphore table full"));
-                        		++postingsLost;
-					 		}
-                         } else {
-                         	showByte(stickyGroup);
-                         	printOneChar(',');
-                         	showByte(stack[0]);
-                         	showString(UNKNOWN);
-                         }
-                     } else {
-                         // Accepts a index number and prints matching entry from the eeprom
-                         if (value > MAX_NODES) nodeShow(value);
-                         else oneShow(value);
-                     }
+					} else if (top == 3) {
+						stack[3] = stack[2]; stack[2] = stack[1]; stack[1] = stickyGroup;
+						top = 4;
+					}
+					if (top) {
+						if (!(getIndex(stack[1], stack[0]))) {// Validate Group & Node 
+							showByte(stack[1]);
+							printOneChar(',');
+							showByte(stack[0]);
+							showString(UNKNOWN);
+							break;
+						}
+					}
+					if (top == 5) {			// Node    Group     Old Key   New Key   flag      Post
+						if (semaphoreUpdate(stack[0], stack[1], stack[2], stack[3], stack[4], value)) {
+							showPost();
+//					 		c = 0;	// loose command printout
+							break;
+						} else showString(UNKNOWN);
+					}
+					if (top == 4) {		// Node      Group      Key        Flag      Post
+						if (semaphoreSave(stack[0], stack[1], stack[2], stack[3], value)) {							
+							showPost();
+							break;
+					 	} else {
+                    		showString(SEMAPHOREFULL);
+                    		++postingsLost;
+				 		}
+					}
+					if (top  == 1) {
+						if (nullValue) {
+							if (semaphoreDrop(stack[0], stack[1])) showPost();
+							else {
+								showString(UNKNOWN);
+							}
+						break;
+						}
+						stack[2]  = (uint8_t) value;
+//						value = 0;
+						if (semaphoreSave(stack[0], stack[1], stack[2], 1, 0)) {							
+							postingsIn++;
+//							oneShow(NodeMap);
+							showPost();
+//				 			c = 0;	// loose command printout
+					 	} else {
+                    		showString(SEMAPHOREFULL);
+                    		++postingsLost;
+				 		}
+                     } else nodeShow(value);
 #endif
                      break;
             
@@ -1282,6 +1238,15 @@ static void handleInput (char c) {
 //					c = 0;	// loose command printout
             		break;	
 
+            case 'm':
+            		for (byte i = 0; i < (16 * 6); i++) {
+            			Serial.print(semaphoreStack[i]);
+        				printOneChar(' ');
+            		}
+            		Serial.println();
+ 					showPost();
+            		break;	
+
             case 'n':
 #if DEBUG
                      dumpAPI();
@@ -1290,7 +1255,7 @@ static void handleInput (char c) {
                      if ((top == 0) && (config.group == 0)) {
                          showByte(stickyGroup);
                          stickyGroup = (int)value;
-                         printOneChar('>');
+                         showString(UNKNOWN);
                          showByte(stickyGroup);
                      } else if (top == 1) {
                          for (byte i = 0; i < 4; ++i) {
@@ -1320,7 +1285,7 @@ static void handleInput (char c) {
                          showByte(RF69::control((stack[1] | stack[0]), value)); // Prints out Register value before any change requested.
                          if (stack[0] == 128) {
                              printOneChar('>');
-                             showByte(value);
+                             if (!(nullValue)) showByte(value);
                          }
 #else
 
@@ -1418,10 +1383,11 @@ static void handleInput (char c) {
             showByte(stack[i]);
             printOneChar(',');
         }
-        Serial.print(value);
+        if (!(nullValue)) Serial.print(value);
         Serial.println(c);
     }
     value = top = 0;
+    nullValue = true;
     if (eepromWrite) {
         showString(PSTR("Eeprom written:"));
         Serial.println(eepromWrite);
@@ -1429,47 +1395,6 @@ static void handleInput (char c) {
         if (config.helpMenu) showStatus();
     }    
 } // handleInput
-
-#if MESSAGING
-static byte getMessage (byte rec) {
-    if (rec < MessagesStart) return 0;
-    byte len, pos;                          // Scan flash string
-    sourceR = 0;                            // Not RAM!
-    PGM_P sourceF = &messagesF[0];          // Start of Flash messages
-    for  (pos = MessagesStart; pos < 254; pos++) {
-        len = pgm_read_byte(sourceF++);
-        if (!len) break;
-        if (pos == rec) break; 
-        sourceF = sourceF + len;
-    }
-    if (len) {
-        // String is copied to top end of stack
-        for (byte b = 0; b < len ; b++) {
-            stack[(sizeof stack - (len) + b)] = pgm_read_byte(sourceF++);
-        }
-        //      *sourceF points to next length byte
-        return len;
-    } else {      // Scan RAM string
-        sourceR = &messagesR[0];            // Start of RAM messages
-        for  (; pos < 254; pos++) {
-            len = *sourceR; 
-            if (!len) {
-                topMessage = pos - 1;    
-                return 0;             // Not found
-            }
-            if (pos == rec) break; 
-            sourceR = sourceR + (len + 1);  // Step past len + message
-        }
-    }
-    for (byte b = 0; b < len ; b++) {
-        // String is copied to top end of stack
-        stack[(sizeof stack - (len) + b)] = *(++sourceR);
-    }
-    // *sourceR is pointing to the length byte of the next message
-    sourceR++;  // *sourceR is now pointing to the length byte of the next message
-    return len;
-} // getMessage
-#endif
 
 static void dumpAPI() {
     byte* p = &rfapi.len;
@@ -1589,11 +1514,6 @@ showNibble(resetFlags);
 printOneChar(' ');
 Serial.println(MCUSR, HEX);
     // TODO the above doesn't do what we need, results vary with Bootloader etc
-#endif
-
-#if MESSAGING && !TINY
-    // messagesR = 0x05, 'T', 'e', 's', 't', '3'; // TODO    // Can be removed from RAM with "129m"
-    messagesR[messageStore] = 0;                             // Save flash, init here: Mandatory delimiter
 #endif
 
 #if RF69_COMPAT && STATISTICS
@@ -1732,18 +1652,26 @@ static void dumpRegs() {
 static void showPost() {
 #if MESSAGING    
     int c = 0;
-    while ((semaphoreStack[c * 3]) != 0) {
-        printOneChar('p');
+    while (semaphoreStack[c * 6 + 0] != 0) {
+        printOneChar('e');								// Envelope
     	Serial.print(c); printOneChar(' ');
         printOneChar('i');
-    	Serial.print(semaphoreStack[(c * 3) + 0]);	// Node
+    	Serial.print(semaphoreStack[(c * 6) + 0]);		// Node
         printOneChar(' ');
         printOneChar('g');
-	   	Serial.print(semaphoreStack[(c * 3) + 1]);	// Group
+	   	Serial.print(semaphoreStack[(c * 6) + 1]);		// Group
         printOneChar(' ');
-    	Serial.println(semaphoreStack[(c * 3) + 2]);// Posting 
-    	++c;   
-    }
+        printOneChar('k');
+    	Serial.print(semaphoreStack[(c * 6) + 2]);		// Key 
+        printOneChar(' ');
+        printOneChar('f');
+    	Serial.print(semaphoreStack[(c * 6) + 3]);		// Flag 
+        printOneChar(' ');
+        printOneChar('p');
+		showWord((semaphoreStack[(c * 6) + 5]) << 8 | semaphoreStack[(c * 6) + 4]);
+		Serial.println();
+   		++c;   
+    }    
 return;
 }
 #endif
@@ -1777,6 +1705,7 @@ http://forum.arduino.cc/index.php/topic,140376.msg1054626.html
     Serial.println((word) postingsLost);
     
 	showPost();
+	
 #endif
 #if RF69_COMPAT && STATISTICS
     showString(PSTR("Stability "));
@@ -1884,13 +1813,15 @@ static void oneShow(byte index) {
 	    Serial.print(c);
 	}
 #endif
+
 #if MESSAGING 
-    uint16_t v = semaphoreGet(n, g);
-    if (v >> 8) {
+	byte * v;    
+    if (v = semaphoreGet(n, g)) {
     	showString(PSTR(" post:")); 
-    	showByte(v);
+    	showByte(*(v + 2));
     }
 #endif
+
 #if RF69_COMPAT && STATISTICS            
     if (c) {
         showString(PSTR(" FEI(Cum:"));
@@ -1958,36 +1889,52 @@ static unsigned int getIndex (byte group, byte node) {
     } 
     return(false);
 }
-static bool semaphoreSave (byte node, byte group, byte value) {
-	for (int c = 0; c < MAX_NODES; ++c) {
-		if (semaphoreStack[(c * 3) + 0] == 0) {
-			semaphoreStack[(c * 3) + 0] = node;	
-			semaphoreStack[(c * 3) + 1] = group;	
-			semaphoreStack[(c * 3) + 2] = value;
+
+static bool semaphoreSave (byte node, byte group, byte key, byte flag, unsigned int value) {
+	for (int c = 0; c < ackQueue; ++c) {
+		if (semaphoreStack[(c * 6) + 0] == 0) {
+			semaphoreStack[(c * 6) + 0] = node;	
+			semaphoreStack[(c * 6) + 1] = group;	
+			semaphoreStack[(c * 6) + 2] = key;
+			semaphoreStack[(c * 6) + 3] = flag;
+			semaphoreStack[(c * 6) + 4] = value;
+			semaphoreStack[(c * 6) + 5] = value >> 8;
 			return true;	
 		}
 	}
 	return false;
 }
-static bool semaphoreUpdate (byte node, byte group, byte value, byte newValue) {
-	for (int c = 0; c < MAX_NODES; ++c) {
-		if ((semaphoreStack[(c * 3) + 0] == node	
-		&& semaphoreStack[(c * 3) + 1] == group)				
-		&&	semaphoreStack[(c * 3) + 2] == value) {
-			semaphoreStack[(c * 3) + 2] = newValue;
+
+static bool semaphoreUpdate (byte node, byte group, byte key, byte newKey, byte flag, uint16_t value) {
+	for (int c = 0; c < ackQueue; ++c) {
+		if ((semaphoreStack[(c * 6) + 0] == node	
+		&& semaphoreStack[(c * 6) + 1] == group)				
+		&&	semaphoreStack[(c * 6) + 2] == key) {
+			semaphoreStack[(c * 6) + 2] = newKey;
+			semaphoreStack[(c * 6) + 3] = flag;
+			semaphoreStack[(c * 6) + 4] = value;
+			semaphoreStack[(c * 6) + 5] = value >> 8;
 			return true;	
-		}
+		} else
+			if (semaphoreSave(node, group, newKey, flag, value)) return true;
 	}
 	return false;
 }
 static bool semaphoreDrop (byte node, byte group) {
-	for (int c = 0; c < MAX_NODES; ++c) {
-		if ((semaphoreStack[(c * 3) + 0] == node) && (semaphoreStack[(c * 3) + 1] == group)) {
-			while (c < MAX_NODES || semaphoreStack[(c * 3)] != 0) {
+	for (int c = 0; c < ackQueue; c++) {
+		if ((semaphoreStack[ (c * 6) + 0] == node) && (semaphoreStack[ (c * 6) + 1] == group)) {
+			while (c < ackQueue) {
 				// Overwrite by shifting down entries above
-				semaphoreStack[(c * 3) + 0] = semaphoreStack[(c * 3) + 3];
-				semaphoreStack[(c * 3) + 1] = semaphoreStack[(c * 3) + 4];
-				semaphoreStack[(c * 3) + 2] = semaphoreStack[(c * 3) + 5];
+				semaphoreStack[ (c * 6) + 0] = semaphoreStack[ (c * 6) + 6];
+				if (semaphoreStack[ (c * 6) + 6] == 0) {
+					Serial.println(c);
+					break;
+				}
+				semaphoreStack[ (c * 6) + 1] = semaphoreStack[ (c * 6) + 7];
+				semaphoreStack[ (c * 6) + 2] = semaphoreStack[ (c * 6) + 8];
+				semaphoreStack[ (c * 6) + 3] = semaphoreStack[ (c * 6) + 9];
+				semaphoreStack[ (c * 6) + 4] = semaphoreStack[ (c * 6) + 10];
+				semaphoreStack[ (c * 6) + 5] = semaphoreStack[ (c * 6) + 11];
 				++c;
 			}
 		return true;
@@ -1995,10 +1942,10 @@ static bool semaphoreDrop (byte node, byte group) {
 	}
 	return false;
 }
-static uint16_t semaphoreGet (byte node, byte group) {
-	for (int c = 0; c < MAX_NODES; ++c) {
-		if ((semaphoreStack[(c * 3) + 0] == node) && (semaphoreStack[(c * 3) + 1] == group)) {
-			return semaphoreStack[(c * 3) + 2] | 0x0100;	// True value
+static byte * semaphoreGet (byte node, byte group) {
+	for (int c = 0; c < ackQueue; ++c) {
+		if ((semaphoreStack[(c * 6) + 0] == node) && (semaphoreStack[(c * 6) + 1] == group)) {
+			return &(semaphoreStack[c * 6]);
 		}
 	}
 	return false;	// Not found
@@ -2552,26 +2499,18 @@ Serial.print(")");
     	            // If a semaphore exists it is stored in the buffer. If the semaphore has a message addition associated with it then
         	        // the additional data from the message store is appended to the buffer and the whole buffer transmitted to the 
             	    // originating node with the ACK.
-                	uint16_t v = semaphoreGet((rf12_hdr & RF12_HDR_MASK), rf12_grp);
-                	if ((v >> 8) && (!(special))) {				// Something to post?
-                    	stack[sizeof stack - 2] = (byte) v;		// Pick up value
-                    	++ackLen;								// If 0 or message length then +1 for length byte
-/*
-	                    ackLen = getMessage(stack[sizeof stack - 1]);		// Check for a message to be appended
-    	                if (ackLen){
-        	                stack[(sizeof stack - (ackLen + 1))] = (byte) v;
-
-							Code to append from message store is missing from here I think.	
-TODO
-
-            	        }
-*/
+            	    
+            	    byte * v;    
+                	bool dropNow = false;
+                    v = semaphoreGet((rf12_hdr & RF12_HDR_MASK), rf12_grp);
+                	if ((v) && (!(special))) {					// Something to post?
+            	        if ((*(v + 3)) == 0) ackLen = 4;			// ACK with key, flag and value
+                    	else ackLen = 1;
                     	showString(PSTR(" Posted "));
                     	postingsOut++;
-	                    if (rf12_data[0] == (byte) v) {  // Check if previous Post value is the first byte of this payload 
-    	                    semaphoreDrop((rf12_hdr & RF12_HDR_MASK), rf12_grp);    // Received?
-    	                    stack[sizeof stack - 1] = (byte) 85;	// Until we find a better use	
-                	    	++ackLen;					// Indicate clearing by length byte
+	                    if (rf12_data[0] == (*(v + 2))) {	// Check if previous Post value is the first byte of this payload 
+	                    	dropNow = true;
+                	    	ackLen++;						// Indicate cleared by oversize ACK
         	                showString(PSTR("and cleared "));
                     		postingsClr++;
             	        } else {
@@ -2580,11 +2519,14 @@ TODO
         	                showString(PSTR(") "));
             	        }
                     	crlf = true;
-                    	displayString(&stack[sizeof stack - 2], ackLen);        // 1 more than Message length!                      
+                    	displayString((v + 2), ackLen);           
+       	                showString(PSTR("l="));
+                     	Serial.print(ackLen);
                 	}
 #endif                                        
-                    rf12_sendStart(RF12_ACK_REPLY, &stack[sizeof stack - 2], ackLen);
+                    rf12_sendStart(RF12_ACK_REPLY, (v + 2), ackLen);
                     rf12_sendWait(1);
+                    if (dropNow) semaphoreDrop((rf12_hdr & RF12_HDR_MASK), rf12_grp);
     				chkNoise = elapsedSeconds + (unsigned long)config.chkNoise;// Delay check
     				ping = false;		// Cancel any pending Noise Floor checks
                     
