@@ -1157,7 +1157,7 @@ static void handleInput (char c) {
                      break;
 
             case 'p':
-            
+/*            
             		Serial.print("Top=");
             		Serial.print(top);
                     printOneChar(' ');
@@ -1169,6 +1169,7 @@ static void handleInput (char c) {
             		Serial.print(nullValue);
             		Serial.print(" Value=");
             		Serial.println(value);
+*/
                      // Post a semaphore for a remote node, to be collected along with
                      // the next ACK. Format is 20,212,127p where 20 is the node and 212 
                      // is the group number 127 is the desired value to be posted. 
@@ -1381,6 +1382,7 @@ static void handleInput (char c) {
         showString(PSTR("> "));
         for (byte i = 0; i < top; ++i) {
             showByte(stack[i]);
+            stack[i] = 0;
             printOneChar(',');
         }
         if (!(nullValue)) Serial.print(value);
@@ -1927,7 +1929,6 @@ static bool semaphoreDrop (byte node, byte group) {
 				// Overwrite by shifting down entries above
 				semaphoreStack[ (c * 6) + 0] = semaphoreStack[ (c * 6) + 6];
 				if (semaphoreStack[ (c * 6) + 6] == 0) {
-					Serial.println(c);
 					break;
 				}
 				semaphoreStack[ (c * 6) + 1] = semaphoreStack[ (c * 6) + 7];
@@ -2504,7 +2505,7 @@ Serial.print(")");
                 	bool dropNow = false;
                     v = semaphoreGet((rf12_hdr & RF12_HDR_MASK), rf12_grp);
                 	if ((v) && (!(special))) {					// Something to post?
-            	        if ((*(v + 3)) == 0) ackLen = 4;			// ACK with key, flag and value
+            	        if ((*(v + 3)) == 0) ackLen = 4;		// ACK with key, flag and value
                     	else ackLen = 1;
                     	showString(PSTR(" Posted "));
                     	postingsOut++;
@@ -2518,7 +2519,7 @@ Serial.print(")");
             	        	showByte(rf12_data[0]);
         	                showString(PSTR(") "));
             	        }
-                    	crlf = true;
+						crlf = true;
                     	displayString((v + 2), ackLen);           
        	                showString(PSTR("l="));
                      	Serial.print(ackLen);
