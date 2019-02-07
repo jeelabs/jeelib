@@ -64,7 +64,7 @@
 // Add rfapi.configFlags to control afc off/on using "128,8b" 2018-07-4
 // Watchdog timer enabled 2018-10-17
 // Allow semaphores to be updated using node,group,oldvalue,newvalue 2019-02-04
-// Removed the 'm' command, replaced by semaphoreINT approach
+// Removed the 'm' command, replaced by an extension of the semaphore approach 2019-02-07
 
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
 	#define TINY 1
@@ -1197,13 +1197,14 @@ static void handleInput (char c) {
 					if (top == 5) {			// Node    Group     Old Key   New Key   flag      Post
 						if (semaphoreUpdate((stack[0] | stack[5]), stack[1], stack[2], stack[3], stack[4], value)) {
 							showPost();
-//					 		c = 0;	// loose command printout
+					 		c = 0;	// loose command printout
 							break;
 						} else showString(UNKNOWN);
 					}
 					if (top == 4) {		// Node       Length     Group     Key       Flag      Post
 						if (semaphoreSave((stack[0] | stack[5]), stack[1], stack[2], stack[3], value)) {							
 							showPost();
+					 		c = 0;	// loose command printout
 							break;
 					 	} else {
                     		showString(SEMAPHOREFULL);
@@ -1217,6 +1218,7 @@ static void handleInput (char c) {
 								break;
 							}
 							showPost();							
+					 		c = 0;	// loose command printout
 							break;
 						}
 						stack[2] = (uint8_t) value;
@@ -1224,7 +1226,7 @@ static void handleInput (char c) {
 							postingsIn++;
 //							oneShow(NodeMap);
 							showPost();
-//				 			c = 0;	// loose command printout
+				 			c = 0;	// loose command printout
 					 	} else {
                     		showString(SEMAPHOREFULL);
                     		++postingsLost;
@@ -2537,8 +2539,8 @@ Serial.print(")");
             	        }
 						crlf = true;
                     	displayString((v + 2), ackLen);           
-       	                showString(PSTR("l="));
-                     	Serial.print(ackLen);
+//						showString(PSTR("l="));
+//                     	Serial.print(ackLen);
                 	}
 #endif                                        
                     rf12_sendStart(RF12_ACK_REPLY, (v + 2), ackLen);
