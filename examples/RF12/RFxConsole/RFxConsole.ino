@@ -1460,6 +1460,11 @@ void resetFlagsInit(void)
 #endif
 
 void setup () {
+// Setup WatchDog
+	wdt_reset();   			// First thing, turn it off
+	MCUSR = 0;
+	wdt_disable();
+	wdt_enable(WDTO_8S);   // enable watchdogtimer
 
     delay(380);
 
@@ -1595,12 +1600,7 @@ Serial.println(MCUSR, HEX);
     Serial.flush();
     maxRestartRate = 0;
     previousRestarts = rfapi.RSSIrestart;
-// Setup WatchDog
-	wdt_reset();   			// First thing, turn it off
-	MCUSR = 0;
-	wdt_disable();
-	wdt_enable(WDTO_120MS);   // enable watchdogtimer
-        
+
 } // setup
 
 static void clrConfig() {
@@ -2538,9 +2538,18 @@ Serial.print(")");
         	                showString(PSTR(") "));
             	        }
 						crlf = true;
-                    	displayString((v + 2), ackLen);           
-//						showString(PSTR("l="));
-//                     	Serial.print(ackLen);
+                    	printOneChar('k');
+						Serial.print( (*(v + 2) ) );
+						if (ackLen > 1) {
+							showString(PSTR(" f"));
+							Serial.print( (*(v + 3) ) );
+						}
+						if (ackLen > 3) {
+							showString(PSTR(" p"));
+							Serial.print( (uint16_t) ( (*(v + 5)) << 8 | (*(v + 4) ) ) );
+						}
+						showString(PSTR(" l"));
+                     	Serial.print(ackLen);
                 	}
 #endif                                        
                     rf12_sendStart(RF12_ACK_REPLY, (v + 2), ackLen);
