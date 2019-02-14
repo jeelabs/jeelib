@@ -357,6 +357,7 @@ volatile unsigned int maxRestartRate;
 volatile byte ping = false;
 volatile byte minuteTick = false;
 volatile byte statsInterval = 60;
+
 ISR(TIMER1_COMPA_vect){
 	elapsedSeconds++;
 
@@ -406,6 +407,7 @@ static byte CRCbadMinRSSI = 255;
 static byte CRCbadMaxRSSI = 0;
 static byte minTxRSSI = 255;
 static byte maxTxRSSI = 0;
+static byte nextKey;
 
 static signed int previousAFC;
 static signed int previousFEI;
@@ -418,6 +420,7 @@ static unsigned int pktCount[MAX_NODES];
 static unsigned int nonBroadcastCount = 0;
 static unsigned int postingsIn, postingsClr, postingsOut, postingsLost;
 #endif
+//static byte lastKey[MAX_NODES];
 
 static void showNibble (byte nibble) {
     char c = '0' + (nibble & 0x0F);
@@ -778,6 +781,7 @@ Serial.println();
 Serial.flush();
 }
 
+// Null handling could be made to store null true/false for each stack entry
 bool cr = false;
 static void handleInput (char c) {
 	if ((c == '.') || (c == 10)) {	// Full stop or <LF>
@@ -1213,6 +1217,7 @@ static void handleInput (char c) {
 					}
 					if (top  == 1) {
 						if (nullValue) {
+							showPost();
 							if (!(semaphoreDrop(stack[0], stack[1]))) {
                          		showString(UNKNOWN);
 								break;
@@ -1222,7 +1227,11 @@ static void handleInput (char c) {
 							break;
 						}
 						stack[2] = (uint8_t) value;
-						if (semaphoreSave(stack[0], stack[1], stack[2], 85, 0)) {							
+						// nextKey is used to try and prevent keys being duplicated
+						// such that an Ack may released before actually being posted.
+						if (semaphoreSave((stack[0] | 1<<5), stack[1], nextKey, stack[2], 0)) {
+							nextKey++;
+							nextKey = nextKey%16;						
 							postingsIn++;
 //							oneShow(NodeMap);
 							showPost();
@@ -1371,7 +1380,7 @@ static void handleInput (char c) {
                         	clrNodeStore();                        
 					} else if (value == 255) {
 						showString(PSTR("Delay, watchdog enabled\n"));
-						delay(2000);
+						delay(10000);
 // Done in setup		WDTCSR |= _BV(WDE);
 					}
                      break;
@@ -1676,12 +1685,10 @@ static void showPost() {
         printOneChar(' ');
         printOneChar('k');
     	Serial.print(semaphoreStack[(c * 6) + 2]);		// Key
+	    printOneChar(' ');
+	    printOneChar('f');
+    	Serial.print(semaphoreStack[(c * 6) + 3]);	// Flag
     	byte l = (semaphoreStack[ c * 6 + 0 ] >> 5);
-		if (l > 0) {
-	        printOneChar(' ');
-	        printOneChar('f');
-	    	Serial.print(semaphoreStack[(c * 6) + 3]);	// Flag
-	    }
 	    if (l > 1) {
 	        printOneChar(' ');
 	        printOneChar('p');
@@ -1986,12 +1993,14 @@ void loop () {
         if (rf12_crc == 0) {
 			unsigned long rxCrcGap;
         
- 			if (!(RF12_WANTS_ACK && (config.collect_mode) == 0)) {	
+ 			if (RF12_WANTS_ACK && (config.collect_mode) == 0) {
+				RF69::control(1, 2);	// radio to mode FS, ACK will be needed
+ 			} else {	            	
 				// ACK not required for current packet 				
         		rf12_recvDone();		// Attempt to buffer next RF packet
-        		// At this point the receiver is active but previous buffer intact
-        		     					
+        		// At this point the receiver is active but previous buffer intact        		     					
  			} 
+ 			
          	rxCrcGap = rf12_interpacketTS - rxCrcLast;
  			rxCrcLast = rf12_interpacketTS;
  			if (rxCrcGap < minCrcGap) {
@@ -2521,40 +2530,44 @@ Serial.print(")");
             	    // originating node with the ACK.
             	    
             	    byte * v;    
-                	bool dropNow = false;
                     v = semaphoreGet((rf12_hdr & RF12_HDR_MASK), rf12_grp);
-                	if ((v) && (!(special))) {					// Something to post?
-            	        ackLen = (*(v + 0) >> 5) + 1;			// ACK length above node
-                    	showString(PSTR(" Posted "));
-                    	postingsOut++;
-	                    if (rf12_data[0] == (*(v + 2))) {	// Check if previous Post value is the first byte of this payload 
-	                    	dropNow = true;
-                	    	ackLen++;						// Indicate cleared by oversize ACK
-        	                showString(PSTR("and cleared "));
+                	if ((v) && (!(special))) {			// Post pending?
+                		bool dropNow = false;
+            	        ackLen = (*(v + 0) >> 5) + 1;	// ACK length in high bits of node
+	                    if (rf12_data[0] == (*(v + 2))) {
+	                    // Check if previous Post value is the first byte of this payload 
+        	                showString(PSTR(" Released "));
                     		postingsClr++;
+                    		dropNow = true;
             	        } else {
-                    		printOneChar('(');
-            	        	showByte(rf12_data[0]);
-        	                showString(PSTR(") "));
-            	        }
-						crlf = true;
+                    		showString(PSTR(" Posted "));
+                    		postingsOut++;
+                    	}
+                    	showString(PSTR("(k"));
+            	    	showByte( (rf12_data[0] ) );
+        	            showString(PSTR(") "));
+
                     	printOneChar('k');
 						Serial.print( (*(v + 2) ) );
-						if (ackLen > 1) {
-							showString(PSTR(" f"));
-							Serial.print( (*(v + 3) ) );
-						}
-						if (ackLen > 3) {
+						showString(PSTR(" f"));
+						Serial.print( (*(v + 3) ) );
+
+						if (ackLen > 2) {
 							showString(PSTR(" p"));
 							Serial.print( (uint16_t) ( (*(v + 5)) << 8 | (*(v + 4) ) ) );
 						}
 						showString(PSTR(" l"));
+						crlf = true;
                      	Serial.print(ackLen);
-                	}
+                     	if (dropNow) {
+	                    	if ( !(semaphoreDrop((rf12_hdr & RF12_HDR_MASK), rf12_grp) ) )
+	                			showString(PSTR(" NOT FOUND"));
+                    		ackLen = 0;	// convert back to standard ack, without any additional payload
+                    	}
+            		}
 #endif                                        
                     rf12_sendStart(RF12_ACK_REPLY, (v + 2), ackLen);
-                    rf12_sendWait(1);
-                    if (dropNow) semaphoreDrop((rf12_hdr & RF12_HDR_MASK), rf12_grp);
+                    rf12_sendWait(0);
     				chkNoise = elapsedSeconds + (unsigned long)config.chkNoise;// Delay check
     				ping = false;		// Cancel any pending Noise Floor checks
                     
