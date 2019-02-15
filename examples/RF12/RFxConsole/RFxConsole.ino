@@ -420,7 +420,6 @@ static unsigned int pktCount[MAX_NODES];
 static unsigned int nonBroadcastCount = 0;
 static unsigned int postingsIn, postingsClr, postingsOut, postingsLost;
 #endif
-//static byte lastKey[MAX_NODES];
 
 static void showNibble (byte nibble) {
     char c = '0' + (nibble & 0x0F);
@@ -2532,13 +2531,17 @@ Serial.print(")");
             	    byte * v;    
                     v = semaphoreGet((rf12_hdr & RF12_HDR_MASK), rf12_grp);
                 	if ((v) && (!(special))) {			// Post pending?
-                		bool dropNow = false;
+                		bool dropNow = false;                			
             	        ackLen = (*(v + 0) >> 5) + 1;	// ACK length in high bits of node
 	                    if (rf12_data[0] == (*(v + 2))) {
 	                    // Check if previous Post value is the first byte of this payload 
         	                showString(PSTR(" Released "));
                     		postingsClr++;
                     		dropNow = true;
+                    	} else	
+                		if (rf12_data[0] == 170) {
+                    		dropNow = true;
+        	                showString(PSTR(" Rejected "));        	                                			
             	        } else {
                     		showString(PSTR(" Posted "));
                     		postingsOut++;
