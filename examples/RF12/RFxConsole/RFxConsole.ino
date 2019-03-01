@@ -361,8 +361,7 @@ volatile byte statsInterval = 60;
 ISR(TIMER1_COMPA_vect){
 	elapsedSeconds++;
 
-#if RF69_COMPAT        
-#pragma warn("Compiling in RF69_COMPAT mode")
+#if RF69_COMPAT
     // Update restart rate
     if ((elapsedSeconds % (uint32_t)statsInterval) == 0UL) {
     	minuteTick = true;
@@ -378,7 +377,7 @@ ISR(TIMER1_COMPA_vect){
     		ping = true;
     		chkNoise = elapsedSeconds + (unsigned long)config.chkNoise;
     	}
-    }                     
+    }
 #endif
 }
 
@@ -1376,7 +1375,10 @@ static void handleInput (char c) {
                         Sleepy::powerDown();
 					} else 
 						if (value == 250) {
-                        	clrNodeStore();                        
+                        	clrNodeStore();
+                    } else
+                    	 if (value == 254) {
+                    	 	asm volatile ("  jmp 0");                      
 					} else if (value == 255) {
 						showString(PSTR("Delay, watchdog enabled\n"));
 						delay(10000);
@@ -1465,14 +1467,30 @@ void resetFlagsInit(void)
     // save the reset flags passed from the bootloader
     __asm__ __volatile__ ("mov %0, r2\n" : "=r" (resetFlags) :);
 }
+
+// Function Pototype
+void wdt_init(void) __attribute__ ((naked, used, section(".init3")));
+
+// Function Implementation
+void wdt_init(void)
+{
+    MCUSR = 0;
+    wdt_disable();
+    return;
+}
+
 #endif
 
 void setup () {
+//disable interrupts
+	cli();
 // Setup WatchDog
 	wdt_reset();   			// First thing, turn it off
 	MCUSR = 0;
 	wdt_disable();
 	wdt_enable(WDTO_8S);   // enable watchdogtimer
+//Enable global interrupts
+	sei();
 
     delay(380);
 
