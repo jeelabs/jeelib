@@ -104,7 +104,7 @@ fprintf (stderr, "Start Up\n") ;
             	|| ((rx_buf[14] == 'R') && (rx_buf[15] == 'X'))
             	|| ((rx_buf[14] == 'R') && (rx_buf[15] == 'F'))
 	      		|| ((rx_buf[14] == 'T') && (rx_buf[15] == 'X'))
-	      	)
+	      														)
 			{
                 int ret = system(rx_buf);
                 if (ret)
@@ -144,34 +144,39 @@ fprintf (stderr, "Start Up\n") ;
         echo "o" > /tmp/RFxSerial.input
         to display the current frequency offset or 
         echo "212,17,150p" > /tmp/RFxSerial.input
-        to post the value 150 for node 17 in group 212 to value to be
-        delivered the next time that node 17 requests a ACK with a packet.
+        to post the value 150 for node 17 in group 212, the value to be
+        delivered the next time that node 17 requests a ACK for a packet.
         
         The commands so delivered may be delayed before being issued since
-        the fifi queue is only checked when the serial queue times out. This
-        timeout is 10 seconds after deliver of the last serial character.
+        the fifo queue is only checked when the serial queue times out. This
+        timeout is 10 seconds after delivery of the last serial character.
         
         */
         
 		    // Read up to 2048 characters from the FIFO if they are there
 		    if (our_input_fifo_filestream != -1)  {		    
-		        fifo_length = read(our_input_fifo_filestream, (void*)fifo_buffer, 2048);		
-//                printf("FIFO bytes=%i\n", fifo_length);
-//                fflush (stdout);        
-            //Filestream, buffer to store in, number of bytes to read (max)
-		        if (fifo_length < 0) printf("FIFO Read error\r");
-            else if (fifo_length > 1) {
-				        // Bytes received
-//                int ret = system("echo > /tmp/RFxConsole.txt"); // Clr log
-//                if (ret)
-//                  printf("System(2)Returned %i\n", ret);
-//                fflush (stdout);        
+		        fifo_length = read(our_input_fifo_filestream, (void*)fifo_buffer, 2048);
+		        if (fifo_length > 0) {
+		        	if (fifo_buffer[fifo_length - 1] == 10) { 		
+						fifo_buffer[fifo_length - 1] = '\0';// Loose <LF>, terminate the char
+					} else {
+						fifo_buffer[fifo_length] = '\0';  // Terminate the char	string				
+					}
+                	time ( &rawtime );
+                	timeinfo = localtime ( &rawtime );
+                	serialPrintf (fd, fifo_buffer); // Send string to RFxConsole
+                	printf("%02d/%02d/%04d %02d:%02d:%02d FIFO bytes=%i buffer=%s\n", \
+						timeinfo->tm_mday,timeinfo->tm_mon + 1, timeinfo->tm_year + 1900,\
+                  		timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec,  \
+                  		fifo_length, fifo_buffer);
+                  		
+                		fifo_buffer[0] = '\0';  		// Mark buffer empty
+                } else if (fifo_length > 0) printf("FIFO Read error\n");
+                fflush (stdout);
                 
-				        fifo_buffer[fifo_length - 1] = '\0';  // Terminate the char
-                serialPrintf (fd, fifo_buffer); // Send string to RFxConsole
-            }
-        } else {
-        	delayMicroseconds(10);
+        	} else {
+        		delayMicroseconds(10);
+			}
 		}
-	}
 }
+
