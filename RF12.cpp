@@ -582,7 +582,7 @@ void rf12_sendStart (uint8_t hdr) {
     rf12_hdr = (hdr & ~RF12_HDR_MASK) + (nodeid & NODE_ID);
 #else
     rf12_hdr = hdr & RF12_HDR_DST ? hdr :
-                (hdr & ~RF12_HDR_MASK) + (nodeid & NODE_ID);
+				(hdr & ~RF12_HDR_MASK) + (nodeid & NODE_ID);
 #endif
     if (crypter != 0)
         crypter(1);

@@ -406,13 +406,13 @@ static byte CRCbadMinRSSI = 255;
 static byte CRCbadMaxRSSI = 0;
 static byte minTxRSSI = 255;
 static byte maxTxRSSI = 0;
-static byte nextKey;
 
 static signed int previousAFC;
 static signed int previousFEI;
 static unsigned int changedAFC;
 static unsigned int changedFEI;
 #endif
+static byte nextKey;
 #if STATISTICS
 static unsigned int CRCbadCount = 0;
 static unsigned int pktCount[MAX_NODES];
@@ -2382,7 +2382,7 @@ Serial.print(")");
 			  rf12_hdr = (31 | RF12_HDR_CTL | RF12_HDR_ACK);	
 				// Assume ACK responder is i31 
 				         
-            if (!(rf12_hdr & RF12_HDR_DST)) {
+            if ( !(rf12_hdr & RF12_HDR_DST) ) {
                 // This code only sees broadcast packets *from* other nodes.
                 // Packets addressed to nodes do not identify the source node!          
                 // Search RF12_EEPROM_NODEMAP for node/group match
