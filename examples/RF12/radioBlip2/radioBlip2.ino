@@ -8,9 +8,9 @@
 #define BOOST     0   // measure battery on analog pin if 1, else vcc after
 
 #define BLIP_NODE 22  // wireless node ID to use for sending blips
-#define BLIP_GRP  5   // wireless net group to use for sending blips
+#define BLIP_GRP  212 // wireless net group to use for sending blips
 #define BLIP_ID   1   // set this to a unique ID to disambiguate multiple nodes
-#define SEND_MODE 3   // set to 3 if fuses are e=06/h=DE/l=CE, else set to 2
+#define SEND_MODE 0   // set to 3 if fuses are e=06/h=DE/l=CE, else set to 2
 
 struct {
   long ping;      // 32-bit counter

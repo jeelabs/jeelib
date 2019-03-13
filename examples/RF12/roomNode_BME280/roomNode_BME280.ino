@@ -11,7 +11,7 @@
 // other sensor values are being collected and averaged in a more regular cycle.
 ///////////////////////////////////////////////////////////////////////////////
 
-#define RF69_COMPAT      1	 // define this to use the RF69 driver i.s.o. RF12 
+#define RF69_COMPAT      0	 // define this to use the RF69 driver i.s.o. RF12 
 ///                          // The above flag must be set similarly in RF12.cpp
 ///                          // and RF69_avr.h
 
@@ -21,11 +21,13 @@
 #include <util/atomic.h>
 #include <avr/eeprom.h>
 #include <util/crc16.h>
+#include <Wire.h>
 
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BME280.h>
 
 #define crc_update      _crc16_update
+#define BMX280_ADDRESS	0x76
 
 #define SERIAL  0   // set to 1 to also report readings on the serial port
 #define DEBUG   0   // set to 1 to display each loop() run and PIR trigger
@@ -247,12 +249,27 @@ static void doMeasure() {
         payload.temp = smoothedAverage(payload.temp, temp, firstTime);
     #endif
     #if BME280_PORT
+    
+    	bme.setSampling(Adafruit_BME280::MODE_FORCED,
+			Adafruit_BME280::SAMPLING_X1, // temperature
+            Adafruit_BME280::SAMPLING_X1, // pressure
+            Adafruit_BME280::SAMPLING_X1, // humidity
+            Adafruit_BME280::FILTER_OFF   );
+
     	// Only needed in forced mode! In normal mode, you can remove the next line.
     	bme.takeForcedMeasurement();// has no effect in normal mode
     	Sleepy::loseSomeTime(32);	// must wait a while see page 51 of datasheet
     	payload.pressure = bme.readPressure();
 		payload.temp = bme.readTemperature();
 		payload.humi = bme.readHumidity();
+
+		bme.write8(0xE0, 0xB6);	// Power on reset
+/*		
+		I2Cbus.beginTransmission(BMX280_ADDRESS);
+		I2Cbus.write(0xE0);
+		I2Cbus.write(0xB6);
+		I2Cbus.endTransmission();
+*/		
 	#endif    
     #if LDR_PORT
         ldr.digiWrite2(1);  // enable AIO pull-up
@@ -484,17 +501,19 @@ void setup () {
     rf12_sleep(RF12_SLEEP); // power down
     
 	#if BME280_PORT    
-    	if (! bme.begin(0x76)) {
+    	if (! bme.begin(BMX280_ADDRESS)) {
     	#if DEBUG
     		Serial.println("Could not find a valid BME280 sensor");
     	#endif
     		while (1);
     	}
+/*
     	bme.setSampling(Adafruit_BME280::MODE_FORCED,
 			Adafruit_BME280::SAMPLING_X1, // temperature
             Adafruit_BME280::SAMPLING_X1, // pressure
             Adafruit_BME280::SAMPLING_X1, // humidity
             Adafruit_BME280::FILTER_OFF   );
+*/
 	#endif
     
     #if PIR_PORT

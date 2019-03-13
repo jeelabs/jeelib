@@ -14,7 +14,7 @@
 #endif
 
 ///////////////////////////////////////////////////////////////////////////////
-#define RF69_COMPAT 0	// Set this true to use the RF69 driver
+#define RF69_COMPAT 1	// Set this true to use the RF69 driver
 #define PINCHG_IRQ  0	// Set this true to use pin-change interrupts
 						// The above flags must be set similarly in RF69_avr.h
 
@@ -583,7 +583,7 @@ void rf12_sendStart (uint8_t hdr) {
     rf12_hdr = (hdr & ~RF12_HDR_MASK) + (nodeid & NODE_ID);
 #else
     rf12_hdr = hdr & RF12_HDR_DST ? hdr :
-                (hdr & ~RF12_HDR_MASK) + (nodeid & NODE_ID);
+				(hdr & ~RF12_HDR_MASK) + (nodeid & NODE_ID);
 #endif
     if (crypter != 0)
         crypter(1);
@@ -673,6 +673,7 @@ void rf12_sendWait (uint8_t mode) {
         }
 }
 #if !RF69_COMPAT
+#warning Building for RFM12B     
 /// @details
 /// Call this once with the node ID (0-31), frequency band (0-3), and
 /// optional group (0-255 for RFM12B, only 212 allowed for RFM12).
