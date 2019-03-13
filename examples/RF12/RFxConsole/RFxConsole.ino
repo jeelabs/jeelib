@@ -306,8 +306,8 @@ typedef struct {
 /*03*/byte spare_flags  :2;		// offset 3
 /*03*/byte defaulted    :1;		// 0 = config set via UI, offset 3
 /*04*/word frequency_offset;	// used by rf12_config, offset 4 & 5
-/*06*/byte PaLvl;				// See datasheet RFM69x Register 0x11, offset 6
-/*07*/byte RssiThresh;			// See datasheet RFM69x Register 0x29, offset 7
+/*06*/byte RegPaLvl;			// See datasheet RFM69x Register 0x11, offset 6
+/*07*/byte RegRssiThresh;		// See datasheet RFM69x Register 0x29, offset 7
 /*08*/signed int matchingRF :8;	// Frequency matching for this hardware, offset 8
 /*09*/byte ackDelay         :4;	// Delay in ms added on turnaround RX to TX, RFM69 offset 9
 /*09*/byte verbosity        :4;	// Controls output format offset 9
@@ -461,7 +461,7 @@ static void loadConfig () {
     // this uses 166 bytes less flash than eeprom_read_block(), no idea why
     for (byte i = 0; i < sizeof config; ++i)
         ((byte*) &config)[i] = eeprom_read_byte(RF12_EEPROM_ADDR + i);
-    lastrssiThreshold = rfapi.rssiThreshold = config.RssiThresh;
+    lastrssiThreshold = rfapi.rssiThreshold = config.RegRssiThresh;
     rfapi.rateInterval = (uint32_t)config.rateInterval << 10;    
     chkNoise = elapsedSeconds + (unsigned long)config.chkNoise;
     config.defaulted = false;   // Value if UI saves config
@@ -1628,9 +1628,9 @@ Serial.println(MCUSR, HEX);
         config.clearAir = 160;      // 80dB
 #else
         config.group = 0x00;        // Default group 0
-        config.RssiThresh = 180;	// -90dB
+        config.RegRssiThresh = 180;	// -90dB
         config.clearAir = 160;      // -80dB
-        config.PaLvl = 159;		// Maximum power TX for RFM69CW!
+        config.RegPaLvl = 159;		// Maximum power TX for RFM69CW!
 #endif
         saveConfig();
         WDTCSR |= _BV(WDE);			// Trigger watchdog restart
