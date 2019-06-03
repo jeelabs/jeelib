@@ -2585,7 +2585,12 @@ Serial.print(")");
 	                			showString(PSTR(" NOT FOUND"));
                     		ackLen = 0;	// convert back to standard ack, without any additional payload
                     	}
-            		}
+            		} else 
+						if (rf12_data[0] != 85) {
+        	                showString(PSTR(" Alert (k")); 
+            	    		showByte( (rf12_data[0] ) );
+        	            	showString(PSTR(") "));
+        	        }
 #endif                                        
                     rf12_sendStart(RF12_ACK_REPLY, (v + 2), ackLen);
                     rf12_sendWait(0);
