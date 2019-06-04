@@ -175,6 +175,7 @@ volatile uint8_t drssi;             // digital rssi state (see binary search tre
 };
 
  const drssi_dec_t drssi_dec_tree[] = {
+        /*  up    down  thres	*/
     /* 0  { B1001, B1000, B000 },  /* B1xxx show final values, B0xxx are intermediate */
     /* 1  { B0010, B0000, B001 },  /* values where next threshold has to be set.      */
     /* 2  { B1011, B1010, B010 },  /* Traversing of this tree is in rf_12interrupt() */
@@ -182,13 +183,13 @@ volatile uint8_t drssi;             // digital rssi state (see binary search tre
     /* 4  { B1101, B1100, B100 },
     /* 5  { B1110, B0100, B101 } */
 
-            /*  up    down  thres*/
-    /* 0 */ {    9,    8,     0 },  /* B1xxx show final values, B0xxx are intermediate */
-    /* 1 */ {    2,    0,     1 },  /* values where next threshold has to be set.      */
-    /* 2 */ {   11,   10,     2 },  /* Traversing of this tree is in rf_12interrupt()  */
-    /* 3 */ {    5,    1,     3 },  // <- start value
-    /* 4 */ {   13,   12,     4 },
-    /* 5 */ {   14,    4,     5 }
+            /*  up    down  thres	*/
+    /* 0 */ {  8+1,   8+0,    0 },  /* B1xxx show final values, B0xxx are intermediate */
+    /* 1 */ {    2,     0,    1 },  /* values where next threshold has to be set.      */
+    /* 2 */ {  8+3,   8+2,    2 },  /* Traversing of this tree is in rf_12interrupt()  */
+    /* 3 */ {    5,     1,    3 },  // <- start value
+    /* 4 */ {  8+5,   8+4,    4 },
+    /* 5 */ {  8+6,     4,    5 }
 };
 
 #define RETRIES     8               // stop retrying after 8 times
@@ -497,7 +498,7 @@ static void rf12_recvStart () {
         rf12_crc = crc_update(rf12_crc, group);
 #endif
     rxstate = TXRECV;
-	drssi = 3;              // set drssi to start value
+	drssi = 4;              // set drssi to start value
     rf12_xfer(0x94A0 | drssi_dec_tree[drssi].threshold);
 	rf12_xfer(RF_RECEIVER_ON);
 }
@@ -565,7 +566,7 @@ int8_t rf12_getRSSI() {
         return 255;
 
 	const int8_t table[] = {-106, -100, -94, -88, -82, -76, -70};
-	return drssi_dec_tree[drssi].threshold;
+	return drssi;
 //	return table[drssi_dec_tree[drssi].threshold];
 }
 

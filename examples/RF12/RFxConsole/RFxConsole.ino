@@ -2005,6 +2005,7 @@ void loop () {
 #endif
 
     if (rf12_recvDone()) {
+    	uint8_t getDRSSI = rf12_getRSSI();
 
 #if RF69_COMPAT && !TINY                // At this point the radio is in Sleep
         if (rf12_crc == 0) {
@@ -2054,8 +2055,8 @@ void loop () {
 #endif
 //            goodCRC++;
             if ((watchNode) && ((rf12_hdr & RF12_HDR_MASK) != watchNode)) return;
-			Serial.print(rf12_getRSSI());
-            showString(PSTR("dB OK"));
+			Serial.print(getDRSSI);
+            showString(PSTR(" OK"));
             crc = true;
         } else {
             activityLed(1);
