@@ -175,13 +175,20 @@ volatile uint8_t drssi;             // digital rssi state (see binary search tre
 };
 
  const drssi_dec_t drssi_dec_tree[] = {
+    /* 0  { B1001, B1000, B000 },  /* B1xxx show final values, B0xxx are intermediate */
+    /* 1  { B0010, B0000, B001 },  /* values where next threshold has to be set.      */
+    /* 2  { B1011, B1010, B010 },  /* Traversing of this tree is in rf_12interrupt() */
+    /* 3  { B0101, B0001, B011 },  // <- start value
+    /* 4  { B1101, B1100, B100 },
+    /* 5  { B1110, B0100, B101 } */
+
             /*  up    down  thres*/
-    /* 0 */ { B1001, B1000, B000 },  /* B1xxx show final values, B0xxx are intermediate */
-    /* 1 */ { B0010, B0000, B001 },  /* values where next threshold has to be set.      */
-    /* 2 */ { B1011, B1010, B010 },  /* Traversing of this three is in rf_12interrupt() */
-    /* 3 */ { B0101, B0001, B011 },  // <- start value
-    /* 4 */ { B1101, B1100, B100 },
-    /* 5 */ { B1110, B0100, B101 }
+    /* 0 */ {    9,    8,     0 },  /* B1xxx show final values, B0xxx are intermediate */
+    /* 1 */ {    2,    0,     1 },  /* values where next threshold has to be set.      */
+    /* 2 */ {   11,   10,     2 },  /* Traversing of this tree is in rf_12interrupt()  */
+    /* 3 */ {    5,    1,     3 },  // <- start value
+    /* 4 */ {   13,   12,     4 },
+    /* 5 */ {   14,    4,     5 }
 };
 
 #define RETRIES     8               // stop retrying after 8 times
@@ -380,6 +387,7 @@ uint16_t rf12_control(uint16_t cmd) {
 static void rf12_interrupt () {
     // a transfer of 2x 16 bits @ 2 MHz over SPI takes 2x 8 us inside this ISR
     // correction: now takes 2 + 8 µs, since sending can be done at 8 MHz
+    volatile uint16_t res = rf12_xfer(0x0000);
     status = res;
     interruptCount++;
     
@@ -387,9 +395,14 @@ static void rf12_interrupt () {
         uint8_t in = rf12_xferSlow(RF_RX_FIFO_READ);
 
         // do drssi binary-tree search
+        if ( drssi < 6 ) {			// not yet final value
+          if ( bitRead(res, 8) )	// rssi over threashold?
             drssi = drssi_dec_tree[drssi].up;
           else
             drssi = drssi_dec_tree[drssi].down;
+            
+          if ( drssi < 6 )		// not yet final destination
+            rf12_xfer(0x94A0 | ( drssi_dec_tree[drssi].threshold) );
         }
 
         if (rxfill == 0 && group != 0)
@@ -485,6 +498,8 @@ static void rf12_recvStart () {
 #endif
     rxstate = TXRECV;
 	drssi = 3;              // set drssi to start value
+    rf12_xfer(0x94A0 | drssi_dec_tree[drssi].threshold);
+	rf12_xfer(RF_RECEIVER_ON);
 }
 
 #include <RF12.h>
@@ -547,8 +562,11 @@ uint8_t rf12_recvDone () {
  // return signal strength calculated out of DRSSI bit
 int8_t rf12_getRSSI() {
     if (! drssi & B1000)
-        return 0;
+        return 255;
 
+	const int8_t table[] = {-106, -100, -94, -88, -82, -76, -70};
+	return drssi_dec_tree[drssi].threshold;
+//	return table[drssi_dec_tree[drssi].threshold];
 }
 
 /// @details
