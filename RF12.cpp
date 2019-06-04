@@ -380,7 +380,6 @@ uint16_t rf12_control(uint16_t cmd) {
 static void rf12_interrupt () {
     // a transfer of 2x 16 bits @ 2 MHz over SPI takes 2x 8 us inside this ISR
     // correction: now takes 2 + 8 µs, since sending can be done at 8 MHz
-    uint16_t res = rf12_xfer(0x0000);
     status = res;
     interruptCount++;
     
@@ -388,14 +387,9 @@ static void rf12_interrupt () {
         uint8_t in = rf12_xferSlow(RF_RX_FIFO_READ);
 
         // do drssi binary-tree search
-        if ( drssi < 6 ) {       	// not yet final value
-          if ( bitRead(status,8) )  // rssi over threashold?
             drssi = drssi_dec_tree[drssi].up;
           else
             drssi = drssi_dec_tree[drssi].down;
-          if ( drssi < 6 ) {     // not yet final destination
-            rf12_xfer(0x94A0 | drssi_dec_tree[drssi].threshold);
-          }
         }
 
         if (rxfill == 0 && group != 0)
@@ -491,7 +485,6 @@ static void rf12_recvStart () {
 #endif
     rxstate = TXRECV;
 	drssi = 3;              // set drssi to start value
-    rf12_xfer(RF_RECEIVER_ON);
 }
 
 #include <RF12.h>
@@ -556,8 +549,6 @@ int8_t rf12_getRSSI() {
     if (! drssi & B1000)
         return 0;
 
-     const int8_t table[] = {-106, -100, -94, -88, -82, -76, -70};
-    return table[drssi & B111];
 }
 
 /// @details
