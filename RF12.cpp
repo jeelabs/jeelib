@@ -498,7 +498,7 @@ static void rf12_recvStart () {
         rf12_crc = crc_update(rf12_crc, group);
 #endif
     rxstate = TXRECV;
-	drssi = 4;              // set drssi to start value
+	drssi = 3;              // set drssi to start value
     rf12_xfer(0x94A0 | drssi_dec_tree[drssi].threshold);
 	rf12_xfer(RF_RECEIVER_ON);
 }
@@ -566,8 +566,9 @@ int8_t rf12_getRSSI() {
         return 255;
 
 	const int8_t table[] = {-106, -100, -94, -88, -82, -76, -70};
-	return drssi;
+//	return drssi;
 //	return table[drssi_dec_tree[drssi].threshold];
+	return drssi_dec_tree[drssi & 7].threshold;
 }
 
 /// @details
