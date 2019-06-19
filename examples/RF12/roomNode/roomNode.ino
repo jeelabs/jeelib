@@ -101,7 +101,7 @@ struct {
             byte f = value;
             if (lastOn > 0)
                 ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-                    if (millis() - lastOn < 1000 * PIR_HOLD_TIME)
+                    if (millis() - lastOn < (uint32_t)(1000 * PIR_HOLD_TIME))
                         f = 1;
                 }
             return f;
