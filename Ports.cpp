@@ -1110,7 +1110,7 @@ void Sleepy::watchdogInterrupts (char mode) {
         mode ^= bit(3) | bit(WDP3);
     // pre-calculate the WDTCSR value, can't do it inside the timed sequence
     // we only generate interrupts, no reset
-    byte wdtcsr = mode >= 0 ? bit(WDIE) | mode : backupMode;
+    byte wdtcsr = mode >= 0 ? ( bit(WDE) & WDTCSR ) | bit(WDIE) | mode : backupMode;
     if(mode>=0) backupMode = WDTCSR;
     MCUSR &= ~(1<<WDRF);
     ATOMIC_BLOCK(ATOMIC_FORCEON) {
