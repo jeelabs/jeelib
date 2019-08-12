@@ -2026,7 +2026,7 @@ static byte * semaphoreGet (byte node, byte group) {
 			return &(semaphoreStack[c * 6]);
 		}
 	}
-	return false;	// Not found
+	return 0;	// Not found
 }
 
 void loop () {
@@ -2324,7 +2324,8 @@ void loop () {
         }
 
         // display RSSI value after packet data
-        showString(PSTR(" ("));
+     //   showString(PSTR(" ("));
+        printOneChar(' ');                
         if (config.output & 0x1)                  // Hex output?
             showByte(observedRX.rssi2);
         else {
@@ -2332,7 +2333,7 @@ void loop () {
             if (observedRX.rssi2 & 0x01) showString(PSTR(".5"));
             showString(PSTR("dB"));
         }
-        printOneChar(')');
+//        printOneChar(')');
         //        Serial.print((RF69::control(9,0)), HEX);  // LSB of frequency
   #if DEBUG
         showString(PSTR(" mCR1="));
@@ -2645,7 +2646,12 @@ Serial.print(")");
 	                			showString(PSTR(" NOT FOUND"));
                     		ackLen = 0;	// convert back to standard ack, without any additional payload
                     	}
-            		}
+            		} else 
+						if (rf12_data[0] != 85) {
+        	                showString(PSTR(" Alert (k")); 
+            	    		showByte( (rf12_data[0] ) );
+        	            	showString(PSTR(") "));
+        	        }
 #endif                                        
                     rf12_sendStart(RF12_ACK_REPLY, (v + 2), ackLen);
                     rf12_sendWait(0);
