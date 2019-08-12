@@ -1,6 +1,6 @@
 /// @dir RFxConsole
 ///////////////////////////////////////////////////////////////////////////////
-#define RF69_COMPAT      1	 // define this to use the RF69 driver i.s.o. RF12 
+#define RF69_COMPAT      0	 // define this to use the RF69 driver i.s.o. RF12 
 ///                          // The above flag must be set similarly in RF12.cpp
 ///                          // and RF69_avr.h
 #define BLOCK  0             // Alternate LED pin?
@@ -1250,7 +1250,7 @@ static void handleInput (char c) {
                     		++postingsLost;
 				 		}
                      } else nodeShow(value);
-                     top = 6;
+//                     top = 6;
 #endif
                      break;
             
@@ -1717,10 +1717,10 @@ static void dumpRegs() {
 //#endif
 static void showPost() {
 #if MESSAGING
-	if (semaphoreStack[0] == 0) {
+/*	if (semaphoreStack[0] == 0) {
 		showString(DONE); 
 		return;
-	}   
+	} */  
     int c = 0;
     while (semaphoreStack[c * 6 + 0] != 0) {
         printOneChar('e');								// Envelope

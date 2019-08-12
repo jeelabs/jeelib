@@ -29,7 +29,7 @@
 #define crc_update      _crc16_update
 #define BMX280_ADDRESS	0x76
 
-#define SERIAL  0   // set to 1 to also report readings on the serial port
+#define SERIAL  1   // set to 1 to also report readings on the serial port
 #define DEBUG   0   // set to 1 to display each loop() run and PIR trigger
 
 #define BME280_PORT  1   // defined if BME280 is connected to I2C
