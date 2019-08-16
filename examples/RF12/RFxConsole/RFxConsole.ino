@@ -1,8 +1,9 @@
 /// @dir RFxConsole
 ///////////////////////////////////////////////////////////////////////////////
-#define RF69_COMPAT      0	 // define this to use the RF69 driver i.s.o. RF12 
+#define RF69_COMPAT      1	 // define this to use the RF69 driver i.s.o. RF12 
 ///                          // The above flag must be set similarly in RF12.cpp
 ///                          // and RF69_avr.h
+#define SX1276	1
 #define BLOCK  0             // Alternate LED pin?
 #define INVERT_LED       1   // 0 is Jeenode usual and 1 inverse
 //
@@ -1630,7 +1631,11 @@ Serial.println(MCUSR, HEX);
         config.group = 0x00;        // Default group 0
         config.RegRssiThresh = 180;	// -90dB
         config.clearAir = 160;      // -80dB
+	#if SX1276
+        config.RegPaLvl = 223;		// Maximum power TX for SX1276!
+	#else        
         config.RegPaLvl = 159;		// Maximum power TX for RFM69CW!
+    #endif
 #endif
         saveConfig();
         WDTCSR |= _BV(WDE);			// Trigger watchdog restart
@@ -2807,9 +2812,9 @@ Serial.print(")");
                 	header |= RF12_HDR_DST | dest;
 
            		rf12_sendStart(header, stack, sendLen);
-//Serial.println("Sent!"); delay(10);
+//Serial.println("Sent!");
             	rf12_sendWait(1);  // Wait for transmission complete
-//Serial.println("Done looping!"); delay(10);
+//Serial.println("rf12_sendWait Done!"); delay(10);
 
             	if (config.verbosity & 1) {
 					// Display CRC transmitted           	

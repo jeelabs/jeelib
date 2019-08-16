@@ -356,7 +356,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x0D, 0x09, // AgcAutoOn, RxTrigger RSSI
   0x0E, 0x00, // RSSI two sample smoothing - we are a star network
   
-  0x09, 0xFF, // RegPaConfig
+  0x09, 0xDF, // RegPaConfig
 
   0x10, 0xC0, // RSSI Threshold -100dB
   0x12, 0x29, // RxBw 200 KHz, DCC 16%
@@ -529,8 +529,9 @@ uint8_t setMode (uint8_t mode) {	// TODO enhance return code
 
 #else
 uint8_t setMode (uint8_t mode) {	// TODO enhance return code
-    uint8_t c = 0;
+//    uint8_t c = 0;
 	writeReg(REG_OPMODE, mode);
+//	delay(10);
 //	if (mode < MODE_RECEIVER) return c;
 //    while ((readReg(REG_OPMODE) & 7) < 6) {
 //		for (byte tick = 0; tick < 100; tick++) NOP;	// Kill a little time
@@ -539,7 +540,10 @@ uint8_t setMode (uint8_t mode) {	// TODO enhance return code
 //    	rfapi.debug++;
 //        c++; if (c >= 254) break;
 //	}
-	return c;
+//	return c;
+//	if (REG_OPMODE != mode) {
+//		Serial.print(REG_OPMODE, HEX);
+//	}
 }
 #endif
 
@@ -671,6 +675,7 @@ return clear;
 }
 
 bool RF69::sending () {
+//Serial.println(rxstate);
     return (rxstate < TXIDLE);
 }
 
@@ -913,8 +918,8 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
           	writeReg(REG_TESTPA2, TESTPA2_20DB);    // cross your fingers
           	// Beware the duty cycle - 1% only
     	}
-    writeReg(REG_DIOMAPPING1, (DIO0_PACKETSENT /*| DIO3_TX_UNDEFINED*/));
 #endif
+    writeReg(REG_DIOMAPPING1, (DIO0_PACKETSENT /*| DIO3_TX_UNDEFINED*/));
 
     if (ptr != 0) {
     	writeReg(REG_SYNCCONFIG, fourByteSync);
