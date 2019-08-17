@@ -321,9 +321,8 @@ static void spiInit (void) {
   #if OPTIMIZE_SPI == 0
     SPCR |= _BV(SPR0);  // Divide SPI by 4
     SPCR |= _BV(SPR1);  // Divide SPI by 16
-//    SPSR |= _BV(SPI2X);  // Double SPI
   #else    
-//    SPSR |= _BV(SPI2X);  // Double SPI
+    SPSR |= _BV(SPI2X);  // Double SPI to fosc/2
   #endif
   
 #else

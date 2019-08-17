@@ -748,9 +748,10 @@ static void showStatus() {
         }
     }
 
-    byte* b = RF69::SPI_pins();  // {OPTIMIZE_SPI, PINCHG_IRQ, RF69_COMPAT, RFM_IRQ, SPI_SS, SPI_MOSI, SPI_MISO, SPI_SCK }
-
-  #if defined(__AVR_ATmega1284P__) // Moteino MEGA    
+    byte* b = RF69::SPI_pins();  // {OPTIMIZE_SPI, PINCHG_IRQ, RF69_COMPAT, RFM_IRQ, SPI_SS, SPI_MOSI, SPI_MISO, SPI_SCK 
+  #if defined(__AVR_ATmega2560__) 		   // ATMega2560 with SX1276    
+static byte n[] = {1,0,1,0,2,3,1,3,1};     // ATMEega1284 with RFM69 settings
+  #elif defined(__AVR_ATmega1284P__) 	   // Moteino MEGA    
 static byte n[] = {1,0,1,4,5,6,7,2,2};     // ATMEega1284 with RFM69 settings
   #else
 static byte n[] = {1,0,1,2,3,4,5,2,0};     // Default ATMega328 with RFM69 settings
@@ -767,7 +768,7 @@ for (byte i = 0; i < 9; i++) {
     }
 }    
 
-if (mismatch) showString(PSTR("Mismatch"));
+if (mismatch) showString(PSTR("Mismatch\n"));
 printOneChar('[');
 Serial.print(RF69::unexpected);
 printOneChar(',');
@@ -1656,6 +1657,8 @@ Serial.println(MCUSR, HEX);
     if (a != 4) {    // Table 18.5 Relationship Between SCK and the Oscillator Frequency
         showString(PSTR(" SPI="));
         Serial.println(a); 
+        Serial.println(SPCR,HEX);
+        Serial.println(SPSR,HEX);
     }
 #endif
     Serial.flush();
