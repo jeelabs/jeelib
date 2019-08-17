@@ -654,7 +654,7 @@ void RF69::setFrequency (uint32_t freq) {
 }
 
 uint8_t RF69::canSend (uint8_t clear) {
-/*	clearAir = clear;
+	clearAir = clear;
 	if (((rxfill == 0) || (rxdone))) {
 		setMode(MODE_FS_RX);
         rfapi.sendRSSI = currentRSSI();
@@ -668,9 +668,6 @@ uint8_t RF69::canSend (uint8_t clear) {
     	rfapi.rxfill = rxfill;
     	rfapi.rxdone = rxdone;
     }
-*/
-rxstate = TXIDLE;
-return clear;  
     return false;
 }
 
@@ -701,8 +698,7 @@ uint8_t* RF69::SPI_pins() {
 }
 
 uint8_t RF69::currentRSSI() {
-return 120;
-/*
+
   if (((rxfill == 0) || (rxdone))) {
       uint8_t storedMode = (readReg(REG_OPMODE) & MODE_MASK);
       uint8_t storeDIOM = readReg(REG_DIOMAPPING1);// Collect Interrupt triggers
@@ -720,6 +716,9 @@ return 120;
       }
 #endif
       uint8_t r = readReg(REG_RSSIVALUE);           // Collect RSSI value
+      
+      delay(1);
+      
       writeReg(REG_AFCFEI, AFC_CLEAR);
       writeReg(REG_RSSITHRESHOLD, 64);  			// Quiet down threshold
 	  setMode(MODE_FS_RX);                        	// Get out of RX mode
@@ -731,7 +730,7 @@ return 120;
       return r;
       
   } else return 0;
-*/
+
 }
 
 // References to the RF12 driver above this line will generate compiler errors!
@@ -788,7 +787,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         rxfill = rf69_buf[2] = 0;
         recvBuf = buf;
         setMode(MODE_STANDBY);
-//        startRSSI = currentRSSI();       
+        startRSSI = currentRSSI();       
 
 		rf12_drx = delayTXRECV;
 //		writeReg(REG_DIOMAPPING1, (DIO0_RSSI /*| DIO3_RSSI  DIO0_SYNCADDRESS*/));// Interrupt triggers

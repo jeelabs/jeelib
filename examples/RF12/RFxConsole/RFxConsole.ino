@@ -2758,7 +2758,7 @@ Serial.print(")");
     			Serial.print(rfapi.cumCount[1] +  rfapi.cumCount[2] + rfapi.cumCount[3]
     		 	+ rfapi.cumCount[4] + rfapi.cumCount[5] + rfapi.cumCount[6] + rfapi.cumCount[7]);
             
-            	for (byte i = 1; i < 8; i++) {
+/* New */		for (byte i = 0; i < 8; i++) {
             		if (rfapi.cumCount[i]) {
             			showString(PSTR(" [ "));
 						Serial.print(i);
@@ -2802,7 +2802,7 @@ Serial.print(")");
 #endif        
             activityLed(1);
             showString(TX);
-//			Serial.print(r); delay(10);
+			Serial.print(r); delay(10);
             if (cmd) {
             	showString(PSTR(" -> "));
             	showByte(sendLen);
