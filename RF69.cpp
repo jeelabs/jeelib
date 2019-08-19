@@ -472,7 +472,7 @@ uint8_t RF69::control(uint8_t cmd, uint8_t val) {
 // Do not change the order or values in the array below, add new values to a max of 127
 // pre-existing code is using these translate values!
 // See enum in RF69_compat.h line 52 (2018/09/28)
-const char translateReg[] PROGMEM = { 
+const char translateReg[] = { 
 	REG_SYNCVALUE7,			//[0]
 	REG_SYNCVALUE8,			//[1]
 	REG_BITRATEMSB,			//[2]
@@ -482,12 +482,21 @@ const char translateReg[] PROGMEM = {
 	REG_RSSIVALUE,			//[6]
 	REG_SYNCCONFIG,			//[7]
 	REG_SYNCGROUP,			//[8]
-	REG_PALEVEL				//(9)
+	REG_PALEVEL,			//(9)
+	REG_RSSITHRESHOLD		//(10)
     };
 uint8_t RF69::radioIndex(uint8_t index, uint8_t val) {
 	uint8_t cmd = index & 128;				// Preserve the write register bit
-//	radioIndex[0] = sizeoff radioIndex;
 	cmd |= translateReg[(index & 0x7F)];	// Apply translated reg number
+    
+    Serial.print("Index:");
+    Serial.println(index);
+    Serial.print("Val:");
+    Serial.println(val);
+    
+    Serial.print("Cmd:");
+    Serial.println(cmd);
+    
     PreventInterrupt RF69_avr_h_INT;
     return spiTransfer(cmd, val);
 }
@@ -607,6 +616,7 @@ static uint8_t initRadio (ROM_UINT8* init) {
 //            delay(2);
             init += 2;
         }
+        writeReg(REG_RSSITHRESHOLD, rfapi.configThreshold);
 /*        
     for (byte r = 1; r < 0x80; ++r) {
     	// Serial.print(r, HEX);
@@ -700,6 +710,7 @@ uint8_t* RF69::SPI_pins() {
 uint8_t RF69::currentRSSI() {
 
   if (((rxfill == 0) || (rxdone))) {
+#if !SX1276
       uint8_t storedMode = (readReg(REG_OPMODE) & MODE_MASK);
       uint8_t storeDIOM = readReg(REG_DIOMAPPING1);// Collect Interrupt triggers
 
@@ -709,7 +720,7 @@ uint8_t RF69::currentRSSI() {
       setMode(MODE_RECEIVER);   // Looses contents of FIFO and 36 spins
 
       rssiDelay = 0;
-#if !SX1276
+
       writeReg(REG_RSSICONFIG, RssiStart);	// Trigger an RSSI measurement
       while (!(readReg(REG_IRQFLAGS1) & IRQ1_RSSI)) {
           rssiDelay++;
@@ -717,8 +728,8 @@ uint8_t RF69::currentRSSI() {
 #endif
       uint8_t r = readReg(REG_RSSIVALUE);           // Collect RSSI value
       
-      delay(1);
-      
+//      delay(1);
+#if !SX1276      
       writeReg(REG_AFCFEI, AFC_CLEAR);
       writeReg(REG_RSSITHRESHOLD, 64);  			// Quiet down threshold
 	  setMode(MODE_FS_RX);                        	// Get out of RX mode
@@ -726,7 +737,7 @@ uint8_t RF69::currentRSSI() {
       writeReg(REG_RSSITHRESHOLD, rfapi.rssiThreshold);  // Set threshold
       writeReg(REG_DIOMAPPING1, storeDIOM);         // Restore Interrupt trigger
       setMode(storedMode); 							// Restore mode
-      
+#endif      
       return r;
       
   } else return 0;

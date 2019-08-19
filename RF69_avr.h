@@ -322,7 +322,7 @@ static void spiInit (void) {
     SPCR |= _BV(SPR0);  // Divide SPI by 4
     SPCR |= _BV(SPR1);  // Divide SPI by 16
   #else    
-    SPSR |= _BV(SPI2X);  // Double SPI to fosc/2
+//    SPSR |= _BV(SPI2X);  // Double SPI to fosc/2
   #endif
   
 #else

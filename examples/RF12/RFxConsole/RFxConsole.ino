@@ -113,7 +113,6 @@
   #define SERIAL_BAUD    38400   // can only be 9600 or 38400
   #define DATAFLASH      0       // do not change
   #undef  LED_PIN                // do not change
-  #define messageStore  16
 #else
   #define TINY        0
   #define SERIAL_BAUD 115200  // adjust as needed
@@ -225,14 +224,12 @@ static byte inChar () {
   #define LED_PIN     15       // activity LED, comment out to disable on/off operation is reversed to a normal Jeenode
   #define LED_ON       1
   #define LED_OFF      0
-  #define messageStore  255		// Contrained by byte variables
   #define MAX_NODES 100			// Constrained by eeprom
 
 #elif defined(__AVR_ATmega2560__) || defined(__AVR_ATmega1280__)
   #define LED_PIN     13		// activity LED, comment out to disable on/off operation is reversed to a normal Jeenode
   #define LED_ON       1
   #define LED_OFF      0
-  #define messageStore  255		// Contrained by byte variables
   #define MAX_NODES 100			// Constrained by eeprom
 
 #else
@@ -241,7 +238,6 @@ static byte inChar () {
   #else
 //    #define LED_PIN     13		// activity LED, comment out to disable
   #endif
-  #define messageStore  128
   #define MAX_NODES 10			// Contrained by RAM (22 bytes RAM per node)
 #endif
 
@@ -1054,12 +1050,14 @@ static void handleInput (char c) {
                      break;
 
             case 'R': // Set hardware specific RX threshold in eeprom
-                     //        	Serial.println(value);
+//                	Serial.println(RSSITHRESHOLD);
 					if (value) {
 #if RF69_COMPAT
-	                     RF69::control((0x80) | (0x29), value);	// Set radio
-                     	//	    	Serial.println(RF69::control(0x29, 160));
-
+/*
+						RF69::radioIndex(0x80 | RSSITHRESHOLD, value);
+						Serial.print("Readback:");
+                     	Serial.println(RF69::control(0x10, 160), HEX);
+*/
 #endif
                      	//        	Serial.println(config.RegRssiThresh);
                      	//        	Serial.println(rfapi.rssiThreshold);
