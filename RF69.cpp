@@ -933,14 +933,12 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
 
     if (ptr != 0) {
     	writeReg(REG_SYNCCONFIG, fourByteSync);
-//    	writeReg(REG_PALEVEL, rfapi.txPower);
+    	writeReg(REG_PALEVEL, rfapi.txPower);
     } else {
     	writeReg(REG_SYNCCONFIG, 0);	// Turn off sync generation
 	    writeReg(REG_PALEVEL, 0);
     }
-//    setMode(MODE_STANDBY);
-//    setMode(MODE_FS_TX);
-//Serial.println("Setting TX"); Serial.flush();   delay(10);    
+
     setMode(MODE_TRANSMITTER);
     
 /*  We must begin transmission to avoid overflowing the FIFO since
@@ -974,7 +972,6 @@ condition is met to transmit the packet data.
             }
             writeReg(REG_FIFO, out);
             ++rxstate;
-//            Serial.print(out, HEX); Serial.print(".");
         }
     }
 //        writeReg(REG_FIFOTHRESH, START_TX);     // if < 32 bytes, release FIFO
