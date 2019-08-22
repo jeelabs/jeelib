@@ -9,10 +9,13 @@
 #define ROM_UINT8       const uint8_t // Does this change storage to RAM?
 #define ROM_READ_UINT8  pgm_read_byte
 #define ROM_DATA        PROGMEM
+
 #define SX1276	1
+#define TX_INTERRUPT 1
 
 #if !SX1276
-/*
+#warning RF69.cpp: Building for RFM69xx 
+      
 #define LIBRARY_VERSION     15      // Stored in REG_SYNCVALUE6 by initRadio 
 #define REG_FIFO            0x00
 #define REG_OPMODE          0x01
@@ -197,10 +200,11 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 RF_API rfapi;
 
 #define RF_MAX   72
-*/
-#else
-// SX1276 in FSK Mode
 
+#else
+
+// SX1276 in FSK Mode
+#warning RF69.cpp: Building for SX1276       
 #define LIBRARY_VERSION     128      // Stored in REG_SYNCVALUE6 by initRadio 
 #define REG_FIFO            0x00
 #define REG_OPMODE          0x01
@@ -488,7 +492,7 @@ const char translateReg[] = {
 uint8_t RF69::radioIndex(uint8_t index, uint8_t val) {
 	uint8_t cmd = index & 128;				// Preserve the write register bit
 	cmd |= translateReg[(index & 0x7F)];	// Apply translated reg number
-    
+/*    
     Serial.print("Index:");
     Serial.println(index);
     Serial.print("Val:");
@@ -496,7 +500,7 @@ uint8_t RF69::radioIndex(uint8_t index, uint8_t val) {
     
     Serial.print("Cmd:");
     Serial.println(cmd);
-    
+*/    
     PreventInterrupt RF69_avr_h_INT;
     return spiTransfer(cmd, val);
 }
@@ -666,7 +670,7 @@ void RF69::setFrequency (uint32_t freq) {
 uint8_t RF69::canSend (uint8_t clear) {
 	clearAir = clear;
 	if (((rxfill == 0) || (rxdone))) {
-		setMode(MODE_FS_RX);
+//		setMode(MODE_FS_RX);
         rfapi.sendRSSI = currentRSSI();
    
         if(rfapi.sendRSSI >= clearAir) {
@@ -900,6 +904,7 @@ uint16_t rf69_status () {
 }
 
 void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
+    setMode(MODE_FS_TX);
 // Uses rf12_buf as the send buffer, rf69_buf reserved for RX
     for (int i = 0; i < len; ++i)
         rf12_data[i] = ((const uint8_t*) ptr)[i];
@@ -936,7 +941,7 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
     	writeReg(REG_PALEVEL, rfapi.txPower);
     } else {
     	writeReg(REG_SYNCCONFIG, 0);	// Turn off sync generation
-	    writeReg(REG_PALEVEL, 0);
+//	    writeReg(REG_PALEVEL, 0);
     }
 
     setMode(MODE_TRANSMITTER);
@@ -972,14 +977,39 @@ condition is met to transmit the packet data.
             }
             writeReg(REG_FIFO, out);
             ++rxstate;
+//            Serial.print('.');
         }
     }
 //        writeReg(REG_FIFOTHRESH, START_TX);     // if < 32 bytes, release FIFO
                                                   // for transmission
 /*  At this point packet is typically in the FIFO but not fully transmitted.
-    transmission complete will be indicated by an interrupt.                   
+    transmission complete will be indicated by an interrupt or conditional code below:                  
 */
-//Serial.println("Exiting TX"); Serial.flush();   delay(10);    
+#if !TX_INTERRUPT
+#warning RF69.cpp: TX completed using scanning       
+	while (1) {
+	    if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
+	#if !SX1276
+          	writeReg(REG_OCP, OCP_NORMAL);			// Overcurrent protection on
+          	writeReg(REG_TESTPA1, TESTPA1_NORMAL);	// Turn off high power 
+          	writeReg(REG_TESTPA2, TESTPA2_NORMAL);	// transmit
+    		writeReg(REG_PALEVEL, ((rfapi.txPower & 0x9F) | 0x80));	// PA1/PA2 off
+	#endif
+          	// rxstate will be TXDONE at this point
+          	txP++;
+            writeReg(REG_AFCFEI, AFC_CLEAR);	// If we are in RX mode
+			setMode(MODE_STANDBY);
+ 			writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
+         	// Restore sync bytes configuration
+          	if (group == 0) {               // Allow receiving from all groups
+				writeReg(REG_SYNCCONFIG, threeByteSync);             
+          	}
+          	rxstate = TXIDLE;
+          	Serial.print(".");
+          	break;
+          } else Serial.print('.');
+    }
+#endif
 
 }
 
@@ -1148,14 +1178,16 @@ second rollover and then will be 1.024 mS out.
         	rfapi.intRXFIFO++;
         	return;					// Get back to it.
 
-	    } else 
+#if TX_INTERRUPT
+#warning RF69.cpp: TX completed using an Interrupt       
+	    } else
 	    if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
-#if !SX1276
+	#if !SX1276
           	writeReg(REG_OCP, OCP_NORMAL);			// Overcurrent protection on
           	writeReg(REG_TESTPA1, TESTPA1_NORMAL);	// Turn off high power 
           	writeReg(REG_TESTPA2, TESTPA2_NORMAL);	// transmit
     		writeReg(REG_PALEVEL, ((rfapi.txPower & 0x9F) | 0x80));	// PA1/PA2 off
-#endif
+	#endif
           	// rxstate will be TXDONE at this point
           	txP++;
             writeReg(REG_AFCFEI, AFC_CLEAR);	// If we are in RX mode
@@ -1166,6 +1198,7 @@ second rollover and then will be 1.024 mS out.
 				writeReg(REG_SYNCCONFIG, threeByteSync);             
           	}
           	rxstate = TXIDLE;
+#endif
         } else {
             // We get here when a interrupt that is not for RX/TX completion.
             // Appears related to receiving noise when the bad CRC

@@ -1655,8 +1655,8 @@ Serial.println(MCUSR, HEX);
     if (a != 4) {    // Table 18.5 Relationship Between SCK and the Oscillator Frequency
         showString(PSTR(" SPI="));
         Serial.println(a); 
-        Serial.println(SPCR,HEX);
-        Serial.println(SPSR,HEX);
+//        Serial.println(SPCR,HEX);
+//        Serial.println(SPSR,HEX);
     }
 #endif
     Serial.flush();
@@ -2849,7 +2849,8 @@ Serial.print(")");
             showString(PSTR(" Busy 0x"));				// Not ready to send            
             Serial.print(s, HEX);
             busyCount++;
-            if ((++sendRetry & 3) > 3) {
+            if ((++sendRetry) > 3) {
+            	sendRetry = 0;
                 showString(ABORTED);					// Drop the command
                 cmd = 0;								// Request dropped
                 ping = false;							// Drop Noise level check

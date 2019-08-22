@@ -30,10 +30,6 @@ of power down sleep. */
 
 #define IRQ_ENABLE      sei()
 
-#if RF69_COMPAT
-	#warning Building for RFM69xx       
-#endif
-
 volatile byte lastPCInt;
 
 #if defined(__AVR_ATmega2560__) || defined(__AVR_ATmega1280__)
@@ -399,8 +395,8 @@ static void InitIntPin () {
     #elif RF69_COMPAT
         if (RF69::node != 0) {
             XXMSK &= ~ _BV(INT_BIT);          // Mask radio interrupt
-            attachInterrupt(0, interrupt_stub, RISING);				// Transmit vector            
-            attachInterrupt(INT_NUMBER, interrupt_stub, RISING);	// Receive vector
+            attachInterrupt(0, interrupt_stub, RISING);           
+            attachInterrupt(INT_NUMBER, interrupt_stub, RISING);
             XXMSK |= _BV(INT_BIT);            // Enable radio interrupt
         } else {
             detachInterrupt(0);
@@ -431,8 +427,8 @@ static void InitIntPin () {
     #elif RF69_COMPAT
         if (RF69::node != 0) {
             XXMSK &= ~ _BV(INT_BIT);          // Mask radio interrupt
-            attachInterrupt(0, interrupt_stub, RISING);				// Transmit vector            
-            attachInterrupt(INT_NUMBER, interrupt_stub, RISING);	// Receiver vector
+            attachInterrupt(0, interrupt_stub, RISING);          
+            attachInterrupt(INT_NUMBER, interrupt_stub, RISING);
             XXMSK |= _BV(INT_BIT);            // Enable radio interrupt
         } else {
             detachInterrupt(0);			// Transmit vector
