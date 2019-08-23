@@ -168,7 +168,6 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 // 0x09, 0x00, // FrfLsb, step = 61.03515625
 // 0x0B, 0x20, // AfcCtrl, afclowbetaon
 	0x11,0x9F, // PA0 only and maximum -3dB
-
 // Mismatching PA1 below with the RFM69x module present risks blowing a hole in the LNA
 // 0x11, 0x5F, // PA1 enable, Pout = max // uncomment this for RFM69H
 
@@ -201,10 +200,11 @@ RF_API rfapi;
 
 #define RF_MAX   72
 
-#else
+#else	///////////////////////////
 
 // SX1276 in FSK Mode
-#warning RF69.cpp: Building for SX1276       
+#warning RF69.cpp: Building for SX1276 
+      
 #define LIBRARY_VERSION     128      // Stored in REG_SYNCVALUE6 by initRadio 
 #define REG_FIFO            0x00
 #define REG_OPMODE          0x01
@@ -341,14 +341,11 @@ RF_API rfapi;
 #define FEI_DONE			0x40
 
 static ROM_UINT8 configRegs_compat [] ROM_DATA = {
-//  0x3F, IRQ2_FIFOOVERRUN, // Clear the FIFO
-//  0x26, 0x03, // Preamble bytes	
   0x27, 0x13, // SyncConfig = sync on, sync size = 4
   0x28, 0xAA, // SyncValue1 = 0xAA
   0x29, 0xAA, // SyncValue2 = 0xAA
   0x2A, 0x2D, // SyncValue3 = 0x2D
   0x2B, 0xD4, // SyncValue4 = 0xD4, 212, group
-//  0x2C, 0x00, // SyncValue5
 
   0x02, 0x02, // BitRateMsb, data rate = 49,261 khz
   0x03, 0x89, // BitRateLsb, divider = 32 MHz / 650 == 49,230 khz
@@ -357,32 +354,30 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x04, 0x05, // FdevMsb = 90 KHz
   0x05, 0xC3, // FdevLsb = 90 KHz
   
-  0x0D, 0x09, // AgcAutoOn, RxTrigger RSSI
+  0x09, 0xDF, // RegPaConfig: PA Boost, max power
+
+  0x0D, 0x09, // AgcAutoOn, RxTrigger:RSSI
   0x0E, 0x00, // RSSI two sample smoothing - we are a star network
   
-  0x09, 0xDF, // RegPaConfig
-
   0x10, 0xC0, // RSSI Threshold -100dB
-  0x12, 0x29, // RxBw 200 KHz, DCC 16%
-  0x13, 0x29, // RxBwAFC 200 Khz, DCC 16%. Only handling initial RSSI phase, not payload!
+  0x12, 0x09, // RxBw 200 KHz, DCC 16%
+  0x13, 0x09, // RxBwAFC 200 Khz, DCC 16%. Only handling initial RSSI phase, not payload!
 
- // 0x1A, 0x00,	// RegAFCFEI
-  0x1F, 0x00,	// Preamble Detector Off
+  0x1F, 0x00, // Preamble Detector Off
   
-//  0x24, 0x07,	// Clkcout disabled
-
   0x30, 0x00, // PacketConfig1 = fixed, no crc
   0x31, 0x40, // Packet Mode
   0x32, 0x00, // Payload length unlimited
-  0x35, 0x80, // FifoTresh, not empty
-  0x36, 0x40,	// Sequencer Stop
-  0x3B, 0x01,	// Auto temperature calibration disabled
-  0x3D,	0x00,	// LowBat detector disabled
+  
+  0x35, 0x84, // FifoTresh, not empty
+  0x36, 0x40, // Sequencer Stop
+  
+  0x3B, 0x01, // Auto temperature calibration disabled
+  
+  0x3D,	0x00, // LowBat detector disabled
+  
   0x40, 0x00, // Set DIOMAPPING1 to POR value
   0x41, 0x00, // DIOMAPPING2, Initially DIO4_TempChangeLowBat
-//  0x41, 0xC0, // DIOMAPPING2, RSSI on DI04
-  //  0x3D, 0x10, // PacketConfig2, interpkt = 1, autorxrestart off
-//  0x58, 0x2D, // High sensitivity mode
 
   0
 };
@@ -390,13 +385,9 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 RF_API rfapi;
 
 #define RF_MAX   72
-#endif
-/*
-// Radio independant access indexes
-#define BASEINDEX 128
-#define sync7 7 + BASEINDEX
-#define sync8 8 + BASEINDEX
-*/
+
+#endif	/////////////////////////// SX1276
+
 // transceiver states, these determine what to do with each interrupt
 enum { TXCRC1, TXCRC2, TXDONE, TXIDLE, TXRECV, RXFIFO };
 
@@ -544,6 +535,7 @@ uint8_t setMode (uint8_t mode) {	// TODO enhance return code
 uint8_t setMode (uint8_t mode) {	// TODO enhance return code
 //    uint8_t c = 0;
 	writeReg(REG_OPMODE, mode);
+//    writeReg(REG_OPMODE, (mode | MODE_SEQUENCER_OFF));
 //	delay(10);
 //	if (mode < MODE_RECEIVER) return c;
 //    while ((readReg(REG_OPMODE) & 7) < 6) {
@@ -903,15 +895,75 @@ uint16_t rf69_status () {
     return (rxstate << 8) | rxfill;   
 }
 
+/*
+
 void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
+#if SX1276
     setMode(MODE_FS_TX);
+#endif
+//    flushFifo();
+    writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
+    // REG_SYNCGROUP must have been set to an appropriate group before this.
+    crc = _crc16_update(~0, readReg(REG_SYNCGROUP));	// group number included in CRC
+
+// Uses rf12_buf as the send buffer, rf69_buf reserved for RX
+    for (int i = 0; i < len; ++i)
+        rf12_data[i] = ((const uint8_t*) ptr)[i];
+//    rf12_hdr = hdr & RF12_HDR_DST ? hdr : (hdr & ~RF12_HDR_MASK) + node; 
+//    rf12_len = len;
+//    rxstate = - (2 + rf12_len);// Preamble/SYN1/SYN2/2D/Group are inserted by hardware
+    
+
+//    if (rf12_len > 9)                       // Expedite short packet TX
+//      writeReg(REG_FIFOTHRESH, DELAY_TX);   // Wait for FIFO to hit 32 bytes
+//    the above code is to facilitate slow SPI bus speeds.  
+#if !SX1276
+	if (rfapi.txPower & 0x80) {
+		rfapi.txPower = (rfapi.txPower & 0x9F);
+	}
+	else if
+		(rfapi.txPower == 0x7F) {
+          	writeReg(REG_OCP, OCP_20DB);    		// Overcurrent protection OFF!
+          	writeReg(REG_TESTPA1, TESTPA1_20DB);    // Turn on transmit highest power 
+          	writeReg(REG_TESTPA2, TESTPA2_20DB);    // cross your fingers
+          	// Beware the duty cycle - 1% only
+    	}
+#endif
+    writeReg(REG_DIOMAPPING1, (DIO0_PACKETSENT));
+
+    if (ptr != 0) {
+    	writeReg(REG_SYNCCONFIG, fourByteSync);
+    	writeReg(REG_PALEVEL, rfapi.txPower);
+    } else {
+    	writeReg(REG_SYNCCONFIG, 0);	// Turn off sync generation
+//	    writeReg(REG_PALEVEL, 0);
+    }
+    writeReg(REG_FIFO, hdr & RF12_HDR_DST ? hdr : (hdr & ~RF12_HDR_MASK) + node); 
+    crc = _crc16_update(crc, hdr & RF12_HDR_DST ? hdr : (hdr & ~RF12_HDR_MASK) + node);
+    writeReg(REG_FIFO, len);
+    crc = _crc16_update(crc, len);  
+    // Preamble/SYN1/SYN2/2D/Group are inserted by hardware
+
+*/
+
+
+
+
+
+
+void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
+#if SX1276
+    setMode(MODE_STANDBY);
+ //   setMode(MODE_FS_TX);
+#endif
+
 // Uses rf12_buf as the send buffer, rf69_buf reserved for RX
     for (int i = 0; i < len; ++i)
         rf12_data[i] = ((const uint8_t*) ptr)[i];
     rf12_hdr = hdr & RF12_HDR_DST ? hdr : (hdr & ~RF12_HDR_MASK) + node; 
     rf12_len = len;
     rxstate = - (2 + rf12_len);// Preamble/SYN1/SYN2/2D/Group are inserted by hardware
-    flushFifo();
+//    flushFifo();
     writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
 /*  All packets are transmitted with a 4 byte header SYN1/SYN2/2D/Group  
     even when the group is zero                                               */
@@ -945,6 +997,9 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
     }
 
     setMode(MODE_TRANSMITTER);
+//	delay(1);
+#
+//	Serial.println(readReg(REG_OPMODE));
     
 /*  We must begin transmission to avoid overflowing the FIFO since
     jeelib packet size can exceed FIFO size. We also want to avoid the
