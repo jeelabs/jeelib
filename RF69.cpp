@@ -662,7 +662,7 @@ void RF69::setFrequency (uint32_t freq) {
 uint8_t RF69::canSend (uint8_t clear) {
 	clearAir = clear;
 	if (((rxfill == 0) || (rxdone))) {
-//		setMode(MODE_FS_RX);
+		setMode(MODE_FS_TX);
         rfapi.sendRSSI = currentRSSI();
    
         if(rfapi.sendRSSI >= clearAir) {

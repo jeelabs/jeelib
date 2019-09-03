@@ -190,16 +190,16 @@ uint8_t SHT11::measure(uint8_t type, void (*delayFun)()) {
  *  @param t_C Variable to store the temperature in degree celcius into.
  */
 void SHT11::calculate(float& rh_true, float& t_C) const {
-    const float C1=-2.0468;
-    const float C2= 0.0367;
-    const float C3=-1.5955e-6;
+    const float CC1=-2.0468;
+    const float CC2= 0.0367;
+    const float CC3=-1.5955e-6;
     const float T1=0.01;
     const float T2=0.00008;
 
     t_C = meas[TEMP] * 0.01 - 39.66;  // for 3.3 V
 
     float rh = meas[HUMI];
-    rh_true = (t_C-25)*(T1+T2*rh) + C3*rh*rh + C2*rh + C1;
+    rh_true = (t_C-25)*(T1+T2*rh) + CC3*rh*rh + CC2*rh + CC1;
     if (rh_true > 99) rh_true = 100;
     if (rh_true < 0.1) rh_true = 0.1;
 } 

@@ -644,7 +644,7 @@ class HeadingBoard : public PortI2C {
     DeviceI2C eeprom, adc, compass;
     Port aux;
     // keep following fields in order:
-    word C1, C2, C3, C4, C5, C6, C7;
+    word CC1, CC2, CC3, CC4, CC5, CC6, CC7;
     byte A, B, C, D, setReset;
 
     byte eepromByte(byte reg) const;

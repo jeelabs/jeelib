@@ -325,8 +325,10 @@ static void spiInit (void) {
     USICR = _BV(USIWM0); // ATtiny
 #endif
 
-    // pinMode(RFM_IRQ, INPUT);
-    // digitalWrite(RFM_IRQ, 1); // pull-up
+//	pinMode(2, INPUT_PULLUP);
+//	pinMode(RFM_IRQ, INPUT_PULLUP);
+//	digitalWrite(2, 1); // pull-up
+//	digitalWrite(RFM_IRQ, 1); // pull-up
     // Serial.print("SPCR=");
     // Serial.println(SPCR, BIN); delay(10);
     // Serial.print("SPSR=");

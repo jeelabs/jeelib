@@ -689,14 +689,14 @@ byte HeadingBoard::eepromByte(byte reg) const {
 
 void HeadingBoard::getConstants() {
     for (byte i = 0; i < 18; ++i)
-        ((byte*) &C1)[i < 14 ? i^1 : i] = eepromByte(16 + i);
-    // Serial.println(C1);
-    // Serial.println(C2);
-    // Serial.println(C3);
-    // Serial.println(C4);
-    // Serial.println(C5);
-    // Serial.println(C6);
-    // Serial.println(C7);
+        ((byte*) &CC1)[i < 14 ? i^1 : i] = eepromByte(16 + i);
+    // Serial.println(CC1);
+    // Serial.println(CC2);
+    // Serial.println(CC3);
+    // Serial.println(CC4);
+    // Serial.println(CC5);
+    // Serial.println(CC6);
+    // Serial.println(CC7);
     // Serial.println(A, DEC);
     // Serial.println(B, DEC);
     // Serial.println(C, DEC);
@@ -739,30 +739,30 @@ void HeadingBoard::begin() {
 }
 
 void HeadingBoard::pressure(int& temp, int& pres) const {
-    word D2 = adcValue(0);
-    // Serial.print("D2 = ");
-    // Serial.println(D2);
-    int corr = (D2 - C5) >> 7;        
+    word AD2 = adcValue(0);
+    // Serial.print("AD2 = ");
+    // Serial.println(AD2);
+    int corr = (AD2 - CC5) >> 7;        
     // Serial.print("corr = ");
     // Serial.println(corr);
-    int dUT = (D2 - C5) - (corr * (long) corr * (D2 >= C5 ? A : B) >> C);
+    int dUT = (AD2 - CC5) - (corr * (long) corr * (AD2 >= CC5 ? A : B) >> C);
     // Serial.print("dUT = ");
     // Serial.println(dUT);
-    temp = 250 + ((long) dUT * C6 >> 16) - (dUT >> D); 
+    temp = 250 + ((long) dUT * CC6 >> 16) - (dUT >> D); 
 
-    word D1 = adcValue(1);
-    // Serial.print("D1 = ");
-    // Serial.println(D1);
-    word OFF = (C2 + ((C4 - 1024) * dUT >> 14)) << 2;
+    word AD1 = adcValue(1);
+    // Serial.print("AD1 = ");
+    // Serial.println(AD1);
+    word OFF = (CC2 + ((CC4 - 1024) * dUT >> 14)) << 2;
     // Serial.print("OFF = ");
     // Serial.println(OFF);
-    word SENS = C1 + (C3 * dUT >> 10);
+    word SENS = CC1 + (CC3 * dUT >> 10);
     // Serial.print("SENS = ");
     // Serial.println(SENS);
-    word X = (SENS * (D1 - 7168L) >> 14) - OFF;
+    word X = (SENS * (AD1 - 7168L) >> 14) - OFF;
     // Serial.print("X = ");
     // Serial.println(X);
-    pres = (X * 10L >> 5) + C7;
+    pres = (X * 10L >> 5) + CC7;
 }
 
 void HeadingBoard::heading(int& xaxis, int& yaxis) {
