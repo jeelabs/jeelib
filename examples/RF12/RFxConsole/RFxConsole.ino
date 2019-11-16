@@ -1396,7 +1396,7 @@ static void handleInput (char c) {
         showString(PSTR("> "));
         for (byte i = 0; i < top; ++i) {
             showByte(stack[i]);
-            stack[i] = 0;
+ //           stack[i] = 0;
             printOneChar(',');
         }
         if (!(nullValue)) Serial.print(value);
