@@ -1,6 +1,6 @@
 /// @dir RFxConsole
 ///////////////////////////////////////////////////////////////////////////////
-#define RF69_COMPAT      0	 // define this to use the RF69 driver i.s.o. RF12 
+#define RF69_COMPAT      1	 // define this to use the RF69 driver i.s.o. RF12 
 ///                          // The above flag must be set similarly in RF12.cpp
 ///                          // and RF69_avr.h
 #define BLOCK  0             // Alternate LED pin?
@@ -383,8 +383,9 @@ ISR(TIMER1_COMPA_vect){
 
 unsigned int loopCount, idleTime = 0, offTime = 0;
 #if MESSAGING
+#define ackEntry 8
 #define ackQueue 16
-static byte semaphoreStack[ (ackQueue * 6) + 1];	// FIFO per node group /* integer aligned */
+static byte semaphoreStack[ (ackQueue * ackEntry) + 1];	// FIFO per node group /* integer aligned */
 #endif
 //static unsigned long goodCRC;
 #if RF69_COMPAT && STATISTICS
@@ -1251,7 +1252,7 @@ static void handleInput (char c) {
             		break;	
 
             case 'm':
-            		for (byte i = 0; i < (16 * 6); i++) {
+            		for (byte i = 0; i < (ackQueue * ackEntry); i++) {
             			Serial.print(semaphoreStack[i]);
         				printOneChar(' ');
             		}
@@ -1362,10 +1363,10 @@ static void handleInput (char c) {
             		 	rfapi.maxGap = maxCrcGap = maxRestartRate = 0;
 					} else 
 #endif
-            		 if (value == 102) {
-            		 	for (int c = 0; c < MAX_NODES; ++c)
+/*            		 if (value == 102) {
+            		 	for (int c = 0; c < ackQueue; ++c)  ????
             		 		semaphoreStack[c * 3] = 0;
-					} else 
+					} else */
 					if (value == 123) {
 						clrConfig();
 						showString(PSTR(" Zzz...\n"));
@@ -1688,28 +1689,28 @@ static void showPost() {
 		return;
 	} */  
     int c = 0;
-    while (semaphoreStack[c * 6 + 0] != 0) {
-        printOneChar('e');								// Envelope
+    while (semaphoreStack[c * ackEntry + 0] != 0) {
+        printOneChar('e');										// Envelope
     	Serial.print(c); printOneChar(' ');
-//        printOneChar('l');
-//		Serial.print(l + 1);							// Ack length
-//        printOneChar(' ');
+        printOneChar('c');
+		Serial.print(semaphoreStack[(c * ackEntry) + 6]);		// TX Count
+        printOneChar(' ');
         printOneChar('i');
-    	Serial.print(semaphoreStack[(c * 6) + 0] & 31);	// Node
+    	Serial.print(semaphoreStack[(c * ackEntry) + 0] & 31);	// Node
         printOneChar(' ');
         printOneChar('g');
-	   	Serial.print(semaphoreStack[(c * 6) + 1]);		// Group
+	   	Serial.print(semaphoreStack[(c * ackEntry) + 1]);		// Group
         printOneChar(' ');
         printOneChar('k');
-    	Serial.print(semaphoreStack[(c * 6) + 2]);		// Key
+    	Serial.print(semaphoreStack[(c * ackEntry) + 2]);		// Key
 	    printOneChar(' ');
 	    printOneChar('f');
-    	Serial.print(semaphoreStack[(c * 6) + 3]);	// Flag
-    	byte l = (semaphoreStack[ c * 6 + 0 ] >> 5);
+    	Serial.print(semaphoreStack[(c * ackEntry) + 3]);		// Flag
+    	byte l = (semaphoreStack[ c * ackEntry + 0 ] >> 5);
 	    if (l > 1) {
 	        printOneChar(' ');
 	        printOneChar('p');
-			showWord((semaphoreStack[(c * 6) + 5]) << 8 | semaphoreStack[(c * 6) + 4]);
+			showWord((semaphoreStack[(c * ackEntry) + 5]) << 8 | semaphoreStack[(c * ackEntry) + 4]);
 		}
 		Serial.println();										// Integer post
    		++c;   
@@ -1934,13 +1935,15 @@ static unsigned int getIndex (byte group, byte node) {
 
 static bool semaphoreSave (byte node, byte group, byte key, byte flag, unsigned int value) {
 	for (int c = 0; c < ackQueue; ++c) {
-		if (semaphoreStack[(c * 6) + 0] == 0) {
-			semaphoreStack[(c * 6) + 0] = node;	
-			semaphoreStack[(c * 6) + 1] = group;	
-			semaphoreStack[(c * 6) + 2] = key;
-			semaphoreStack[(c * 6) + 3] = flag;
-			semaphoreStack[(c * 6) + 4] = value;
-			semaphoreStack[(c * 6) + 5] = value >> 8;
+		if (semaphoreStack[(c * ackEntry) + 0] == 0) {
+			semaphoreStack[(c * ackEntry) + 0] = node;	
+			semaphoreStack[(c * ackEntry) + 1] = group;	
+			semaphoreStack[(c * ackEntry) + 2] = key;
+			semaphoreStack[(c * ackEntry) + 3] = flag;
+			semaphoreStack[(c * ackEntry) + 4] = value;
+			semaphoreStack[(c * ackEntry) + 5] = value >> 8;
+			semaphoreStack[(c * ackEntry) + 6] = 0;	// TX Count
+			semaphoreStack[(c * ackEntry) + 7] = 0;	// SPare		
 			return true;	
 		}
 	}
@@ -1949,14 +1952,15 @@ static bool semaphoreSave (byte node, byte group, byte key, byte flag, unsigned 
 
 static bool semaphoreUpdate (byte node, byte group, byte key, byte newKey, byte flag, uint16_t value) {
 	for (int c = 0; c < ackQueue; ++c) {
-		if ( ( semaphoreStack[ (c * 6) + 0] & 31) == (node & 31)	
-		&& semaphoreStack[ (c * 6) + 1] == group				
-		&&	semaphoreStack[ (c * 6) + 2] == key) {
-				semaphoreStack[(c * 6) + 0] = node;	// Possibly updates ackLen
-				semaphoreStack[(c * 6) + 2] = newKey;
-				semaphoreStack[(c * 6) + 3] = flag;
-				semaphoreStack[(c * 6) + 4] = value;
-				semaphoreStack[(c * 6) + 5] = value >> 8;
+		if ( ( semaphoreStack[ (c * ackEntry) + 0] & 31) == (node & 31)	
+		&& semaphoreStack[ (c * ackEntry) + 1] == group				
+		&&	semaphoreStack[ (c * ackEntry) + 2] == key) {
+				semaphoreStack[(c * ackEntry) + 0] = node;	// Possibly updates ackLen
+				semaphoreStack[(c * ackEntry) + 2] = newKey;
+				semaphoreStack[(c * ackEntry) + 3] = flag;
+				semaphoreStack[(c * ackEntry) + 4] = value;
+				semaphoreStack[(c * ackEntry) + 5] = value >> 8;
+				semaphoreStack[(c * ackEntry) + 6] = 0;	// Clear TX count
 				return true;	
 		} else
 			if (semaphoreSave(node, group, newKey, flag, value)) return true;
@@ -1965,19 +1969,21 @@ static bool semaphoreUpdate (byte node, byte group, byte key, byte newKey, byte 
 }
 static bool semaphoreDrop (byte node, byte group) {
 	for (int c = 0; c < ackQueue; c++) {
-		if ( ( semaphoreStack[ (c * 6) + 0] & 31) == (node & 31)	
-		&& semaphoreStack[ (c * 6) + 1] == group) {
+		if ( ( semaphoreStack[ (c * ackEntry) + 0] & 31) == (node & 31)	
+		&& semaphoreStack[ (c * ackEntry) + 1] == group) {
 			while (c < ackQueue) {
 				// Overwrite by shifting down entries above
-				semaphoreStack[ (c * 6) + 0] = semaphoreStack[ (c * 6) + 6];
-				if (semaphoreStack[ (c * 6) + 6] == 0) {
+				semaphoreStack[ (c * ackEntry) + 0] = semaphoreStack[ (c * ackEntry) + ackEntry];
+				if (semaphoreStack[ (c * ackEntry) + ackEntry] == 0) {	// Reached highest used stack entry
 					break;
 				}
-				semaphoreStack[ (c * 6) + 1] = semaphoreStack[ (c * 6) + 7];
-				semaphoreStack[ (c * 6) + 2] = semaphoreStack[ (c * 6) + 8];
-				semaphoreStack[ (c * 6) + 3] = semaphoreStack[ (c * 6) + 9];
-				semaphoreStack[ (c * 6) + 4] = semaphoreStack[ (c * 6) + 10];
-				semaphoreStack[ (c * 6) + 5] = semaphoreStack[ (c * 6) + 11];
+				semaphoreStack[ (c * ackEntry) + 1] = semaphoreStack[ (c * ackEntry) + (ackEntry + 1)];
+				semaphoreStack[ (c * ackEntry) + 2] = semaphoreStack[ (c * ackEntry) + (ackEntry + 2)];
+				semaphoreStack[ (c * ackEntry) + 3] = semaphoreStack[ (c * ackEntry) + (ackEntry + 3)];
+				semaphoreStack[ (c * ackEntry) + 4] = semaphoreStack[ (c * ackEntry) + (ackEntry + 4)];
+				semaphoreStack[ (c * ackEntry) + 5] = semaphoreStack[ (c * ackEntry) + (ackEntry + 5)];
+				semaphoreStack[ (c * ackEntry) + 6] = semaphoreStack[ (c * ackEntry) + (ackEntry + 6)];
+				semaphoreStack[ (c * ackEntry) + 7] = semaphoreStack[ (c * ackEntry) + (ackEntry + 7)];
 				++c;
 			}
 		return true;
@@ -1987,9 +1993,9 @@ static bool semaphoreDrop (byte node, byte group) {
 }
 static byte * semaphoreGet (byte node, byte group) {
 	for (int c = 0; c < ackQueue; ++c) {
-		if ( ( semaphoreStack[ (c * 6) + 0] & 31) == (node & 31)	
-		&& (semaphoreStack[(c * 6) + 1] == group)) {
-			return &(semaphoreStack[c * 6]);
+		if ( ( semaphoreStack[ (c * ackEntry) + 0] & 31) == (node & 31)	
+		&& (semaphoreStack[(c * ackEntry) + 1] == group)) {
+			return &(semaphoreStack[c * ackEntry]);
 		}
 	}
 	return 0;	// Not found
@@ -2552,7 +2558,7 @@ Serial.print(")");
                 	if ((v) && (!(special))) {			// Post pending?
                 		bool dropNow = false;                			
             	        ackLen = (*(v + 0) >> 5) + 1;	// ACK length in high bits of node
-	                    if (rf12_data[0] == (*(v + 2))) {
+	                    if (rf12_data[0] == (*(v + 2)) && (*(v + 6)) ) { // Matched and transmitted at least once
 	                    // Check if previous Post value is the first byte of this payload 
         	                showString(PSTR(" Released "));
                     		postingsClr++;
@@ -2563,9 +2569,12 @@ Serial.print(")");
         	                showString(PSTR(" Rejected "));        	                                			
             	        } else {
                     		showString(PSTR(" Posted "));
+                    		(byte)++(*(v + 6));
                     		postingsOut++;
                     	}
-                    	showString(PSTR("(k"));
+                    	printOneChar('c');
+                    	showByte((*(v + 6)));
+                    	showString(PSTR(" (k"));
             	    	showByte( (rf12_data[0] ) );
         	            showString(PSTR(") "));
 
