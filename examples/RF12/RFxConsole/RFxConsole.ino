@@ -401,6 +401,7 @@ static byte maxRSSI[MAX_NODES];
 static byte minLNA[MAX_NODES];
 static byte lastLNA[MAX_NODES];
 static byte maxLNA[MAX_NODES];
+static byte highestAck[MAX_NODES];
 #endif
 #if RF69_COMPAT && !TINY
 static byte CRCbadMinRSSI = 255;
@@ -1252,6 +1253,11 @@ static void handleInput (char c) {
             		break;	
 
             case 'm':
+            		for (byte i = 0; i < MAX_NODES; i++) {
+            			Serial.print(highestAck[i]);
+        				printOneChar(' ');
+            		}
+            		Serial.println();
             		for (byte i = 0; i < (ackQueue * ackEntry); i++) {
             			Serial.print(semaphoreStack[i]);
         				printOneChar(' ');
@@ -1855,13 +1861,17 @@ static void oneShow(byte index) {
 	    showString(PSTR(" rx:"));
 	    Serial.print(c);
 	}
+	if (highestAck[index]) {
+		showString(PSTR(" h-ack:"));		
+		Serial.print(highestAck[index]);	
+	}
 #endif
 
 #if MESSAGING 
-	byte * v;    
-    if (v = semaphoreGet(n, g)) {
+	byte * v = semaphoreGet(n, g);    
+    if (v) {
     	showString(PSTR(" post:")); 
-    	showByte(*(v + 2));
+    	showByte((*(v + 3)));	// More informative than the (+ 2) value
     }
 #endif
 
@@ -2579,7 +2589,7 @@ Serial.print(")");
         	            showString(PSTR(") "));
 
                     	printOneChar('k');
-						Serial.print( (*(v + 2) ) );
+						showByte( (*(v + 2) ) );
 						showString(PSTR(" f"));
 						Serial.print( (*(v + 3) ) );
 
@@ -2590,6 +2600,11 @@ Serial.print(")");
 						showString(PSTR(" l"));
 						crlf = true;
                      	Serial.print(ackLen);
+                     	
+                    	byte i = getIndex( rf12_grp, (rf12_hdr & RF12_HDR_MASK) );
+                    	if ( (*(v + 6) > highestAck[i]) ) 
+                    	  highestAck[i] = (*(v + 6));		// Save hi point
+                    	
                      	if (dropNow) {
 	                    	if ( !(semaphoreDrop((rf12_hdr & RF12_HDR_MASK), rf12_grp) ) )
 	                			showString(PSTR(" NOT FOUND"));
