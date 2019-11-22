@@ -2602,9 +2602,10 @@ Serial.print(")");
                      	Serial.print(ackLen);
                      	
                     	byte i = getIndex( rf12_grp, (rf12_hdr & RF12_HDR_MASK) );
-                    	if ( (*(v + 6) > highestAck[i]) ) 
-                    	  highestAck[i] = (*(v + 6));		// Save hi point
-                    	
+                    	if (i) {
+                    		if ( (*(v + 6) > highestAck[NodeMap]) ) 
+                    	  	highestAck[NodeMap] = (*(v + 6));		// Save hi point
+                    	}
                      	if (dropNow) {
 	                    	if ( !(semaphoreDrop((rf12_hdr & RF12_HDR_MASK), rf12_grp) ) )
 	                			showString(PSTR(" NOT FOUND"));
