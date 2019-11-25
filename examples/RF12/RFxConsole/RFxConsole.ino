@@ -1678,14 +1678,46 @@ static void dumpEEprom() {
 //#if DEBUG && RF69_COMPAT
 /// Display the RFM69x registers
 static void dumpRegs() {
-    Serial.print("\nRFM69x Registers:");
+/*
+void SX1276fsk::dumpRegs() {
+    puts("");
+    puts("    00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F");
+    for (int i=0; i<0x70; i+=16) {
+        printf("%02x:", i);
+        for (int j=0; j<16; j++)
+            if (i==0 && j==0) printf("   "); else printf(" %02x", readReg(i+j));
+        printf("\n");
+    }
+}
+*/
+	showString(PSTR("\nRadio Registers:\n"));      
+	showString(PSTR("    00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F\n"));      
+    for (byte i = 0; i < 0x80; i+=16) {
+    	showNibble(i >> 4); showNibble(i); printOneChar(':');
+        for (byte j=0; j<16; j++)
+            if (i==0 && j==0) showString(PSTR("   ")); 
+            else {
+    			printOneChar(' ');
+	            byte r = RF69::control((i + j), 0);
+    			showNibble(r >> 4); showNibble(r);
+    		}
+    		Serial.println();
+    }
+	
+/*
+
+    Serial.print("\nRFM69x Registers:\n");
     for (byte r = 1; r < 0x80; ++r) {
-        showByte(RF69::control(r, 0)); // Prints out Radio Registers.
-        printOneChar(',');
-        delay(2);
+    	Serial.print(r, HEX);
+    	printOneChar('=');
+        Serial.print(RF69::control(r, 0), HEX); // Prints out Radio Registers.
+        if (r == 16 || r == 32 || r == 48 || r == 64 || r ==80 || r == 96 || r == 112 || r == 127) Serial.println();
+        else printOneChar(',');
+//        delay(2);
     }
     Serial.println();
-    delay(10);
+//    delay(10);
+*/
 }
 //#endif
 static void showPost() {
