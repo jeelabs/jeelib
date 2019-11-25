@@ -1715,6 +1715,34 @@ static void dumpEEprom() {
 
 /// Display the RFM69x registers
 static void dumpRegs() {
+/*
+void SX1276fsk::dumpRegs() {
+    puts("");
+    puts("    00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F");
+    for (int i=0; i<0x70; i+=16) {
+        printf("%02x:", i);
+        for (int j=0; j<16; j++)
+            if (i==0 && j==0) printf("   "); else printf(" %02x", readReg(i+j));
+        printf("\n");
+    }
+}
+*/
+	showString(PSTR("\nRadio Registers:\n"));      
+	showString(PSTR("    00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F\n"));      
+    for (byte i = 0; i < 0x80; i+=16) {
+    	showNibble(i >> 4); showNibble(i); printOneChar(':');
+        for (byte j=0; j<16; j++)
+            if (i==0 && j==0) showString(PSTR("   ")); 
+            else {
+    			printOneChar(' ');
+	            byte r = RF69::control((i + j), 0);
+    			showNibble(r >> 4); showNibble(r);
+    		}
+    		Serial.println();
+    }
+	
+/*
+
     Serial.print("\nRFM69x Registers:\n");
     for (byte r = 1; r < 0x80; ++r) {
     	Serial.print(r, HEX);
@@ -1726,6 +1754,7 @@ static void dumpRegs() {
     }
     Serial.println();
 //    delay(10);
+*/
 }
 //#endif
 static void showPost() {
