@@ -42,10 +42,10 @@ volatile byte lastPCInt;
 #define SS_PORT     PORTB
 #define SS_BIT      PB4		// pin 23, Digital 10
 // Items below fixed and determined by the ATMega hardware
-#define SPI_MISO    PB3		// pin 22, Digital 50
-#define SPI_MOSI    PB2		// pin 21, Digital 51
-#define SPI_SCK     PB1		// pin 20, Digital 52
 #define SPI_SS      PB0		// pin 19, Digital 53
+#define SPI_SCK     PB1		// pin 20, Digital 52
+#define SPI_MOSI    PB2		// pin 21, Digital 51
+#define SPI_MISO    PB3		// pin 22, Digital 50
 
 static void spiConfigPins () {
     SS_PORT |= _BV(SS_BIT);
@@ -178,10 +178,6 @@ static void spiConfigPins () {
     SS_DDR |= _BV(SS_BIT);  // Slave select, maybe same pin as SPI_SS
     PORTB |= _BV(SPI_SS);   // Required to enable SPI
     DDRB |= _BV(SPI_SS) | _BV(SPI_MOSI) | _BV(SPI_SCK);
-    
-    // Serial.println(PB4); delay(10);
-    // Serial.println(PORTB, BIN); delay(10);
-    // Serial.println(DDRB, BIN); delay(10);
 }
 
 #endif
