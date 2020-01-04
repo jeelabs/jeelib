@@ -1240,17 +1240,19 @@ second rollover and then will be 1.024 mS out.
 #warning RF69.cpp: TX completed using an Interrupt       
 	    } else
 	    if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
-    		writeReg(REG_PALEVEL, 0);	// Drop TX power to clear airwaves quickly
 	#if !SX1276
           	writeReg(REG_OCP, OCP_NORMAL);			// Overcurrent protection on
           	writeReg(REG_TESTPA1, TESTPA1_NORMAL);	// Turn off high power 
           	writeReg(REG_TESTPA2, TESTPA2_NORMAL);	// transmit
     		writeReg(REG_PALEVEL, ((rfapi.txPower & 0x9F) | 0x80));	// PA1/PA2 off
+	#else
+//    		writeReg(REG_PALEVEL, 0);	// Drop TX power to clear airwaves quickly	
 	#endif
           	// rxstate will be TXDONE at this point
           	txP++;
             writeReg(REG_AFCFEI, AFC_CLEAR);	// If we are in RX mode
 			setMode(MODE_STANDBY);
+    		writeReg(REG_PALEVEL, 0);	// Drop TX power to clear airwaves quickly	
  			writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
          	// Restore sync bytes configuration
           	if (group == 0) {               // Allow receiving from all groups

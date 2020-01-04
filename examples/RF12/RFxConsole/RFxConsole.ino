@@ -2386,6 +2386,7 @@ void loop () {
         }
 //        printOneChar(')');
         //        Serial.print((RF69::control(9,0)), HEX);  // LSB of frequency
+/*        
   #if DEBUG
         showString(PSTR(" mCR1="));
         Serial.print(modeChange1);
@@ -2394,6 +2395,7 @@ void loop () {
         showString(PSTR(" mCs3="));
         Serial.print(modeChange3);
   #endif
+*/
 #endif        
         if (config.verbosity & 2) {
             if(!(crc)) showString(PSTR(" Bad"));
@@ -2660,7 +2662,7 @@ Serial.print(")");
             	    
             	    byte * v;    
                     v = semaphoreGet((rf12_hdr & RF12_HDR_MASK), rf12_grp);
-                	if ((v) && (!(special))) {			// Post pending?
+                	if ( (v) && (!(special)) ) {			// Post pending?
                 		bool dropNow = false;                			
             	        ackLen = (*(v + 0) >> 5) + 1;	// ACK length in high bits of node
 	                    if (rf12_data[0] == (*(v + 2)) && (*(v + 6)) ) { // Matched and transmitted at least once
@@ -2721,7 +2723,7 @@ Serial.print(")");
                 } else {
                     packetAborts++;   
             		Serial.print(rfapi.sendRSSI);
-                    showString(ABORTED);		// Airwaves busy, drop ACK and look for a retransmission.
+                    showString(ABORTED);		// Airwaves busy, drop ACK and await a retransmission.
                     showByte(packetAborts);
                     printOneChar(' ');
 #if RF69_COMPAT && !TINY
@@ -2733,6 +2735,12 @@ Serial.print(")");
                     Serial.print(rfapi.rxfill);
                     printOneChar(' ');
                     Serial.print(rfapi.rxdone);
+                    for (byte c = 0; c < 10; c++ ) {
+                    	printOneChar(' ');
+						Serial.print(c);
+                    	printOneChar('=');
+                    	Serial.print(RF69::currentRSSI());
+                    }
                 }
             }
             if (crlf) Serial.println();
@@ -2749,9 +2757,6 @@ Serial.print(")");
             else activityLed(1);
 
             if (config.verbosity & 4) {
-                // RX restart 10 2 202 0 0 -70 1 200
-                // RX restart 5334 0 217 1 0 0 1 208
-                //			 r	 r rss d
                 showString(PSTR("RX restart "));
                 Serial.print(currentRestarts);
                 printOneChar(' ');
@@ -2849,7 +2854,6 @@ Serial.print(")");
     if ((cmd) || (ping)) {
         byte r = rf12_canSend(config.clearAir);
         if (r) {
-//Serial.println("TX3"); delay(10);    
 			sendRetry = 0;
 #if RF69_COMPAT        
             if (rfapi.sendRSSI < minTxRSSI) minTxRSSI = rfapi.sendRSSI;
@@ -2867,9 +2871,7 @@ Serial.print(")");
                 	header |= RF12_HDR_DST | dest;
 
            		rf12_sendStart(header, stack, sendLen);
-//Serial.println("Sent!");
             	rf12_sendWait(1);  // Wait for transmission complete
-//Serial.println("rf12_sendWait Done!"); delay(10);
 
             	if (config.verbosity & 1) {
 					// Display CRC transmitted           	
@@ -2889,7 +2891,6 @@ Serial.print(")");
             	ping = false;	// Ping completed
             }
         } else { // (r)
-//Serial.println("TX6"); delay(100);    
         
             uint16_t s = rf12_status();            
             showString(TX);
