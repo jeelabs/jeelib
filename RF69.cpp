@@ -810,6 +810,7 @@ second rollover and then will be 1.024 mS out.
           	// rxstate will be TXDONE at this point
           	txP++;
           	setMode(MODE_SLEEP);
+    		writeReg(REG_PALEVEL, 0);	// Drop TX power to clear airwaves quickly	
           	// Restore sync bytes configuration
           	if (group == 0) {               // Allow receiving from all groups
 				writeReg(REG_SYNCCONFIG, threeByteSync);             
