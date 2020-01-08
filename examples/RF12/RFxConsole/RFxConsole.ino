@@ -791,13 +791,25 @@ Serial.flush();
 // Null handling could be made to store null true/false for each stack entry
 bool cr = false;
 bool outputTime;
-
+bool hash = false;
 static void handleInput (char c) {
-	if ((c == '.') || (c == 10)) {	// Full stop or <LF>
+	if (hash) {	// Bash style comments    
+		Serial.print(c);
+    	if (c < 32) {
+   			if (c != 10) Serial.println();
+    		hash = false;
+    	}
+    	value = top = 0;
+        nullValue = true;
+    	return;    	
+	}
+		
+    if ((c == '.') || (c == 10)) {	// Full stop or <LF>
     	value = top = 0;
         nullValue = true;
     	return;
-	} else
+	}
+    	
     //      Variable value is now 16 bits to permit offset command, stack only stores 8 bits
     //      not a problem for offset command but beware.
     if ('0' <= c && c <= '9') {
@@ -1423,9 +1435,12 @@ static void handleInput (char c) {
 // Done in setup		WDTCSR |= _BV(WDE);
 					}
                      break;
-
+            case '#':
+					Serial.print(c);
+					hash = true;
+					break;
             default:
-                     showHelp();
+                    showHelp();
         } // End case group
 
     }	// else if (c > ' ')
@@ -1440,6 +1455,7 @@ static void handleInput (char c) {
         if (!(nullValue)) Serial.print(value);
         Serial.println(c);
     }
+
     value = top = 0;
     nullValue = true;
     if (eepromWrite) {
@@ -1715,24 +1731,12 @@ static void dumpEEprom() {
 
 /// Display the RFM69x registers
 static void dumpRegs() {
-/*
-void SX1276fsk::dumpRegs() {
-    puts("");
-    puts("    00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F");
-    for (int i=0; i<0x70; i+=16) {
-        printf("%02x:", i);
-        for (int j=0; j<16; j++)
-            if (i==0 && j==0) printf("   "); else printf(" %02x", readReg(i+j));
-        printf("\n");
-    }
-}
-*/
 	showString(PSTR("\nRadio Registers:\n"));      
 	showString(PSTR("    00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F\n"));      
     for (byte i = 0; i < 0x80; i+=16) {
     	showNibble(i >> 4); showNibble(i); printOneChar(':');
         for (byte j=0; j<16; j++)
-            if (i==0 && j==0) showString(PSTR(" --")); 
+            if (i==0 && j==0) showString(PSTR("   ")); 
             else {
     			printOneChar(' ');
 	            byte r = RF69::control((i + j), 0);
@@ -1740,21 +1744,6 @@ void SX1276fsk::dumpRegs() {
     		}
     		Serial.println();
     }
-	
-/*
-
-    Serial.print("\nRFM69x Registers:\n");
-    for (byte r = 1; r < 0x80; ++r) {
-    	Serial.print(r, HEX);
-    	printOneChar('=');
-        Serial.print(RF69::control(r, 0), HEX); // Prints out Radio Registers.
-        if (r == 16 || r == 32 || r == 48 || r == 64 || r ==80 || r == 96 || r == 112 || r == 127) Serial.println();
-        else printOneChar(',');
-//        delay(2);
-    }
-    Serial.println();
-//    delay(10);
-*/
 }
 //#endif
 static void showPost() {
