@@ -794,16 +794,19 @@ bool outputTime;
 bool hash = false;
 static void handleInput (char c) {
 	if (hash) {	// Bash style comments    
-		Serial.print(c);
-    	if (c < 32) {
-   			if (c != 10) Serial.println();
+    	if (c < 32 || top > sizeof stack - 2) {
+			stack[top++] = 0;
+			printOneChar('#');
+			for (byte i = 0; i < top; i++) printOneChar((char)stack[i]);
+			Serial.println();
     		hash = false;
-    	}
-    	value = top = 0;
-        nullValue = true;
-    	return;    	
-	}
-		
+    		value = top = 0;
+        	nullValue = true;
+		} else {
+			stack[top++] = c;
+		}
+    	return;    			
+	}    
     if ((c == '.') || (c == 10)) {	// Full stop or <LF>
     	value = top = 0;
         nullValue = true;
@@ -1435,8 +1438,10 @@ static void handleInput (char c) {
 // Done in setup		WDTCSR |= _BV(WDE);
 					}
                      break;
+            case '*':
+					hash = true;
+					break;
             case '#':
-					Serial.print(c);
 					hash = true;
 					break;
             default:
