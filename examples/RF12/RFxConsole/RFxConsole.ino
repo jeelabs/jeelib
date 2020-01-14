@@ -130,7 +130,6 @@ const char ABORTED[] PROGMEM = " Aborted ";
 const char UNKNOWN[] PROGMEM = " Unknown";
 const char TX[] PROGMEM = "TX ";
 const char SEMAPHOREFULL[] PROGMEM = "Semaphore table full";
-
 #define SALUSFREQUENCY 1660       // Default value
 byte salusMode = false;
 unsigned int SalusFrequency = SALUSFREQUENCY;
@@ -1439,8 +1438,6 @@ static void handleInput (char c) {
 					}
                      break;
             case '*':
-					hash = true;
-					break;
             case '#':
 					hash = true;
 					break;
@@ -2222,7 +2219,7 @@ void loop () {
 			}
 			
             crc = false;
-            showString(PSTR("   ?"));
+            showString(PSTR("RX ? "));
             n = n + 2;	// Include potential CRC
             if (n > 16) n = 16;
         }
@@ -2741,8 +2738,8 @@ Serial.print(")");
             activityLed(0);
             OldHdr = rf12_hdr;	// Save node number in case next packet triggers an inquest.
         }
-    } // rf12_recvDone
-
+    }
+    
 #if RF69_COMPAT && !TINY			// Weird conditional when Tiny84    
     else if (currentRestarts != lastRSSIrestart) {
     		lastRSSIrestart = currentRestarts;

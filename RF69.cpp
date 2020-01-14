@@ -784,12 +784,7 @@ volatile uint32_t startRX;
 volatile uint32_t ms;
 
 uint16_t RF69::recvDone_compat (uint8_t* buf) {
-/*
-	if (rfapi.ConfigFlags) {
-		// Serial.println("False");
-		return false;
-	}
-*/
+
     switch (rxstate) {
     
     case TXIDLE:
@@ -1165,7 +1160,9 @@ second rollover and then will be 1.024 mS out.
                         return;
                     } // SyncMatch or Timeout                     
                 } //  while
-            } //  RSSI
+            } //  RSSI 
+                       
+// Sync match achieved
         	rfapi.interpacketTS = ms;	// Value stored at time of interrupt            			
 	
             volatile uint8_t stillCollecting = true;
