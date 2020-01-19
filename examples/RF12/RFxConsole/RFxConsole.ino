@@ -343,6 +343,7 @@ byte lastTest;
 byte busyCount;
 byte missedTests;
 byte sendRetry = 0;
+static byte highestAck[MAX_NODES];
 unsigned int packetAborts;
 unsigned int testTX;
 unsigned int testRX;
@@ -401,7 +402,6 @@ static byte maxRSSI[MAX_NODES];
 static byte minLNA[MAX_NODES];
 static byte lastLNA[MAX_NODES];
 static byte maxLNA[MAX_NODES];
-static byte highestAck[MAX_NODES];
 #endif
 #if RF69_COMPAT && !TINY
 static byte CRCbadMinRSSI = 255;
