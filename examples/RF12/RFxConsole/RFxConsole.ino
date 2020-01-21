@@ -1738,7 +1738,7 @@ static void dumpRegs() {
     for (byte i = 0; i < 0x80; i+=16) {
     	showNibble(i >> 4); showNibble(i); printOneChar(':');
         for (byte j=0; j<16; j++)
-            if (i==0 && j==0) showString(PSTR("   ")); 
+            if (i==0 && j==0) showString(PSTR(" --")); 
             else {
     			printOneChar(' ');
 	            byte r = RF69::control((i + j), 0);

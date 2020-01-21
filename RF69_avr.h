@@ -40,7 +40,7 @@ volatile byte lastPCInt;
 #define RFM_IRQ     3	// 2 for INT0 on PD2, 3 for INT1 on PD3
 #define SS_DDR      DDRB
 #define SS_PORT     PORTB
-#define SS_BIT      PB4		// pin 23, Digital 10
+#define SS_BIT      PB0		// pin 23, Digital 10
 // Items below fixed and determined by the ATMega hardware
 #define SPI_SS      PB0		// pin 19, Digital 53
 #define SPI_SCK     PB1		// pin 20, Digital 52
