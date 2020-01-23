@@ -1367,11 +1367,14 @@ static void handleInput (char c) {
             		 Serial.print(rfapi.interruptCountTX);
                      printOneChar(',');
 					 Serial.println(rfapi.interruptCountRX);
-            		 Serial.print("TXIDLE InterruptCount=");
+					 
+            		 Serial.print("InterruptTXIDLECount=");
             		 Serial.println(rfapi.TXIDLECount);
+            		 
             		 Serial.print("Debug=");
             		 Serial.println(rfapi.debug);
             		 rfapi.debug = 0;
+            		 
             		 Serial.print("intRXFIFO=");
             		 Serial.println(rfapi.intRXFIFO);
             		 Serial.print("LastLen=");
@@ -1549,7 +1552,6 @@ void setup () {
 	MCUSR = 0;
 	wdt_disable();
 	wdt_enable(WDTO_8S);   // enable watchdogtimer
-//Enable global interrupts
 
     delay(380);
 
@@ -1693,6 +1695,7 @@ Serial.println(MCUSR, HEX);
     maxRestartRate = 0;
     previousRestarts = rfapi.RSSIrestart;
     
+// Enable global interrupts
 	sei();
 
 } // setup

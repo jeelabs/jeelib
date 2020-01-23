@@ -1175,7 +1175,9 @@ second rollover and then will be 1.024 mS out.
             } //  RSSI 
                        
 // Sync match achieved
-        	IRQ_ENABLE;       // allow nested interrupts from here on                                               
+
+        	IRQ_ENABLE;       // allow nested interrupts from here on  
+        	                                             
         	rfapi.interpacketTS = ms;	// Value stored at time of interrupt            			
 	
             volatile uint8_t stillCollecting = true;
