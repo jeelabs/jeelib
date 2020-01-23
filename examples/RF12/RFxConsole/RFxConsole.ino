@@ -1343,6 +1343,9 @@ static void handleInput (char c) {
                      break;
 
             case 'd': // dump all log markers
+#if RF69_COMPAT            
+            		 dumpRegs();
+#endif            
                      if (df_present())
                          df_dump();
                      break;
@@ -1697,7 +1700,7 @@ static void dumpEEprom() {
     else Serial.print(" GOOD CRC ");
 }
 
-//#if DEBUG && RF69_COMPAT
+#if RF69_COMPAT
 /// Display the RFM69x registers
 static void dumpRegs() {
 /*
@@ -1717,7 +1720,7 @@ void SX1276fsk::dumpRegs() {
     for (byte i = 0; i < 0x80; i+=16) {
     	showNibble(i >> 4); showNibble(i); printOneChar(':');
         for (byte j=0; j<16; j++)
-            if (i==0 && j==0) showString(PSTR("   ")); 
+            if (i==0 && j==0) showString(PSTR(" --")); 
             else {
     			printOneChar(' ');
 	            byte r = RF69::control((i + j), 0);
@@ -1727,7 +1730,7 @@ void SX1276fsk::dumpRegs() {
     }
 	
 }
-//#endif
+#endif
 static void showPost() {
 #if MESSAGING
 /*	if (semaphoreStack[0] == 0) {

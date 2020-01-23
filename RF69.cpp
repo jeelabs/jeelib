@@ -699,7 +699,7 @@ second rollover and then will be 1.024 mS out.
                     if (readReg(REG_IRQFLAGS1) & IRQ1_SYNCMATCH) {
             			tfr =  micros() - startRX;	// 4µs precision
 				        rxstate = RXFIFO;                       
-        				IRQ_ENABLE;       // allow nested interrupts from here on        
+//        				IRQ_ENABLE;       // allow nested interrupts from here on        
             			if (tfr < 1024uL) tfr = tfr + 1024uL;
                         rfapi.syncMatch++;                     
                 		noiseMillis = ms;	// Delay a reduction in sensitivity
@@ -738,7 +738,12 @@ second rollover and then will be 1.024 mS out.
                         return;
                     } // SyncMatch or Timeout 
                 } //  while
-            } //  RSSI
+            } //  RSSI 
+                       
+// Sync match achieved
+
+        	IRQ_ENABLE;       // allow nested interrupts from here on  
+        	                                             
         	rfapi.interpacketTS = ms;	// Value stored at time of interrupt            			
 	
             volatile uint8_t stillCollecting = true;
