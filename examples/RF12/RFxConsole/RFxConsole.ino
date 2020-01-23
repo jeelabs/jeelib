@@ -1363,8 +1363,12 @@ static void handleInput (char c) {
             		 Serial.println();
             	*/
             		 dumpRegs();
-            		 Serial.print("InterruptCount=");
-            		 Serial.println(rfapi.interruptCount);
+            		 Serial.print("InterruptCounts=");
+            		 Serial.print(rfapi.interruptCountTX);
+                     printOneChar(',');
+					 Serial.println(rfapi.interruptCountRX);
+            		 Serial.print("TXIDLE InterruptCount=");
+            		 Serial.println(rfapi.TXIDLECount);
             		 Serial.print("Debug=");
             		 Serial.println(rfapi.debug);
             		 rfapi.debug = 0;
@@ -1546,7 +1550,6 @@ void setup () {
 	wdt_disable();
 	wdt_enable(WDTO_8S);   // enable watchdogtimer
 //Enable global interrupts
-	sei();
 
     delay(380);
 
@@ -1684,9 +1687,13 @@ Serial.println(MCUSR, HEX);
 //        Serial.println(SPSR,HEX);
     }
 #endif
+//	Serial.println((INT0 + INT1));
+//	Serial.println(_BV(INT0) + _BV(INT1));
     Serial.flush();
     maxRestartRate = 0;
     previousRestarts = rfapi.RSSIrestart;
+    
+	sei();
 
 } // setup
 
@@ -1851,7 +1858,7 @@ http://forum.arduino.cc/index.php/topic,140376.msg1054626.html
         Serial.print(CRCbadMaxRSSI);
         printOneChar(' ');
     }
-    Serial.print(rfapi.interruptCount);
+    Serial.print(rfapi.interruptCountRX);
     printOneChar('(');
     Serial.print(RF69::rxP);
     printOneChar(',');
@@ -2086,7 +2093,7 @@ void loop () {
 #if RF69_COMPAT && !TINY                // At this point the radio is in Sleep
         if (rf12_crc == 0) {
 			unsigned long rxCrcGap;
-        
+/*        
  			if (RF12_WANTS_ACK && (config.collect_mode) == 0) {
 				RF69::control(1, 2);	// radio to mode FS, ACK will be needed
  			} else {	            	
@@ -2094,7 +2101,7 @@ void loop () {
         		rf12_recvDone();		// Attempt to buffer next RF packet
         		// At this point the receiver is active but previous buffer intact        		     					
  			} 
- 			
+*/ 			
          	rxCrcGap = rf12_interpacketTS - rxCrcLast;
  			rxCrcLast = rf12_interpacketTS;
  			if (rxCrcGap < minCrcGap) {
@@ -2425,7 +2432,7 @@ Serial.print(")");
         printOneChar(',');
         Serial.print(rfapi.intRXFIFO);
         printOneChar(',');
-		Serial.print(rfapi.interruptCount);
+		Serial.print(rfapi.interruptCountRX);
 */
         Serial.println();
 #if !TINY

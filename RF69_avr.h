@@ -187,7 +187,12 @@ static void spiConfigPins () {
 
 #define INTERRUPT_HANDLER interrupt_compat(RSSI_INTERRUPT)
 
-void interrupt_stub() {
+void interrupt_stub0() {
+        rfapi.interruptCountTX++;
+        RF69::interruptTX();
+}
+void interrupt_stub1() {
+        rfapi.interruptCountRX++;
         RF69::INTERRUPT_HANDLER;
 }
 
@@ -208,7 +213,7 @@ void interrupt_stub() {
                                 
                 if (pinB & (1 << RFM_IRQ)) {
                     XXMSK &= ~(1 << INT_BIT);   //Prevent nested IRQ 
-                    interrupt_stub();   //Process the RFM69x IRQ
+                    interrupt_stub0();   //Process the RFM69x IRQ
                     XXMSK |= (1 << INT_BIT);    //Restore IRQ function
                 } 
             }
@@ -226,7 +231,7 @@ void interrupt_stub() {
                                 
                 if (pinC & (1 << RFM_IRQ - 8)) {
                     XXMSK &= ~(1 << INT_BIT);   //Prevent nested IRQ 
-                    interrupt_stub();   //Process the RFM69x IRQ
+                    interrupt_stub0();   //Process the RFM69x IRQ
                     XXMSK |= (1 << INT_BIT);    //Restore IRQ function
                 }
             }
@@ -245,7 +250,7 @@ void interrupt_stub() {
                                 
                 if (pinD & (1 << RFM_IRQ - 16)) {
                     XXMSK &= ~(1 << INT_BIT);   //Prevent nested IRQ 
-                    interrupt_stub();   //Process the RFM69x IRQ
+                    interrupt_stub0();   //Process the RFM69x IRQ
                     XXMSK |= (1 << INT_BIT);    //Restore IRQ function
                 }
             }
@@ -272,7 +277,7 @@ void interrupt_stub() {
                                 
                 if (pinA & (1 << RFM_IRQ)) {
                     XXMSK &= ~(1 << INT_BIT);
-                    interrupt_stub();// Process the RFM69x interrupt
+                    interrupt_stub0();// Process the RFM69x interrupt
                     XXMSK |= (1 << INT_BIT);
                 }
         #elif RFM_IRQ > 7 && RFM_IRQ < 12
@@ -289,7 +294,7 @@ void interrupt_stub() {
                                 
                 if (pinB & (1 << RFM_IRQ - 8)) {
                     XXMSK &= ~(1 << INT_BIT);
-                    interrupt_stub();// Process the RFM69x interrupt
+                    interrupt_stub0();// Process the RFM69x interrupt
                     XXMSK |= (1 << INT_BIT);
                 }                        
             }
@@ -301,8 +306,15 @@ void interrupt_stub() {
 #endif
 
 struct PreventInterrupt {
+/*
     PreventInterrupt () { XXMSK &= ~ _BV(INT_BIT); }
     ~PreventInterrupt () { XXMSK |= _BV(INT_BIT); }
+*/
+
+    PreventInterrupt () { XXMSK &= ~ ( _BV(INT0) | _BV(INT_BIT) ); }
+    ~PreventInterrupt () { XXMSK |= ( _BV(INT0) | _BV(INT_BIT) ); }
+ 
+
 };  // Semicolon is required
 
 static void spiInit (void) {
@@ -314,7 +326,7 @@ static void spiInit (void) {
     SPCR |= _BV(SPR0);  // Divide SPI by 4
     SPCR |= _BV(SPR1);  // Divide SPI by 16
   #else    
-//    SPSR |= _BV(SPI2X);  // Double SPI to fosc/2
+    SPSR |= _BV(SPI2X);  // Double SPI to fosc/2
   #endif
   
 #else
@@ -391,8 +403,8 @@ static void InitIntPin () {
     #elif RF69_COMPAT
         if (RF69::node != 0) {
             XXMSK &= ~ _BV(INT_BIT);          // Mask radio interrupt
-            attachInterrupt(0, interrupt_stub, RISING);           
-            attachInterrupt(INT_NUMBER, interrupt_stub, RISING);
+            attachInterrupt(0, interrupt_stub0, RISING);           
+            attachInterrupt(INT_NUMBER, interrupt_stub1, RISING);
             XXMSK |= _BV(INT_BIT);            // Enable radio interrupt
         } else {
             detachInterrupt(0);
@@ -423,8 +435,8 @@ static void InitIntPin () {
     #elif RF69_COMPAT
         if (RF69::node != 0) {
             XXMSK &= ~ _BV(INT_BIT);          // Mask radio interrupt
-            attachInterrupt(0, interrupt_stub, RISING);          
-            attachInterrupt(INT_NUMBER, interrupt_stub, RISING);
+            attachInterrupt(0, interrupt_stub0, RISING);          
+            attachInterrupt(INT_NUMBER, interrupt_stub1, RISING);
             XXMSK |= _BV(INT_BIT);            // Enable radio interrupt
         } else {
             detachInterrupt(0);			// Transmit vector

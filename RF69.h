@@ -10,7 +10,8 @@ typedef struct {
 
     uint32_t rateInterval;	// Disabled by default, set this to 10000ms
     volatile uint32_t RSSIrestart;
-    volatile uint16_t interruptCount;
+    volatile uint16_t interruptCountRX;
+    volatile uint16_t interruptCountTX;
     uint32_t syncMatch;
     uint32_t goodCRC;
 	uint32_t discards;   // Count of good packets discarded
@@ -33,6 +34,7 @@ typedef struct {
     volatile uint16_t rtpMin;    
 	volatile uint16_t rtpMax;
 	volatile uint16_t intRXFIFO;
+	volatile uint16_t TXIDLECount;
 	uint8_t modeError;    
 	uint8_t	configThreshold;
     uint8_t rssiThreshold;
@@ -68,7 +70,8 @@ namespace RF69 {
     extern int16_t  afc;
     extern int16_t  fei;
     extern uint8_t  lna;
-    extern uint16_t interruptCount;
+    extern uint16_t interruptCountRX;
+    extern uint16_t interruptCountTX;
     extern uint16_t rxP;
     extern uint16_t txP;
     extern uint16_t discards;
@@ -106,6 +109,7 @@ namespace RF69 {
     void sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len);
     void RSSIinterrupt();
     void interrupt_compat(uint8_t RSSI_INTERRUPT);
+    void interruptTX();
     void interrupt_spare();
 }
 
