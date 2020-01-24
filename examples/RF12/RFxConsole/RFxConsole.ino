@@ -751,7 +751,7 @@ static byte n[] = {1,0,1,4,2,3,1,3,1};     // ATMega2560 with SX1276 settings
   #elif defined(__AVR_ATmega1284P__) 	   // Moteino MEGA    
 static byte n[] = {1,0,1,4,5,6,7,2,2};     // ATMega1284 with RFM69 settings
   #else
-static byte n[] = {1,0,1,2,3,4,5,2,0};     // Default ATMega328 with RFM69 settings
+static byte n[] = {1,0,1,2,3,4,5,3,1};     // Default ATMega328 with RFM69 settings
   #endif
 
 byte mismatch = false;

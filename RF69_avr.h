@@ -7,6 +7,7 @@
 #include <WProgram.h> // Arduino 0022
 #endif
 ///////////////////////////////////////////////////////////////////////////////
+#define SX1276	1
 
 #define RF69_COMPAT 1  /* Set this true to use the RF69 driver
 
@@ -308,12 +309,14 @@ void interrupt_stub1() {
 
 struct PreventInterrupt {
 
-#if defined(__AVR_ATmega2560__) || defined(__AVR_ATmega1280__)
+#if SX1276
+#warning RF69_avr.h: Building for SX1276 
 
     PreventInterrupt () { XXMSK &= ~ ( _BV(INT0) | _BV(INT_BIT) ); }
     ~PreventInterrupt () { XXMSK |= ( _BV(INT0) | _BV(INT_BIT) ); }
     
 #else
+#warning RF69_avr.h: Building for RFM69 
 
     PreventInterrupt () { XXMSK &= ~ _BV(INT_BIT); }
     ~PreventInterrupt () { XXMSK |= _BV(INT_BIT); }
@@ -369,7 +372,7 @@ static uint8_t spiTransferByte (uint8_t out) {
 
 static uint8_t spiTransfer (uint8_t cmd, uint8_t val) {
 
-#if defined(__AVR_ATmega2560__) || defined(__AVR_ATmega1280__)
+#if SX1276
 
     SS_PORT &= ~ ( _BV(SS_BIT) | _BV(PB0) );
     spiTransferByte(cmd);
@@ -420,16 +423,16 @@ static void InitIntPin () {
         #endif
     #elif RF69_COMPAT
         if (RF69::node != 0) {
-#if defined(__AVR_ATmega2560__) || defined(__AVR_ATmega1280__)
-//            XXMSK &= ~ ( _BV(INT_BIT) | _BV(INT0) );// Mask radio interrupt
+#if SX1276
+            XXMSK &= ~ ( _BV(INT_BIT) | _BV(INT0) );// Mask radio interrupts
 #else
             XXMSK &= ~ _BV(INT_BIT);          		// Mask radio interrupt
 #endif
             attachInterrupt(0, interrupt_stub0, RISING);           
             attachInterrupt(INT_NUMBER, interrupt_stub1, RISING);
             
-#if defined(__AVR_ATmega2560__) || defined(__AVR_ATmega1280__)
-//            XXMSK |= ( _BV(INT_BIT) | _BV(INT0) );	// Enable radio interrupt
+#if SX1276
+            XXMSK |= ( _BV(INT_BIT) | _BV(INT0) );	// Enable radio interrupts
 #else
             XXMSK |= _BV(INT_BIT);            		// Enable radio interrupt
 #endif
