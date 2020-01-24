@@ -40,9 +40,8 @@ volatile byte lastPCInt;
 #define RFM_IRQ     3	// 2 for INT0 on PD2, 3 for INT1 on PD3
 #define SS_DDR      DDRB
 #define SS_PORT     PORTB
-#define SS_BIT      PB0		// pin 23, Digital 10
-// Items below fixed and determined by the ATMega hardware
-#define SPI_SS      PB0		// pin 19, Digital 53
+#define SS_BIT      PB4		// Dragino Shield
+#define SPI_SS      PB4		// pin 23, Digital 10
 #define SPI_SCK     PB1		// pin 20, Digital 52
 #define SPI_MOSI    PB2		// pin 21, Digital 51
 #define SPI_MISO    PB3		// pin 22, Digital 50
@@ -51,7 +50,9 @@ static void spiConfigPins () {
     SS_PORT |= _BV(SS_BIT);
     SS_DDR |= _BV(SS_BIT);
     
-    PORTB |= _BV(SPI_SS);	// PB0, Digital 53 required for SPI hardware to activate
+    PORTB |= _BV(SPI_SS);	// Raise select for radio hardware
+    PORTB |= _BV(PB0);		// pin 19, Digital 53
+    						// Above required to activate ATMega2560 SPI hardware
     DDRB |= _BV(SPI_MOSI) | _BV(SPI_SCK);
 }
     
@@ -326,7 +327,7 @@ static void spiInit (void) {
     SPCR |= _BV(SPR0);  // Divide SPI by 4
     SPCR |= _BV(SPR1);  // Divide SPI by 16
   #else    
-    SPSR |= _BV(SPI2X);  // Double SPI to fosc/2
+//    SPSR |= _BV(SPI2X);  // Double SPI to fosc/2
   #endif
   
 #else
