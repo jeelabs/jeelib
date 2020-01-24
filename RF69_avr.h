@@ -307,14 +307,18 @@ void interrupt_stub1() {
 #endif
 
 struct PreventInterrupt {
-/*
-    PreventInterrupt () { XXMSK &= ~ _BV(INT_BIT); }
-    ~PreventInterrupt () { XXMSK |= _BV(INT_BIT); }
-*/
+
+#if defined(__AVR_ATmega2560__) || defined(__AVR_ATmega1280__)
 
     PreventInterrupt () { XXMSK &= ~ ( _BV(INT0) | _BV(INT_BIT) ); }
     ~PreventInterrupt () { XXMSK |= ( _BV(INT0) | _BV(INT_BIT) ); }
- 
+    
+#else
+
+    PreventInterrupt () { XXMSK &= ~ _BV(INT_BIT); }
+    ~PreventInterrupt () { XXMSK |= _BV(INT_BIT); }
+    
+#endif 
 
 };  // Semicolon is required
 
@@ -327,7 +331,7 @@ static void spiInit (void) {
     SPCR |= _BV(SPR0);  // Divide SPI by 4
     SPCR |= _BV(SPR1);  // Divide SPI by 16
   #else    
-//    SPSR |= _BV(SPI2X);  // Double SPI to fosc/2
+    SPSR |= _BV(SPI2X);	// Double SPI to fosc/2
   #endif
   
 #else
@@ -364,10 +368,23 @@ static uint8_t spiTransferByte (uint8_t out) {
 }
 
 static uint8_t spiTransfer (uint8_t cmd, uint8_t val) {
-    SS_PORT &= ~ _BV(SS_BIT);
+
+#if defined(__AVR_ATmega2560__) || defined(__AVR_ATmega1280__)
+
+    SS_PORT &= ~ ( _BV(SS_BIT) | _BV(PB0) );
     spiTransferByte(cmd);
     uint8_t in = spiTransferByte(val);
-    SS_PORT |= _BV(SS_BIT);
+    SS_PORT |= ( _BV(SS_BIT) | _BV(PB0) );
+    
+#else
+
+    SS_PORT &= ~ ( _BV(SS_BIT) );
+    spiTransferByte(cmd);
+    uint8_t in = spiTransferByte(val);
+    SS_PORT |= ( _BV(SS_BIT) );
+    
+#endif
+
     return in;
 }
 
@@ -403,10 +420,19 @@ static void InitIntPin () {
         #endif
     #elif RF69_COMPAT
         if (RF69::node != 0) {
-            XXMSK &= ~ _BV(INT_BIT);          // Mask radio interrupt
+#if defined(__AVR_ATmega2560__) || defined(__AVR_ATmega1280__)
+//            XXMSK &= ~ ( _BV(INT_BIT) | _BV(INT0) );// Mask radio interrupt
+#else
+            XXMSK &= ~ _BV(INT_BIT);          		// Mask radio interrupt
+#endif
             attachInterrupt(0, interrupt_stub0, RISING);           
             attachInterrupt(INT_NUMBER, interrupt_stub1, RISING);
-            XXMSK |= _BV(INT_BIT);            // Enable radio interrupt
+            
+#if defined(__AVR_ATmega2560__) || defined(__AVR_ATmega1280__)
+//            XXMSK |= ( _BV(INT_BIT) | _BV(INT0) );	// Enable radio interrupt
+#else
+            XXMSK |= _BV(INT_BIT);            		// Enable radio interrupt
+#endif
         } else {
             detachInterrupt(0);
             detachInterrupt(INT_NUMBER);

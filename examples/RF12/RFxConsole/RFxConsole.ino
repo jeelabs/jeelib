@@ -747,9 +747,9 @@ static void showStatus() {
 
     byte* b = RF69::SPI_pins();  // {OPTIMIZE_SPI, PINCHG_IRQ, RF69_COMPAT, RFM_IRQ, SPI_SS, SPI_MOSI, SPI_MISO, SPI_SCK 
   #if defined(__AVR_ATmega2560__) 		   // ATMega2560 with SX1276    
-static byte n[] = {1,0,1,0,2,3,1,3,1};     // ATMEega1284 with RFM69 settings
+static byte n[] = {1,0,1,4,2,3,1,3,1};     // ATMega2560 with SX1276 settings
   #elif defined(__AVR_ATmega1284P__) 	   // Moteino MEGA    
-static byte n[] = {1,0,1,4,5,6,7,2,2};     // ATMEega1284 with RFM69 settings
+static byte n[] = {1,0,1,4,5,6,7,2,2};     // ATMega1284 with RFM69 settings
   #else
 static byte n[] = {1,0,1,2,3,4,5,2,0};     // Default ATMega328 with RFM69 settings
   #endif
@@ -1545,15 +1545,17 @@ void wdt_init(void)
 #endif
 
 void setup () {
-//disable interrupts
+// Disable global interrupts
 	cli();
 // Setup WatchDog
 	wdt_reset();   			// First thing, turn it off
 	MCUSR = 0;
 	wdt_disable();
 	wdt_enable(WDTO_8S);   // enable watchdogtimer
+// Enable global interrupts
+	sei();
 
-    delay(380);
+//    delay(380);
 
     //  clrConfig();
 
@@ -1640,7 +1642,6 @@ Serial.println(MCUSR, HEX);
 
     if (rf12_configSilent()) {
         loadConfig();
-//        dumpRegs();
     } else {
         dumpEEprom();
         showString(INITFAIL);
@@ -1689,15 +1690,11 @@ Serial.println(MCUSR, HEX);
 //        Serial.println(SPSR,HEX);
     }
 #endif
-//	Serial.println((INT0 + INT1));
-//	Serial.println(_BV(INT0) + _BV(INT1));
+
     Serial.flush();
     maxRestartRate = 0;
     previousRestarts = rfapi.RSSIrestart;
     
-// Enable global interrupts
-	sei();
-
 } // setup
 
 static void clrConfig() {
@@ -2083,17 +2080,15 @@ static byte * semaphoreGet (byte node, byte group) {
 
 void loop () {
 	wdt_reset();
-	sei();
 #if TINY
-    if (_receive_buffer_index) handleInput(inChar());
+    if ( _receive_buffer_index ) handleInput( inChar() );
 #else
-    if (Serial.available()) handleInput(Serial.read());
+    if ( Serial.available() ) handleInput( Serial.read() );
 #endif
-
-    if (rf12_recvDone()) {
+    if ( rf12_recvDone() ) {
     	currentRestarts = rfapi.RSSIrestart;
 
-#if RF69_COMPAT && !TINY                // At this point the radio is in Sleep
+#if RF69_COMPAT && !TINY                // At this point the radio is in standby
         if (rf12_crc == 0) {
 			unsigned long rxCrcGap;
 /*        

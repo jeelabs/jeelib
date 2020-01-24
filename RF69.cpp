@@ -381,6 +381,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x41, 0x00, // DIOMAPPING2, Initially DIO4_TempChangeLowBat
   
 //  0x4D, 0x87,	  // Set Pmax to +20dBm for PA_HP
+  0x75, 0x29,
 
   0
 };
@@ -868,16 +869,6 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         }
         break;
     }
-// Code below did not find any mode error situations.
-    // Test for radio in hung state
-/*
-    if (readReg(REG_OPMODE) == MODE_FS_RX) {
-//				setMode(MODE_FS_RX);	// Clear hang?
-    			setMode(MODE_STANDBY);
-            	rxstate = TXIDLE;
-            	rfapi.modeError = true;
-	}
-*/
     return ~0; // keep going, not done yet
 }
 
