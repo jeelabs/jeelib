@@ -123,6 +123,7 @@
 const char INITFAIL[] PROGMEM = "\nInit failed\n";
 const char RFM12x[] PROGMEM = "RFM12x ";
 const char RFM69x[] PROGMEM = "RFM69x ";
+const char SX1276x[] PROGMEM = "SX1276 ";
 const char BLOC[] PROGMEM = "BLOCK ";
 const char UNSUPPORTED[] PROGMEM = "RX Unsupported ";
 const char DONE[] PROGMEM = "Done\n";
@@ -641,7 +642,9 @@ static void showHelp () {
 }
 
 static void showStatus() {
-#if RF69_COMPAT
+#if SX1276
+    showString(SX1276x);
+#elif RF69_COMPAT
     showString(RFM69x);
 #else
 	showString(RFM12x);
@@ -1363,34 +1366,28 @@ static void handleInput (char c) {
             		 Serial.println();
             	*/
             		 dumpRegs();
-            		 Serial.print("InterruptCounts=");
+
+            		 showString(PSTR("InterruptCounts="));
             		 Serial.print(rfapi.interruptCountTX);
                      printOneChar(',');
 					 Serial.println(rfapi.interruptCountRX);
 					 
-            		 Serial.print("InterruptTXIDLECount=");
+            		 showString(PSTR("InterruptTXIDLECount="));
             		 Serial.println(rfapi.TXIDLECount);
             		 
-            		 Serial.print("Debug=");
+            		 showString(PSTR("Debug="));
             		 Serial.println(rfapi.debug);
             		 rfapi.debug = 0;
             		 
-            		 Serial.print("intRXFIFO=");
+            		 showString(PSTR("intRXFIFO="));
             		 Serial.println(rfapi.intRXFIFO);
-            		 Serial.print("LastLen=");
+            		 showString(PSTR("LastLen="));
             		 Serial.println(rfapi.lastLen);
                      if (df_present())
                          df_dump();
 
-Serial.println(INT4);
-Serial.println(INT5);
-Serial.print("EIMSK:");
-Serial.println(EIMSK, BIN);
-Serial.println(_BV(INT0));
-Serial.println(_BV(INT1));
-Serial.println( (_BV(INT0) | _BV(INT1)));
-
-
+					 showString(PSTR("EIMSK:"));
+					 Serial.println(EIMSK, BIN);
                      break;
 
             case 'r': // replay from specified seqnum/time marker
@@ -1705,14 +1702,6 @@ Serial.println(MCUSR, HEX);
     maxRestartRate = 0;
     previousRestarts = rfapi.RSSIrestart;
 
-Serial.println(INT4);
-Serial.println(INT5);
-Serial.print("EIMSK:");
-Serial.println(EIMSK, BIN);
-Serial.println(_BV(INT0));
-Serial.println(_BV(INT1));
-Serial.println( (_BV(INT0) | _BV(INT1)));
-    
 } // setup
 
 static void clrConfig() {
@@ -1742,7 +1731,7 @@ static void clrNodeStore() {
 
 /// Display eeprom configuration space
 static void dumpEEprom() {
-    Serial.println("\n\rConfig eeProm:");
+    showString(PSTR("\n\rConfig eeProm:\n"));
     uint16_t crc = ~0;
     for (byte i = 0; i < (RF12_EEPROM_SIZE); ++i) {
         byte d = eeprom_read_byte(RF12_EEPROM_ADDR + i);
@@ -1750,10 +1739,10 @@ static void dumpEEprom() {
         crc = _crc16_update(crc, d);
     }
     if (crc) {
-        Serial.print(" BAD CRC ");
+        showString(PSTR(" BAD CRC "));
         Serial.println(crc, HEX);
     }
-    else Serial.print(" GOOD CRC ");
+    else showString(PSTR(" GOOD CRC "));
 }
 
 /// Display the RFM69x registers

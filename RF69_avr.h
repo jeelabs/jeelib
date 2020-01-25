@@ -38,7 +38,7 @@ volatile byte lastPCInt;
 // Items below are options to match your shield/cabling
 #define INT         INT1
 #define INT_NUMBER  1
-#define RFM_IRQ     3	// 2 for INT0 on PD2, 3 for INT1 on PD3
+#define RFM_IRQ     3		// 2 for INT0, 3 for INT1
 #define SS_DDR      DDRB
 #define SS_PORT     PORTB
 #define SS_BIT      PB4		// Dragino Shield
@@ -55,13 +55,6 @@ static void spiConfigPins () {
     PORTB |= _BV(PB0);			// pin 19, Digital 53
     							// Above required to activate ATMega2560 SPI hardware
     SS_DDR |= _BV(SPI_MOSI) | _BV(SPI_SCK);
-/*
-#if SX1276
-    DDRD &= ~ ( (_BV(RFM_IRQ) | _BV(INT0)) );	// PD2/3 Input
-#else
-    DDRD &= ~ _BV(RFM_IRQ);						// PD3 Input
-#endif
-*/
 }
     
 #elif defined(__AVR_ATmega644P__)
@@ -317,7 +310,7 @@ void interrupt_stub1() {
 
 struct PreventInterrupt {
 
-#if SX1276
+#if defined(__AVR_ATmega2560__) || defined(__AVR_ATmega1280__) && SX1276
 #warning RF69_avr.h: Building for SX1276 
 
     PreventInterrupt () { XXMSK &= ~ ( _BV(INT0) << 4 | _BV(INT_BIT) << 4 ); }
@@ -431,21 +424,10 @@ static void InitIntPin () {
         #endif
     #elif RF69_COMPAT
         if (RF69::node != 0) {
-#if SX1276
-            XXMSK &= ~ ( _BV(INT_BIT) | _BV(INT0) );// Mask radio interrupts
-#else
-            XXMSK &= ~ _BV(INT_BIT);          		// Mask radio interrupt
-#endif
 			cli();
-            attachInterrupt(0, interrupt_stub0, RISING);           
+            attachInterrupt(digitalPinToInterrupt(2), interrupt_stub0, RISING);           
             attachInterrupt(INT_NUMBER, interrupt_stub1, RISING);
-            XXMSK = 0x30;
             sei();
-#if SX1276
- //           XXMSK |= ( _BV(INT_BIT) | _BV(INT0) );	// Enable radio interrupts
-#else
- //           XXMSK |= _BV(INT_BIT);            		// Enable radio interrupt
-#endif
         } else {
             detachInterrupt(0);
             detachInterrupt(INT_NUMBER);
