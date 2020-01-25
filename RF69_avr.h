@@ -51,10 +51,17 @@ static void spiConfigPins () {
     SS_PORT |= _BV(SS_BIT);
     SS_DDR |= _BV(SS_BIT);
     
-    PORTB |= _BV(SPI_SS);	// Raise select for radio hardware
-    PORTB |= _BV(PB0);		// pin 19, Digital 53
-    						// Above required to activate ATMega2560 SPI hardware
-    DDRB |= _BV(SPI_MOSI) | _BV(SPI_SCK);
+    PORTB |= _BV(SPI_SS);		// Raise select for radio hardware
+    PORTB |= _BV(PB0);			// pin 19, Digital 53
+    							// Above required to activate ATMega2560 SPI hardware
+    SS_DDR |= _BV(SPI_MOSI) | _BV(SPI_SCK);
+/*
+#if SX1276
+    DDRD &= ~ ( (_BV(RFM_IRQ) | _BV(INT0)) );	// PD2/3 Input
+#else
+    DDRD &= ~ _BV(RFM_IRQ);						// PD3 Input
+#endif
+*/
 }
     
 #elif defined(__AVR_ATmega644P__)
@@ -188,11 +195,12 @@ static void spiConfigPins () {
 #define RSSI_INTERRUPT  1
 
 #define INTERRUPT_HANDLER interrupt_compat(RSSI_INTERRUPT)
-
+#if SX1276
 void interrupt_stub0() {
         rfapi.interruptCountTX++;
         RF69::interruptTX();
 }
+#endif
 void interrupt_stub1() {
         rfapi.interruptCountRX++;
         RF69::INTERRUPT_HANDLER;
@@ -251,9 +259,9 @@ void interrupt_stub1() {
                 RF69::pcIntCount++;
                                 
                 if (pinD & (1 << RFM_IRQ - 16)) {
-                    XXMSK &= ~(1 << INT_BIT);   //Prevent nested IRQ 
+                    XXMSK &= ~(1 << INT_BIT);   // Prevent nested IRQ 
                     interrupt_stub0();   //Process the RFM69x IRQ
-                    XXMSK |= (1 << INT_BIT);    //Restore IRQ function
+                    XXMSK |= (1 << INT_BIT);    // Restore IRQ function
                 }
             }
         #endif
@@ -312,8 +320,8 @@ struct PreventInterrupt {
 #if SX1276
 #warning RF69_avr.h: Building for SX1276 
 
-    PreventInterrupt () { XXMSK &= ~ ( _BV(INT0) | _BV(INT_BIT) ); }
-    ~PreventInterrupt () { XXMSK |= ( _BV(INT0) | _BV(INT_BIT) ); }
+    PreventInterrupt () { XXMSK &= ~ ( _BV(INT0) << 4 | _BV(INT_BIT) << 4 ); }
+    ~PreventInterrupt () { XXMSK |= ( _BV(INT0) << 4 | _BV(INT_BIT) << 4 ); }
     
 #else
 #warning RF69_avr.h: Building for RFM69 
@@ -428,13 +436,15 @@ static void InitIntPin () {
 #else
             XXMSK &= ~ _BV(INT_BIT);          		// Mask radio interrupt
 #endif
+			cli();
             attachInterrupt(0, interrupt_stub0, RISING);           
             attachInterrupt(INT_NUMBER, interrupt_stub1, RISING);
-            
+            XXMSK = 0x30;
+            sei();
 #if SX1276
-            XXMSK |= ( _BV(INT_BIT) | _BV(INT0) );	// Enable radio interrupts
+ //           XXMSK |= ( _BV(INT_BIT) | _BV(INT0) );	// Enable radio interrupts
 #else
-            XXMSK |= _BV(INT_BIT);            		// Enable radio interrupt
+ //           XXMSK |= _BV(INT_BIT);            		// Enable radio interrupt
 #endif
         } else {
             detachInterrupt(0);

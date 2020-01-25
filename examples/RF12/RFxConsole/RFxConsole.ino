@@ -1381,6 +1381,16 @@ static void handleInput (char c) {
             		 Serial.println(rfapi.lastLen);
                      if (df_present())
                          df_dump();
+
+Serial.println(INT4);
+Serial.println(INT5);
+Serial.print("EIMSK:");
+Serial.println(EIMSK, BIN);
+Serial.println(_BV(INT0));
+Serial.println(_BV(INT1));
+Serial.println( (_BV(INT0) | _BV(INT1)));
+
+
                      break;
 
             case 'r': // replay from specified seqnum/time marker
@@ -1694,6 +1704,14 @@ Serial.println(MCUSR, HEX);
     Serial.flush();
     maxRestartRate = 0;
     previousRestarts = rfapi.RSSIrestart;
+
+Serial.println(INT4);
+Serial.println(INT5);
+Serial.print("EIMSK:");
+Serial.println(EIMSK, BIN);
+Serial.println(_BV(INT0));
+Serial.println(_BV(INT1));
+Serial.println( (_BV(INT0) | _BV(INT1)));
     
 } // setup
 
@@ -2079,6 +2097,15 @@ static byte * semaphoreGet (byte node, byte group) {
 }
 
 void loop () {
+/*
+Serial.println(INT0);
+Serial.println(INT1);
+Serial.print("EIMSK:");
+Serial.println(EIMSK);
+Serial.println(_BV(INT0));
+Serial.println(_BV(INT1));
+Serial.println( (_BV(INT0) | _BV(INT1)));
+*/
 	wdt_reset();
 #if TINY
     if ( _receive_buffer_index ) handleInput( inChar() );
