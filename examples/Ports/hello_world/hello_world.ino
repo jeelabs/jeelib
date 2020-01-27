@@ -10,7 +10,7 @@ Serial.println(EIMSK, BIN);
 Serial.println(_BV(INT0));
 Serial.println(_BV(INT1));
 Serial.println( (_BV(INT0) | _BV(INT1)));
-EIMSK |= ( _BV(INT1) | _BV(INT0) );
+//EIMSK |= ( _BV(INT1) | _BV(INT0) );
 Serial.print("EIMSK:");
 Serial.println(EIMSK, BIN);
 attachInterrupt(INT0, interrupt_stub0, RISING);           
@@ -20,6 +20,7 @@ Serial.println(EIMSK, BIN);
 }
 
 void loop() {
+//  Serial.println("\nHello world, enter characters at the keyboard");
   // send data only when you receive data:
   if (Serial.available() > 0) {
     // read the incoming byte:

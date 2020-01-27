@@ -311,13 +311,19 @@ void interrupt_stub1() {
 struct PreventInterrupt {
 
 #if defined(__AVR_ATmega2560__) || defined(__AVR_ATmega1280__) && SX1276
-#warning RF69_avr.h: Building for SX1276 
+	#warning RF69_avr.h: Building for SX1276 with ATMega2560
 
     PreventInterrupt () { XXMSK &= ~ ( _BV(INT0) << 4 | _BV(INT_BIT) << 4 ); }
     ~PreventInterrupt () { XXMSK |= ( _BV(INT0) << 4 | _BV(INT_BIT) << 4 ); }
-    
+
+#elif SX1276
+	#warning RF69_avr.h: Building for SX1276 	
+
+    PreventInterrupt () { XXMSK &= ~ ( _BV(INT0) | _BV(INT_BIT) ); }
+    ~PreventInterrupt () { XXMSK |= ( _BV(INT0) | _BV(INT_BIT) ); }
+  
 #else
-#warning RF69_avr.h: Building for RFM69 
+	#warning RF69_avr.h: Building for RFM69 
 
     PreventInterrupt () { XXMSK &= ~ _BV(INT_BIT); }
     ~PreventInterrupt () { XXMSK |= _BV(INT_BIT); }
@@ -425,7 +431,9 @@ static void InitIntPin () {
     #elif RF69_COMPAT
         if (RF69::node != 0) {
 			cli();
+		#if SX1276
             attachInterrupt(digitalPinToInterrupt(2), interrupt_stub0, RISING);           
+		#endif
             attachInterrupt(INT_NUMBER, interrupt_stub1, RISING);
             sei();
         } else {
