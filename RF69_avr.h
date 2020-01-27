@@ -115,8 +115,13 @@ static void spiConfigPins () {
 #endif
 
 struct PreventInterrupt {
+#if defined(__AVR_ATmega2560__) || defined(__AVR_ATmega1280__)
+    PreventInterrupt () { EIMSK &= ~ _BV(INT0 << 4); }
+    ~PreventInterrupt () { EIMSK |= _BV(INT0 << 4); }
+#else
     PreventInterrupt () { EIMSK &= ~ _BV(INT0); }
     ~PreventInterrupt () { EIMSK |= _BV(INT0); }
+#endif
 };
 
 static void spiInit (void) {
