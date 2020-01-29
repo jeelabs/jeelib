@@ -6,6 +6,8 @@
 #define SX1276	1
 #define BLOCK  0             // Alternate LED pin?
 #define INVERT_LED       1   // 0 is Jeenode usual and 1 inverse
+
+#define hubID			31
 //
 /* AutoRxRestartOn = 1, page 24:
    after the controller has emptied the FIFO the receiver will re-enter the WAIT mode described
@@ -61,7 +63,6 @@
 // Added support for a semaphore queue to store and forward postings to nodes in ACK's 2018-02-27
 // Sum the RSSI & FEI of packets that trigger a restart without a sync, reported to serial using 8v
 // Support fine radio frequency control using microOffset 32,1600o 2018-06-30
-// Assume the ACK's are sent from i31 in order to collect ACK statistics for i31 2018-07-4
 // Add rfapi.configFlags to control afc off/on using "128,8b" 2018-07-4
 // Watchdog timer enabled 2018-10-17
 // Added an elapsed timer before "OK", use "1U" to activate
@@ -241,11 +242,6 @@ static byte inChar () {
   #define MAX_NODES 10			// Contrained by RAM (22 bytes RAM per node)
 #endif
 
-static unsigned long now () {
-    // FIXME 49-day overflow
-    return millis() / 1000;
-} 
-
 byte ledStatus = 0;
 static void activityLed (byte on) {
 #ifdef LED_PIN
@@ -313,7 +309,7 @@ typedef struct {
 /*12*/byte chkNoise;			// Seconds between noise floor checks, offset 12
 /*13*/byte spare_bits	:2;		// Available
 /*13*/byte microOffset	:6;		// Low order 6 bits of radio frequency
-/*14  byte pad[RF12_EEPROM_SIZE - 15];//Fully used!
+/*14  byte pad[RF12_EEPROM_SIZE - 15];//Fully used! */
 /*14*/word crc;					// Integrity CRC
 
 } RF12Config;
@@ -749,8 +745,8 @@ static void showStatus() {
     }
 
     byte* b = RF69::SPI_pins();  // {OPTIMIZE_SPI, PINCHG_IRQ, RF69_COMPAT, RFM_IRQ, SPI_SS, SPI_MOSI, SPI_MISO, SPI_SCK 
-  #if defined(__AVR_ATmega2560__) 		   // ATMega2560 with SX1276    
-static byte n[] = {1,0,1,4,2,3,1,3,1};     // ATMega2560 with SX1276 settings
+  #if defined(__AVR_ATmega2560__) || defined(__AVR_ATmega1280__) // ATMega1280/2560 with SX1276    
+static byte n[] = {1,0,1,4,2,3,1,3,1};     // ATMega1280/2560 with SX1276 settings
   #elif defined(__AVR_ATmega1284P__) 	   // Moteino MEGA    
 static byte n[] = {1,0,1,4,5,6,7,2,2};     // ATMega1284 with RFM69 settings
   #else
@@ -783,8 +779,7 @@ Serial.print(RF69::IRQFLAGS2);
 printOneChar(',');
 Serial.print(RF69::DIOMAPPING1);
 printOneChar(',');
-Serial.print(rfapi.rssiZero);
-Serial.println(); Serial.flush();
+Serial.println(rfapi.rssiZero);
 //Serial.print("Micros="); Serial.println((uint32_t)micros());        
 #endif    
 Serial.flush();
@@ -887,7 +882,7 @@ static void handleInput (char c) {
         switch (c) {
 
             case 'i': // set node id
-                if ((value > 0) && (value <= 31)) {
+                if ((value > 0) && (value <= hubID)) {
                     config.nodeId = (config.nodeId & 0xE0) + (value & 0x1F);
                     saveConfig();
                 }
@@ -1461,7 +1456,7 @@ static void handleInput (char c) {
 
     }	// else if (c > ' ')
 	 
-    if ('a' <= c && c <= 'z' || 'R' <= c && c <= 'W' || '+' <= c && c <= '-') {
+    if ( ('a' <= c && c <= 'z') || ('R' <= c && c <= 'W') || ('+' <= c && c <= '-') ) {
         showString(PSTR("> "));
         for (byte i = 0; i < top; ++i) {
             showByte(stack[i]);
@@ -1490,7 +1485,7 @@ static void dumpAPI() {
     }
     Serial.println();
 }
-
+/*
 static void displayString (const byte* data, byte count) {
     for (byte i = 0; i < count; ++i) {
         char c = (char) data[i];
@@ -1498,7 +1493,7 @@ static void displayString (const byte* data, byte count) {
         if (!(config.output & 0x1)) printOneChar(' ');
     }
 }
-
+*/
 static void printPos (byte c) {
     if (config.output & 0x1) { // Hex output?
         printOneChar(' ');
@@ -1721,7 +1716,7 @@ static void clrNodeStore() {
     }
     delay(4);
 #if RF69_COMPAT
-	for (byte i; i < MAX_NODES; i++) {
+	for (byte i = 0; i < MAX_NODES; i++) {
 		pktCount[i] = lastFEI[i] = minFEI[i] = maxFEI[i]
 		= lastRSSI[i] = minRSSI[i] = maxRSSI[i] = CumNodeFEI[i] = CumNodeTfr[i]
 		= CumNodeRtp[i] = lastLNA[i] = minLNA[i] = maxLNA[i] = 0;
@@ -1806,7 +1801,7 @@ static void nodeShow(byte group) {
     unsigned int index;
     for (index = 0; index < MAX_NODES; index++) {
         byte n = eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4));     // Node number
-http://forum.arduino.cc/index.php/topic,140376.msg1054626.html
+// 		http://forum.arduino.cc/index.php/topic,140376.msg1054626.html
         if (n & 0x80) {                                                     // Erased or empty entry?
             if (n == 0xFF) break;                                           // Empty, assume end of table
 //				if (!group) {
@@ -2361,12 +2356,12 @@ Serial.println( (_BV(INT0) | _BV(INT1)));
 	            printOneChar('~');
 				Serial.print(rf12_rtp);
 			}
-/*
+			/*
             showString(PSTR(" r="));
             Serial.print(rf12_rst);
 //            showString(PSTR(" i="));
 //            Serial.print(rxGap);
-            /*
+
                showString(PSTR(" M="));
                Serial.print(RF69::REGIRQFLAGS1, HEX);
              */            
@@ -2501,20 +2496,15 @@ Serial.print(")");
                 df_append((const char*) rf12_data - 2, rf12_len + 2);
 
 			if ((rf12_hdr & (RF12_HDR_CTL | RF12_HDR_DST)) == (RF12_HDR_CTL | RF12_HDR_DST)) 
-			  rf12_hdr = (31 | RF12_HDR_CTL | RF12_HDR_ACK);	
-				// Assume ACK responder is i31 
+			  rf12_hdr = (hubID | RF12_HDR_CTL | RF12_HDR_ACK);	
 				         
-            if ( !(rf12_hdr & RF12_HDR_DST) ) {
+            if ( !(rf12_hdr & RF12_HDR_DST) && (rf12_hdr & RF12_HDR_MASK) != hubID ) {
                 // This code only sees broadcast packets *from* other nodes.
                 // Packets addressed to nodes do not identify the source node!          
                 // Search RF12_EEPROM_NODEMAP for node/group match
-                // Node 31 will also be added even though a Node Allocation will
-                // be offered, to track everyone who was out there.
 #if !TINY
                 if (!getIndex(rf12_grp, (rf12_hdr & RF12_HDR_MASK)) && (!(testPacket))) {
                     if (newNodeMap != 0xFFFF) { // Storage space available?
-                        // Node 31 will also be added even though a Node Allocation will
-                        // also be offered, to track everyone who is/was out there.
                         showString(PSTR("New Node g"));
                         showByte(rf12_grp);
                         showString(PSTR(" i"));
@@ -2574,7 +2564,7 @@ Serial.print(")");
 
             // Where requested, acknowledge broadcast packets - not directed packets
             // unless directed to this nodeId
-            if ((RF12_WANTS_ACK && (config.collect_mode) == 0) && (!(rf12_hdr & RF12_HDR_DST))             
+            if ( ((RF12_WANTS_ACK && (config.collect_mode) == 0) && (!(rf12_hdr & RF12_HDR_DST)) )             
                     || (rf12_hdr & (RF12_HDR_MASK | RF12_HDR_ACK | RF12_HDR_DST)) 
                     == ((config.nodeId & 0x1F) | RF12_HDR_ACK | RF12_HDR_DST)) {
 
@@ -2586,7 +2576,7 @@ Serial.print(")");
                 // it with the returning ACK.
                 // If there are no spare Node numbers nothing is offered
                 // TODO perhaps we should increment the Group number and find a spare node number there?
-                if (((rf12_hdr & RF12_HDR_MASK) == 31) && (!(rf12_hdr & RF12_HDR_DST)) && (!(testPacket))) {
+                if (((rf12_hdr & RF12_HDR_MASK) == hubID) && (!(rf12_hdr & RF12_HDR_DST)) && (!(testPacket))) {
                 	special = true;
                     // Special Node 31 source node
                     // Make sure this nodes node/group is already in the eeprom
@@ -2597,7 +2587,7 @@ Serial.print(")");
                         eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 2), 255);
                     }
                     delay(4);
-                    for (byte i = 1; i < 31; i++) {
+                    for (byte i = 1; i < hubID; i++) {
                         // Find a spare node number within received group number
                         if (!(getIndex(rf12_grp, i ))) {         // Node/Group pair not found?
                             observedRX.offset_TX = config.frequency_offset;
