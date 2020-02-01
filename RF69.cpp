@@ -440,7 +440,7 @@ static volatile int16_t fei;
 static volatile int16_t lastFEI;
 static volatile uint16_t delayTXRECV;
 static volatile uint16_t rst;
-volatile uint32_t tfr;
+volatile int32_t tfr;
 static volatile uint32_t previousMillis;
 static volatile uint32_t noiseMillis;
 static volatile uint32_t SYNCinterruptMillis;
@@ -1121,7 +1121,7 @@ second rollover and then will be 1.024 mS out.
                     if (readReg(REG_IRQFLAGS1) & IRQ1_SYNCMATCH) {
             			tfr =  micros() - startRX;	// 4µs precision
 				        rxstate = RXFIFO;                       
-						if (tfr < missedCarry) tfr = tfr + 1024UL;
+						if (tfr < missedCarry) tfr = tfr + 1024L;
                         rfapi.syncMatch++;                     
                 		noiseMillis = ms;	// Delay a reduction in sensitivity
                         break;
