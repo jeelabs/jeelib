@@ -1,11 +1,11 @@
 /// @dir RFxConsole
 ///////////////////////////////////////////////////////////////////////////////
-#define RF69_COMPAT      1	 // define this to use the RF69 driver i.s.o. RF12 
+#define RF69_COMPAT     1	 // define this to use the RF69 driver i.s.o. RF12 
 ///                          // The above flag must be set similarly in RF12.cpp
 ///                          // and RF69_avr.h
-#define SX1276	1
-#define BLOCK  0             // Alternate LED pin?
-#define INVERT_LED       1   // 0 is Jeenode usual and 1 inverse
+#define SX1276			1
+#define BLOCK  			0	// Alternate LED pin?
+#define INVERT_LED      1	// 0 is Jeenode usual and 1 inverse
 
 #define hubID			31
 //

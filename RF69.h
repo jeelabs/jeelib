@@ -10,8 +10,8 @@ typedef struct {
 
     uint32_t rateInterval;	// Disabled by default, set this to 10000ms
     volatile uint32_t RSSIrestart;
-    volatile uint16_t interruptCountRX;
-    volatile uint16_t interruptCountTX;
+    volatile uint32_t interruptCountRX;
+    volatile uint32_t interruptCountTX;
     uint32_t syncMatch;
     uint32_t goodCRC;
 	uint32_t discards;   // Count of good packets discarded
