@@ -393,7 +393,7 @@ RF_API rfapi;
 #endif	/////////////////////////// SX1276
 
 // transceiver states, these determine what to do with each interrupt
-enum { TXCRC1, TXCRC2, TXDONE, TXIDLE, TXRECV, RXFIFO, RESTART1, RESTART2 };
+enum { TXCRC1, TXCRC2, TXDONE, TXIDLE, TXRECV, RXFIFO };
 
 byte clearAir = 190;
 
@@ -789,10 +789,6 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
 
     switch (rxstate) {
     
-    case RESTART1:
-
-    case RESTART2:
-    
     case TXIDLE:
         rxdone = false;
         rxfill = rf69_buf[2] = 0;
@@ -942,11 +938,6 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
 
 */
 
-
-
-
-
-
 void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
 #if SX1276
     setMode(MODE_STANDBY);
@@ -1066,16 +1057,18 @@ condition is met to transmit the packet data.
 }
 
 void RF69::interrupt_compat (uint8_t rssi_interrupt) {
+/*	
 		if (rxstate == TXIDLE) {
 			rfapi.TXIDLECount++;
 			return;
 		}
+*/
 /*
   This interrupt service routine retains control for far too long. However,
   the choices are limited because of the short time gap between RSSI & SyncMatch,
   being driven by recvDone and the size of the radio FIFO.
 */
-        writeReg(REG_DIOMAPPING2, DIO4_TempChangeLowBat);  // Disable further interrupts?
+//        writeReg(REG_DIOMAPPING2, DIO4_TempChangeLowBat);  // Disable further interrupts?
 /*
 micros() returns the hardware timer contents (which updates continuously), 
 plus a count of rollovers (ie. one rollover ever 1.024 mS). 
@@ -1120,7 +1113,6 @@ second rollover and then will be 1.024 mS out.
             		}
                     if (readReg(REG_IRQFLAGS1) & IRQ1_SYNCMATCH) {
             			tfr =  micros() - startRX;	// 4µs precision
-				        rxstate = RXFIFO;                       
 						if (tfr < missedCarry) tfr = tfr + 1024L;
                         rfapi.syncMatch++;                     
                 		noiseMillis = ms;	// Delay a reduction in sensitivity
@@ -1135,8 +1127,8 @@ second rollover and then will be 1.024 mS out.
 */
 						writeReg(REG_AFCFEI, AFC_CLEAR);                                                                
 					    setMode(MODE_STANDBY);
-        				writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
-                        rxstate = RESTART1;   // Cause a RX restart by FSM
+//        				writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
+                        rxstate = TXIDLE;   // Cause a RX restart by FSM
         				// Collect RX stats per LNA
 	                	rfapi.RSSIrestart++;
 	                	rfapi.cumRSSI[lna] = rfapi.cumRSSI[lna] + (uint32_t)rssi; 
@@ -1164,6 +1156,7 @@ second rollover and then will be 1.024 mS out.
             } //  RSSI 
                        
 // Sync match achieved
+			rxstate = RXFIFO;                       
         	IRQ_ENABLE;       // allow nested interrupts from here on  
         	                                             
         	rfapi.interpacketTS = ms;	// Value stored at time of interrupt            			
@@ -1203,35 +1196,27 @@ second rollover and then will be 1.024 mS out.
                     packetBytes++;
                     crc = _crc16_update(crc, in);              
                     if (rxfill >= (payloadLen + (5 - rf69_skip))) {  // Trap end of payload
-                        writeReg(REG_AFCFEI, AFC_CLEAR);
-					    setMode(MODE_STANDBY);
-            			writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
                         stillCollecting = false;
                         break;
                     }
                 } //  if 
             } // busy loop
-            byteCount = rxfill;
-            if (packetBytes < (5 - rf69_skip)) underrun++;
-            
-            if (stillCollecting) {
-                // We are exiting before a successful packet completion
-                packetShort++;
-            } 
-  
-            rst = rfapi.RSSIrestart;
-            rxP++;
-            
             writeReg(REG_AFCFEI, AFC_CLEAR);
 		    setMode(MODE_STANDBY);
+
+            byteCount = rxfill;
+            if (packetBytes < (5 - rf69_skip)) underrun++;            
+            if (stillCollecting) packetShort++;
+  
+            rst = rfapi.RSSIrestart;
+            rxP++;           
             rxdone = true;      // force TXRECV in RF69::recvDone_compat       
             rxstate = TXRECV;   // Restore state machine
-            writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
+//            writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
 
         } else
         if (rxstate == RXFIFO) {	// Interrupted while filling FIFO ?
         	rfapi.intRXFIFO++;
-        	return;					// Get back to it.
 /*
 #if TX_INTERRUPT
 #warning RF69.cpp: TX completed using an Interrupt       
@@ -1269,8 +1254,8 @@ second rollover and then will be 1.024 mS out.
 			writeReg(REG_AFCFEI, AFC_CLEAR);			// If we are in RX mode
     		writeReg(REG_PALEVEL, 0);	// Drop TX power to clear airwaves quickly	
     		setMode(MODE_STANDBY);
-			writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
-            rxstate = RESTART2;   // Cause a RX restart by FSM
+//			writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
+            rxstate = TXIDLE;							// Cause a RX restart by FSM
         }
 	}
 
