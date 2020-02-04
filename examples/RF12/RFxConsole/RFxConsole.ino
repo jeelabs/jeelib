@@ -1381,6 +1381,8 @@ static void handleInput (char c) {
                      if (df_present())
                          df_dump();
 
+					 showString(PSTR("PCMSK0:"));
+					 Serial.println(PCMSK0, BIN);
 					 showString(PSTR("EIMSK:"));
 					 Serial.println(EIMSK, BIN);
                      break;

@@ -377,8 +377,8 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   
   0x3D,	0x00, // LowBat detector disabled
   
-  0x40, 0x00, // Set DIOMAPPING1 to POR value
-  0x41, 0x00, // DIOMAPPING2, Initially DIO4_TempChangeLowBat
+  0x40, 0x00, // DIOMAPPING1 DIO0_PACKETSENT
+  0x41, 0xC0, // DIOMAPPING2, DIO4_RSSI
   
 //  0x4D, 0x87,	  // Set Pmax to +20dBm for PA_HP
   0x75, 0x29,
@@ -537,7 +537,16 @@ uint8_t setMode (uint8_t mode) {	// TODO enhance return code
 #else
 uint8_t setMode (uint8_t mode) {	// TODO enhance return code
 //    uint8_t c = 0;
+//    PreventInterrupt RF69_avr_h_INT;
+//	cli();
+//	EIMSK = 0;
+//	volatile uint8_t sreg = SREG;
+	cli();
 	writeReg(REG_OPMODE, mode);
+	sei();
+//	if (sreg & 0x80) sei();
+//	EIMSK = 0x30;
+//	sei();
 //    writeReg(REG_OPMODE, (mode | MODE_SEQUENCER_OFF));
 //	delay(10);
 //	if (mode < MODE_RECEIVER) return c;
@@ -812,7 +821,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
         rfapi.ConfigFlags = (rfapi.ConfigFlags | afcfei);
 
         rxstate = TXRECV;
-        writeReg(REG_DIOMAPPING2, DIO4_RSSI);
+//        writeReg(REG_DIOMAPPING2, DIO4_RSSI);
         rfapi.setmode = setMode(MODE_FS_RX);
         writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
         rfapi.setmode = setMode(MODE_RECEIVER);
@@ -973,7 +982,7 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
           	// Beware the duty cycle - 1% only
     	}
 #endif
-    writeReg(REG_DIOMAPPING1, (DIO0_PACKETSENT /*| DIO3_TX_UNDEFINED*/));
+//    writeReg(REG_DIOMAPPING1, (DIO0_PACKETSENT /*| DIO3_TX_UNDEFINED*/));
 
     if (ptr != 0) {
     	writeReg(REG_SYNCCONFIG, fourByteSync);
@@ -1202,7 +1211,9 @@ second rollover and then will be 1.024 mS out.
                 } //  if 
             } // busy loop
             writeReg(REG_AFCFEI, AFC_CLEAR);
+//            cli();
 		    setMode(MODE_STANDBY);
+//		    sei();
 
             byteCount = rxfill;
             if (packetBytes < (5 - rf69_skip)) underrun++;            
@@ -1253,7 +1264,9 @@ second rollover and then will be 1.024 mS out.
             unexpected++;
 			writeReg(REG_AFCFEI, AFC_CLEAR);			// If we are in RX mode
     		writeReg(REG_PALEVEL, 0);	// Drop TX power to clear airwaves quickly	
+//			cli();
     		setMode(MODE_STANDBY);
+//    		sei();
 //			writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
             rxstate = TXIDLE;							// Cause a RX restart by FSM
         }

@@ -196,9 +196,7 @@ void interrupt_stub0() {
 #endif
 void interrupt_stub1() {
         rfapi.interruptCountRX++;
-        EIMSK = 0;
         RF69::INTERRUPT_HANDLER;
-        EIMSK = 0x30;
 }
 
 #ifdef EIMSK    // Test for ATMega
