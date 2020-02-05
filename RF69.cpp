@@ -364,7 +364,8 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x12, 0x09, // RxBw 200 KHz, DCC 16%
   0x13, 0x09, // RxBwAFC 200 Khz, DCC 16%. Only handling initial RSSI phase, not payload!
 
-  0x1F, 0x00, // Preamble Detector Off
+//  0x1F, 0x00, // Preamble Detector Off
+  0x1F, 0xCA, 	// Preamble Detector On, 2 bytes, 10 chips
   
   0x30, 0x00, // PacketConfig1 = fixed, no crc
   0x31, 0x40, // Packet Mode
@@ -1100,7 +1101,11 @@ second rollover and then will be 1.024 mS out.
 						for (volatile uint16_t tick = 0; tick < 865; tick++) NOP;	// Keep the SPI quiet while FEI calculation is done.
 						
             			rssi = readReg(REG_RSSIVALUE);
+#if SX1276
+    					lna = (readReg(REG_LNA) >> 5);
+#else
     					lna = (readReg(REG_LNA) >> 3) & 7;
+#endif
            				fei  = readReg(REG_FEIMSB);
         				fei  = (fei << 8) + readReg(REG_FEILSB);
         	        	afc  = readReg(REG_AFCMSB);

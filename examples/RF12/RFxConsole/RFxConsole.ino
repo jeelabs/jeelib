@@ -1082,7 +1082,7 @@ static void handleInput (char c) {
                          rfapi.rateInterval = (uint32_t)(config.rateInterval) << 10;
                      }
                      saveConfig();
-                     maxRestartRate = 0;
+                     currentRestarts = previousRestarts = maxRestartRate = 0;
                      previousRestarts = currentRestarts;
                      break;
 
