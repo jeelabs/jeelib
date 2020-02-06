@@ -357,7 +357,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x09, 0xDF, // RegPaConfig: PA Boost, max power
 //  0x0B, 0x2B, // RegOcp
 
-  0x0D, 0x09, // AgcAutoOn, RxTrigger:RSSI
+  0x0D, 0x0E, // AgcAutoOn
   0x0E, 0x00, // RSSI two sample smoothing - we are a star network
   
   0x10, 0xC0, // RSSI Threshold -100dB
@@ -365,7 +365,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x13, 0x09, // RxBwAFC 200 Khz, DCC 16%. Only handling initial RSSI phase, not payload!
 
 //  0x1F, 0x00, // Preamble Detector Off
-  0x1F, 0xCA, 	// Preamble Detector On, 2 bytes, 10 chips
+  0x1F, 0xAA, 	// Preamble Detector On, 2 bytes, 10 chips
   
   0x30, 0x00, // PacketConfig1 = fixed, no crc
   0x31, 0x40, // Packet Mode

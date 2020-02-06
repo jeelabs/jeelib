@@ -429,8 +429,8 @@ static void showNibble (byte nibble) {
     Serial.print(c);
 }
 
-static void showByte (byte value) {
-    if (config.output & 0x1) {
+static void showByte (byte value, byte format = 0) {
+    if ( (config.output & 0x1) || (format) ) {
         showNibble(value >> 4);
         showNibble(value);
     } else
@@ -1315,21 +1315,20 @@ static void handleInput (char c) {
                          }
                      }
 
-
                      // Show and set RFMxx registers
                      if ((top == 2) & ((stack[0] == 128) || (stack[0] == 0))) {
-                         showByte(stack[1]);
+                         showByte(stack[1], HEX);
 #if RF69_COMPAT
-                         printOneChar('=');
+                         printOneChar(':');
                          /* Example usage: 1x        // Switch into hex input mode (optional, adjust values below accordingly)
                          //                80,29,E4n  // 0x80 (write bit) + 0x29 (RSSI Threshold) == 0xA9; E4 (default RSSI threshold); n = node command
                          //                80,11,80n  // 0x80 (write bit) + 0x11 (Output power) == 0x91; 80 (PA0 transmit power minimum); n = node command
                          //                x         // Save certain registers in eeprom and revert to decimal mode
                           */
-                         showByte(RF69::control((stack[1] | stack[0]), value)); // Prints out Register value before any change requested.
+                         showByte(RF69::control((stack[1] | stack[0]), value), 0xF); // Prints out Register value before any change requested.
                          if (stack[0] == 128) {
                              printOneChar('>');
-                             if (!(nullValue)) showByte(value);
+                             if (!(nullValue)) showByte(value, HEX);
                          }
 #else
 
@@ -2024,7 +2023,7 @@ static bool semaphoreSave (byte node, byte group, byte key, byte flag, unsigned 
 			semaphoreStack[(c * ackEntry) + 4] = value;
 			semaphoreStack[(c * ackEntry) + 5] = value >> 8;
 			semaphoreStack[(c * ackEntry) + 6] = 0;	// TX Count
-			semaphoreStack[(c * ackEntry) + 7] = 0;	// SPare		
+			semaphoreStack[(c * ackEntry) + 7] = 0;	// Spare		
 			return true;	
 		}
 	}
@@ -2101,18 +2100,22 @@ Serial.println( (_BV(INT0) | _BV(INT1)));
     if ( rf12_recvDone() ) {
     	currentRestarts = rfapi.RSSIrestart;
 
-#if RF69_COMPAT && !TINY                // At this point the radio is in standby
+#if RF69_COMPAT && !TINY	// At this point the radio is in standby
+
         if (rf12_crc == 0) {
 			unsigned long rxCrcGap;
 /*        
  			if (RF12_WANTS_ACK && (config.collect_mode) == 0) {
 				RF69::control(1, 2);	// radio to mode FS, ACK will be needed
- 			} else {	            	
+ 			} else {          	
 				// ACK not required for current packet 				
         		rf12_recvDone();		// Attempt to buffer next RF packet
         		// At this point the receiver is active but previous buffer intact        		     					
- 			} 
-*/ 			
+ 			}
+*/ 
+        	rf12_recvDone();		// Attempt to buffer next RF packet
+        	// At this point the receiver is active but previous buffer intact        		     					
+ 			
          	rxCrcGap = rf12_interpacketTS - rxCrcLast;
  			rxCrcLast = rf12_interpacketTS;
  			if (rxCrcGap < minCrcGap) {
