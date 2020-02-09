@@ -1076,13 +1076,14 @@ static void handleInput (char c) {
                      	//        	Serial.println(config.RegRssiThresh);
                      	//        	Serial.println(rfapi.rssiThreshold);
                      	config.RegRssiThresh = rfapi.rssiThreshold = value;
-                     }
+                     } else config.RegRssiThresh = rfapi.rssiThreshold = 210;
+                     
                      if (top == 1) {
                          config.rateInterval = stack[0];
                          rfapi.rateInterval = (uint32_t)(config.rateInterval) << 10;
                      }
                      saveConfig();
-                     currentRestarts = previousRestarts = maxRestartRate = 0;
+                     currentRestarts = previousRestarts = maxRestartRate = rfapi.softDelay = 0;
                      previousRestarts = currentRestarts;
                      break;
 
@@ -1365,6 +1366,10 @@ static void handleInput (char c) {
             		 Serial.print(rfapi.interruptCountTX);
                      printOneChar(',');
 					 Serial.println(rfapi.interruptCountRX);
+
+            		 showString(PSTR("Soft Delays="));
+            		 Serial.println(rfapi.softDelay);
+					 
 					 
             		 showString(PSTR("InterruptTXIDLECount="));
             		 Serial.println(rfapi.TXIDLECount);

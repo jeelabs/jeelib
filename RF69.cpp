@@ -800,6 +800,11 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
     switch (rxstate) {
     
     case TXIDLE:
+    	if (millis() <= (ms + 1UL) ) {
+    		// Brief update to millis, too many interrupts? Make IRQ time for Serial et al
+			for (uint16_t tick = 0; tick < 8000; tick++) NOP;	// Interruptible delay 0.5ms
+			rfapi.softDelay++;
+    	}
         rxdone = false;
         rxfill = rf69_buf[2] = 0;
         recvBuf = buf;
@@ -1087,9 +1092,9 @@ if you cross a rollover point, however after 1.024 mS it will not know about the
 second rollover and then will be 1.024 mS out.
 */
         // N.B. millis is not updating until IRQ_ENABLE
+        ms = millis();
         if (rxstate == TXRECV) {
             if (rssi_interrupt) {
-            	ms = millis();
             	RssiToSync = 0;
 				for (volatile byte tick = 0; tick < 10; tick++) NOP;	// Kill some time waiting for sync bytes
 				// volatile above changes the timing
