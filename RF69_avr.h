@@ -307,7 +307,7 @@ void interrupt_stub1() {
         #define INT_BIT INT
     #endif
 #endif
-
+/*
 struct PreventInterrupt {
 
 #if defined(__AVR_ATmega2560__) || defined(__AVR_ATmega1280__) && SX1276
@@ -331,6 +331,7 @@ struct PreventInterrupt {
 #endif 
 
 };  // Semicolon is required
+*/
 
 static void spiInit (void) {
     spiConfigPins();

@@ -1370,7 +1370,6 @@ static void handleInput (char c) {
             		 showString(PSTR("Soft Delays="));
             		 Serial.println(rfapi.softDelay);
 					 
-					 
             		 showString(PSTR("InterruptTXIDLECount="));
             		 Serial.println(rfapi.TXIDLECount);
             		 

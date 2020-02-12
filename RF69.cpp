@@ -357,15 +357,16 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x09, 0xDF, // RegPaConfig: PA Boost, max power
 //  0x0B, 0x2B, // RegOcp
 
-  0x0D, 0x0E, // AgcAutoOn
+  0x0D, 0x09, // AgcAutoOn, RxTrigger:RSSI
+//  0x0D, 0x0E, // AgcAutoOn
   0x0E, 0x00, // RSSI two sample smoothing - we are a star network
   
   0x10, 0xC0, // RSSI Threshold -100dB
   0x12, 0x09, // RxBw 200 KHz, DCC 16%
   0x13, 0x09, // RxBwAFC 200 Khz, DCC 16%. Only handling initial RSSI phase, not payload!
 
-//  0x1F, 0x00, // Preamble Detector Off
-  0x1F, 0xAA, 	// Preamble Detector On, 2 bytes, 10 chips
+  0x1F, 0x00, // Preamble Detector Off
+//  0x1F, 0xAA, 	// Preamble Detector On, 2 bytes, 10 chips
   
   0x30, 0x00, // PacketConfig1 = fixed, no crc
   0x31, 0x40, // Packet Mode
@@ -464,7 +465,7 @@ The alternative would be just to disable the feature - it is only needed in the
 
 */
 uint8_t RF69::control(uint8_t cmd, uint8_t val) {
-    PreventInterrupt RF69_avr_h_INT;
+//    PreventInterrupt RF69_avr_h_INT;
     return spiTransfer(cmd, val);
 }
 
@@ -496,7 +497,7 @@ uint8_t RF69::radioIndex(uint8_t index, uint8_t val) {
     Serial.print("Cmd:");
     Serial.println(cmd);
 */    
-    PreventInterrupt RF69_avr_h_INT;
+//    PreventInterrupt RF69_avr_h_INT;
     return spiTransfer(cmd, val);
 }
 
@@ -507,11 +508,13 @@ static void writeReg (uint8_t addr, uint8_t value) {
 static uint8_t readReg (uint8_t addr) {
     return RF69::control(addr, 0);
 }
-
+/*
 static void flushFifo () {
     while (readReg(REG_IRQFLAGS2) & (!IRQ2_FIFOEMPTY | IRQ2_FIFOOVERRUN))
         readReg(REG_FIFO);
 }
+*/
+
 #if !SX1276
 uint8_t setMode (uint8_t mode) {	// TODO enhance return code
     uint8_t c = 0;
@@ -537,14 +540,19 @@ uint8_t setMode (uint8_t mode) {	// TODO enhance return code
 
 #else
 uint8_t setMode (uint8_t mode) {	// TODO enhance return code
-//    uint8_t c = 0;
 //    PreventInterrupt RF69_avr_h_INT;
+	cli();
+	EIMSK = 0;
+	sei();
+    spiTransfer(REG_OPMODE | 0x80, mode);
+    EIMSK = 0x30;
+	return true;
 //	cli();
 //	EIMSK = 0;
 //	volatile uint8_t sreg = SREG;
-	cli();
-	writeReg(REG_OPMODE, mode);
-	sei();
+//	cli();
+//	writeReg(REG_OPMODE, mode);
+//	sei();
 //	if (sreg & 0x80) sei();
 //	EIMSK = 0x30;
 //	sei();
@@ -800,15 +808,18 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
     switch (rxstate) {
     
     case TXIDLE:
-    	if (millis() <= (ms + 1UL) ) {
+    
+        setMode(MODE_STANDBY);
+
+    	if (millis() <= (ms + 2UL) ) {
     		// Brief update to millis, too many interrupts? Make IRQ time for Serial et al
-			for (uint16_t tick = 0; tick < 8000; tick++) NOP;	// Interruptible delay 0.5ms
+//			for (uint16_t tick = 0; tick < 16000; tick++) NOP;	// Interruptible delay 1ms
 			rfapi.softDelay++;
     	}
+
         rxdone = false;
         rxfill = rf69_buf[2] = 0;
         recvBuf = buf;
-//        setMode(MODE_STANDBY);
         startRSSI = currentRSSI();       
 
 		rf12_drx = delayTXRECV;
