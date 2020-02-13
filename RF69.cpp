@@ -542,8 +542,8 @@ uint8_t setMode (uint8_t mode) {	// TODO enhance return code
 uint8_t setMode (uint8_t mode) {	// TODO enhance return code
 //    PreventInterrupt RF69_avr_h_INT;
 	cli();
+	sei();	// Following instruction will not be interrupted
 	EIMSK = 0;
-	sei();
     spiTransfer(REG_OPMODE | 0x80, mode);
     EIMSK = 0x30;
 	return true;
@@ -810,13 +810,13 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
     case TXIDLE:
     
         setMode(MODE_STANDBY);
-
+/*
     	if (millis() <= (ms + 2UL) ) {
     		// Brief update to millis, too many interrupts? Make IRQ time for Serial et al
-//			for (uint16_t tick = 0; tick < 16000; tick++) NOP;	// Interruptible delay 1ms
+			for (uint16_t tick = 0; tick < 1000; tick++) NOP;	// Interruptible delay 1ms
 			rfapi.softDelay++;
     	}
-
+*/
         rxdone = false;
         rxfill = rf69_buf[2] = 0;
         recvBuf = buf;

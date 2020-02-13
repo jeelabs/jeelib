@@ -2117,8 +2117,8 @@ Serial.println( (_BV(INT0) | _BV(INT1)));
         		// At this point the receiver is active but previous buffer intact        		     					
  			}
 */ 
-        	rf12_recvDone();		// Attempt to buffer next RF packet
-        	// At this point the receiver is active but previous buffer intact        		     					
+//        	rf12_recvDone();		// Attempt to buffer next RF packet
+//        	// At this point the receiver is active but previous buffer intact        		     					
  			
          	rxCrcGap = rf12_interpacketTS - rxCrcLast;
  			rxCrcLast = rf12_interpacketTS;
