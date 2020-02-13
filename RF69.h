@@ -16,7 +16,6 @@ typedef struct {
     uint32_t goodCRC;
 	uint32_t discards;   // Count of good packets discarded
     uint32_t interpacketTS;
-    uint32_t softDelay;
     
     volatile uint32_t rxLast;
     volatile uint32_t minGap;
@@ -35,7 +34,6 @@ typedef struct {
     volatile uint16_t rtpMin;    
 	volatile uint16_t rtpMax;
 	volatile uint16_t intRXFIFO;
-	volatile uint16_t TXIDLECount;
 	uint8_t modeError;    
 	uint8_t	configThreshold;
     uint8_t rssiThreshold;

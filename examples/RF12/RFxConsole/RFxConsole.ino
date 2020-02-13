@@ -1057,7 +1057,7 @@ static void handleInput (char c) {
 
             case 'T': 
                      // Set hardware specific TX power in eeprom
-                     if (value) config.RegPaLvl = value;
+                     config.RegPaLvl = value;
                      // Transmit permit threshold
                      if (top == 1 && (stack[0])) config.clearAir = stack[0];
                      saveConfig();
@@ -1083,7 +1083,7 @@ static void handleInput (char c) {
                          rfapi.rateInterval = (uint32_t)(config.rateInterval) << 10;
                      }
                      saveConfig();
-                     currentRestarts = previousRestarts = maxRestartRate = rfapi.softDelay = 0;
+                     currentRestarts = previousRestarts = maxRestartRate = 0;
                      previousRestarts = currentRestarts;
                      break;
 
@@ -1271,6 +1271,7 @@ static void handleInput (char c) {
             
             case 'U':
 					if (value == 1) outputTime = true;
+					else
             		if (value == 123) showStatus();
             		else config.helpMenu = value & 1;
 //            		saveConfig();
@@ -1366,12 +1367,6 @@ static void handleInput (char c) {
             		 Serial.print(rfapi.interruptCountTX);
                      printOneChar(',');
 					 Serial.println(rfapi.interruptCountRX);
-
-            		 showString(PSTR("Soft Delays="));
-            		 Serial.println(rfapi.softDelay);
-					 
-            		 showString(PSTR("InterruptTXIDLECount="));
-            		 Serial.println(rfapi.TXIDLECount);
             		 
             		 showString(PSTR("Debug="));
             		 Serial.println(rfapi.debug);
@@ -1379,6 +1374,7 @@ static void handleInput (char c) {
             		 
             		 showString(PSTR("intRXFIFO="));
             		 Serial.println(rfapi.intRXFIFO);
+            		 
             		 showString(PSTR("LastLen="));
             		 Serial.println(rfapi.lastLen);
                      if (df_present())
