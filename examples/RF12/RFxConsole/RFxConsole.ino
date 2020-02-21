@@ -1249,7 +1249,6 @@ static void handleInput (char c) {
 							nextKey++;
 							nextKey = nextKey%16;						
 							postingsIn++;
-//							oneShow(NodeMap);
 							showPost();
 				 			c = 0;	// loose command printout
 					 	} else {
@@ -1257,7 +1256,6 @@ static void handleInput (char c) {
                     		++postingsLost;
 				 		}
                      } else nodeShow(value);
-//                     top = 6;
 #endif
                      break;
             
@@ -1266,8 +1264,6 @@ static void handleInput (char c) {
 					else
             		if (value == 123) showStatus();
             		else config.helpMenu = value & 1;
-//            		saveConfig();
-//					c = 0;	// loose command printout
             		break;	
 
             case 'm':
@@ -2163,17 +2159,9 @@ void loop () {
             if ((watchNode) && ((rf12_hdr & RF12_HDR_MASK) != watchNode)) return;
             
             if (outputTime) {
-				unsigned long s = elapsedSeconds;
-    			Serial.print(s / 86400UL);
-				printOneChar('d');
-    			Serial.print((s%86400UL) / 3600UL);
-				printOneChar('h');
-    			Serial.print((s%3600UL) / 60UL);
-				printOneChar('m');
-    			Serial.print(s%60UL);
-            	showString(PSTR("s "));
-            }
-            
+            	elapsed(elapsedSeconds);
+                printOneChar(' ');
+			}            
             showString(PSTR("OK"));
             crc = true;
         } else {
@@ -2188,7 +2176,6 @@ void loop () {
                 CRCbadMaxRSSI = observedRX.rssi2;   
 #endif            
             activityLed(0);
-
 #if !TINY
             if(rf12_buf[0] == 212 && (rf12_buf[1] | rf12_buf[2]) == rf12_buf[3] && (salusMode)){
                 Serial.print((word) elapsedSeconds, DEC);  
@@ -2239,10 +2226,9 @@ void loop () {
                 showString(UNSUPPORTED);
                 showString(RFM69x);
                 // RFM69 radio problem
-                //        		Serial.println();
+                // Serial.println();
             }  
 #endif
-
             if (config.quiet_mode) {
             	OldBadHdr = rf12_hdr;	// Save node number in case next packet triggers an inquest.
 				return;
@@ -2405,18 +2391,14 @@ void loop () {
             if (observedRX.rssi2 & 0x01) showString(PSTR(".5"));
             showString(PSTR("dB"));
         }
-//        printOneChar(')');
-        //        Serial.print((RF69::control(9,0)), HEX);  // LSB of frequency
-/*        
-  #if DEBUG
-        showString(PSTR(" mCR1="));
-        Serial.print(modeChange1);
-        showString(PSTR(" mCT2="));
-        Serial.print(modeChange2);
-        showString(PSTR(" mCs3="));
-        Serial.print(modeChange3);
-  #endif
-*/
+		bool gotIndex = getIndex(rf12_grp, (rf12_hdr & RF12_HDR_MASK));
+		if (gotIndex) {
+	        printOneChar(' ');
+    	    elapsed(elapsedSeconds - rxTimeStamp[NodeMap]);
+//        	printOneChar(' ');
+//        	Serial.print(NodeMap);
+	        rxTimeStamp[NodeMap] = elapsedSeconds;
+        }
 #endif        
         if (config.verbosity & 2) {
             if(!(crc)) showString(PSTR(" Bad"));
@@ -2436,27 +2418,8 @@ void loop () {
                 printOneChar(')');
             }
 #endif
-            /*            printOneChar(' ');
-                          Serial.print(RF69::rssiChanged);  printOneChar('/'); Serial.print(RF69::lastState);
-                          printOneChar('/'); Serial.print(RF69::countRSSI);
-                          printOneChar('/'); Serial.print(RF69::interruptRSSI);
-             */
-        }
-        /*
-#else
-Serial.print(" (");
-Serial.print(rf12_getRSSI());
-Serial.print(")");
-         */
-/*
-        showString(PSTR(" Debug="));
-        Serial.print(rfapi.debug);
-        rfapi.debug = 0;
-        printOneChar(',');
-        Serial.print(rfapi.intRXFIFO);
-        printOneChar(',');
-		Serial.print(rfapi.interruptCountRX);
-*/
+         }
+		
         Serial.println();
 #if !TINY
         if (config.output & 0x2) { // also print a line as ascii
@@ -2517,7 +2480,7 @@ Serial.print(")");
                 // Packets addressed to nodes do not identify the source node!          
                 // Search RF12_EEPROM_NODEMAP for node/group match
 #if !TINY
-                if (!getIndex(rf12_grp, (rf12_hdr & RF12_HDR_MASK)) && (!(testPacket))) {
+                if ( !(gotIndex) && !(testPacket) ) {
                     if (newNodeMap != 0xFFFF) { // Storage space available?
                         showString(PSTR("New Node g"));
                         showByte(rf12_grp);
@@ -2546,7 +2509,6 @@ Serial.print(")");
 #endif // !TINY
 
 #if RF69_COMPAT && STATISTICS
-				rxTimeStamp[NodeMap] = elapsedSeconds;
                 // Check/update to min/max/count
                 if (observedRX.lna < (minLNA[NodeMap]))       
                     minLNA[NodeMap] = observedRX.lna;
@@ -2594,6 +2556,7 @@ Serial.print(")");
                 if (((rf12_hdr & RF12_HDR_MASK) == hubID) && (!(rf12_hdr & RF12_HDR_DST)) && (!(testPacket))) {
                 	special = true;
                     // Special Node 31 source node
+/*
                     // Make sure this nodes node/group is already in the eeprom
                     if (((getIndex(config.group, config.nodeId))) && (newNodeMap != 0xFFFF)) {   
                         // node/group not found but there is space to save
@@ -2602,6 +2565,7 @@ Serial.print(")");
                         eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 2), 255);
                     }
                     delay(4);
+*/
                     for (byte i = 1; i < hubID; i++) {
                         // Find a spare node number within received group number
                         if (!(getIndex(rf12_grp, i ))) {         // Node/Group pair not found?
@@ -2878,7 +2842,7 @@ Serial.print(")");
 #endif        
             activityLed(1);
             showString(TX);
-			Serial.print(r); delay(10);
+			Serial.print(r); //delay(10);
             if (cmd) {
             	showString(PSTR(" -> "));
             	showByte(sendLen);
