@@ -392,6 +392,7 @@ static byte semaphoreStack[ (ackQueue * ackEntry) + 1];	// FIFO per node group /
 #if RF69_COMPAT && STATISTICS
 static int32_t CumNodeFEI[MAX_NODES];
 static uint32_t CumNodeTfr[MAX_NODES];
+static uint32_t rxTimeStamp[MAX_NODES];
 static uint16_t CumNodeRtp[MAX_NODES];
 static signed int minFEI[MAX_NODES];
 static signed int lastFEI[MAX_NODES];
@@ -647,6 +648,7 @@ static void showStatus() {
 #endif
 	unsigned long s = elapsedSeconds;
     showString(PSTR("Elapsed "));
+/*
     Serial.print(s / 86400UL);
 	printOneChar('d');
     Serial.print((s%86400UL) / 3600UL);
@@ -655,8 +657,11 @@ static void showStatus() {
 	printOneChar('m');
     Serial.print(s%60UL);
 	printOneChar('s');
+*/
+	elapsed(s);
+	
 	printOneChar('=');
-    Serial.print(elapsedSeconds);
+    Serial.print(s);
 	printOneChar('s');
     showString(PSTR(", Led is ")); if (ledStatus) showString(PSTR("on")); else showString(PSTR("off"));
     showString(PSTR(", Free Ram(B) "));
@@ -1185,19 +1190,6 @@ static void handleInput (char c) {
                      break;
 
             case 'p':
-/*            
-            		Serial.print("Top=");
-            		Serial.print(top);
-                    printOneChar(' ');
-            		for (byte i=0; i<5;i++) {
-            			Serial.print(stack[i]);
-                         printOneChar(' ');
-            		}
-            		Serial.print(" nullValue=");
-            		Serial.print(nullValue);
-            		Serial.print(" Value=");
-            		Serial.println(value);
-*/
                      // Post a semaphore for a remote node, to be collected along with
                      // the next ACK. Format is 20,212,127p where 20 is the node and 212 
                      // is the group number 127 is the desired value to be posted. 
@@ -1546,6 +1538,30 @@ void wdt_init(void)
 }
 
 #endif
+
+void elapsed (uint32_t s) {
+	uint32_t m = s / 86400UL;
+	bool p = false;
+	if (m) {
+		Serial.print(m);
+		printOneChar('d');
+		p = true;
+	}
+	m = (s%86400UL) / 3600UL;	
+	if (m || p) {
+		Serial.print(m);
+		printOneChar('h');
+		p = true;
+	}
+	m = (s%3600UL) / 60UL;
+	if (m || p) {
+		Serial.print(m);
+		printOneChar('m');
+		p = true;
+	}
+	Serial.print(s%60UL);
+	printOneChar('s');
+}
 
 void setup () {
 // Disable global interrupts
@@ -1926,6 +1942,8 @@ static void oneShow(byte index) {
     showString(PSTR(" i"));      
     showByte(n & RF12_HDR_MASK);
 #if STATISTICS 
+	printOneChar(' ');
+	elapsed(elapsedSeconds - rxTimeStamp[index]);	
 	unsigned int c = pktCount[index];
 	if (c) {   
 	    showString(PSTR(" rx:"));
@@ -2082,15 +2100,6 @@ static byte * semaphoreGet (byte node, byte group) {
 }
 
 void loop () {
-/*
-Serial.println(INT0);
-Serial.println(INT1);
-Serial.print("EIMSK:");
-Serial.println(EIMSK);
-Serial.println(_BV(INT0));
-Serial.println(_BV(INT1));
-Serial.println( (_BV(INT0) | _BV(INT1)));
-*/
 	wdt_reset();
 #if TINY
     if ( _receive_buffer_index ) handleInput( inChar() );
@@ -2537,6 +2546,7 @@ Serial.print(")");
 #endif // !TINY
 
 #if RF69_COMPAT && STATISTICS
+				rxTimeStamp[NodeMap] = elapsedSeconds;
                 // Check/update to min/max/count
                 if (observedRX.lna < (minLNA[NodeMap]))       
                     minLNA[NodeMap] = observedRX.lna;
