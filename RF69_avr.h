@@ -89,6 +89,23 @@ static void spiConfigPins () {
     DDRB |= _BV(SPI_SS) | _BV(SPI_MOSI) | _BV(SPI_SCK);
 }
 
+#elif defined(__AVR_ATmega1284P__) //Moteino mega
+
+#define SS_DDR      DDRB
+#define SS_PORT     PORTB
+#define SS_BIT      4     // PB4    D4
+
+#define SPI_SS      4     // PB4    D4
+#define SPI_MOSI    5     // PB5    D5
+#define SPI_MISO    6     // PB6    D6
+#define SPI_SCK     7     // PB7    D7
+
+static void spiConfigPins () {
+    SS_PORT |= _BV(SS_BIT);
+    SS_DDR |= _BV(SS_BIT);
+    PORTB |= _BV(SPI_SS);
+    DDRB |= _BV(SPI_SS) | _BV(SPI_MOSI) | _BV(SPI_SCK);
+}
 #else // ATmega168, ATmega328, etc.
 
 // #define RFM_IRQ     2
