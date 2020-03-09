@@ -34,7 +34,16 @@ of power down sleep. */
 volatile byte lastPCInt;
 
 #if defined(__AVR_ATmega2560__) || defined(__AVR_ATmega1280__)
-
+/*
+blkbox: BB-LORAxxx
+Reset - 9 PH6
+DI00 - 3 TXD interrupt
+DI04 - 2 RXD interrupt
+DO - 50 MISO
+DI - 51 MOSI
+CK - 52 SCK
+SS - 10 SS 
+*/
 // Items below are options to match your shield/cabling
 #define INT         INT1
 #define INT_NUMBER  1
