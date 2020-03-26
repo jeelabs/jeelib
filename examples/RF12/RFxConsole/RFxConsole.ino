@@ -373,12 +373,14 @@ ISR(TIMER1_COMPA_vect){
     		maxRestartRate = restartRate;
     	}
     }
+/*
     if (config.chkNoise) {
     	if (elapsedSeconds > chkNoise) {
     		ping = true;
     		chkNoise = elapsedSeconds + (unsigned long)config.chkNoise;
     	}
     }
+*/
 #endif
 }
 
@@ -648,16 +650,6 @@ static void showStatus() {
 #endif
 	unsigned long s = elapsedSeconds;
     showString(PSTR("Elapsed "));
-/*
-    Serial.print(s / 86400UL);
-	printOneChar('d');
-    Serial.print((s%86400UL) / 3600UL);
-	printOneChar('h');
-    Serial.print((s%3600UL) / 60UL);
-	printOneChar('m');
-    Serial.print(s%60UL);
-	printOneChar('s');
-*/
 	elapsed(s);
 	
 	printOneChar('=');
@@ -1536,13 +1528,19 @@ void wdt_init(void)
 #endif
 
 void elapsed (uint32_t s) {
-	uint32_t m = s / 86400UL;
+	uint32_t m = s / 604800UL;
 	bool p = false;
 	if (m) {
 		Serial.print(m);
-		printOneChar('d');
+		printOneChar('w');
 		p = true;
 	}
+	m = (s%604800UL) / 86400UL;	
+	if (m || p) {
+		Serial.print(m);
+		printOneChar('d');
+		p = true;
+	} 
 	m = (s%86400UL) / 3600UL;	
 	if (m || p) {
 		Serial.print(m);
@@ -1556,6 +1554,8 @@ void elapsed (uint32_t s) {
 		p = true;
 	}
 	Serial.print(s%60UL);
+//	printOneChar('.');
+//	Serial.print(millis()%1000UL);	
 	printOneChar('s');
 }
 

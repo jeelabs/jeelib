@@ -351,8 +351,10 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x03, 0x89, // BitRateLsb, divider = 32 MHz / 650 == 49,230 khz
   0x5D,	0x0A, // RegBitRateFrac  data rate = 49,259.187 kHz
   
-  0x04, 0x05, // FdevMsb = 90 KHz
-  0x05, 0xC3, // FdevLsb = 90 KHz
+  0x04, 0x03, // FdevMsb = 55 KHz 25/3/20 from Martyn
+  0x05, 0x86, // FdevLsb = 55 KHz 25/3/20 from Martyn
+//  0x04, 0x05, // FdevMsb = 90 KHz
+//  0x05, 0xC3, // FdevLsb = 90 KHz
   
   0x09, 0xDF, // RegPaConfig: PA Boost, max power
 //  0x0B, 0x2B, // RegOcp
