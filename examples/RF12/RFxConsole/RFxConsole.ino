@@ -68,6 +68,7 @@
 // Added an elapsed timer before "OK", use "1U" to activate
 // Allow semaphores to be updated using node,group,oldvalue,newvalue 2019-02-04
 // Removed the 'm' command, replaced by an extension of the semaphore approach 2019-02-07
+// Extended 'U' command to allow locking of configuration 2020-04-04
 
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
 	#define TINY 1
@@ -465,20 +466,14 @@ static void loadConfig () {
     config.defaulted = false;   // Value if UI saves config
 }
 
-static void saveConfig () {
-    activityLed(1);
-    config.format = MAJOR_VERSION;
-    config.crc = calcCrc(&config, sizeof config - 2);
-    // eeprom_write_block(&config, RF12_EEPROM_ADDR, sizeof config);
-    // this uses 170 bytes less flash than eeprom_write_block(), no idea why
-
-    for (byte i = 0; i < sizeof config; ++i) {
-        byte* p = &config.nodeId;
-        if (eeprom_read_byte(RF12_EEPROM_ADDR + i) != p[i]) {
-			wdt_reset();		// Hold off Watchdog: Eeprom writing is slow...
-            eeprom_write_byte(RF12_EEPROM_ADDR + i, p[i]);
-            delay(4);
-            eepromWrite++;
+static void saveConfig (byte force = false) {
+	if ( (!(config.helpMenu)) && (!(force)) ) {
+		showString(BLOC);
+	} else {
+	    activityLed(1);
+    	config.format = MAJOR_VERSION;
+    	config.crc = calcCrc(&config, sizeof config - 2);
+    	// eeprom_write_block(&config, RF12_EEPROM_ADDR, sizeof config);
     	// this uses 170 bytes less flash than eeprom_write_block(), no idea why
 
     	for (byte i = 0; i < sizeof config; ++i) {
