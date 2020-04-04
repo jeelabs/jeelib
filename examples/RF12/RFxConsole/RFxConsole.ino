@@ -479,19 +479,29 @@ static void saveConfig () {
             eeprom_write_byte(RF12_EEPROM_ADDR + i, p[i]);
             delay(4);
             eepromWrite++;
+    	// this uses 170 bytes less flash than eeprom_write_block(), no idea why
+
+    	for (byte i = 0; i < sizeof config; ++i) {
+        	byte* p = &config.nodeId;
+        	if (eeprom_read_byte(RF12_EEPROM_ADDR + i) != p[i]) {
+				wdt_reset();		// Hold off Watchdog: Eeprom writing is slow...
+            	eeprom_write_byte(RF12_EEPROM_ADDR + i, p[i]);
+            	delay(4);
+            	eepromWrite++;
+			}
 		}
-	}
-    
-	loadConfig();
+ 
+		loadConfig();
 	
-    salusMode = false;
+    	salusMode = false;
 #if STATISTICS    
-    messageCount = nonBroadcastCount = CRCbadCount = 0; // Clear stats counters
+    	messageCount = nonBroadcastCount = CRCbadCount = 0; // Clear stats counters
 #endif
-    rf12_sleep(RF12_SLEEP);                             // Sleep while we tweak things
-    if (!rf12_configSilent()) showString(INITFAIL);
-    activityLed(0); 
-    showString(DONE);
+    	rf12_sleep(RF12_SLEEP);                             // Sleep while we tweak things
+    	if (!rf12_configSilent()) showString(INITFAIL);
+    	activityLed(0); 
+//    showString(DONE);
+	}
 } // saveConfig
 
 static byte bandToFreq (byte band) {
@@ -1252,9 +1262,17 @@ static void handleInput (char c) {
                      break;
             
             case 'U':
-					if (value == 1) outputTime = true;
+					if (value == 2) outputTime = true;
 					else
-            		if (value == 123) showStatus();
+            		if (value == 123) {
+            			config.helpMenu = 0;	// Lock out eeprom write
+            			showStatus();
+            		}
+            		else
+            		if (value == 1953 && top == 1) {
+            			config.helpMenu = (stack[0] & 1);
+            			saveConfig(true);	// Force eeprom write	
+            		}
             		else config.helpMenu = value & 1;
             		break;	
 
