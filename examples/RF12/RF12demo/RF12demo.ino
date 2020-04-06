@@ -6,7 +6,7 @@
 // Adding frequency features, author JohnO, 2013-09-05
 // Major EEPROM format change, refactoring, and cleanup for v12, 2014-02-13
 
-#define RF69_COMPAT 0 // define this to use the RF69 driver i.s.o. RF12
+#define RF69_COMPAT 1 // define this to use the RF69 driver i.s.o. RF12
 
 #define REG_BITRATEMSB 0x03  // RFM69 only, 0x02, // BitRateMsb, data rate = 49,261 khz
 #define REG_BITRATELSB 0x04  // RFM69 only, 0x8A, // BitRateLsb divider = 32 MHz / 650 == 49,230 khz
