@@ -26,7 +26,7 @@ void setup() {
     bitClear(PORTB, 0);
 #endif
 
-    rf12_initialize(23, RF12_868MHZ, 212, 1615);
+    rf12_initialize(9, RF12_868MHZ, 212);
 //    rf12_initialize(23, RF12_868MHZ, 212, 1592);
     // see http://tools.jeelabs.org/rfm12b
 #if !RF69_COMPAT

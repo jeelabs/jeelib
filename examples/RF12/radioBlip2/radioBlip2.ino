@@ -1,6 +1,7 @@
 /// @dir radioBlip2
 /// Send out a radio packet every minute, consuming as little power as possible.
 // 2012-05-09 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
+#define RF69_COMPAT      1	 // define this to use the RF69 driver i.s.o. RF12 
 
 #include <JeeLib.h>
 #include <avr/sleep.h>
@@ -58,6 +59,7 @@ void setup() {
   CLKPR = 1; // div 2, i.e. slow down to 8 MHz
 #endif
   sei();
+    Serial.begin(38400); Serial.println("radioBlip2");
 
 #if defined(__AVR_ATtiny84__)
     // power up the radio on JMv3
@@ -120,7 +122,7 @@ void loop() {
     vcc = payload.vcc2 = vccRead(); // measure and remember the VCC drop
 #endif
   }
-
+	Serial.println("Loop");
   byte minutes = VCC_SLEEP_MINS(vcc);
   while (minutes-- > 0)
     Sleepy::loseSomeTime(60000);
