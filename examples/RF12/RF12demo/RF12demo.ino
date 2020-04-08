@@ -6,7 +6,8 @@
 // Adding frequency features, author JohnO, 2013-09-05
 // Major EEPROM format change, refactoring, and cleanup for v12, 2014-02-13
 
-#define RF69_COMPAT 0 // define this to use the RF69 driver i.s.o. RF12
+#define RF69_COMPAT 1 // define this to use the RF69 driver i.s.o. RF12
+#define SPENCEKONDE	1
 
 #include <JeeLib.h>
 #include <util/crc16.h>
@@ -35,7 +36,18 @@
 const char INVALID1[] PROGMEM = "\rInvalid\n";
 const char INITFAIL[] PROGMEM = "config save failed\n";
 
-#if TINY
+/*
+	The SpenceKonde ATTinyCore has Software Serial built in for TX & RX.
+
+	If using the SpenceKonde ATTinyCore then currently a tweak is required to use JeeMicro
+	hardware. Line 127 need to change as below:
+	#define ANALOG_COMP_AIN0_BIT          3 // print output on PA3	//was 1
+	
+	The file location on MacOS is as below: 
+	/Users/johare/Library/Arduino15/packages/ATTinyCore/hardware/avr/1.3.3/variants/tinyX4
+*/
+/*
+#if TINY && !SPENCEKONDE
 // Serial support (output only) for Tiny supported by TinyDebugSerial
 // http://www.ernstc.dk/arduino/tinycom.html
 // 9600, 38400, or 115200
@@ -106,7 +118,7 @@ static byte inChar () {
 }
 
 #endif
-
+*/
 static unsigned long now () {
     // FIXME 49-day overflow
     return millis() / 1000;
@@ -331,7 +343,21 @@ static void showHelp () {
     rf12_configDump();
 #endif
 }
-
+static void dumpRegs() {
+	showString(PSTR("\nRadio Registers:\n"));      
+	showString(PSTR("    00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F\n"));      
+    for (byte i = 0; i < 0x80; i+=16) {
+    	showNibble(i >> 4); showNibble(i); printOneChar(':');
+        for (byte j=0; j<16; j++)
+            if (i==0 && j==0) showString(PSTR(" --")); 
+            else {
+    			printOneChar(' ');
+	            byte r = RF69::control((i + j), 0);
+    			showNibble(r >> 4); showNibble(r);
+    		}
+    		Serial.println();
+    }
+}
 static void handleInput (char c) {
     if ('0' <= c && c <= '9') {
         value = 10 * value + c - '0';
@@ -492,6 +518,7 @@ static void handleInput (char c) {
             break;
 
         case 'd': // dump all log markers
+        	dumpRegs();
             if (df_present())
                 df_dump();
             break;
@@ -539,7 +566,7 @@ static void displayASCII (const byte* data, byte count) {
 void setup () {
     delay(100); // shortened for now. Handy with JeeNode Micro V1 where ISP
                 // interaction can be upset by RF12B startup process.
-
+/*
 #if TINY
     PCMSK0 |= (1<<PCINT2);  // tell pin change mask to listen to PA2
     GIMSK |= (1<<PCIE0);    // enable PCINT interrupt in general interrupt mask
@@ -549,7 +576,7 @@ void setup () {
     digitalWrite(_receivePin, HIGH);    // pullup!
     _bitDelay = BITDELAY;
 #endif
-
+*/
     Serial.begin(SERIAL_BAUD);
     Serial.println();
     displayVersion();
@@ -574,13 +601,13 @@ void setup () {
 }
 
 void loop () {
-#if TINY
-    if (_receive_buffer_index)
-        handleInput(inChar());
-#else
+//#if TINY
+//    if (_receive_buffer_index)
+//        handleInput(inChar());
+//#else
     if (Serial.available())
         handleInput(Serial.read());
-#endif
+//#endif
     if (rf12_recvDone()) {
         byte n = rf12_len;
         if (rf12_crc == 0)

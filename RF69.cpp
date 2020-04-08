@@ -14,6 +14,11 @@
 #define REG_SYNCVALUE1      0x2F
 #define REG_SYNCVALUE2      0x30
 #define REG_SYNCVALUE3      0x31
+#define REG_SYNCVALUE4      0x32
+#define REG_SYNCVALUE5      0x33
+#define REG_SYNCVALUE6      0x34
+#define REG_SYNCVALUE7      0x35
+#define REG_SYNCVALUE8      0x36
 #define REG_NODEADRS        0x39
 #define REG_PACKETCONFIG2   0x3D
 #define REG_AESKEY1         0x3E
@@ -69,10 +74,13 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x1E, 0x2C, // FeiStart, AfcAutoclearOn, AfcAutoOn
   0x25, 0x80, // DioMapping1 = SyncAddress (Rx)
   // 0x29, 0xDC, // RssiThresh ...
-  0x2E, 0x90, // SyncConfig = sync on, sync size = 3
+  0x2E, 0x98, // SyncConfig = sync on, sync size = 4
   0x2F, 0xAA, // SyncValue1 = 0xAA
-  0x30, 0x2D, // SyncValue2 = 0x2D
-  // 0x31, 0x05, // SyncValue3 = 0x05
+  0x30, 0xAA, // SyncValue2 = 0xAA
+  0x31, 0x2D, // SyncValue3 = 0x2D
+  0x32, 0xD4, // SyncValue4 = 0xD4, 212, group
+  0x33, 0x00, // SyncValue5
+
   0x37, 0x00, // PacketConfig1 = fixed, no crc, filt off
   0x38, 0x00, // PayloadLength = 0, unlimited
   0x3C, 0x8F, // FifoTresh, not empty, level 15
@@ -108,11 +116,11 @@ static void setMode (uint8_t mode) {
 static void initRadio (ROM_UINT8* init) {
     spiInit();
     do
-        writeReg(REG_SYNCVALUE1, 0xAA);
-    while (readReg(REG_SYNCVALUE1) != 0xAA);
+        writeReg(REG_SYNCVALUE7, 0xAA);
+    while (readReg(REG_SYNCVALUE7) != 0xAA);
     do
-        writeReg(REG_SYNCVALUE1, 0x55);
-    while (readReg(REG_SYNCVALUE1) != 0x55);
+        writeReg(REG_SYNCVALUE8, 0x55);
+    while (readReg(REG_SYNCVALUE8) != 0x55);
     for (;;) {
         uint8_t cmd = ROM_READ_UINT8(init);
         if (cmd == 0) break;
@@ -156,7 +164,7 @@ void RF69::configure_compat () {
     initRadio(configRegs_compat);
     // FIXME doesn't seem to work, nothing comes in but noise for group 0
     // writeReg(REG_SYNCCONFIG, group ? 0x88 : 0x80);
-    writeReg(REG_SYNCVALUE3, group);
+    writeReg(REG_SYNCVALUE4, group);
 
     writeReg(REG_FRFMSB, frf >> 16);
     writeReg(REG_FRFMSB+1, frf >> 8);

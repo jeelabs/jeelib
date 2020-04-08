@@ -1,6 +1,7 @@
 /// @dir radioBlip2
 /// Send out a radio packet every minute, consuming as little power as possible.
 // 2012-05-09 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
+#define RF69_COMPAT      1	 // define this to use the RF69 driver i.s.o. RF12 
 
 #include <JeeLib.h>
 #include <avr/sleep.h>
