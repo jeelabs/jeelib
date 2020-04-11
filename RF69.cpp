@@ -135,9 +135,9 @@
 #define RF_MAX   72
 
 // transceiver states, these determine what to do with each interrupt
-enum { TXCRC1, TXCRC2, TXDONE, TXIDLE, TXRECV, RXFIFO };
+enum { RXFIFO, TXCRC1, TXCRC2, TXDONE, TXIDLE, TXRECV };
 
-byte clearAir = 180;
+byte clearAir = 160;
 
 namespace RF69 {
     uint32_t frf;
@@ -808,14 +808,14 @@ second rollover and then will be 1.024 mS out.
 
 	    } else 
 	    if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
+    		writeReg(REG_PALEVEL, 0);	// Drop TX power to clear airwaves quickly	
+          	setMode(MODE_SLEEP);
           	writeReg(REG_OCP, OCP_NORMAL);			// Overcurrent protection on
           	writeReg(REG_TESTPA1, TESTPA1_NORMAL);	// Turn off high power 
           	writeReg(REG_TESTPA2, TESTPA2_NORMAL);	// transmit
-    		writeReg(REG_PALEVEL, ((rfapi.txPower & 0x9F) | 0x80));	// PA1/PA2 off
+//    		writeReg(REG_PALEVEL, ((rfapi.txPower & 0x9F) | 0x80));	// PA1/PA2 off
           	// rxstate will be TXDONE at this point
           	txP++;
-          	setMode(MODE_SLEEP);
-    		writeReg(REG_PALEVEL, 0);	// Drop TX power to clear airwaves quickly	
           	// Restore sync bytes configuration
           	if (group == 0) {               // Allow receiving from all groups
 				writeReg(REG_SYNCCONFIG, threeByteSync);             
