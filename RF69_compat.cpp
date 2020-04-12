@@ -170,7 +170,7 @@ uint8_t rf69_configSilent () {
     nodeId = eeprom_read_byte(RF12_EEPROM_ADDR + 0);
     group  = eeprom_read_byte(RF12_EEPROM_ADDR + 1);
     rfapi.txPower = eeprom_read_byte(RF12_EEPROM_ADDR + 6);     // Store from eeprom
-    rfapi.configThreshold = eeprom_read_byte(RF12_EEPROM_ADDR + 7); // Store from eeprom
+    rfapi.configThreshold = rfapi.rssiThreshold = eeprom_read_byte(RF12_EEPROM_ADDR + 7);
     matchRF = eeprom_read_byte(RF12_EEPROM_ADDR + 8); // Store hardware matching 
 
     frequency = eeprom_read_byte(RF12_EEPROM_ADDR + 5);// Avoid eeprom_read_word
@@ -185,7 +185,7 @@ uint8_t rf69_configSilent () {
 uint8_t rf69_config (uint8_t show) {
     uint8_t id = rf69_configSilent();
     if (show)
-        rf12_configDump();
+        rf69_configDump();
     return id;
 }
 
