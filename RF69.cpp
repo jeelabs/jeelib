@@ -135,7 +135,7 @@
 #define RF_MAX   72
 
 // transceiver states, these determine what to do with each interrupt
-enum { RXFIFO, TXCRC1, TXCRC2, TXDONE, TXIDLE, TXRECV };
+enum { TXCRC1, TXCRC2, TXDONE, TXIDLE, TXRECV, RXFIFO };
 
 byte clearAir = 160;
 
@@ -153,6 +153,8 @@ namespace RF69 {
     int16_t  fei;
     uint8_t  lna;
     uint16_t interruptCount;
+    uint16_t TXinterruptCount;
+    uint16_t RXinterruptCount;
     uint16_t rxP;
     uint16_t txP;
     uint16_t discards;
@@ -211,6 +213,8 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 //  0x06, 0x79, // FdevLsb = 23 KHz
 //  0x05, 0x02, // FdevMsb = 45 KHz
 //  0x06, 0xE1, // FdevLsb = 45 KHz
+//  0x04, 0x03, // FdevMsb = 55 KHz 25/3/20 from Martyn
+//  0x05, 0x86, // FdevLsb = 55 KHz 25/3/20 from Martyn
 //  0x05, 0x05, // FdevMsb = 81 KHz
 //  0x06, 0x2F, // FdevLsb = 81 KHz
   0x05, 0x05, // FdevMsb = 90 KHz
@@ -462,10 +466,10 @@ volatile uint32_t startRX;
 volatile uint32_t ms;
 
 uint16_t RF69::recvDone_compat (uint8_t* buf) {
-	if (rfapi.ConfigFlags) {
-		Serial.println("False");
-		return false;
-	}
+//	if (rfapi.ConfigFlags) {
+//		Serial.println("False");
+//		return false;
+//	}
     switch (rxstate) {
     
     case TXIDLE:
@@ -477,7 +481,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
 
 		rf12_drx = delayTXRECV;
 		writeReg(REG_DIOMAPPING1, (DIO0_RSSI /*| DIO3_RSSI  DIO0_SYNCADDRESS*/));// Interrupt triggers
-		writeReg(REG_LNA, 0x00); 			// 
+		writeReg(REG_LNA, 0x00); 
 		writeReg(REG_PALEVEL, ((rfapi.txPower & 0x9F) | 0x80));	// PA1/PA2 off
         writeReg(REG_OCP, OCP_NORMAL);			// Overcurrent protection on
         writeReg(REG_TESTPA1, TESTPA1_NORMAL);	// Turn off high power 
@@ -663,6 +667,9 @@ second rollover and then will be 1.024 mS out.
 */
         // N.B. millis is not updating until IRQ_ENABLE
         if (rxstate == TXRECV) {
+
+			RXinterruptCount++;
+
             if (rssi_interrupt) {
             	ms = millis();
             	RssiToSync = 0;
@@ -741,7 +748,6 @@ second rollover and then will be 1.024 mS out.
             } //  RSSI 
                        
 // Sync match achieved
-
         	IRQ_ENABLE;       // allow nested interrupts from here on  
         	                                             
         	rfapi.interpacketTS = ms;	// Value stored at time of interrupt            			
@@ -810,6 +816,7 @@ second rollover and then will be 1.024 mS out.
 	    if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
     		writeReg(REG_PALEVEL, 0);	// Drop TX power to clear airwaves quickly	
           	setMode(MODE_SLEEP);
+			TXinterruptCount++;
           	writeReg(REG_OCP, OCP_NORMAL);			// Overcurrent protection on
           	writeReg(REG_TESTPA1, TESTPA1_NORMAL);	// Turn off high power 
           	writeReg(REG_TESTPA2, TESTPA2_NORMAL);	// transmit

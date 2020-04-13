@@ -67,6 +67,8 @@ namespace RF69 {
     extern int16_t  fei;
     extern uint8_t  lna;
     extern uint16_t interruptCount;
+    extern uint16_t TXinterruptCount;
+    extern uint16_t RXinterruptCount;
     extern uint16_t rxP;
     extern uint16_t txP;
     extern uint16_t discards;
