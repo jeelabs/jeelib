@@ -39,11 +39,9 @@
 #define LDR_PORT    4   // defined if LDR is connected to a port's AIO pin
 #define PIR_PORT    4   // defined if PIR is connected to a port's DIO pin
 
-//#define MEASURE_PERIOD  600 // how often to measure, in tenths of seconds
-#define RETRY_PERIOD    9  // how soon to retry if ACK didn't come in
+#define RETRY_PERIOD    10  // how soon to retry if ACK didn't come in
 #define RETRY_LIMIT     3   // maximum number of times to retry
-#define ACK_TIME        30  // number of milliseconds to wait for an ack
-//#define REPORT_EVERY    60  // report every N measurement cycles
+#define ACK_TIME        20  // number of milliseconds to wait for an ack
 #define SMOOTH          3   // smoothing factor used for running averages
 
 #define SETTINGS_EEPROM_ADDR ((uint8_t*) 0x00)
@@ -291,12 +289,14 @@ static void doMeasure() {
     #endif
 }
 
+#if SERIAL
 static void serialFlush () {
     #if ARDUINO >= 100
         Serial.flush();
     #endif  
     delay(2l); // make sure tx buf is empty before going back to sleep
 }
+#endif
 
 // periodic report, i.e. send out a packet and optionally report on serial port
 static void doReport() {
@@ -335,7 +335,7 @@ static void doReport() {
 
 // send packet and wait for ack when there is a motion trigger
 static void doTrigger() {
-
+/*
     if (rf12_recvDone()) {
 		showString(PSTR("Discarded: "));	// Flush the buffer
         for (byte i = 0; i < 8; i++) {
@@ -345,8 +345,8 @@ static void doTrigger() {
         }
 		Serial.println();
 	}
-	
-    #if DEBUG
+*/	
+    #if DEBUG || SERIAL
 //    Serial.print("\nPIR ");
 //	Serial.print((int) payload.moved);
 //    Serial.print(' ');
@@ -354,16 +354,14 @@ static void doTrigger() {
 //    serialFlush();
     #endif
     
-//    payload.count++;
     for (byte i = 1; i <= RETRY_LIMIT; ++i) {
-//    	delay(4);                   // Increasing the gap between retransmissions
     	payload.attempts = i;
         rf12_sleep(RF12_WAKEUP);
     	while (!(rf12_canSend())) {
     #if SERIAL
 			showString(PSTR("Airwaves Busy\n"));
 	#endif
-			delay(50);
+    	Sleepy::loseSomeTime(32);	// Wait a while
 		}
 		
     #if SERIAL
@@ -382,17 +380,17 @@ static void doTrigger() {
 	        if (rf12_buf[2] > 0) {                  // Non-zero length ACK packet?
 	            payload.command = rf12_buf[3];		// Acknowledge the command
 				reportCount = settings.REPORT_EVERY;// Force a transmission
+				uint16_t value = ( (rf12_buf[6] << 8) + rf12_buf[5] );
 #if SERIAL
 				Serial.print("Key:");
-				Serial.println(rf12_buf[3]);
+				Serial.print(rf12_buf[3]);
 				Serial.print(", Flag:");
-				Serial.println(rf12_buf[4]);
+				Serial.print(rf12_buf[4]);
 				Serial.print(", Value1:");
-				Serial.println(rf12_buf[5]);
+				Serial.print(rf12_buf[5]);
 				Serial.print(", Value2:");
-				Serial.println(rf12_buf[6]);
+				Serial.print(rf12_buf[6]);
 				Serial.print(", Value=");
-				uint16_t value = ( (rf12_buf[6] << 8) + rf12_buf[5] );
 				Serial.println(value);
 #endif
 				switch (rf12_buf[4]) {
@@ -424,23 +422,18 @@ static void doTrigger() {
 					case 100:
 						settings.MEASURE = false;
                   		break;
+					case 101:
+						settings.MEASURE = true;
+						if(rf12_buf[2] == 4) settings.MEASURE_PERIOD = value;
+                  		break;
+//                  case 170 is reserved     
 					case 200:
 						settings.REPORT = false;
                   		break;
-
-                      	if (rf12_buf[3] > 0 && rf12_buf[3] < 10) {
-	                          break;
-                      	}
-                      	if (rf12_buf[3] > 100 && rf12_buf[3] < 200) {
-                      		settings.MEASURE_PERIOD = ((rf12_buf[3]) - 100) * 10;
-                      		settings.MEASURE = true;
-                          	break;  
-                      	}
-                      	if (rf12_buf[3] > 200 && rf12_buf[3] <= 255) {
-                      		settings.REPORT_EVERY = ((rf12_buf[3]) - 200) * 10;
-                      		settings.REPORT = true;
-                          	break;
-                      	}
+					case 201:
+						settings.REPORT = true;
+						if(rf12_buf[2] == 4) settings.REPORT_EVERY = value;
+                  		break;
 #if SERIAL
 						Serial.println("Unknown Command");
 #endif
@@ -448,14 +441,13 @@ static void doTrigger() {
                      	break;
                   	} // end switch
           	} else payload.command = 85;			// Clear alert after a node restart
-          	
+
             // reset scheduling to start a fresh measurement cycle
             scheduler.timer(MEASURE, settings.MEASURE_PERIOD);
             return;
-        }
-        
-    	payload.missedACK++;
-        delay(RETRY_PERIOD * 100);
+        } else {
+	    	payload.missedACK++;
+	    	Sleepy::loseSomeTime(RETRY_PERIOD);	// Loose some time
     }
 
     #if SERIAL
@@ -483,7 +475,7 @@ static void doTrigger() {
     #endif
     
     scheduler.timer(MEASURE, settings.MEASURE_PERIOD);
-    #if DEBUG
+    #if DEBUG || SERIAL
         Serial.println(" no ack!");
         serialFlush();
     #endif
@@ -512,43 +504,47 @@ static byte waitForAck() {
     MilliTimer ackTimer;
 
     while ( !(ackTimer.poll(ACK_TIME)) ) {
-//		Serial.print('W');
         if (rf12_recvDone()) {
             rf12_sleep(RF12_SLEEP);
-//		Serial.print('D');
-
+#if SERIAL
              Serial.print((ACK_TIME) - ackTimer.remaining());
              showString(PSTR("ms RX "));
-            
+#endif            
             if (rf12_crc == 0) {                          // Valid packet?
                 // see http://talk.jeelabs.net/topic/811#post-4712
 				if (rf12_hdr == (RF12_HDR_DST | RF12_HDR_CTL | myNodeID)) {
                      showString(PSTR("ACK "));
                     return 1;            
                 }  else {
+#if SERIAL
                 	Serial.print(rf12_hdr, HEX); printOneChar(' ');
 					Serial.print((RF12_HDR_DST | RF12_HDR_CTL | myNodeID), HEX);
-					showString(PSTR(" Unmatched: "));             // Flush the buffer
+					showString(PSTR(" Unmatched: "));	// Flush the buffer
+#endif
                     for (byte i = 0; i < 8; i++) {
+#if SERIAL
                         showByte(rf12_buf[i]);
-                        rf12_buf[i] = 0xFF;              // Paint it over
                         printOneChar(' ');
+#endif
+                        rf12_buf[i] = 0xFF;				// Paint it over
                     }
                 }
-            } else {
-				showString(PSTR("Bad CRC"));
-            }
+            } 
+#if SERIAL
+            else showString(PSTR("Bad CRC"));
+            
 			Serial.println();Serial.flush();           
+#endif
         }
-//		Serial.print('S');
         set_sleep_mode(SLEEP_MODE_IDLE);   // Wait a while for the reply?
 		sleep_mode();
     }
+#if SERIAL
 	Serial.println();
 	Serial.print(ACK_TIME);
 	showString(PSTR("ms ACK Timeout\n"));
 	Serial.flush();
-
+#endif
     return 0;
 } // waitForAck
 
@@ -567,6 +563,12 @@ static void saveSettings () {
         byte* p = &settings.start;
         if (eeprom_read_byte(SETTINGS_EEPROM_ADDR + i) != p[i]) {
             eeprom_write_byte(SETTINGS_EEPROM_ADDR + i, p[i]);
+#if SERIAL
+     		Serial.print("Eeprom byte ");
+     		Serial.print(i);
+     		Serial.print('=');
+     		Serial.println( p[i] );
+#endif
         }
     }
 } // saveSettings
@@ -586,8 +588,9 @@ static void loadSettings () {
         ((byte*) &settings)[i] = eeprom_read_byte(SETTINGS_EEPROM_ADDR + i);
         crc = crc_update(crc, ((byte*) &settings)[i]);
     }
+#if SERIAL
      Serial.print("Settings CRC ");
-     
+#endif     
      
      
      crc = 1;
@@ -595,17 +598,23 @@ static void loadSettings () {
      
      
     if (crc) {
+#if SERIAL
 		Serial.println("is bad, defaulting");
 		Serial.println(crc, HEX);
-        settings.MEASURE_PERIOD = 30;	// approximately 60 seconds
-        settings.REPORT_EVERY = 1;		// approximately 1 minute
+#endif
+        settings.MEASURE_PERIOD = 522;
+        settings.REPORT_EVERY = 60;
         settings.MEASURE = settings.REPORT = true;
         settings.changedLight = settings.changedHumi = settings.changedTemp = true;
-    } else {
+    } 
+#if SERIAL    
+    else {
 		Serial.println("is good");
+#endif
     }
 } // loadSettings
 
+#if SERIAL
 static void printOneChar (char c) {
      Serial.print(c);
 }
@@ -661,6 +670,7 @@ static void dumpRegs() {
     }
 	
 }
+#endif
 
 void setup () {
 //	payload.spare2 = 3;
@@ -727,13 +737,12 @@ void setup () {
         }
 		Serial.println();
 	}
-	delay (1);
 } */   
 } // Setup
 
 void loop () {
 
-    #if DEBUG
+    #if SERIAL
         serialFlush();
     #endif
     

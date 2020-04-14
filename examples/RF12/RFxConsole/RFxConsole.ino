@@ -115,7 +115,7 @@
   #define messageStore  16
 #else
   #define TINY        0
-  #define SERIAL_BAUD 57600  // adjust as needed
+  #define SERIAL_BAUD 115200  // adjust as needed
   #define DATAFLASH   0       // set to 0 for non-JeeLinks, else 4/8/16 (Mbit)
 #endif
 
