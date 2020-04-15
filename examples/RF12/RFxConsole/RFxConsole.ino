@@ -1658,7 +1658,12 @@ Serial.println(MCUSR, HEX);
     Serial.flush();
     maxRestartRate = 0;
     previousRestarts = rfapi.RSSIrestart;
-
+/*    
+    noInterrupts();
+    CLKPR = _BV(CLKPCE);  // enable change of the clock prescaler
+    CLKPR = _BV(CLKPS0);  // divide frequency by 2
+    interrupts();
+*/
 } // setup
 
 static void clrConfig() {
