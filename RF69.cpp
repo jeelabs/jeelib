@@ -230,11 +230,14 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 */
 //  0x18, 0x02, // Manual LNA = 2 = -6dB
 // More prone to restarts in noisy environment
-  0x19, 0x29, // RxBw 200 KHz, DCC 16%
-  0x1A, 0x29, // RxBwAFC 200 Khz, DCC 16%. Only handling initial RSSI phase, not payload!
+//  0x19, 0x29, // RxBw 200 KHz, DCC 16%
+//  0x1A, 0x29, // RxBwAFC 200 Khz, DCC 16%. Only handling initial RSSI phase, not payload!
 // Less prone to restarts in noisy environment
 //  0x19, 0xE2, // RxBw 125 KHz, if DCC set to 0 is more sensitive
 //  0x1A, 0xF7, // RxBwAFC 2.6 Khz Only handling initial RSSI phase, not payload!
+  0x19, 0x51,	// RxBw 166.7 KHz, DCC 4%
+  0x1A, 0x51,	// RxAfcBw 166.7 KHz, DCC 4%
+  
   0x1E, 0x00,
 
   0x26, 0x07, // disable clkout

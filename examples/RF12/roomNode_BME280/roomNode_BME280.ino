@@ -359,7 +359,7 @@ static void doTrigger() {
         rf12_sleep(RF12_WAKEUP);
     	while (!(rf12_canSend())) {
     #if SERIAL
-			showString(PSTR("Airwaves Busy\n"));
+			showString(PSTR("Airwaves Busy\n")); Serial.flush();
 	#endif
     	Sleepy::loseSomeTime(32);	// Wait a while
 		}
@@ -475,12 +475,13 @@ static void doTrigger() {
     #endif
     
     scheduler.timer(MEASURE, settings.MEASURE_PERIOD);
-    #if DEBUG || SERIAL
+    #if SERIAL
         Serial.println(" no ack!");
         serialFlush();
     #endif
 		clock_prescale(8);
-}
+	}
+} // doTrigger
 
 /*
 // wait a few milliseconds for proper ACK to me, return true if indeed received
@@ -498,11 +499,12 @@ static byte waitForAck() {
 }
 */
 static byte waitForAck() {
+
 #if SERIAL
 //    Serial.print(" Waiting for for ACK ");
 #endif
-    MilliTimer ackTimer;
 
+    MilliTimer ackTimer;
     while ( !(ackTimer.poll(ACK_TIME)) ) {
         if (rf12_recvDone()) {
             rf12_sleep(RF12_SLEEP);
