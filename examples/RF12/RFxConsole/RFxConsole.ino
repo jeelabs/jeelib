@@ -69,6 +69,8 @@
 // Allow semaphores to be updated using node,group,oldvalue,newvalue 2019-02-04
 // Removed the 'm' command, replaced by an extension of the semaphore approach 2019-02-07
 // Extended 'U' command to allow locking of configuration 2020-04-04
+// Use 3 bits of eeprom per node to store a multiplier of 15ms additional delay to ACK 2020-04-16
+//  use 17,212,7n to set the upper bits in eeprom node number to the multiplier 7
 
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
 	#define TINY 1
@@ -1260,6 +1262,7 @@ static void handleInput (char c) {
 					if (value == 2) outputTime = true;
 					else
             		if (value == 123) {
+            			outputTime = false;
             			config.helpMenu = 0;	// Lock out eeprom write
             			showStatus();
             		}
@@ -1272,16 +1275,18 @@ static void handleInput (char c) {
             		break;	
 
             case 'm':
-            		for (byte i = 0; i < MAX_NODES; i++) {
+            		for (uint8_t i = 0; i < MAX_NODES; i++) {
             			Serial.print(highestAck[i]);
         				printOneChar(' ');
             		}
             		Serial.println();
+            		
             		for (byte i = 0; i < (ackQueue * ackEntry); i++) {
             			Serial.print(semaphoreStack[i]);
         				printOneChar(' ');
             		}
             		Serial.println();
+            		
  					showPost();
             		break;	
 
@@ -1302,12 +1307,35 @@ static void handleInput (char c) {
                              showByte(b);
                              if (!(config.output & 0x1)) printOneChar(' ');
 
-                             if ((stack[0] >= 0x80) & (i == 0)) {
-                                 // Set the removed flag 0x80
-                                 eeprom_write_byte((RF12_EEPROM_NODEMAP) + (value * 4) + i, (b | stack[0]));
+                             if ((stack[0] >= 128) & (i == 0)) {
+                                 // Set the removed flag 0x00
+                                 eeprom_write_byte((RF12_EEPROM_NODEMAP) + (value * 4), 0);
                                  delay(4);
                              }
                          }
+                     } else if (top == 2) {
+						if ( !(getIndex( stack[1], (stack[0] & RF12_HDR_MASK))) ) {
+							showByte( (stack[0] & RF12_HDR_MASK) );
+							printOneChar(',');
+							showByte(stack[1]);
+							showString(UNKNOWN);
+                     	} else {
+//		Serial.print(NodeMap);
+//        printOneChar(';');
+        stack[0] = eeprom_read_byte((RF12_EEPROM_NODEMAP) + (NodeMap * 4));
+//        showByte( (stack[0] >> 5) );
+//        printOneChar(';');
+//        showByte( (stack[0] & RF12_HDR_MASK) ); // Node
+//        printOneChar(';');
+//        showByte(eeprom_read_byte((RF12_EEPROM_NODEMAP) + (NodeMap * 4) + 1)); // Group
+//		Serial.println();
+
+		if ( !(nullValue)) {
+			eeprom_write_byte( RF12_EEPROM_NODEMAP + (NodeMap * 4) + 0, ((stack[0] & RF12_HDR_MASK) | (byte)value << 5) ); 
+     		delay(4);
+     	}
+		                    	
+                     	}                     	
                      }
 
                      // Show and set RFMxx registers
@@ -1329,8 +1357,8 @@ static void handleInput (char c) {
 
                          Serial.print((word)(rf12_control(value)));
 #endif
+                     	Serial.println();
                      }
-                     Serial.println();
 
                      break;
 
@@ -1738,6 +1766,8 @@ static void clrNodeStore() {
     // Clear Node Store eeprom
     showString(PSTR("Clearing NodeStore\n"));
     for (unsigned int n = 0; n < 0x3D0; n++) {
+    	Serial.print( eeprom_read_byte(RF12_EEPROM_ADDR + n) );
+    	printOneChar(' ');
         eeprom_write_byte((RF12_EEPROM_NODEMAP) + n, 0xFF);
     }
     delay(4);
@@ -1828,13 +1858,8 @@ static void nodeShow(byte group) {
     for (index = 0; index < MAX_NODES; index++) {
         byte n = eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4));     // Node number
 // 		http://forum.arduino.cc/index.php/topic,140376.msg1054626.html
-        if (n & 0x80) {                                                     // Erased or empty entry?
-            if (n == 0xFF) break;                                           // Empty, assume end of table
-//				if (!group) {
-//    				printOneChar('#');
-//              	Serial.println(index); 
-//				}         
-        } else {
+        if (n == 0xFF) break;                                           // Empty, assume end of table
+        if ( (n != 0) ) {                                               // Skip erased entry?
         	oneShow(index);
         }
     }
@@ -1942,14 +1967,16 @@ static void nodeShow(byte group) {
 static void oneShow(byte index) {
 	if (index > MAX_NODES) return;
     byte n = eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4) + 0);	// Node number
-    if (n & 0x80) return;
+    if (n == 0xFF) return;
     byte g = eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4) + 1);	// Group number
 //	printOneChar('#');         
     showByte(index);
+    showString(PSTR(" d"));      
+    showByte(n >> 5);				// Ack additional delay indicator
+    showString(PSTR(" i"));      
+    showByte(n & RF12_HDR_MASK);	
     showString(PSTR(" g"));      
     showByte(g);
-    showString(PSTR(" i"));      
-    showByte(n & RF12_HDR_MASK);
 #if STATISTICS 
 	printOneChar(' ');
 	elapsed(elapsedSeconds - rxTimeStamp[index]);	
@@ -2017,13 +2044,14 @@ static void oneShow(byte index) {
     Serial.println();
 }
 
-static unsigned int getIndex (byte group, byte node) {
+byte specificNodeDelay = 0;
+static byte getIndex (byte group, byte node) {
     newNodeMap = NodeMap = 0xFFFF;
     // Search eeprom RF12_EEPROM_NODEMAP for node/group match
     for (unsigned int index = 0; index < MAX_NODES; index++) {
         byte n = eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4));
         //              http://forum.arduino.cc/index.php/topic,140376.msg1054626.html
-        if (n & 0x80) {                                     // Erased (0xFF) or empty (0x80) entry?
+        if ( (n == 0) || (n == 0xFF) ) {					// Erased (0xFF) or empty (0x00) entry?
             if (newNodeMap == 0xFFFF) newNodeMap = index;   // Save pointer to a first free entry
             if (n == 0xFF) return(false);                   // Erased, assume end of table!
         } else {
@@ -2032,6 +2060,7 @@ static unsigned int getIndex (byte group, byte node) {
                 if (g == group) {                                 // Group match?
                     // found a match;
                     NodeMap = index;
+                    specificNodeDelay = (n >> 5);
                     return (true);
                 }
             }
@@ -2501,7 +2530,7 @@ void loop () {
                         showByte(rf12_hdr & RF12_HDR_MASK);
                         showString(PSTR(" Index "));
                         Serial.println(newNodeMap);
-                        eeprom_write_byte((RF12_EEPROM_NODEMAP) + (newNodeMap * 4), (rf12_hdr & RF12_HDR_MASK));  // Store Node and
+                        eeprom_write_byte( (RF12_EEPROM_NODEMAP) + (newNodeMap * 4), (rf12_hdr & RF12_HDR_MASK) );  // Store Node and
                         eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 1), rf12_grp);              // and Group number
   #if RF69_COMPAT
                         eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 2), observedRX.rssi2);      //  First RSSI value
@@ -2618,8 +2647,14 @@ void loop () {
                     Serial.println();                    
                 }
 #endif                    
-                crlf = true;
-                delay(config.ackDelay);          // changing into TX mode is quicker than changing into RX mode for RF69.     
+                crlf = true;									// A static delay for all ACK's, more later
+                if (config.ackDelay) delay(config.ackDelay);	// changing into TX mode is quicker than changing into RX mode for RF69.     
+
+                byte i = getIndex( rf12_grp, (rf12_hdr & RF12_HDR_MASK) );
+                if (specificNodeDelay) {
+            		delay( (specificNodeDelay * 15) );	// Multiplier of 15ms
+                }
+
             	showString(TX);
                 byte r = rf12_canSend(config.clearAir);
                 if (r) {
@@ -2691,8 +2726,7 @@ void loop () {
 						showString(PSTR(" l"));
 						crlf = true;
                      	Serial.print(ackLen);
-                     	
-                    	byte i = getIndex( rf12_grp, (rf12_hdr & RF12_HDR_MASK) );
+                     	                    	
                     	if (i) {
                     		if ( (*(v + 6) > highestAck[NodeMap]) ) 
                     	  	highestAck[NodeMap] = (*(v + 6));		// Save hi point
