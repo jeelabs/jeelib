@@ -39,9 +39,9 @@
 #define LDR_PORT    4   // defined if LDR is connected to a port's AIO pin
 #define PIR_PORT    4   // defined if PIR is connected to a port's DIO pin
 
-#define RETRY_PERIOD    10  // how soon to retry if ACK didn't come in
-#define RETRY_LIMIT     3   // maximum number of times to retry
-#define ACK_TIME        20  // number of milliseconds to wait for an ack
+#define RETRY_PERIOD    20  // how soon to retry if ACK didn't come in
+#define RETRY_LIMIT     2   // maximum number of times to retry
+#define ACK_TIME        30  // number of milliseconds to wait for an ack
 #define SMOOTH          3   // smoothing factor used for running averages
 
 #define SETTINGS_EEPROM_ADDR ((uint8_t*) 0x00)
@@ -69,11 +69,14 @@ static byte myNodeID;       // node ID used for this unit
 
 // This defines the structure of the packets which get sent out by wireless:
 
+#define PAYLOADLENGTH	12
+static byte payloadLength = PAYLOADLENGTH;
 struct {					//0		Offset, node #
 	byte command;			//1		ACK command return field
     byte missedACK	:4;		//2
     byte attempts	:4;		//2		Transmission attempts
-	byte count		:8;		//3		Packet count 
+    byte badCRC		:4;		//3
+	byte sequence	:4;		//3		Packet sequence count
 //    byte moved 		:1;  	//3		motion detector: 0..1
 //    byte lobat 		:1;  	//3		supply voltage dropped under 3.1V: 0..1
 //	byte spare2		:2;		//3    
@@ -84,6 +87,7 @@ struct {					//0		Offset, node #
     unsigned int humi:16;	//8&9	humidity: 0..100.00
     int temp   		:16; 	//10&11	temperature: -5000..+5000 (hundredths)
     byte vcc;				//12	Bandgap battery voltage
+    byte message[ (RF12_MAXDATA - PAYLOADLENGTH) ];
 } payload;
 
 typedef struct {
@@ -98,6 +102,7 @@ typedef struct {
     bool spareOne :1;
     bool spareTwo :1;
     bool spareThree :1;
+    uint8_t lowVcc;
     word crc;
 } eeprom;
 static eeprom settings;
@@ -225,7 +230,7 @@ static void shtDelay () {
 // readout all the sensors and other values
 static void doMeasure() {
     #if SERIAL || DEBUG
-//	Serial.println("doMeasure"); Serial.flush();
+//	Serial.println("doMeasure"); serialFlush();
 	#endif
 #if !RF69_COMPAT
 //    payload.lobat = 0;//rf12_lowbat();
@@ -263,6 +268,7 @@ static void doMeasure() {
     	// Only needed in forced mode! In normal mode, you can remove the next line.
     	bme.takeForcedMeasurement();// has no effect in normal mode
     	Sleepy::loseSomeTime(32);	// must wait a while see page 51 of datasheet
+    	
     	payload.pressure = bme.readPressure();
 		payload.temp = bme.readTemperature();
 		payload.humi = bme.readHumidity();
@@ -287,29 +293,8 @@ static void doMeasure() {
     #if PIR_PORT
 //        payload.moved = 0;//pir.state();
     #endif
-}
-
 #if SERIAL
-static void serialFlush () {
-    #if ARDUINO >= 100
-        Serial.flush();
-    #endif  
-    delay(2l); // make sure tx buf is empty before going back to sleep
-}
-#endif
-
-// periodic report, i.e. send out a packet and optionally report on serial port
-static void doReport() {
-    payload.attempts = 0;
-    payload.count = payload.count + 1;
-    rf12_sleep(RF12_WAKEUP);
-    rf12_sendNow(0, &payload, ((sizeof payload) ));
-    rf12_sendWait(RADIO_SYNC_MODE);
-    rf12_sleep(RF12_SLEEP);
-
-    #if SERIAL
-    	clock_prescale(0);
-        Serial.print("\nROOM_BME280 ");
+        Serial.print("ROOM_BME280 ");
         Serial.print((int) payload.light);
         Serial.print(' ');
 //        Serial.print((int) payload.moved);
@@ -329,8 +314,28 @@ static void doReport() {
         Serial.print("hPa Vcc=");
         Serial.println(payload.vcc);
         serialFlush();
-    #endif
-		clock_prescale(8);
+#endif
+    	scheduler.timer(MEASURE, settings.MEASURE_PERIOD);
+
+} // doMeasure
+
+#if SERIAL
+static void serialFlush () {
+    #if ARDUINO >= 100
+        Serial.flush();
+    #endif  
+    delay(2l); // make sure tx buf is empty before going back to sleep
+}
+#endif
+
+// periodic report, i.e. send out a packet and optionally report on serial port
+static void doReport() {
+    payload.attempts = 0;
+    payload.sequence++;
+    rf12_sleep(RF12_WAKEUP);
+    rf12_sendNow(0, &payload, payloadLength);
+    rf12_sendWait(RADIO_SYNC_MODE);
+    rf12_sleep(RF12_SLEEP);
 }
 
 // send packet and wait for ack when there is a motion trigger
@@ -353,34 +358,45 @@ static void doTrigger() {
 //    Serial.println((int) countPCINT);
 //    serialFlush();
     #endif
-    
+        
+	payload.sequence++;
+
     for (byte i = 1; i <= RETRY_LIMIT; ++i) {
     	payload.attempts = i;
         rf12_sleep(RF12_WAKEUP);
     	while (!(rf12_canSend())) {
     #if SERIAL
-			showString(PSTR("Airwaves Busy\n")); Serial.flush();
+			showString(PSTR("Airwaves Busy\n")); serialFlush();
 	#endif
     	Sleepy::loseSomeTime(32);	// Wait a while
 		}
 		
     #if SERIAL
-//    	Serial.print("Transmitting ");
+    	Serial.print("Transmitting ");
+		Serial.print(payloadLength);
+		printOneChar('@');
+		Serial.println(rfapi.txPower);
     #endif
-		rf12_sendStart(RF12_HDR_ACK, &payload, sizeof payload);
+		rf12_sendStart(RF12_HDR_ACK, &payload, payloadLength);
         rf12_sendWait(RADIO_SYNC_MODE);
         byte acked = waitForAck();
-        rf12_sleep(RF12_SLEEP);
 #if SERIAL
     	Serial.println();
 #endif
 
         if (acked) {
-
+#if RF69_COMPAT 
+        	if (RF69::rssi > 162 && rfapi.txPower < 159) rfapi.txPower++;
+        	else
+        	if (RF69::rssi < 160 && rfapi.txPower > 128) rfapi.txPower--;
+#endif        	
+			payloadLength = PAYLOADLENGTH;			// Reset to typical
 	        if (rf12_buf[2] > 0) {                  // Non-zero length ACK packet?
 	            payload.command = rf12_buf[3];		// Acknowledge the command
-				reportCount = settings.REPORT_EVERY;// Force a transmission
-				uint16_t value = ( (rf12_buf[6] << 8) + rf12_buf[5] );
+//				reportCount = settings.REPORT_EVERY;// Force a transmission
+				uint16_t value = 0;
+				if (rf12_buf[2] == 4) 
+					value = ( (rf12_buf[6] << 8) + rf12_buf[5] );
 #if SERIAL
 				Serial.print("Key:");
 				Serial.print(rf12_buf[3]);
@@ -412,6 +428,9 @@ static void doTrigger() {
 					case 31:
 						settings.changedLight = true;
                       	break; 
+					case 40:
+						if(rf12_buf[2] == 4) settings.lowVcc = value;
+                      	break; 
 //                  case 85 is reserved     
 					case 99:
 #if SERIAL
@@ -427,96 +446,61 @@ static void doTrigger() {
 						if(rf12_buf[2] == 4) settings.MEASURE_PERIOD = value;
                   		break;
 //                  case 170 is reserved     
-					case 200:
-						settings.REPORT = false;
-                  		break;
+//					case 200:
+//						settings.REPORT = false;
+//                  		break;
 					case 201:
 						settings.REPORT = true;
 						if(rf12_buf[2] == 4) settings.REPORT_EVERY = value;
                   		break;
+//                  case 240 is reserved     
 #if SERIAL
 						Serial.println("Unknown Command");
 #endif
 	            		payload.command = 170;		// Rejected command									                       
                      	break;
                   	} // end switch
-          	} else payload.command = 85;			// Clear alert after a node restart
-
-            // reset scheduling to start a fresh measurement cycle
-            scheduler.timer(MEASURE, settings.MEASURE_PERIOD);
-            return;
+    				scheduler.timer(REPORT, 1);
+          	} else 
+          		if (payload.command == 0) payload.command = 85;// Clear alert after a node restart
+          		else if (payload.vcc < settings.lowVcc) payload.command = 240;
+          		          			
+			scheduler.timer(REPORT, settings.REPORT_EVERY);
+			return;
         } else {
 	    	payload.missedACK++;
-	    	Sleepy::loseSomeTime(RETRY_PERIOD);	// Loose some time
-    }
-
-    #if SERIAL
-    	clock_prescale(0);
-        Serial.print("\nROOM_BME280 Light=");
-        Serial.print((int) payload.light);
-//        Serial.print(' ');
-//        Serial.print((int) payload.moved);
-        Serial.print(" h=");
-        float x = payload.humi / 100.0f;
-        Serial.print(x);
-        Serial.print("% t=");
-        x = payload.temp / 100.0f;
-        Serial.print(x);
-        Serial.print("°C ");
-//        Serial.print((int) payload.lobat);
-        Serial.print("PCINT=");
-        Serial.print((int) countPCINT);
-        Serial.print(" p=");
-        x = payload.pressure / 100.0f;
-        Serial.print(x);
-        Serial.print("hPa Vcc=");
-        Serial.println(payload.vcc);
-        serialFlush();
-    #endif
-    
-    scheduler.timer(MEASURE, settings.MEASURE_PERIOD);
-    #if SERIAL
-        Serial.println(" no ack!");
-        serialFlush();
-    #endif
-		clock_prescale(8);
+    	}
 	}
+	scheduler.timer(REPORT, settings.REPORT_EVERY);
 } // doTrigger
 
-/*
-// wait a few milliseconds for proper ACK to me, return true if indeed received
-static byte waitForAck() {
-    MilliTimer ackTimer;
-    while (!ackTimer.poll(ACK_TIME)) {
-        if (rf12_recvDone() && rf12_crc == 0 &&
-                // see http://talk.jeelabs.net/topic/811#post-4712
-                rf12_hdr == (RF12_HDR_DST | RF12_HDR_CTL | myNodeID))
-            return 1;
-        set_sleep_mode(SLEEP_MODE_IDLE);
-        sleep_mode();
-    }
-    return 0;
-}
-*/
 static byte waitForAck() {
 
 #if SERIAL
 //    Serial.print(" Waiting for for ACK ");
 #endif
-
     MilliTimer ackTimer;
     while ( !(ackTimer.poll(ACK_TIME)) ) {
         if (rf12_recvDone()) {
             rf12_sleep(RF12_SLEEP);
 #if SERIAL
+             Serial.println();
              Serial.print((ACK_TIME) - ackTimer.remaining());
-             showString(PSTR("ms RX "));
+             showString(PSTR("ms RX"));
 #endif            
             if (rf12_crc == 0) {                          // Valid packet?
                 // see http://talk.jeelabs.net/topic/811#post-4712
 				if (rf12_hdr == (RF12_HDR_DST | RF12_HDR_CTL | myNodeID)) {
-                     showString(PSTR("ACK "));
-                    return 1;            
+#if SERIAL
+                    showString(PSTR(" ACK "));
+                    showByte(payload.attempts);
+	#if RF69_COMPAT                     
+                    showString(PSTR(" ("));
+                    showByte(RF69::rssi);
+                    printOneChar(')');
+	#endif
+#endif
+                    return true;            
                 }  else {
 #if SERIAL
                 	Serial.print(rf12_hdr, HEX); printOneChar(' ');
@@ -533,21 +517,31 @@ static byte waitForAck() {
                 }
             } 
 #if SERIAL
-            else showString(PSTR("Bad CRC"));
-            
-			Serial.println();Serial.flush();           
+            else { 
+            	showString(PSTR("Bad CRC"));	            
+				Serial.println();serialFlush();
+			}          
 #endif
         }
-        set_sleep_mode(SLEEP_MODE_IDLE);   // Wait a while for the reply?
-		sleep_mode();
+#if SERIAL
+		printOneChar('.');serialFlush();
+#endif        
+//		Sleepy::loseSomeTime(16);		// Wait a while
+//        set_sleep_mode(powerDown);   // Wait a while for the reply?
+//		sleep_mode();
     }
 #if SERIAL
 	Serial.println();
 	Serial.print(ACK_TIME);
-	showString(PSTR("ms ACK Timeout\n"));
-	Serial.flush();
+	showString(PSTR("ms ACK Timeout"));
+	#if RF69_COMPAT                     
+    showString(PSTR(" ("));
+    showByte(RF69::rssi);
+    printOneChar(')');
+	#endif
+	Serial.println(); serialFlush();
 #endif
-    return 0;
+    return false;
 } // waitForAck
 
 void blink (byte pin) {
@@ -563,16 +557,20 @@ static void saveSettings () {
     // this uses 170 bytes less flash than eeprom_write_block(), no idea why
     for (byte i = 0; i < sizeof settings; ++i) {
         byte* p = &settings.start;
-        if (eeprom_read_byte(SETTINGS_EEPROM_ADDR + i) != p[i]) {
+        payload.message[i] = eeprom_read_byte(SETTINGS_EEPROM_ADDR + i);
+        if ((byte)payload.message[i] != (byte)p[i]) {
             eeprom_write_byte(SETTINGS_EEPROM_ADDR + i, p[i]);
 #if SERIAL
-     		Serial.print("Eeprom byte ");
+     		Serial.print("Eeprom change ");
      		Serial.print(i);
-     		Serial.print('=');
+     		printOneChar(' ');
+     		Serial.print( (byte)payload.message[i] );
+     		printOneChar('>');
      		Serial.println( p[i] );
 #endif
         }
     }
+    payloadLength = payloadLength + (sizeof settings);
 } // saveSettings
 
 static word calcCrc (const void* ptr, byte len) {
@@ -587,25 +585,21 @@ static void loadSettings () {
     // eeprom_read_block(&settings, SETTINGS_EEPROM_ADDR, sizeof settings);
     // this uses 166 bytes less flash than eeprom_read_block(), no idea why
     for (byte i = 0; i < sizeof settings; ++i) {
-        ((byte*) &settings)[i] = eeprom_read_byte(SETTINGS_EEPROM_ADDR + i);
+    	payload.message[i] = ((byte*) &settings)[i] 
+        	= eeprom_read_byte(SETTINGS_EEPROM_ADDR + i);
         crc = crc_update(crc, ((byte*) &settings)[i]);
     }
+    payloadLength = payloadLength + (sizeof settings);
 #if SERIAL
      Serial.print("Settings CRC ");
 #endif     
-     
-     
-     crc = 1;
-     
-     
-     
     if (crc) {
 #if SERIAL
-		Serial.println("is bad, defaulting");
+		Serial.print("is bad, defaulting ");
 		Serial.println(crc, HEX);
 #endif
-        settings.MEASURE_PERIOD = 522;
-        settings.REPORT_EVERY = 60;
+        settings.MEASURE_PERIOD = 200; //522;
+        settings.REPORT_EVERY = 600;// 60;
         settings.MEASURE = settings.REPORT = true;
         settings.changedLight = settings.changedHumi = settings.changedTemp = true;
     } 
@@ -675,10 +669,9 @@ static void dumpRegs() {
 #endif
 
 void setup () {
-//	payload.spare2 = 3;
     #if SERIAL || DEBUG
         Serial.begin(115200);
-        Serial.print("\n[roomNode.3.1]");
+        Serial.print("[roomNode.3.1]");
         myNodeID = rf12_config(true);
     #else
         myNodeID = rf12_config(0); // don't report info on the serial port
@@ -686,6 +679,7 @@ void setup () {
 	loadSettings();
     rf12_sleep(RF12_SLEEP); // power down
     #if SERIAL
+    	Serial.print("Transmit Power "); Serial.println(rfapi.txPower);
 		Serial.print(settings.MEASURE_PERIOD);
 		Serial.print(" Measure and report every ");
 		Serial.println(settings.REPORT_EVERY);
@@ -717,19 +711,23 @@ void setup () {
 		#endif
     #endif
 
-    	reportCount = settings.REPORT_EVERY;    // report right away for easy debugging
-    	scheduler.timer(MEASURE, 0);    		// start the measurement loop going
-
-/* 
+        if (settings.MEASURE)
+			scheduler.timer(MEASURE, 50);
+    	scheduler.timer(REPORT, 55);
+/*
+uint16_t lastPass = 0; 
     rf12_sleep(RF12_WAKEUP);
  	dumpRegs();  
  while (1) {
+ 	if (RF69::RXinterruptCount != lastPass) {
+ 		lastPass = RF69::RXinterruptCount;
 //	Serial.print("I=");
 //	Serial.println(RF69::interruptCount);
 //	Serial.print("TX=");
 //	Serial.println(RF69::TXinterruptCount);
 //	Serial.print("RX=");
-//	Serial.println(RF69::RXinterruptCount);
+	Serial.println(RF69::RXinterruptCount);
+	}
 	if ( rf12_recvDone() ) {
 		showString(PSTR("Discarded: "));	// Flush the buffer
         for (byte i = 0; i < 8; i++) {
@@ -739,7 +737,9 @@ void setup () {
         }
 		Serial.println();
 	}
-} */   
+
+}
+*/    
 } // Setup
 
 void loop () {
@@ -747,13 +747,11 @@ void loop () {
     #if SERIAL
         serialFlush();
     #endif
-    
-	clock_prescale(8);
 
     #if PIR_PORT
         if (pir.triggered()) {
-			clock_prescale(0);
 //            payload.moved = 0;//pir.state();
+			clock_prescale(0);
 			doTrigger();
         }
     #endif
@@ -762,12 +760,12 @@ void loop () {
 
         case MEASURE:
             // reschedule these measurements periodically
-            scheduler.timer(MEASURE, settings.MEASURE_PERIOD);
-    
             if (settings.MEASURE) {
-            	clock_prescale(0);
-            	doMeasure();
-			}
+	            scheduler.timer(MEASURE, settings.MEASURE_PERIOD);
+	        }
+            clock_prescale(0);
+            doMeasure();
+/*
             // every so often, a report needs to be sent out
             if (settings.REPORT) {
 	            if ((++reportCount >= settings.REPORT_EVERY) ){
@@ -776,20 +774,27 @@ void loop () {
 	                scheduler.timer(REPORT, 0);
 	            }
             }
+*/
             break;
             
         case REPORT:
             clock_prescale(0);
-    	#if PIR_PORT
+    		#if PIR_PORT
     		maskPCINT = true;	// Airwick PIR is skittish
-		#endif
+			#endif
 		
 //            doReport();
             doTrigger();
 
-    	#if PIR_PORT
+	    	#if PIR_PORT
     		maskPCINT = false;
-        #endif
+	        #endif
             break;
     }
+#if SERIAL
+	clock_prescale(0);
+	Serial.println("Loop");    
+	serialFlush();
+#endif
+	clock_prescale(8);
 } // Loop
