@@ -69,7 +69,7 @@ static byte myNodeID;       // node ID used for this unit
 
 // This defines the structure of the packets which get sent out by wireless:
 
-#define PAYLOADLENGTH	12
+#define PAYLOADLENGTH	14
 static byte payloadLength = PAYLOADLENGTH;
 struct {					//0		Offset, node #
 	byte command;			//1		ACK command return field
@@ -87,6 +87,8 @@ struct {					//0		Offset, node #
     unsigned int humi:16;	//8&9	humidity: 0..100.00
     int temp   		:16; 	//10&11	temperature: -5000..+5000 (hundredths)
     byte vcc;				//12	Bandgap battery voltage
+    uint8_t powerSeenAs;	//13	Received power of a transmission as seen by a remote node
+    uint8_t sendingPower;	//14	Power applied to transmission
     byte message[ (RF12_MAXDATA - PAYLOADLENGTH) ];
 } payload;
 
@@ -385,29 +387,44 @@ static void doTrigger() {
 #endif
 
         if (acked) {
-#if RF69_COMPAT 
-        	if (RF69::rssi > 162 && rfapi.txPower < 159) rfapi.txPower++;
+#if RF69_COMPAT
+/* 
+        	if (RF69::rssi > 162 && RF69::rssi < 159) RF69::rssi++;
         	else
         	if (RF69::rssi < 160 && rfapi.txPower > 128) rfapi.txPower--;
+*/
 #endif        	
 			payloadLength = PAYLOADLENGTH;			// Reset to typical
-	        if (rf12_buf[2] > 0) {                  // Non-zero length ACK packet?
+			if (rf12_buf[2] == 1) {
+				showString(PSTR("Packet was seen with power ")); 
+				payload.powerSeenAs = rf12_buf[3];
+				Serial.println(rf12_buf[3]);
+				if (payload.command == 0) payload.command = 85;// Clear alert after a node restart
+								
+          		else if (payload.vcc < settings.lowVcc) payload.command = 240;
+          		
+          		if ( (payload.powerSeenAs > 170) && (rfapi.txPower < 159) ) rfapi.txPower++;
+          		else
+          		if ( (payload.powerSeenAs < 170) && (rfapi.txPower > 128) ) rfapi.txPower--;
+          		payload.sendingPower = rfapi.txPower;
+          		
+			} else
+	        if ( (rf12_buf[2] > 1) && (rf12_buf[2] <= 4) ) {
 	            payload.command = rf12_buf[3];		// Acknowledge the command
-//				reportCount = settings.REPORT_EVERY;// Force a transmission
 				uint16_t value = 0;
 				if (rf12_buf[2] == 4) 
 					value = ( (rf12_buf[6] << 8) + rf12_buf[5] );
 #if SERIAL
-				Serial.print("Key:");
-				Serial.print(rf12_buf[3]);
-				Serial.print(", Flag:");
-				Serial.print(rf12_buf[4]);
-				Serial.print(", Value1:");
-				Serial.print(rf12_buf[5]);
-				Serial.print(", Value2:");
-				Serial.print(rf12_buf[6]);
-				Serial.print(", Value=");
-				Serial.println(value);
+					Serial.print("Key:");
+					Serial.print(rf12_buf[3]);
+					Serial.print(", Flag:");
+					Serial.print(rf12_buf[4]);
+					Serial.print(", Value1:");
+					Serial.print(rf12_buf[5]);
+					Serial.print(", Value2:");
+					Serial.print(rf12_buf[6]);
+					Serial.print(", Value=");
+					Serial.println(value);
 #endif
 				switch (rf12_buf[4]) {
 					case 10:
@@ -453,23 +470,26 @@ static void doTrigger() {
 						settings.REPORT = true;
 						if(rf12_buf[2] == 4) settings.REPORT_EVERY = value;
                   		break;
-//                  case 240 is reserved     
+//                  case 240 is reserved 
 #if SERIAL
 						Serial.println("Unknown Command");
 #endif
 	            		payload.command = 170;		// Rejected command									                       
                      	break;
+                     	   
                   	} // end switch
     				scheduler.timer(REPORT, 1);
-          	} else 
-          		if (payload.command == 0) payload.command = 85;// Clear alert after a node restart
-          		else if (payload.vcc < settings.lowVcc) payload.command = 240;
-          		          			
-			scheduler.timer(REPORT, settings.REPORT_EVERY);
-			return;
+    				return;
+          	} else {          	
+#if SERIAL
+				Serial.println("Unknown ACK type");
+#endif
+	            payload.command = 170;		// Rejected command									                                 	
+          	}          		          			
         } else {
 	    	payload.missedACK++;
     	}
+		break;    
 	}
 	scheduler.timer(REPORT, settings.REPORT_EVERY);
 } // doTrigger
@@ -494,11 +514,6 @@ static byte waitForAck() {
 #if SERIAL
                     showString(PSTR(" ACK "));
                     showByte(payload.attempts);
-	#if RF69_COMPAT                     
-                    showString(PSTR(" ("));
-                    showByte(RF69::rssi);
-                    printOneChar(')');
-	#endif
 #endif
                     return true;            
                 }  else {
@@ -534,13 +549,18 @@ static byte waitForAck() {
 	Serial.println();
 	Serial.print(ACK_TIME);
 	showString(PSTR("ms ACK Timeout"));
-	#if RF69_COMPAT                     
-    showString(PSTR(" ("));
+#endif
+#if RF69_COMPAT && SERIAL                    
+    showString(PSTR(" RSSI*2="));
     showByte(RF69::rssi);
-    printOneChar(')');
-	#endif
+#endif
+#if SERIAL
+    showString(PSTR("Increasing transmit power "));
 	Serial.println(); serialFlush();
 #endif
+#if RF69_COMPAT                     
+	if ( (rfapi.txPower < 159) ) rfapi.txPower++;
+#endif	
     return false;
 } // waitForAck
 
@@ -711,9 +731,13 @@ void setup () {
 		#endif
     #endif
 
+rfapi.txPower = 129;
+
+
         if (settings.MEASURE)
-			scheduler.timer(MEASURE, 50);
-    	scheduler.timer(REPORT, 55);
+			scheduler.timer(MEASURE, 10);
+			
+    	scheduler.timer(REPORT, 15);
 /*
 uint16_t lastPass = 0; 
     rf12_sleep(RF12_WAKEUP);
@@ -747,7 +771,7 @@ void loop () {
     #if SERIAL
         serialFlush();
     #endif
-
+/*
     #if PIR_PORT
         if (pir.triggered()) {
 //            payload.moved = 0;//pir.state();
@@ -755,7 +779,7 @@ void loop () {
 			doTrigger();
         }
     #endif
-    
+*/    
     switch (scheduler.pollWaiting()) {
 
         case MEASURE:
@@ -765,16 +789,6 @@ void loop () {
 	        }
             clock_prescale(0);
             doMeasure();
-/*
-            // every so often, a report needs to be sent out
-            if (settings.REPORT) {
-	            if ((++reportCount >= settings.REPORT_EVERY) ){
-	            	changed = false;
-	                reportCount = 0;
-	                scheduler.timer(REPORT, 0);
-	            }
-            }
-*/
             break;
             
         case REPORT:
