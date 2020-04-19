@@ -71,6 +71,7 @@
 // Extended 'U' command to allow locking of configuration 2020-04-04
 // Use 3 bits of eeprom per node to store a multiplier of 15ms additional delay to ACK 2020-04-16
 //  use 17,212,7n to set the upper bits in eeprom node number to the multiplier 7
+// Extend basic ACK to also return the RSSI value of the packet being ACKed 2020-04-19
 
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
 	#define TINY 1
@@ -2644,15 +2645,26 @@ void loop () {
                         showByte(rf12_grp);
                         printOneChar('g');
                     }
-                    Serial.println();                    
+                    Serial.println(); 
                 }
 #endif                    
                 crlf = true;									// A static delay for all ACK's, more later
+
+				if (rf12_data[0] != 85) {
+               		showString(PSTR("Alert (k")); 
+    				showByte( (rf12_data[0] ) );
+					showString(PSTR(") i")); 
+					showByte(rf12_hdr & RF12_HDR_MASK);
+					showString(PSTR(" g")); 
+             		Serial.println(rf12_grp);
+             	}
+                                       
                 if (config.ackDelay) delay(config.ackDelay);	// changing into TX mode is quicker than changing into RX mode for RF69.     
 
 
 
                 byte i = getIndex( rf12_grp, (rf12_hdr & RF12_HDR_MASK) );
+                
                 if (specificNodeDelay) {
             		delay( (specificNodeDelay * 15) );	// Multiplier of 15ms
                 }
@@ -2746,12 +2758,6 @@ void loop () {
         	        	ackLen = 1;		// Supply received RSSI value in all basic ACKs
         	        }
 
-					if (rf12_data[0] != 85) {
-                   		showString(PSTR(" Alert (k")); 
-    	    			showByte( (rf12_data[0] ) );
-                 		showString(PSTR(") "));
-                 	}
-        	        
 #endif                                        
                     rf12_sendStart(RF12_ACK_REPLY, (v), ackLen);
                     rf12_sendWait(0);
