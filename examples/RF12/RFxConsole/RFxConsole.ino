@@ -2650,6 +2650,8 @@ void loop () {
                 crlf = true;									// A static delay for all ACK's, more later
                 if (config.ackDelay) delay(config.ackDelay);	// changing into TX mode is quicker than changing into RX mode for RF69.     
 
+
+
                 byte i = getIndex( rf12_grp, (rf12_hdr & RF12_HDR_MASK) );
                 if (specificNodeDelay) {
             		delay( (specificNodeDelay * 15) );	// Multiplier of 15ms
@@ -2731,19 +2733,27 @@ void loop () {
                     		if ( (*(v + 6) > highestAck[NodeMap]) ) 
                     	  	highestAck[NodeMap] = (*(v + 6));		// Save hi point
                     	}
+                    	v+=2;										// Adjust pointer
                      	if (dropNow) {
 	                    	if ( !(semaphoreDrop((rf12_hdr & RF12_HDR_MASK), rf12_grp) ) )
 	                			showString(PSTR(" NOT FOUND"));
                     		ackLen = 0;	// convert back to standard ack, without any additional payload
                     	}
-            		} else 
-						if (rf12_data[0] != 85) {
-        	                showString(PSTR(" Alert (k")); 
-            	    		showByte( (rf12_data[0] ) );
-        	            	showString(PSTR(") "));
+        	        } else {
+        	      		v = (byte *)&rf12_rssi;	// Use as TX buffer
+        	      		printOneChar(' ');
+        	      		showByte(rf12_rssi);       	      		
+        	        	ackLen = 1;		// Supply received RSSI value in all basic ACKs
         	        }
+
+					if (rf12_data[0] != 85) {
+                   		showString(PSTR(" Alert (k")); 
+    	    			showByte( (rf12_data[0] ) );
+                 		showString(PSTR(") "));
+                 	}
+        	        
 #endif                                        
-                    rf12_sendStart(RF12_ACK_REPLY, (v + 2), ackLen);
+                    rf12_sendStart(RF12_ACK_REPLY, (v), ackLen);
                     rf12_sendWait(0);
     				chkNoise = elapsedSeconds + (unsigned long)config.chkNoise;// Delay check
     				ping = false;		// Cancel any pending Noise Floor checks
