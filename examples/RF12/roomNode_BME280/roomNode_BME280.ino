@@ -40,8 +40,8 @@
 #define PIR_PORT    4   // defined if PIR is connected to a port's DIO pin
 
 #define RETRY_PERIOD    20  // how soon to retry if ACK didn't come in
-#define RETRY_LIMIT     2   // maximum number of times to retry
-#define ACK_TIME        21  // number of milliseconds to wait for an ack
+#define RETRY_LIMIT     1   // maximum number of times to try transmission
+#define ACK_TIME        10  // number of milliseconds to wait for an ack
 #define SMOOTH          3   // smoothing factor used for running averages
 
 #define SETTINGS_EEPROM_ADDR ((uint8_t*) 0x00)
@@ -384,39 +384,33 @@ static void doTrigger() {
     #endif
 		clock_prescale(0);
 		rf12_sendStart(RF12_HDR_ACK, &payload, payloadLength);
-//		clock_prescale(1);
-        rf12_sendWait(RADIO_SYNC_MODE);
-		clock_prescale(8);
-		for (byte tick = 0; tick < 11; tick++) NOP;	// Kill some time
 		clock_prescale(2);
+        rf12_sendWait(RADIO_SYNC_MODE);
+//		clock_prescale(8);
+//		for (byte tick = 0; tick < 11; tick++) NOP;	// Kill some time
+		clock_prescale(0);
 
         byte acked = waitForAck();
-#if SERIAL
-    	Serial.println();
-
-    	Serial.print("Radio Mode is ");
-		Serial.println( RF69::readMode(1) ); serialFlush();
-#endif
-
+ 		clock_prescale(2);
+   	
         if (acked) {
-#if RF69_COMPAT
-			Serial.print("Inbound packet at ");
+#if RF69_COMPAT || SERIAL
+			Serial.print(" Inbound packet at ");
 			Serial.print(payload.inbounedRssi);
 			Serial.print(" with threshold of ");
 			Serial.print(rfapi.rssiThreshold);
 			rfapi.rssiThreshold = (payload.inbounedRssi + 3);
 			Serial.print(", setting to ");
-			Serial.println(rfapi.rssiThreshold);
-			
+			Serial.println(rfapi.rssiThreshold);			
 #endif        	
 			payloadLength = PAYLOADLENGTH;			// Reset to typical
 			if (rf12_buf[2] == 1) {
 				showString(PSTR("Packet was seen with power ")); 
 				payload.powerSeenAs = rf12_buf[3];
 				Serial.println(rf12_buf[3]);
-				if (payload.command == 0) payload.command = 85;// Clear alert after a node restart
+				payload.command = 85;// Clear alert after a node restart
 								
-          		else if (payload.vcc < settings.lowVcc) payload.command = 240;
+          		if (payload.vcc < settings.lowVcc) payload.command = 240;
           		
           		if ( (payload.powerSeenAs > 180) && (rfapi.txPower < 159) ) rfapi.txPower++;
           		else
@@ -503,6 +497,10 @@ static void doTrigger() {
           	}          		          			
         } else {
 	    	payload.missedACK++;
+		#if SERIAL
+	    	Serial.print("Radio Mode is ");
+			Serial.println( RF69::readMode(1) ); serialFlush();
+		#endif
     	}
 	}
 	scheduler.timer(REPORT, settings.REPORT_EVERY);
@@ -516,13 +514,15 @@ static byte waitForAck() {
 #endif
     MilliTimer ackTimer;
     while ( !(ackTimer.poll(ACK_TIME)) ) {
+		clock_prescale(0);
         if (rf12_recvDone()) {
             rf12_sleep(RF12_SLEEP);
 #if SERIAL
-             Serial.println();
-             byte ack_delay = ( (ACK_TIME) - ackTimer.remaining() );
-             Serial.print(ack_delay);
-             showString(PSTR("ms RX"));
+			clock_prescale(2);
+            Serial.println();
+        	byte ack_delay = ( (ACK_TIME) - ackTimer.remaining() );
+            Serial.print(ack_delay);
+            showString(PSTR("ms RX"));
 #endif            
             if (rf12_crc == 0) {                          // Valid packet?
                 // see http://talk.jeelabs.net/topic/811#post-4712
@@ -554,19 +554,23 @@ static byte waitForAck() {
             } 
 #if SERIAL
             else { 
+            	payload.command = 1;
             	showString(PSTR("Bad CRC"));	            
 				Serial.println();serialFlush();
 			}          
 #endif
         }
 #if SERIAL
+		clock_prescale(2);
 		printOneChar('.');serialFlush();
 #endif        
 //		Sleepy::loseSomeTime(16);		// Wait a while
 //        set_sleep_mode(powerDown);   // Wait a while for the reply?
 //		sleep_mode();
     }
+    payload.command = 2;
 #if SERIAL
+	clock_prescale(2);
 	Serial.println();
 	Serial.print(ACK_TIME);
 	showString(PSTR("ms ACK Timeout"));
