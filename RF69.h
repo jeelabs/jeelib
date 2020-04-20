@@ -92,6 +92,7 @@ namespace RF69 {
     bool sending ();
     void sleep (bool off);
     uint8_t control(uint8_t cmd, uint8_t val);
+    uint8_t readMode(uint8_t addr);
     int8_t readTemperature(int8_t usercal);
     uint8_t* SPI_pins();  // {OPTIMIZE_SPI, PINCHG_IRQ, RF69_COMPAT, RFM_IRQ, 
                           //  SPI_SS, SPI_MOSI, SPI_MISO, SPI_SCK }

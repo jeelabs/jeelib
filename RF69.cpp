@@ -285,6 +285,10 @@ static uint8_t readReg (uint8_t addr) {
     return RF69::control(addr, 0);
 }
 
+uint8_t RF69::readMode (uint8_t addr) {
+    return spiTransfer(addr, 0);
+}
+
 static void flushFifo () {
     while (readReg(REG_IRQFLAGS2) & (IRQ2_FIFONOTEMPTY | IRQ2_FIFOOVERRUN))
         readReg(REG_FIFO);
