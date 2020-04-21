@@ -21,11 +21,20 @@
 #include <util/atomic.h>
 #include <avr/pgmspace.h>
 #include <avr/eeprom.h>
+#include <avr/wdt.h>
 #include <util/crc16.h>
 #include <Wire.h>
 
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BME280.h>
+
+uint8_t resetFlags __attribute__ ((section(".noinit")));
+void resetFlagsInit(void) __attribute__ ((naked)) __attribute__ ((section (".init0")));
+void resetFlagsInit(void)
+{
+    // save the reset flags passed from the bootloader
+    __asm__ __volatile__ ("mov %0, r2\n" : "=r" (resetFlags) :);
+}
 
 #define crc_update      _crc16_update
 #define BMX280_ADDRESS	0x76
@@ -70,8 +79,10 @@ static byte myNodeID;       // node ID used for this unit
 
 // This defines the structure of the packets which get sent out by wireless:
 
-#define PAYLOADLENGTH	16
-static byte payloadLength = PAYLOADLENGTH;
+#define BASIC_PAYLOADLENGTH		15
+#define EXTENDED_PAYLOADLENGTH 	17
+static byte payloadLength;
+
 struct {					//0		Offset, node #
 	byte command;			//1		ACK command return field
     byte missedACK	:4;		//2
@@ -86,13 +97,14 @@ struct {					//0		Offset, node #
 #endif 	   
     byte light;     		//7		light sensor: 0..255
     unsigned int humi:16;	//8&9	humidity: 0..100.00
-    int temp   		:16; 	//10&11	temperature: -5000..+5000 (hundredths)
+    int temp:16; 			//10&11	temperature: -5000..+5000 (hundredths)
     byte vcc;				//12	Bandgap battery voltage
-    uint8_t powerSeenAs;	//13	Received power of a transmission as seen by a remote node
-    uint8_t sendingPower;	//14	Power applied to transmission
-    uint8_t inbounedRssi;	//15	Perceived RSSI of Ack
-    byte ack_delay;			//16
-    byte message[ (RF12_MAXDATA - PAYLOADLENGTH) ];
+	uint8_t rebootCode;		//13
+    uint8_t inbounedRssi;	//14	Measured RSSI of the received Ack
+    uint8_t sendingPower;	//15	Power applied to transmission
+    uint8_t powerSeenAs;	//16	Received power of a transmission as seen by a remote node
+    byte ack_delay;			//17
+    byte message[ (RF12_MAXDATA - EXTENDED_PAYLOADLENGTH) ];
 } payload;
 
 typedef struct {
@@ -117,6 +129,7 @@ byte firstTime = true;
 byte lastLight;
 byte lastHumi;
 bool changed;
+bool rebootRequested;
 
 // Conditional code, depending on which sensors are connected and how:
 
@@ -394,6 +407,8 @@ static void doTrigger() {
  		clock_prescale(2);
    	
         if (acked) {
+        	if (rebootRequested) asm volatile ("  jmp 0");  
+
 #if RF69_COMPAT || SERIAL
 			Serial.print(" Inbound packet at ");
 			Serial.print(payload.inbounedRssi);
@@ -403,7 +418,7 @@ static void doTrigger() {
 			Serial.print(", setting to ");
 			Serial.println(rfapi.rssiThreshold);			
 #endif        	
-			payloadLength = PAYLOADLENGTH;			// Reset to typical
+			payloadLength = BASIC_PAYLOADLENGTH;			// Reset to typical
 			if (rf12_buf[2] == 1) {
 				showString(PSTR("Packet was seen with power ")); 
 				payload.powerSeenAs = rf12_buf[3];
@@ -436,27 +451,32 @@ static void doTrigger() {
 					Serial.println(value);
 #endif
 				switch (rf12_buf[4]) {
-					case 10:
+//					case 0				// Flags 0 through to 15 are
+//					case 15				// reserved for error codes
+					case 20:
 						settings.changedLight = false;
                       	break;      
-					case 11:
-						settings.changedLight = true;
-                      	break;      
-					case 20:
-						settings.changedHumi = false;
-                      	break;      
 					case 21:
-						settings.changedHumi = true;
+						settings.changedLight = true;
                       	break;      
 					case 30:
-						settings.changedTemp = false;
+						settings.changedHumi = false;
                       	break;      
 					case 31:
+						settings.changedHumi = true;
+                      	break;      
+					case 40:
+						settings.changedTemp = false;
+                      	break;      
+					case 41:
 						settings.changedLight = true;
                       	break; 
-					case 40:
+					case 50:
 						if(rf12_buf[2] == 4) settings.lowVcc = value;
                       	break; 
+//					case 51:
+//						settings.changedLight = true;
+//                      	break; 
 //                  case 85 is reserved     
 					case 99:
 #if SERIAL
@@ -479,7 +499,13 @@ static void doTrigger() {
 						settings.REPORT = true;
 						if(rf12_buf[2] == 4) settings.REPORT_EVERY = value;
                   		break;
-//                  case 240 is reserved 
+//                  case 240 is reserved
+					case 254: 		// Reboot
+                    	 if (value == 254) rebootRequested = true;
+                    	 break;                    
+					case 255: 		// Reboot
+                    	 if (value == 255) rebootRequested = true;
+                    	 break;                    
 #if SERIAL
 						Serial.println("Unknown Command");
 #endif
@@ -512,7 +538,7 @@ static byte waitForAck() {
 #if SERIAL
 //    Serial.print(" Waiting for for ACK ");
 #endif
-    MilliTimer ackTimer;
+    MilliTimer ackTimer;	// How does this react to clock_prescale
     while ( !(ackTimer.poll(ACK_TIME)) ) {
 		clock_prescale(0);
         if (rf12_recvDone()) {
@@ -594,6 +620,7 @@ void blink (byte pin) {
 }
 
 static void saveSettings () {
+	wdt_reset();
     settings.start = ~0;
     settings.crc = calcCrc(&settings, sizeof settings - 2);
     // this uses 170 bytes less flash than eeprom_write_block(), no idea why
@@ -612,7 +639,7 @@ static void saveSettings () {
 #endif
         }
     }
-    payloadLength = payloadLength + (sizeof settings);
+    payloadLength = EXTENDED_PAYLOADLENGTH + (sizeof settings);
 } // saveSettings
 
 static word calcCrc (const void* ptr, byte len) {
@@ -631,7 +658,7 @@ static void loadSettings () {
         	= eeprom_read_byte(SETTINGS_EEPROM_ADDR + i);
         crc = crc_update(crc, ((byte*) &settings)[i]);
     }
-    payloadLength = payloadLength + (sizeof settings);
+    payloadLength = EXTENDED_PAYLOADLENGTH + (sizeof settings);
 #if SERIAL
      Serial.print("Settings CRC ");
 #endif     
@@ -711,10 +738,25 @@ static void dumpRegs() {
 #endif
 
 void setup () {
+//disable interrupts
+	cli();
+// Setup WatchDog
+	wdt_reset();			// First thing, turn it off
+	MCUSR = 0;
+	payload.rebootCode = resetFlags;
+	payload.command = resetFlags;
+	MCUSR = 0;
+	wdt_disable();
+	wdt_enable(WDTO_8S);	// enable watchdogtimer at 8 seconds
+// Enable global interrupts
+	sei();
+
     #if SERIAL || DEBUG
         clock_prescale(2);	// Divide clock by 4, Serial viewable at 9600
         Serial.begin(38400);
-        Serial.print("[roomNode.3.1]");
+        Serial.print("[roomNode.3.1] ");
+		Serial.print("Reboot Code: 0x");
+		Serial.print( payload.rebootCode, HEX );   
         serialFlush();
         myNodeID = rf12_config(true);
     #else
@@ -761,7 +803,7 @@ rfapi.txPower = 129;
         if (settings.MEASURE)
 			scheduler.timer(MEASURE, 10);
 			
-    	scheduler.timer(REPORT, 15);
+    	scheduler.timer(REPORT, 10);
 /*
 uint16_t lastPass = 0; 
     rf12_sleep(RF12_WAKEUP);
@@ -787,7 +829,7 @@ uint16_t lastPass = 0;
 	}
 
 }
-*/    
+*/ 
 } // Setup
 void loop () {
 
@@ -802,8 +844,9 @@ void loop () {
 			doTrigger();
         }
     #endif
-    
+//	wdt_disable();				// Disable since pollWaiting is an extended delay    
     switch (scheduler.pollWaiting()) {
+		wdt_enable(WDTO_8S);	// enable watchdogtimer at 8 seconds
 
         case MEASURE:
             // reschedule these measurements periodically
