@@ -1260,10 +1260,10 @@ static void handleInput (char c) {
                      break;
             
             case 'U':
-					if (value == 2) outputTime = true;
-					else
+//					if (value == 2) outputTime = true;
+//					else
             		if (value == 123) {
-            			outputTime = false;
+//            			outputTime = false;
             			config.helpMenu = 0;	// Lock out eeprom write
             			showStatus();
             		}
@@ -2666,7 +2666,7 @@ void loop () {
                 byte i = getIndex( rf12_grp, (rf12_hdr & RF12_HDR_MASK) );
                 
                 if (specificNodeDelay) {
-            		delay( (specificNodeDelay * 15) );	// Multiplier of 15ms
+            		delay( (specificNodeDelay * 5) );	// Multiplier of 5ms
                 }
 
             	showString(TX);
