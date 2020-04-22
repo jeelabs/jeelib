@@ -294,27 +294,48 @@ static void flushFifo () {
         readReg(REG_FIFO);
 }
 
+#if !SX1276
 uint8_t setMode (uint8_t mode) {	// TODO enhance return code
     uint8_t c = 0;
+	cli();	// The approach negates the *buffering* of single interrupts
+	sei();	// Following instruction will not be interrupted
+//	uint8_t eimsk = EIMSK;
+	EIMSK = 0;
+
     if (mode >= MODE_FS) {
+/*
         uint8_t s = readReg(REG_DIOMAPPING1);// Save Interrupt triggers
          // Mask FS PllLock and appropriate target mode Interrupt
         if (mode == MODE_TRANSMITTER) writeReg(REG_DIOMAPPING1, DIO0_FS_UNDEF_TX);
         else writeReg(REG_DIOMAPPING1, DIO0_FS_UNDEF_RX);
-        
-        writeReg(REG_OPMODE, (MODE_FS /*| MODE_SEQUENCER_OFF*/));
+*/        
+        writeReg(REG_OPMODE, (MODE_FS));
+
         while (readReg(REG_IRQFLAGS1 & (IRQ1_PLL | IRQ1_MODEREADY)) == 0) {
             c++; if (c >= 127) break;
         }
-        writeReg(REG_DIOMAPPING1, s);        // Restore Interrupt triggers
+//        writeReg(REG_DIOMAPPING1, s);        // Restore Interrupt triggers
     }
 	if (mode != MODE_FS) writeReg(REG_OPMODE, (mode | MODE_SEQUENCER_OFF));
         
     while ((readReg(REG_IRQFLAGS1) & IRQ1_MODEREADY) == 0) {
         c++; if (c >= 254) break;
     }
+//    EIMSK = 0x30; //0x30 is rubbish - Where is this re-enabled then?
+//	Serial.println(EIMSK);
     return c;	// May need to beef this up since sometimes we don't appear to setmode correctly
 }
+
+#else
+uint8_t setMode (uint8_t mode) {	// TODO enhance return code
+	cli();
+	sei();	// Following instruction will not be interrupted
+	EIMSK = 0;
+    spiTransfer(REG_OPMODE | 0x80, mode);
+//    EIMSK = 0x30;
+	return true;
+}
+#endif
 
 static uint8_t initRadio (ROM_UINT8* init) {
 
