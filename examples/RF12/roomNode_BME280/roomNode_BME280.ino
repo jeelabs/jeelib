@@ -429,7 +429,7 @@ static void doTrigger() {
           		
           		if ( (payload.powerSeenAs > 180) && (rfapi.txPower < 159) ) rfapi.txPower++;
           		else
-          		if ( (payload.powerSeenAs < 170) && (rfapi.txPower > 128) ) rfapi.txPower--;
+          		if ( (payload.powerSeenAs < 180) && (rfapi.txPower > 128) ) rfapi.txPower--;
           		payload.sendingPower = rfapi.txPower;
           		break;
 			} else
@@ -505,7 +505,8 @@ static void doTrigger() {
                     	 break;                    
 					case 255: 		// Reboot
                     	 if (value == 255) rebootRequested = true;
-                    	 break;                    
+                    	 break;
+                    default:                   
 #if SERIAL
 						Serial.println("Unknown Command");
 #endif
@@ -523,10 +524,17 @@ static void doTrigger() {
           	}          		          			
         } else {
 	    	payload.missedACK++;
+	    	byte m = RF69::readMode(1);
+	    	if (m == RF69::readMode(1) ) {
+	    		rfapi.txPower = 128;
+	    		payload.command = 3;
+	    		scheduler.timer(REPORT, 1);
 		#if SERIAL
-	    	Serial.print("Radio Mode is ");
-			Serial.println( RF69::readMode(1) ); serialFlush();
+	    		Serial.print("Radio Mode is ");
+				Serial.println( m ); serialFlush();
 		#endif
+				return;
+	    	}
     	}
 	}
 	scheduler.timer(REPORT, settings.REPORT_EVERY);
@@ -580,7 +588,8 @@ static byte waitForAck() {
             } 
 #if SERIAL
             else { 
-            	payload.command = 1;
+            	payload.command = 1;	// CRC bad
+            	
             	showString(PSTR("Bad CRC"));	            
 				Serial.println();serialFlush();
 			}          
@@ -594,7 +603,8 @@ static byte waitForAck() {
 //        set_sleep_mode(powerDown);   // Wait a while for the reply?
 //		sleep_mode();
     }
-    payload.command = 2;
+    payload.command = 2;	// Ack timeout
+
 #if SERIAL
 	clock_prescale(2);
 	Serial.println();
@@ -756,13 +766,14 @@ void setup () {
         Serial.begin(38400);
         Serial.print("[roomNode.3.1] ");
 		Serial.print("Reboot Code: 0x");
-		Serial.print( payload.rebootCode, HEX );   
+		Serial.println( payload.rebootCode, HEX );   
         serialFlush();
         myNodeID = rf12_config(true);
     #else
         myNodeID = rf12_config(0); // don't report info on the serial port
     #endif
 	loadSettings();
+//	rfapi.txPower = 128;
     rf12_sleep(RF12_SLEEP); // power down
     #if SERIAL
     	Serial.print("Transmit Power "); Serial.println(rfapi.txPower);
@@ -797,12 +808,8 @@ void setup () {
 		#endif
     #endif
 
-rfapi.txPower = 129;
-
-
         if (settings.MEASURE)
 			scheduler.timer(MEASURE, 10);
-			
     	scheduler.timer(REPORT, 10);
 /*
 uint16_t lastPass = 0; 
@@ -833,10 +840,6 @@ uint16_t lastPass = 0;
 } // Setup
 void loop () {
 
-    #if SERIAL
-        serialFlush();
-    #endif
-
     #if PIR_PORT
         if (pir.triggered()) {
 //            payload.moved = 0;//pir.state();
@@ -844,10 +847,11 @@ void loop () {
 			doTrigger();
         }
     #endif
-//	wdt_disable();				// Disable since pollWaiting is an extended delay    
-    switch (scheduler.pollWaiting()) {
+		wdt_disable();			// Disable since pollWaiting has an extended delay    
+		byte s = scheduler.pollWaiting();
 		wdt_enable(WDTO_8S);	// enable watchdogtimer at 8 seconds
 
+		switch (s) {
         case MEASURE:
             // reschedule these measurements periodically
             if (settings.MEASURE) {
