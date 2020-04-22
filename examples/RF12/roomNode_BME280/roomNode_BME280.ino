@@ -50,8 +50,10 @@ void resetFlagsInit(void)
 
 #define RETRY_PERIOD    20  // how soon to retry if ACK didn't come in
 #define RETRY_LIMIT     1   // maximum number of times to try transmission
-#define ACK_TIME        10  // number of milliseconds to wait for an ack
+#define ACK_TIME        50  // number of milliseconds to wait for an ack
 #define SMOOTH          3   // smoothing factor used for running averages
+
+#define ADC_CALIBRATE	0
 
 #define SETTINGS_EEPROM_ADDR ((uint8_t*) 0x00)
 
@@ -223,7 +225,7 @@ static byte vccRead (byte count =4) {
   bitClear(ADCSRA, ADIE);  
   // convert ADC readings to fit in one byte, i.e. 20 mV steps:
   //  1.0V = 0, 1.8V = 40, 3.3V = 115, 5.0V = 200, 6.0V = 250
-  return (55U * 1023U) / (ADC + 1) - 50;
+  return (55U * 1023U) / (ADC + 1) - ADC_CALIBRATE;
 }
 
 void clock_prescale(uint8_t factor)
@@ -389,18 +391,20 @@ static void doTrigger() {
     	Sleepy::loseSomeTime(32);	// Wait a while
 		}
 		
-    #if SERIAL
+	#if SERIAL
     	Serial.print("Transmitting ");
 		Serial.print(payloadLength);
 		printOneChar('@');
 		Serial.println(rfapi.txPower); serialFlush();
-    #endif
+	    Serial.print("Radio Mode T is ");
+	    Serial.println( RF69::readMode(1) ); serialFlush();
+	#endif
 		clock_prescale(0);
 		rf12_sendStart(RF12_HDR_ACK, &payload, payloadLength);
 		clock_prescale(2);
         rf12_sendWait(RADIO_SYNC_MODE);
-//		clock_prescale(8);
-//		for (byte tick = 0; tick < 11; tick++) NOP;	// Kill some time
+		clock_prescale(8);
+		for (byte tick = 0; tick < 11; tick++) NOP;	// Kill some time
 		clock_prescale(0);
 
         byte acked = waitForAck();
@@ -417,7 +421,8 @@ static void doTrigger() {
 			rfapi.rssiThreshold = (payload.inbounedRssi + 3);
 			Serial.print(", setting to ");
 			Serial.println(rfapi.rssiThreshold);			
-#endif        	
+#endif
+
 			payloadLength = BASIC_PAYLOADLENGTH;			// Reset to typical
 			if (rf12_buf[2] == 1) {
 				showString(PSTR("Packet was seen with power ")); 
@@ -525,14 +530,14 @@ static void doTrigger() {
         } else {
 	    	payload.missedACK++;
 	    	byte m = RF69::readMode(1);
-	    	if (m == RF69::readMode(1) ) {
-	    		rfapi.txPower = 128;
-	    		payload.command = 3;
-	    		scheduler.timer(REPORT, 1);
 		#if SERIAL
-	    		Serial.print("Radio Mode is ");
-				Serial.println( m ); serialFlush();
+	    	Serial.print("Radio Mode R is ");
+			Serial.println( m ); serialFlush();
 		#endif
+	    	if (m & 0x70 ) {
+	    		rfapi.txPower = 128;
+	    		payload.command = 15;
+	    		scheduler.timer(REPORT, 1);
 				return;
 	    	}
     	}
@@ -581,9 +586,11 @@ static byte waitForAck() {
 #endif
                         rf12_buf[i] = 0xFF;				// Paint it over
                     }
+                    payload.command = 3;	// Wrong packet
 #if SERIAL
                     Serial.println();
 #endif
+					return false;
                 }
             } 
 #if SERIAL
@@ -592,6 +599,7 @@ static byte waitForAck() {
             	
             	showString(PSTR("Bad CRC"));	            
 				Serial.println();serialFlush();
+				return false;
 			}          
 #endif
         }
@@ -603,6 +611,7 @@ static byte waitForAck() {
 //        set_sleep_mode(powerDown);   // Wait a while for the reply?
 //		sleep_mode();
     }
+    rf12_sleep(RF12_SLEEP);
     payload.command = 2;	// Ack timeout
 
 #if SERIAL
@@ -754,7 +763,6 @@ void setup () {
 	wdt_reset();			// First thing, turn it off
 	MCUSR = 0;
 	payload.rebootCode = resetFlags;
-	payload.command = resetFlags;
 	MCUSR = 0;
 	wdt_disable();
 	wdt_enable(WDTO_8S);	// enable watchdogtimer at 8 seconds
@@ -773,7 +781,9 @@ void setup () {
         myNodeID = rf12_config(0); // don't report info on the serial port
     #endif
 	loadSettings();
-//	rfapi.txPower = 128;
+	
+	rfapi.txPower = 128;
+	
     rf12_sleep(RF12_SLEEP); // power down
     #if SERIAL
     	Serial.print("Transmit Power "); Serial.println(rfapi.txPower);
@@ -877,7 +887,7 @@ void loop () {
     }
 #if SERIAL
 	clock_prescale(2);
-	Serial.println("Loop");    
+//	Serial.println("Loop");    
 	serialFlush();
 #endif
 	clock_prescale(8);

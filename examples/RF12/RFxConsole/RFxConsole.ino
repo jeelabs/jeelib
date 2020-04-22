@@ -462,32 +462,36 @@ static void loadConfig () {
     config.defaulted = false;   // Value if UI saves config
 }
 
-static void saveConfig () {
-    activityLed(1);
-    config.format = MAJOR_VERSION;
-    config.crc = calcCrc(&config, sizeof config - 2);
-    // eeprom_write_block(&config, RF12_EEPROM_ADDR, sizeof config);
-    // this uses 170 bytes less flash than eeprom_write_block(), no idea why
+static void saveConfig (byte force = false) {
+	if ( (!(config.helpMenu)) && (!(force)) ) {
+		showString(BLOC);
+	} else {
+	    activityLed(1);
+    	config.format = MAJOR_VERSION;
+    	config.crc = calcCrc(&config, sizeof config - 2);
+    	// eeprom_write_block(&config, RF12_EEPROM_ADDR, sizeof config);
+    	// this uses 170 bytes less flash than eeprom_write_block(), no idea why
 
-    for (byte i = 0; i < sizeof config; ++i) {
-        byte* p = &config.nodeId;
-        if (eeprom_read_byte(RF12_EEPROM_ADDR + i) != p[i]) {
-			wdt_reset();		// Hold off Watchdog: Eeprom writing is slow...
-            eeprom_write_byte(RF12_EEPROM_ADDR + i, p[i]);
-            eepromWrite++;
+    	for (byte i = 0; i < sizeof config; ++i) {
+        	byte* p = &config.nodeId;
+        	if (eeprom_read_byte(RF12_EEPROM_ADDR + i) != p[i]) {
+				wdt_reset();		// Hold off Watchdog: Eeprom writing is slow...
+            	eeprom_write_byte(RF12_EEPROM_ADDR + i, p[i]);
+            	eepromWrite++;
+			}
 		}
-	}
     
-	loadConfig();
+		loadConfig();
 	
-    salusMode = false;
+    	salusMode = false;
 #if STATISTICS    
-    messageCount = nonBroadcastCount = CRCbadCount = 0; // Clear stats counters
+    	messageCount = nonBroadcastCount = CRCbadCount = 0; // Clear stats counters
 #endif
-    rf12_sleep(RF12_SLEEP);                             // Sleep while we tweak things
-    if (!rf12_configSilent()) showString(INITFAIL);
-    activityLed(0); 
-    showString(DONE);
+    	rf12_sleep(RF12_SLEEP);                             // Sleep while we tweak things
+    	if (!rf12_configSilent()) showString(INITFAIL);
+    	activityLed(0); 
+//    	showString(DONE);
+    }
 } // saveConfig
 
 static byte bandToFreq (byte band) {
@@ -783,6 +787,7 @@ Serial.flush();
 
 // Null handling could be made to store null true/false for each stack entry
 bool cr = false;
+bool outputTime;
 bool hash = false;
 static void handleInput (char c) {
 	if (hash) {	// Bash style comments    
@@ -1262,10 +1267,19 @@ static void handleInput (char c) {
                      break;
             
             case 'U':
-            		if (value == 123) showStatus();
+					if (value == 2) outputTime = true;
+					else
+            		if (value == 123) {
+            			outputTime = false;
+            			config.helpMenu = 0;	// Lock out eeprom write
+            			showStatus();
+            		}
+            		else
+            		if (value == 1953 && top == 1) {
+            			config.helpMenu = (stack[0] & 1);
+            			saveConfig(true);	// Force eeprom write	
+            		}
             		else config.helpMenu = value & 1;
-//            		saveConfig();
-//					c = 0;	// loose command printout
             		break;	
 
             case 'm':

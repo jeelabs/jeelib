@@ -299,16 +299,15 @@ uint8_t setMode (uint8_t mode) {	// TODO enhance return code
     uint8_t c = 0;
 	cli();	// The approach negates the *buffering* of single interrupts
 	sei();	// Following instruction will not be interrupted
-//	uint8_t eimsk = EIMSK;
+	uint8_t eimsk = EIMSK;
 	EIMSK = 0;
-
-    if (mode >= MODE_FS) {
 /*
+    if (mode >= MODE_FS) {
+
         uint8_t s = readReg(REG_DIOMAPPING1);// Save Interrupt triggers
          // Mask FS PllLock and appropriate target mode Interrupt
         if (mode == MODE_TRANSMITTER) writeReg(REG_DIOMAPPING1, DIO0_FS_UNDEF_TX);
         else writeReg(REG_DIOMAPPING1, DIO0_FS_UNDEF_RX);
-*/        
         writeReg(REG_OPMODE, (MODE_FS));
 
         while (readReg(REG_IRQFLAGS1 & (IRQ1_PLL | IRQ1_MODEREADY)) == 0) {
@@ -317,12 +316,18 @@ uint8_t setMode (uint8_t mode) {	// TODO enhance return code
 //        writeReg(REG_DIOMAPPING1, s);        // Restore Interrupt triggers
     }
 	if (mode != MODE_FS) writeReg(REG_OPMODE, (mode | MODE_SEQUENCER_OFF));
+*/        
+	writeReg(REG_OPMODE, (mode | MODE_SEQUENCER_OFF));
         
     while ((readReg(REG_IRQFLAGS1) & IRQ1_MODEREADY) == 0) {
-        c++; if (c >= 254) break;
+        c++; 
+        if (c >= 254) { 
+        	Serial.print("Mode overrun"); Serial.println();
+        	break;
+        }
     }
-//    EIMSK = 0x30; //0x30 is rubbish - Where is this re-enabled then?
-//	Serial.println(EIMSK);
+// EIMSK is also re-enabled by the PreventInterrupt structure
+	EIMSK = eimsk;
     return c;	// May need to beef this up since sometimes we don't appear to setmode correctly
 }
 
@@ -619,8 +624,8 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
 	if (rfapi.txPower & 0x80) {
 		rfapi.txPower = (rfapi.txPower & 0x9F);
 	}
-	else if
-		(rfapi.txPower == 0x7F) {
+	else
+	if (rfapi.txPower == 0x7F) {
           	writeReg(REG_OCP, OCP_20DB);    		// Overcurrent protection OFF!
           	writeReg(REG_TESTPA1, TESTPA1_20DB);    // Turn on transmit highest power 
           	writeReg(REG_TESTPA2, TESTPA2_20DB);    // cross your fingers
@@ -843,7 +848,7 @@ second rollover and then will be 1.024 mS out.
 	    } else 
 	    if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
     		writeReg(REG_PALEVEL, 0);	// Drop TX power to clear airwaves quickly	
-          	setMode(MODE_SLEEP);
+			setMode(MODE_SLEEP);
 			TXinterruptCount++;
           	writeReg(REG_OCP, OCP_NORMAL);			// Overcurrent protection on
           	writeReg(REG_TESTPA1, TESTPA1_NORMAL);	// Turn off high power 
@@ -857,6 +862,7 @@ second rollover and then will be 1.024 mS out.
           	}
           	rxstate = TXIDLE;
         } else {
+    		writeReg(REG_PALEVEL, 0);	// Drop TX power to clear airwaves quickly	
             // We get here when a interrupt that is not for RX/TX completion.
             // Appears related to receiving noise when the bad CRC
             // packet display is enabled using "0q".
@@ -868,6 +874,6 @@ second rollover and then will be 1.024 mS out.
             unexpected++;
 //			writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
             rxstate = TXIDLE;   // Cause a RX restart by FSM
-//			setMode(MODE_SLEEP);
+			setMode(MODE_SLEEP);
         }
 }
