@@ -2749,7 +2749,7 @@ void loop () {
                      	if (dropNow) {
 	                    	if ( !(semaphoreDrop((rf12_hdr & RF12_HDR_MASK), rf12_grp) ) )
 	                			showString(PSTR(" NOT FOUND"));
-                    		ackLen = 0;	// convert back to standard ack, without any additional payload
+//                    		ackLen = 0;	// convert back to standard ack, without any additional payload
                     	}
         	        } else {
         	      		v = (byte *)&rf12_rssi;	// Use as TX buffer
