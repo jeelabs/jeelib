@@ -531,11 +531,12 @@ uint8_t setMode (uint8_t mode) {	// TODO enhance return code
 #else
 uint8_t setMode (uint8_t mode) {	// TODO enhance return code
 //    PreventInterrupt RF69_avr_h_INT;
+	uint8_t eimsk = EIMSK;
 	cli();
 	sei();	// Following instruction will not be interrupted
 	EIMSK = 0;
     spiTransfer(REG_OPMODE | 0x80, mode);
-    EIMSK = 0x30;
+    EIMSK = eimsk;
 	return true;
 }
 #endif
@@ -644,6 +645,7 @@ uint8_t* RF69::SPI_pins() {
 uint8_t RF69::currentRSSI() {
 
   if (((rxfill == 0) || (rxdone))) {
+#if !SX1276
       uint8_t storedMode = (readReg(REG_OPMODE) & MODE_MASK);
       uint8_t storeDIOM = readReg(REG_DIOMAPPING1);// Collect Interrupt triggers
 
@@ -653,18 +655,17 @@ uint8_t RF69::currentRSSI() {
       setMode(MODE_RECEIVER);   // Looses contents of FIFO and 36 spins
       rssiDelay = 0;
 
-#if !SX1276
 
       writeReg(REG_RSSICONFIG, RssiStart);	// Trigger an RSSI measurement
-#endif      
       while (!(readReg(REG_IRQFLAGS1) & IRQ1_RSSI)) {
           rssiDelay++;
       }
+#endif      
 
       uint8_t r = readReg(REG_RSSIVALUE);           // Collect RSSI value
       
 //      delay(1);
-//#if !SX1276      
+#if !SX1276      
       writeReg(REG_AFCFEI, AFC_CLEAR);
       writeReg(REG_RSSITHRESHOLD, 64);  			// Quiet down threshold
 	  setMode(MODE_FS_RX);                        	// Get out of RX mode
@@ -672,7 +673,7 @@ uint8_t RF69::currentRSSI() {
       writeReg(REG_RSSITHRESHOLD, rfapi.rssiThreshold);  // Set threshold
       writeReg(REG_DIOMAPPING1, storeDIOM);         // Restore Interrupt trigger
       setMode(storedMode); 							// Restore mode
-//#endif      
+#endif      
       return r;
       
   } else return 0;
