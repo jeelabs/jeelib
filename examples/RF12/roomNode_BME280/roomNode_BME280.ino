@@ -395,8 +395,10 @@ static void doTrigger() {
 		Serial.print(payloadLength);
 		printOneChar('@');
 		Serial.println(rfapi.txPower); serialFlush();
+/*
 	    Serial.print("Radio Mode T is ");
 	    Serial.println( RF69::readMode(1) ); serialFlush();
+*/
 	#endif
 		clock_prescale(0);
 		rf12_sendStart(RF12_HDR_ACK, &payload, payloadLength);
@@ -586,6 +588,7 @@ static byte waitForAck() {
 					Serial.print((RF12_HDR_DST | RF12_HDR_CTL | myNodeID), HEX);
 					showString(PSTR(" Unmatched: "));	// Flush the buffer
 #endif
+/*
                     for (byte i = 0; i < 8; i++) {
 #if SERIAL
                         showByte(rf12_buf[i]);
@@ -593,6 +596,7 @@ static byte waitForAck() {
 #endif
                         rf12_buf[i] = 0xFF;				// Paint it over
                     }
+*/
                     payload.command = 3;	// Wrong packet
 					payload.sequence-=2;	// Wobble sequence to indicate Unmatched
 #if SERIAL
