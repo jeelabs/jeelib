@@ -39,7 +39,7 @@ void resetFlagsInit(void)
 #define crc_update      _crc16_update
 #define BMX280_ADDRESS	0x76
 
-#define SERIAL  1   // set to 1 to also report readings on the serial port
+#define SERIAL  0   // set to 1 to also report readings on the serial port
 #define DEBUG   0   // set to 1 to display each loop() run and PIR trigger
 
 #define BME280_PORT  1   // defined if BME280 is connected to I2C
@@ -54,7 +54,7 @@ void resetFlagsInit(void)
 #define SMOOTH          3   // smoothing factor used for running averages
 
 #define ADC_CALIBRATE	0
-
+#define IDLESPEED		4
 #define SETTINGS_EEPROM_ADDR ((uint8_t*) 0x00)
 
 // set the sync mode to 2 if the fuses are still the Arduino default
@@ -379,7 +379,10 @@ static void doTrigger() {
     #endif
         
 	payload.sequence++;
-
+#if SERIAL
+	Serial.print("Sequence ");
+	Serial.println(payload.sequence);
+#endif
     for (byte i = 1; i <= RETRY_LIMIT; ++i) {
     	payload.attempts = i;
         rf12_sleep(RF12_WAKEUP);
@@ -402,14 +405,14 @@ static void doTrigger() {
 	#endif
 		clock_prescale(0);
 		rf12_sendStart(RF12_HDR_ACK, &payload, payloadLength);
-		clock_prescale(2);
+		clock_prescale(IDLESPEED);
         rf12_sendWait(RADIO_SYNC_MODE);
 		clock_prescale(8);
 		for (byte tick = 0; tick < 11; tick++) NOP;	// Kill some time
 		clock_prescale(0);
 
         byte acked = waitForAck();
- 		clock_prescale(2);
+ 		clock_prescale(IDLESPEED);
    	
         if (acked) {
         	if (rebootRequested) asm volatile ("  jmp 0");  
@@ -520,17 +523,19 @@ static void doTrigger() {
 						Serial.println("Unknown Command");
 #endif
 	            		payload.command = 170;		// Rejected command									                       
-                     	break;
+    					scheduler.timer(REPORT, 1);
+    					return;
+//                     	break;
                      	   
                   	} // end switch
-    				scheduler.timer(REPORT, 1);
-    				return;
           	} else {          	
 #if SERIAL
 				Serial.print("Unknown ACK type ");
 				Serial.println( rf12_buf[2] );
 #endif
-	            payload.command = 170;		// Rejected command									                                 	
+	            payload.command = 170;		// Rejected command
+	            scheduler.timer(REPORT, 1);
+	            return;							                                 	
           	}          		          			
         } else {
 	    	payload.missedACK++;
@@ -567,7 +572,7 @@ static byte waitForAck() {
             rf12_sleep(RF12_SLEEP);
         	byte ack_delay = ( (ACK_TIME) - ackTimer.remaining() );
 #if SERIAL
-			clock_prescale(2);
+			clock_prescale(IDLESPEED);
             Serial.println();
             Serial.print(ack_delay);
             showString(PSTR("ms RX"));
@@ -598,7 +603,6 @@ static byte waitForAck() {
                     }
 */
                     payload.command = 3;	// Wrong packet
-					payload.sequence-=2;	// Wobble sequence to indicate Unmatched
 #if SERIAL
                     Serial.println();
 #endif
@@ -615,18 +619,15 @@ static byte waitForAck() {
 			}          
         }
 #if SERIAL
-		clock_prescale(2);
+		clock_prescale(IDLESPEED);
 		printOneChar('.');serialFlush();
 #endif        
-//		Sleepy::loseSomeTime(16);		// Wait a while
-//        set_sleep_mode(powerDown);   // Wait a while for the reply?
-//		sleep_mode();
     }
     rf12_sleep(RF12_SLEEP);
     payload.command = 2;	// Ack timeout
 	payload.ack_delay = 0;
 #if SERIAL
-	clock_prescale(2);
+	clock_prescale(IDLESPEED);
 	Serial.println();
 	Serial.print(ACK_TIME);
 	showString(PSTR("ms ACK Timeout"));
@@ -697,9 +698,10 @@ static void loadSettings () {
 		Serial.print("is bad, defaulting ");
 		Serial.println(crc, HEX);
 #endif
-        settings.MEASURE_PERIOD = 200; //522;
-        settings.REPORT_EVERY = 600;// 60;
+        settings.MEASURE_PERIOD = 600;
+        settings.REPORT_EVERY = 600;
         settings.MEASURE = settings.REPORT = true;
+        settings.lowVcc = 140;
         settings.changedLight = settings.changedHumi = settings.changedTemp = true;
     } 
 #if SERIAL    
@@ -780,7 +782,7 @@ void setup () {
 // Enable global interrupts
 	sei();
 
-        clock_prescale(2);	// Divide clock by 4, Serial viewable at 9600
+        clock_prescale(IDLESPEED);	// Divide clock by 4, Serial viewable at 2400
     #if SERIAL || DEBUG
         Serial.begin(38400);
         Serial.print("[roomNode.3.2] ");
@@ -864,7 +866,7 @@ void loop () {
     #if PIR_PORT
         if (pir.triggered()) {
 //            payload.moved = 0;//pir.state();
-			clock_prescale(2);
+			clock_prescale(IDLESPEED);
 			doTrigger();
         }
     #endif
@@ -878,12 +880,12 @@ void loop () {
             if (settings.MEASURE) {
 	            scheduler.timer(MEASURE, settings.MEASURE_PERIOD);
 	        }
-            clock_prescale(2);
+            clock_prescale(IDLESPEED);
             doMeasure();
             break;
             
         case REPORT:
-            clock_prescale(2);
+            clock_prescale(IDLESPEED);
     		#if PIR_PORT
     		maskPCINT = true;	// Airwick PIR is skittish
 			#endif
@@ -897,7 +899,7 @@ void loop () {
             break;
     }
 #if SERIAL
-	clock_prescale(2);
+	clock_prescale(IDLESPEED);
 //	Serial.println("Loop");    
 	serialFlush();
 #endif
