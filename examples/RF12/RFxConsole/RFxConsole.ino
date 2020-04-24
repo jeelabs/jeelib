@@ -1196,6 +1196,11 @@ static void handleInput (char c) {
                      // The byte stack[1] contains the target group and stack[0] contains the 
                      // node number. The message string to be posted is in value
 #if MESSAGING
+					if (nullValue && top == 2) {
+						while ( (semaphoreDrop (stack[0], stack[1] )));	// Drop all node, group semaphores
+						showPost();	
+						break;
+					} else 
 					if (nullValue) stack[5] = 1<<5; else stack[5] = 3<<5;
 					if (top == 1) stack[1] = stickyGroup;
 					else if (top == 2) {
@@ -1268,11 +1273,11 @@ static void handleInput (char c) {
             			showStatus();
             		}
             		else
-            		if (value == 1953 && top == 1) {
+            		if (value == 1953) {
             			config.helpMenu = (stack[0] & 1);
             			saveConfig(true);	// Force eeprom write	
             		}
-            		else config.helpMenu = value & 1;
+//            		else config.helpMenu = value & 1;
             		break;	
 
             case 'm':
@@ -1816,10 +1821,11 @@ static void dumpRegs() {
 //#endif
 static void showPost() {
 #if MESSAGING
-/*	if (semaphoreStack[0] == 0) {
-		showString(DONE); 
+	if (semaphoreStack[0] == 0) {
+		showString( PSTR("No post pending") ); 
+		Serial.println();
 		return;
-	} */  
+	} 
     int c = 0;
     while (semaphoreStack[c * ackEntry + 0] != 0) {
         printOneChar('e');										// Envelope
@@ -2649,7 +2655,7 @@ void loop () {
                 }
 #endif                    
                 crlf = true;									// A static delay for all ACK's, more later
-
+/*
 				if (rf12_data[0] != 85) {
                		showString(PSTR("Alert (k")); 
     				showByte( (rf12_data[0] ) );
@@ -2658,10 +2664,8 @@ void loop () {
 					showString(PSTR(" g")); 
              		Serial.println(rf12_grp);
              	}
-                                       
+*/                                       
                 if (config.ackDelay) delay(config.ackDelay);	// changing into TX mode is quicker than changing into RX mode for RF69.     
-
-
 
                 byte i = getIndex( rf12_grp, (rf12_hdr & RF12_HDR_MASK) );
                 
@@ -2683,21 +2687,18 @@ void loop () {
                         stack[(sizeof stack - 1)] = rf12_data[0];
                         ackLen = 2;
                     }
+                    printOneChar('i');
+                    showByte(rf12_hdr & RF12_HDR_MASK);                    
+
 #if RF69_COMPAT && !TINY
                     if (config.group == 0) {
+                        printOneChar(' ');
                         showString(PSTR("g"));
                         showByte(rf12_grp);
                         RF69::radioIndex(SYNCGROUP | 0x80, rf12_grp); // Reply to incoming group number
-                        printOneChar(' ');
                     }
 #endif
-                    printOneChar('i');
-                    showByte(rf12_hdr & RF12_HDR_MASK);                    
-//                    printOneChar(' ');
-//                    showByte(rf12_data[0]);                    
-//                    printOneChar(' ');
-//                    showByte(rf12_data[1]);                    
-#if MESSAGING
+ #if MESSAGING
 	                // This code is used when an incoming packet is requesting an ACK, it determines if a semaphore is posted for this Node/Group.
     	            // If a semaphore exists it is stored in the buffer. If the semaphore has a message addition associated with it then
         	        // the additional data from the message store is appended to the buffer and the whole buffer transmitted to the 
@@ -2708,7 +2709,7 @@ void loop () {
                 	if ( (v) && (!(special)) ) {			// Post pending?
                 		bool dropNow = false;                			
             	        ackLen = (*(v + 0) >> 5) + 1;	// ACK length in high bits of node
-	                    if (rf12_data[0] == (*(v + 2)) && (*(v + 6)) ) { // Matched and transmitted at least once
+	                    if (rf12_data[0] == (*(v + 2)) && ( *(v + 6)) ) { // Matched and transmitted at least once
 	                    // Check if previous Post value is the first byte of this payload 
         	                showString(PSTR(" Released "));
                     		postingsClr++;
@@ -2716,8 +2717,8 @@ void loop () {
                     	} else	
                 		if (rf12_data[0] == 170) {
                     		dropNow = true;
-        	                showString(PSTR(" Rejected "));        	                                			
-            	        } else {
+        	                showString(PSTR(" Rejected ")); 
+           	        	} else {
                     		showString(PSTR(" Posted "));
                     		(byte)++(*(v + 6));
                     		postingsOut++;
@@ -2748,17 +2749,37 @@ void loop () {
                     	v+=2;										// Adjust pointer
                      	if (dropNow) {
 	                    	if ( !(semaphoreDrop((rf12_hdr & RF12_HDR_MASK), rf12_grp) ) )
-	                			showString(PSTR(" NOT FOUND"));
-//                    		ackLen = 0;	// convert back to standard ack, without any additional payload
+	                			showString(PSTR(" NOT FOUND "));
+        	      				v = (byte *)&rf12_rssi;	// Use as the TX buffer pointer
+		        	      		printOneChar(' ');
+		        	      		showByte(rf12_rssi);       	      		
+		        	        	ackLen = 1;		// Convert to a basic ACK	                		
                     	}
         	        } else {
-        	      		v = (byte *)&rf12_rssi;	// Use as TX buffer
+        	      		v = (byte *)&rf12_rssi;	// Use as the TX buffer pointer
         	      		printOneChar(' ');
         	      		showByte(rf12_rssi);       	      		
         	        	ackLen = 1;		// Supply received RSSI value in all basic ACKs
-        	        }
+
+ 						if (rf12_data[0] != 85) {
+               				showString(PSTR(" Alert (k")); 
+    						showByte( (rf12_data[0] ) );
+                        	printOneChar(')');
+        	        	}
+	       	        }
 
 #endif                                        
+////////////////////////////////////////////////////////////////////      	                	                
+// Temporary Code until i21 is upgraded to understand new Acks//////
+//////////////////////////////////////////////////////////////////// 
+					if ( (rf12_hdr & RF12_HDR_MASK) == 21) {
+						ackLen = 0;
+						showString(PSTR("Above Ack set zero length")); 
+					}
+					
+////////////////////////////////////////////////////////////////////      	                	                
+////////////////////////////////////////////////////////////////////      	                	                
+    	                	                
                     rf12_sendStart(RF12_ACK_REPLY, (v), ackLen);
                     rf12_sendWait(0);
     				chkNoise = elapsedSeconds + (unsigned long)config.chkNoise;// Delay check
