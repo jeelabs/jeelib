@@ -645,16 +645,15 @@ uint8_t* RF69::SPI_pins() {
 uint8_t RF69::currentRSSI() {
 
   if (((rxfill == 0) || (rxdone))) {
-#if !SX1276
       uint8_t storedMode = (readReg(REG_OPMODE) & MODE_MASK);
       uint8_t storeDIOM = readReg(REG_DIOMAPPING1);// Collect Interrupt triggers
 
       writeReg(REG_DIOMAPPING1, 0x00);      // Mask most radio interrupts
-	  setMode(MODE_FS_RX);
+//	  setMode(MODE_FS_RX);
       writeReg(REG_RSSITHRESHOLD, 0xFF); 	// Max out threshold
       setMode(MODE_RECEIVER);   // Looses contents of FIFO and 36 spins
+#if !SX1276
       rssiDelay = 0;
-
 
       writeReg(REG_RSSICONFIG, RssiStart);	// Trigger an RSSI measurement
       while (!(readReg(REG_IRQFLAGS1) & IRQ1_RSSI)) {
@@ -664,8 +663,6 @@ uint8_t RF69::currentRSSI() {
 
       uint8_t r = readReg(REG_RSSIVALUE);           // Collect RSSI value
       
-//      delay(1);
-#if !SX1276      
       writeReg(REG_AFCFEI, AFC_CLEAR);
       writeReg(REG_RSSITHRESHOLD, 64);  			// Quiet down threshold
 	  setMode(MODE_FS_RX);                        	// Get out of RX mode
@@ -673,7 +670,7 @@ uint8_t RF69::currentRSSI() {
       writeReg(REG_RSSITHRESHOLD, rfapi.rssiThreshold);  // Set threshold
       writeReg(REG_DIOMAPPING1, storeDIOM);         // Restore Interrupt trigger
       setMode(storedMode); 							// Restore mode
-#endif      
+    
       return r;
       
   } else return 0;
