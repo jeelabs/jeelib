@@ -235,8 +235,11 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 // Less prone to restarts in noisy environment
 //  0x19, 0xE2, // RxBw 125 KHz, if DCC set to 0 is more sensitive
 //  0x1A, 0xF7, // RxBwAFC 2.6 Khz Only handling initial RSSI phase, not payload!
-  0x19, 0x51,	// RxBw 166.7 KHz, DCC 4%
-  0x1A, 0x51,	// RxAfcBw 166.7 KHz, DCC 4%
+//  0x19, 0x51,	// RxBw 166.7 KHz, DCC 4%
+//  0x1A, 0x51,	// RxAfcBw 166.7 KHz, DCC 4%
+	0x19, 0x49,	// RxBw 200KHz, DCC 4% https://github.com/jeelabs/jeelib/pull/102/commits/f9b8829223ad5adbb8d902d3f9e28efc066095b0
+	0x1a, 0x49,	// RxAfcBw 200KHz, DCC 4% @mvdswaluw
+ 
   
   0x1E, 0x00,
 

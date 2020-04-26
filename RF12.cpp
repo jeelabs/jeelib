@@ -728,8 +728,8 @@ uint8_t rf12_initialize (uint8_t id, uint8_t band, uint8_t g, uint16_t f) {
     //
     rf12_xfer(0xC606); // approx 49.2 Kbps, i.e. 10000/29/(1+6) Kbps
     // Note that below LNA(0-3)*8 + RSSI(0-5)*0 Threshold set from rxThreshold
-//    rf12_xfer(0x94A0 | (rxThreshold & 0x1F)); // VDI,FAST,134kHz,(0dBm),(-91dBm)
-    rf12_xfer(0x9480 | (rxThreshold & 0x1F)); // VDI,FAST,200kHz,(0dBm),(-91dBm)
+    rf12_xfer(0x94A0 | (rxThreshold & 0x1F)); // VDI,FAST,134kHz,(0dBm),(-91dBm)
+//    rf12_xfer(0x9480 | (rxThreshold & 0x1F)); // VDI,FAST,200kHz,(0dBm),(-91dBm)
     rf12_xfer(0xC2AC); // AL,!ml,DIG,DQD4
     if (group != 0) {
         rf12_xfer(0xCA83); // FIFO8,2-SYNC,!ff,DR
@@ -846,8 +846,8 @@ uint8_t rf12_configSilent () {
 
     nodeId = eeprom_read_byte(RF12_EEPROM_ADDR + 0);
     group  = eeprom_read_byte(RF12_EEPROM_ADDR + 1);
-    txPower = eeprom_read_byte(RF12_EEPROM_ADDR + 6);     // Store from eeprom
-    rxThreshold = eeprom_read_byte(RF12_EEPROM_ADDR + 7); // Store from eeprom
+    txPower = eeprom_read_byte(RF12_EEPROM_ADDR + 6) & 7;     // Store from eeprom
+    rxThreshold = eeprom_read_byte(RF12_EEPROM_ADDR + 7) & 7; // Store from eeprom
     matchRF = eeprom_read_byte(RF12_EEPROM_ADDR + 8); // Store hardware matching 
     
     frequency = eeprom_read_byte(RF12_EEPROM_ADDR + 5);
@@ -866,10 +866,10 @@ void rf12_configDump () {
     uint8_t flags = eeprom_read_byte(RF12_EEPROM_ADDR + 3);
     frequency = eeprom_read_byte(RF12_EEPROM_ADDR + 5);
     frequency = (frequency << 8) + (eeprom_read_byte(RF12_EEPROM_ADDR + 4));
-    txPower = eeprom_read_byte(RF12_EEPROM_ADDR + 6);     // Store from eeprom
-    ackDelay = eeprom_read_byte(RF12_EEPROM_ADDR + 9); // Store from eeprom
-    rxThreshold = eeprom_read_byte(RF12_EEPROM_ADDR + 7); // Store from eeprom
-    matchRF = eeprom_read_byte(RF12_EEPROM_ADDR + 8);     // Store from eeprom
+    txPower = eeprom_read_byte(RF12_EEPROM_ADDR + 6) & 7;		// Store from eeprom
+    ackDelay = eeprom_read_byte(RF12_EEPROM_ADDR + 9); 			// Store from eeprom
+    rxThreshold = eeprom_read_byte(RF12_EEPROM_ADDR + 7) & 7;	// Store from eeprom
+    matchRF = eeprom_read_byte(RF12_EEPROM_ADDR + 8);     		// Store from eeprom
     
     // " A i1 g178 @ 868 MHz "
     Serial.print(' ');
@@ -910,14 +910,14 @@ void rf12_configDump () {
         Serial.print(" x");
         Serial.print(flags & 0x03);
     }
-    if (txPower != 0x00) {
+//    if (txPower != 0x00) {
         Serial.print(" tx");
         Serial.print(txPower, HEX);
-    }
-    if (rxThreshold != 0x02) {
+//    }
+//    if (rxThreshold != 0x02) {
         Serial.print(" rx");
         Serial.print(rxThreshold, HEX);
-    }
+//    }
     if (ackDelay >> 4) {
             Serial.print(" v");
             Serial.print(ackDelay >> 4);
