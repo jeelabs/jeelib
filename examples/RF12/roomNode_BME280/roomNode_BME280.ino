@@ -403,13 +403,14 @@ static void doTrigger() {
 	    Serial.println( RF69::readMode(1) ); serialFlush();
 */
 	#endif
-		clock_prescale(0);
+		clock_prescale(2);
 		rf12_sendStart(RF12_HDR_ACK, &payload, payloadLength);
 		clock_prescale(IDLESPEED);
         rf12_sendWait(RADIO_SYNC_MODE);
+        
 		clock_prescale(8);
 		for (byte tick = 0; tick < 11; tick++) NOP;	// Kill some time
-		clock_prescale(0);
+		clock_prescale(2);
 
         byte acked = waitForAck();
  		clock_prescale(IDLESPEED);
@@ -707,6 +708,8 @@ static void loadSettings () {
 #if SERIAL    
     else {
 		Serial.println("is good");
+        settings.MEASURE_PERIOD = 60;	// Override eeprom if on serial port
+        settings.REPORT_EVERY = 60;		
     }
 #endif
 } // loadSettings
@@ -834,6 +837,7 @@ void setup () {
         if (settings.MEASURE)
 			scheduler.timer(MEASURE, 10);
     	scheduler.timer(REPORT, 10);
+    	
 /*
 uint16_t lastPass = 0; 
     rf12_sleep(RF12_WAKEUP);
@@ -862,7 +866,7 @@ uint16_t lastPass = 0;
 */ 
 } // Setup
 void loop () {
-
+/*
     #if PIR_PORT
         if (pir.triggered()) {
 //            payload.moved = 0;//pir.state();
@@ -870,6 +874,7 @@ void loop () {
 			doTrigger();
         }
     #endif
+*/
 		wdt_disable();			// Disable since pollWaiting has an extended delay    
 		byte s = scheduler.pollWaiting();
 		wdt_enable(WDTO_8S);	// enable watchdogtimer at 8 seconds
