@@ -407,11 +407,11 @@ static void doTrigger() {
 		rf12_sendStart(RF12_HDR_ACK, &payload, payloadLength);
 		clock_prescale(IDLESPEED);
         rf12_sendWait(RADIO_SYNC_MODE);
-        
+/*        
 		clock_prescale(8);
 		for (byte tick = 0; tick < 11; tick++) NOP;	// Kill some time
 		clock_prescale(2);
-
+*/
         byte acked = waitForAck();
  		clock_prescale(IDLESPEED);
    	
@@ -512,6 +512,11 @@ static void doTrigger() {
 						settings.REPORT = true;
 						if(rf12_buf[2] == 4) settings.REPORT_EVERY = value;
                   		break;
+					case 301:
+						settings.MEASURE = true;
+						if(rf12_buf[2] == 4) 
+							settings.MEASURE_PERIOD = settings.REPORT_EVERY = value;
+                  		break;
 //                  case 240 is reserved
 					case 254: 		// Reboot
                     	 if (value == 254) rebootRequested = true;
@@ -572,6 +577,7 @@ static byte waitForAck() {
         if (rf12_recvDone()) {
             rf12_sleep(RF12_SLEEP);
         	byte ack_delay = ( (ACK_TIME) - ackTimer.remaining() );
+			payload.inbounedRssi = rf12_rssi;
 #if SERIAL
 			clock_prescale(IDLESPEED);
             Serial.println();
@@ -582,7 +588,6 @@ static byte waitForAck() {
                 // see http://talk.jeelabs.net/topic/811#post-4712
 				if (rf12_hdr == (RF12_HDR_DST | RF12_HDR_CTL | myNodeID)) {
 					payload.ack_delay = ack_delay;
-					payload.inbounedRssi = rf12_rssi;
 #if SERIAL
                     showString(PSTR(" ACK "));
                     showByte(payload.attempts);
@@ -619,6 +624,7 @@ static byte waitForAck() {
 				return false;
 			}          
         }
+		payload.inbounedRssi = rf12_rssi;	// Whatever we may have heard
 #if SERIAL
 		clock_prescale(IDLESPEED);
 		printOneChar('.');serialFlush();
