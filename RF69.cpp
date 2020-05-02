@@ -731,6 +731,8 @@ second rollover and then will be 1.024 mS out.
  						if (rxGap > rfapi.maxGap) rfapi.maxGap = rxGap;          			
 
              			rfapi.rssi = rssi;
+             			rfapi.lna = lna;
+             			rfapi.fei = fei;
           				if (rssi) {
 				          	/* rssi == 0 can happen above, no idea how right now
 				          	only seen when using int0 versus pin change interrupt. */

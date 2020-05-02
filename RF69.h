@@ -28,6 +28,7 @@ typedef struct {
 	uint16_t RssiToSync;
 	uint16_t RssiToSyncLimit;	//Count of loops after RSSI before a missed sync is triggered
 	uint16_t rssiZero;
+	uint16_t fei;
     volatile uint16_t rtpMin;    
 	volatile uint16_t rtpMax;
 	volatile uint16_t intRXFIFO;
@@ -35,6 +36,7 @@ typedef struct {
 	uint8_t	configThreshold;
     uint8_t rssiThreshold;
     uint8_t rssi;
+	uint8_t lna;
     uint8_t	noiseFloorMin;
     uint8_t	noiseFloorMax;
     uint8_t	sendRSSI;
