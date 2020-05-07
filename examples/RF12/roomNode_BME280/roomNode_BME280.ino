@@ -11,7 +11,7 @@
 // other sensor values are being collected and averaged in a more regular cycle.
 ///////////////////////////////////////////////////////////////////////////////
 
-#define RF69_COMPAT      1	 // define this to use the RF69 driver i.s.o. RF12 
+#define RF69_COMPAT      0	 // define this to use the RF69 driver i.s.o. RF12 
 ///                          // The above flag must be set similarly in RF12.cpp
 ///                          // and RF69_avr.h
 
@@ -81,8 +81,9 @@ static byte myNodeID;       // node ID used for this unit
 
 // This defines the structure of the packets which get sent out by wireless:
 
-#define BASIC_PAYLOADLENGTH		15
-#define EXTENDED_PAYLOADLENGTH 	17
+#define BASIC_PAYLOADLENGTH		14
+#define TIMEOUT_PAYLOADLENGTH 	17
+#define EXTENDED_PAYLOADLENGTH 	20
 static byte payloadLength;
 
 struct {					//0		Offset, node #
@@ -101,11 +102,13 @@ struct {					//0		Offset, node #
     unsigned int humi:16;	//8&9	humidity: 0..100.00
     int temp:16; 			//10&11	temperature: -5000..+5000 (hundredths)
     byte vcc;				//12	Bandgap battery voltage
-	uint8_t rebootCode;		//13
-    uint8_t inbounedRssi;	//14	Measured RSSI of the received Ack
-    uint8_t sendingPower;	//15	Power applied to transmission
-    uint8_t powerSeenAs;	//16	Received power of a transmission as seen by a remote node
-    byte ack_delay;			//17
+    uint8_t inbounedRssi;	//13	Measured RSSI of the received Ack
+    uint8_t sendingPower;	//14	Power applied to transmission
+    uint8_t lna;			//15
+    uint16_t	fei;		//16&17
+	uint8_t rebootCode;		//18
+    uint8_t powerSeenAs;	//19	Received power of a transmission as seen by a remote node
+    byte ack_delay;			//20
     byte message[ (RF12_MAXDATA - EXTENDED_PAYLOADLENGTH) ];
 } payload;
 
@@ -632,6 +635,9 @@ static byte waitForAck() {
     }
     rf12_sleep(RF12_SLEEP);
     payload.command = 2;	// Ack timeout
+    payload.lna = rfapi.lna;
+    payload.fei = rfapi.fei;
+    payloadLength = TIMEOUT_PAYLOADLENGTH;
 	payload.ack_delay = 0;
 #if SERIAL
 	clock_prescale(IDLESPEED);
