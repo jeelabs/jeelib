@@ -831,8 +831,13 @@ static void handleInput (char c) {
     }
 
     if (c == ',' || c == ' ') {   // Permit comma or space as delimiters
-        if (top < sizeof stack)
-            stack[top++] = value; // truncated to 8 bits
+        if (top < sizeof stack) {
+        	if (value < 256)
+            	stack[top++] = value; // truncated to 8 bits
+            else {
+            	Serial.print(value); showString(PSTR(" is GT 255!\n"));
+            }
+        }
         value = 0;
         nullValue = true;
         return;
@@ -1601,8 +1606,8 @@ void elapsed (uint32_t s) {
 		p = true;
 	}
 	Serial.print(s%60UL);
-//	printOneChar('.');
-//	Serial.print(millis()%1000UL);	
+	printOneChar('.');
+	Serial.print(millis()%1000UL);	
 	printOneChar('s');
 }
 
@@ -2158,7 +2163,7 @@ void loop () {
 
         if (rf12_crc == 0) {
 			unsigned long rxCrcGap;
-/*        
+        
  			if (RF12_WANTS_ACK && (config.collect_mode) == 0) {
 				RF69::control(1, 2);	// radio to mode FS, ACK will be needed
  			} else {          	
@@ -2166,7 +2171,7 @@ void loop () {
         		rf12_recvDone();		// Attempt to buffer next RF packet
         		// At this point the receiver is active but previous buffer intact        		     					
  			}
-*/ 
+ 
 //        	rf12_recvDone();		// Attempt to buffer next RF packet
 //        	// At this point the receiver is active but previous buffer intact        		     					
  			
@@ -2665,7 +2670,7 @@ void loop () {
              		Serial.println(rf12_grp);
              	}
 */                                       
-                if (config.ackDelay) delay(config.ackDelay);	// changing into TX mode is quicker than changing into RX mode for RF69.     
+                if (config.ackDelay) delayMicroseconds(config.ackDelay * 100);	// changing into TX mode is quicker than changing into RX mode for RF69.     
 
                 byte i = getIndex( rf12_grp, (rf12_hdr & RF12_HDR_MASK) );
                 
