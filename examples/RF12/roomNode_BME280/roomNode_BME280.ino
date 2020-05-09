@@ -86,7 +86,7 @@ static byte myNodeID;       // node ID used for this unit
 
 #define BASIC_PAYLOADLENGTH		14
 #define TIMEOUT_PAYLOADLENGTH 	17
-#define EXTENDED_PAYLOADLENGTH 	20
+#define EXTENDED_PAYLOADLENGTH 	21
 static byte payloadLength;
 
 struct {					//0		Offset, node #
@@ -105,13 +105,14 @@ struct {					//0		Offset, node #
     unsigned int humi:16;	//8&9	humidity: 0..100.00
     int temp:16; 			//10&11	temperature: -5000..+5000 (hundredths)
     byte vcc;				//12	Bandgap battery voltage
-    uint8_t inbounedRssi;	//13	Measured RSSI of the received Ack
+    uint8_t rssiThreshold;	//13
     uint8_t sendingPower;	//14	Power applied to transmission
     uint8_t lna;			//15
-    uint16_t	fei;		//16&17
-	uint8_t rebootCode;		//18
-    uint8_t powerSeenAs;	//19	Received power of a transmission as seen by a remote node
-    byte ack_delay;			//20
+    uint8_t inboundRssi;	//16	Measured RSSI of the received Ack
+    uint16_t	fei;		//17&18
+	uint8_t rebootCode;		//19
+    uint8_t powerSeenAs;	//20	Received power of a transmission as reported by a remote node
+    byte ack_delay;			//21
     byte message[ (RF12_MAXDATA - EXTENDED_PAYLOADLENGTH) ];
 } payload;
 
@@ -415,12 +416,12 @@ static void doTrigger() {
 #if RF69_COMPAT
 	#if SERIAL
 			Serial.print(" Inbound packet at ");
-			Serial.print(payload.inbounedRssi);
+			Serial.print(payload.inboundRssi);
 			Serial.print(" with threshold of ");
 			Serial.print(rfapi.rssiThreshold);
 			Serial.print(", setting new threshold to ");
 	#endif
-			rfapi.rssiThreshold = (payload.inbounedRssi + 3);
+			rfapi.rssiThreshold = (payload.inboundRssi + 3);
 #else
 	#if SERIAL
 			Serial.print("Threshold was ");
@@ -432,6 +433,7 @@ static void doTrigger() {
 			else									// Reduce LNA
 			if ( (rfapi.rssiThreshold >> 3) < 3) rfapi.rssiThreshold+=3;			
 #endif
+			payload.rssiThreshold = rfapi.rssiThreshold;
 			payloadLength = BASIC_PAYLOADLENGTH;			// Reset to typical
 			if (rf12_buf[2] == 1) {
 				payload.powerSeenAs = rf12_buf[3];
@@ -585,7 +587,7 @@ static byte waitForAck() {
         if (rf12_recvDone()) {
             rf12_sleep(RF12_SLEEP);
         	byte ack_delay = ( (ACK_TIME) - ackTimer.remaining() );
-			payload.inbounedRssi = rf12_rssi;
+			payload.inboundRssi = rf12_rssi;
 #if SERIAL
 			clock_prescale(IDLESPEED);
             Serial.println();
@@ -634,7 +636,7 @@ static byte waitForAck() {
 				return false;
 			}          
         }
-		payload.inbounedRssi = rf12_rssi;	// Whatever we may have heard
+		payload.inboundRssi = rf12_rssi;	// Whatever we may have heard
 #if SERIAL
 //		clock_prescale(IDLESPEED);
 //		printOneChar('.');serialFlush();
