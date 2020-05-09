@@ -50,11 +50,14 @@ void resetFlagsInit(void)
 
 //#define RETRY_PERIOD    20  // how soon to retry if ACK didn't come in
 #define RETRY_LIMIT     1   // maximum number of times to try transmission
-#define ACK_TIME        10  // number of milliseconds to wait for an ack
+#define ACK_TIME        12  // number of milliseconds to wait for an ack
 #define SMOOTH          3   // smoothing factor used for running averages
 
 #define ADC_CALIBRATE	0
+
 #define IDLESPEED		4
+#define RADIOSPEED		2
+
 #define SETTINGS_EEPROM_ADDR ((uint8_t*) 0x00)
 
 // set the sync mode to 2 if the fuses are still the Arduino default
@@ -372,15 +375,7 @@ static void doTrigger() {
         }
 		Serial.println();
 	}
-*/	
-    #if DEBUG || SERIAL
-//    Serial.print("\nPIR ");
-//	Serial.print((int) payload.moved);
-//    Serial.print(' ');
-//    Serial.println((int) countPCINT);
-//    serialFlush();
-    #endif
-        
+*/
 	payload.sequence++;
 #if SERIAL
 	Serial.print("Sequence ");
@@ -389,63 +384,73 @@ static void doTrigger() {
     for (byte i = 1; i <= RETRY_LIMIT; ++i) {
     	payload.attempts = i;
         rf12_sleep(RF12_WAKEUP);
+/*
     	while (!(rf12_canSend())) {
     #if SERIAL
 			showString(PSTR("Airwaves Busy\n")); serialFlush();
 	#endif
     	Sleepy::loseSomeTime(32);	// Wait a while
 		}
-		
+*/		
 	#if SERIAL
     	Serial.print("Transmitting ");
 		Serial.print(payloadLength);
-		printOneChar('@');
+		showString(PSTR(" @ "));
 		Serial.println(rfapi.txPower); serialFlush();
-/*
-	    Serial.print("Radio Mode T is ");
-	    Serial.println( RF69::readMode(1) ); serialFlush();
-*/
 	#endif
-		clock_prescale(2);
+		clock_prescale(RADIOSPEED);
 		rf12_sendStart(RF12_HDR_ACK, &payload, payloadLength);
-		clock_prescale(IDLESPEED);
-        rf12_sendWait(RADIO_SYNC_MODE);
-/*        
-		clock_prescale(8);
+        rf12_sendWait(RADIO_SYNC_MODE);	// Don't slow processor for this :-(
+        
+/*		
 		for (byte tick = 0; tick < 11; tick++) NOP;	// Kill some time
-		clock_prescale(2);
 */
+//		clock_prescale(RADIOSPEED);
         byte acked = waitForAck();
  		clock_prescale(IDLESPEED);
    	
         if (acked) {
         	if (rebootRequested) asm volatile ("  jmp 0");  
-
-#if SERIAL
+			clock_prescale(IDLESPEED);
+#if RF69_COMPAT
+	#if SERIAL
 			Serial.print(" Inbound packet at ");
 			Serial.print(payload.inbounedRssi);
 			Serial.print(" with threshold of ");
 			Serial.print(rfapi.rssiThreshold);
 			Serial.print(", setting new threshold to ");
-#endif
+	#endif
 			rfapi.rssiThreshold = (payload.inbounedRssi + 3);
-#if SERIAL
-			Serial.println(rfapi.rssiThreshold);			
+#else
+	#if SERIAL
+			Serial.print("Threshold was ");
+			Serial.print(rfapi.rssiThreshold);			
+			Serial.print(" LNA was "); 
+			Serial.println(rfapi.lna);
+	#endif
+			if ( (rfapi.rssiThreshold & 7) < 5) rfapi.rssiThreshold++;
+			else									// Reduce LNA
+			if ( (rfapi.rssiThreshold >> 3) < 3) rfapi.rssiThreshold+=3;			
 #endif
 			payloadLength = BASIC_PAYLOADLENGTH;			// Reset to typical
 			if (rf12_buf[2] == 1) {
 				payload.powerSeenAs = rf12_buf[3];
 #if SERIAL
-				showString(PSTR("Packet was seen with power ")); 
+				showString(PSTR("Central saw my last packet at power ")); 
 				Serial.println(rf12_buf[3]);
 #endif
 				payload.command = 85;// Clear alert after a node restart
 								
           		if (payload.vcc < settings.lowVcc) payload.command = 240;
-          		
+#if RF69_COMPAT          		
           		if ( (payload.powerSeenAs > 180) && (rfapi.txPower < 159) ) rfapi.txPower++;
           		else
           		if ( (payload.powerSeenAs < 180) && (rfapi.txPower > 128) ) rfapi.txPower--;
+#else										// RFM12B: smaller value are more powerful TX
+          		if ( (payload.powerSeenAs < 180) && (rfapi.txPower < 7) ) rfapi.txPower++;
+          		else
+          		if ( (payload.powerSeenAs > 180) && (rfapi.txPower > 0) ) rfapi.txPower--;
+#endif
           		payload.sendingPower = rfapi.txPower;
           		break;
 			} else
@@ -515,7 +520,7 @@ static void doTrigger() {
 						settings.REPORT = true;
 						if(rf12_buf[2] == 4) settings.REPORT_EVERY = value;
                   		break;
-					case 301:
+					case 203:
 						settings.MEASURE = true;
 						if(rf12_buf[2] == 4) 
 							settings.MEASURE_PERIOD = settings.REPORT_EVERY = value;
@@ -576,7 +581,7 @@ static byte waitForAck() {
 #endif
     MilliTimer ackTimer;	// How does this react to clock_prescale
     while ( !(ackTimer.poll(ACK_TIME)) ) {
-		clock_prescale(0);
+//		clock_prescale(0);
         if (rf12_recvDone()) {
             rf12_sleep(RF12_SLEEP);
         	byte ack_delay = ( (ACK_TIME) - ackTimer.remaining() );
@@ -585,7 +590,8 @@ static byte waitForAck() {
 			clock_prescale(IDLESPEED);
             Serial.println();
             Serial.print(ack_delay);
-            showString(PSTR("ms RX"));
+            showString(PSTR("ms RX")); serialFlush();
+//			clock_prescale(RADIOSPEED);
 #endif            
             if (rf12_crc == 0) {                          // Valid packet?
                 // see http://talk.jeelabs.net/topic/811#post-4712
@@ -594,6 +600,7 @@ static byte waitForAck() {
 #if SERIAL
                     showString(PSTR(" ACK "));
                     showByte(payload.attempts);
+                    printOneChar(' ');
 #endif
                     return true;            
                 }  else {
@@ -629,8 +636,8 @@ static byte waitForAck() {
         }
 		payload.inbounedRssi = rf12_rssi;	// Whatever we may have heard
 #if SERIAL
-		clock_prescale(IDLESPEED);
-		printOneChar('.');serialFlush();
+//		clock_prescale(IDLESPEED);
+//		printOneChar('.');serialFlush();
 #endif        
     }
     rf12_sleep(RF12_SLEEP);
@@ -643,11 +650,19 @@ static byte waitForAck() {
 	clock_prescale(IDLESPEED);
 	Serial.println();
 	Serial.print(ACK_TIME);
-	showString(PSTR("ms ACK Timeout"));
+	showString(PSTR("ms ACK Timeout "));
 #endif
+#if RF69_COMPAT
 	if (rfapi.rssiThreshold < 210) rfapi.rssiThreshold += 5;                    
 	if ( (rfapi.txPower < 159) ) rfapi.txPower++;
-#if RF69_COMPAT && SERIAL
+#else
+	if ( (rfapi.rssiThreshold & 7) > 0) rfapi.rssiThreshold--;		// Increase RX threshold
+	else
+	if ( (rfapi.rssiThreshold >> 3) > 0) rfapi.rssiThreshold-=3;	// LNA			
+
+	if ( (rfapi.txPower > 0) ) rfapi.txPower--;			// Increase TX power
+#endif
+#if SERIAL
     showString(PSTR(" Increasing threshold to "));
     Serial.print(rfapi.rssiThreshold);
     showString(PSTR(" Increasing transmit power "));
@@ -785,6 +800,7 @@ static void dumpRegs() {
 #endif
 
 void setup () {
+	delay(250);
 //disable interrupts
 	cli();
 // Setup WatchDog
