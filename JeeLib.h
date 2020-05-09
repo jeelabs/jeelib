@@ -17,6 +17,7 @@
 #include <Ports.h>
 #include <RF12.h>
 #include <RF69.h>
+#include <RFAPI.h>
 
 #endif
 

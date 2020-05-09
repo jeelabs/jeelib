@@ -5,7 +5,7 @@
 #define JEEPACKET8 JEEPACKET16				// Loop limiter in RF69::interrupt_compat
 // 					The above value is an estimate and needs fine tuning.
 #define SALUSPACKET16  2500					// ditto
-
+/*
 typedef struct {
 
     uint32_t rateInterval;	// Disabled by default, set this to 10000ms
@@ -55,7 +55,7 @@ typedef struct {
 
 	} RF_API;
 	extern RF_API rfapi;	// Info interchange area
-    
+*/    
 namespace RF69 {
     extern uint32_t frf;
     extern uint8_t  group;

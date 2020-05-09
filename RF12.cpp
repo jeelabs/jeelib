@@ -3,6 +3,7 @@
 // 2009-02-09 <jc@wippler.nl> http://opensource.org/licenses/mit-license.php
 
 #include "RF12.h"
+#include <RFAPI.h>
 #include <avr/io.h>
 #include <util/crc16.h>
 #include <avr/eeprom.h>
@@ -157,9 +158,9 @@ static uint8_t nodeid;              // address of this node
 static uint8_t group;               // network group
 static uint16_t frequency;          // Frequency within selected band
 static int8_t matchRF = 0;          // Hardware matching value
-static uint8_t txPower = 0;         // Transmitter power from eeprom
+//static uint8_t rfapi.txPower = 0;         // Transmitter power from eeprom
 static uint8_t ackDelay = 0;        // Additional delay before sending ACK's
-static uint8_t rxThreshold = 2;     // Receiver threshold from eeprom
+//static uint8_t rfapi.rssiThreshold = 2;     // Receiver threshold from eeprom
 static volatile uint16_t status = 0;// Status word from RFM12B
 static volatile uint16_t interruptCount = 0;
 
@@ -460,7 +461,8 @@ static void rf12_recvStart () {
         rf12_crc = crc_update(rf12_crc, group);
 #endif
     rxstate = TXRECV;
-
+    rfapi.lna = rfapi.rssiThreshold >> 3;
+	rf12_xfer(0x94A0 | (rfapi.rssiThreshold & 0x1F)); // VDI,FAST,134kHz,(?dBm),(-??dBm)
     rf12_xfer(RF_RECEIVER_ON);
 }
 
@@ -592,6 +594,7 @@ void rf12_sendStart (uint8_t hdr) {
     rf12_crc = crc_update(rf12_crc, group);
 #endif
     rxstate = TXPRE1;
+    rf12_xfer(0x9850 | (rfapi.txPower & 0x07)); // !mp,90kHz, ? OUT
     rf12_xfer(RF_XMITTER_ON); // bytes will be fed via interrupts
 }
 
@@ -727,9 +730,9 @@ uint8_t rf12_initialize (uint8_t id, uint8_t band, uint8_t g, uint16_t f) {
     rf12_max_len = RF_MAX;    
     //
     rf12_xfer(0xC606); // approx 49.2 Kbps, i.e. 10000/29/(1+6) Kbps
-    // Note that below LNA(0-3)*8 + RSSI(0-5)*0 Threshold set from rxThreshold
-    rf12_xfer(0x94A0 | (rxThreshold & 0x1F)); // VDI,FAST,134kHz,(0dBm),(-91dBm)
-//    rf12_xfer(0x9480 | (rxThreshold & 0x1F)); // VDI,FAST,200kHz,(0dBm),(-91dBm)
+    // Note that below LNA(0-3)*8 + RSSI(0-5)*0 Threshold set from rfapi.rssiThreshold
+    rf12_xfer(0x94A0 | (rfapi.rssiThreshold & 0x1F)); // VDI,FAST,134kHz,(0dBm),(-91dBm)
+//    rf12_xfer(0x9480 | (rfapi.rssiThreshold & 0x1F)); // VDI,FAST,200kHz,(0dBm),(-91dBm)
     rf12_xfer(0xC2AC); // AL,!ml,DIG,DQD4
     if (group != 0) {
         rf12_xfer(0xCA83); // FIFO8,2-SYNC,!ff,DR
@@ -740,7 +743,7 @@ uint8_t rf12_initialize (uint8_t id, uint8_t band, uint8_t g, uint16_t f) {
     }
     rf12_xfer(0xC483); // @PWR,NO RSTRIC,!st,!fi,OE,EN
     
-    rf12_xfer(0x9850 | (txPower & 0x07)); // !mp,90kHz,MAX OUT
+    rf12_xfer(0x9850 | (rfapi.txPower & 0x07)); // !mp,90kHz,MAX OUT
     
     rf12_xfer(0xCC77); // OB1，OB0, LPX,！ddy，DDIT，BW0
     rf12_xfer(0xE000); // NOT USE
@@ -846,8 +849,9 @@ uint8_t rf12_configSilent () {
 
     nodeId = eeprom_read_byte(RF12_EEPROM_ADDR + 0);
     group  = eeprom_read_byte(RF12_EEPROM_ADDR + 1);
-    txPower = eeprom_read_byte(RF12_EEPROM_ADDR + 6) & 7;     // Store from eeprom
-    rxThreshold = eeprom_read_byte(RF12_EEPROM_ADDR + 7) & 7; // Store from eeprom
+    rfapi.txPower = eeprom_read_byte(RF12_EEPROM_ADDR + 6) & 7;     // Store from eeprom
+    rfapi.rssiThreshold = eeprom_read_byte(RF12_EEPROM_ADDR + 7) & 0x1F; // Store from eeprom
+    rfapi.lna = rfapi.rssiThreshold >> 3;
     matchRF = eeprom_read_byte(RF12_EEPROM_ADDR + 8); // Store hardware matching 
     
     frequency = eeprom_read_byte(RF12_EEPROM_ADDR + 5);
@@ -866,9 +870,10 @@ void rf12_configDump () {
     uint8_t flags = eeprom_read_byte(RF12_EEPROM_ADDR + 3);
     frequency = eeprom_read_byte(RF12_EEPROM_ADDR + 5);
     frequency = (frequency << 8) + (eeprom_read_byte(RF12_EEPROM_ADDR + 4));
-    txPower = eeprom_read_byte(RF12_EEPROM_ADDR + 6) & 7;		// Store from eeprom
+    rfapi.txPower = eeprom_read_byte(RF12_EEPROM_ADDR + 6) & 7;		// Store from eeprom
     ackDelay = eeprom_read_byte(RF12_EEPROM_ADDR + 9); 			// Store from eeprom
-    rxThreshold = eeprom_read_byte(RF12_EEPROM_ADDR + 7) & 7;	// Store from eeprom
+    rfapi.rssiThreshold = eeprom_read_byte(RF12_EEPROM_ADDR + 7) & 0x1F;// Store from eeprom
+    rfapi.lna = rfapi.rssiThreshold >> 3;
     matchRF = eeprom_read_byte(RF12_EEPROM_ADDR + 8);     		// Store from eeprom
     
     // " A i1 g178 @ 868 MHz "
@@ -910,13 +915,13 @@ void rf12_configDump () {
         Serial.print(" x");
         Serial.print(flags & 0x03);
     }
-//    if (txPower != 0x00) {
+//    if (rfapi.txPower != 0x00) {
         Serial.print(" tx");
-        Serial.print(txPower, HEX);
+        Serial.print(rfapi.txPower, HEX);
 //    }
-//    if (rxThreshold != 0x02) {
+//    if (rfapi.rssiThreshold != 0x02) {
         Serial.print(" rx");
-        Serial.print(rxThreshold, HEX);
+        Serial.print(rfapi.rssiThreshold, HEX);
 //    }
     if (ackDelay >> 4) {
             Serial.print(" v");

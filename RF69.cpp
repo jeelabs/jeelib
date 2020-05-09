@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <RF69.h>
+#include <RFAPI.h>
 #include <RF69_avr.h>
 #define __PROG_TYPES_COMPAT__
 #define NOP __asm__ __volatile__ ("nop\n\t")

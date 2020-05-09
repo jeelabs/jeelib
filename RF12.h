@@ -12,6 +12,7 @@
 
 #include <stdint.h>
 
+
 /// RFM12B Protocol version.
 /// Version 1 did not include the group code in the crc.
 /// Version 2 does include the group code in the crc.
