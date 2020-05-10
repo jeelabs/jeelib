@@ -2156,7 +2156,7 @@ void loop () {
 #else
     if ( Serial.available() ) handleInput( Serial.read() );
 #endif
-    if ( rf12_recvDone() ) {
+	if ( rf12_recvDone() ) {
     	currentRestarts = rfapi.RSSIrestart;
 
 #if RF69_COMPAT && !TINY	// At this point the radio is in standby
@@ -2670,7 +2670,7 @@ void loop () {
              		Serial.println(rf12_grp);
              	}
 */                                       
-                if (config.ackDelay) delayMicroseconds(config.ackDelay * 100);	// changing into TX mode is quicker than changing into RX mode for RF69.     
+                if (config.ackDelay) delayMicroseconds( 800 + (config.ackDelay * 50) );	// changing into TX mode is quicker than changing into RX mode for RF69.     
 
                 byte i = getIndex( rf12_grp, (rf12_hdr & RF12_HDR_MASK) );
                 
@@ -2711,7 +2711,7 @@ void loop () {
             	    
             	    byte * v;    
                     v = semaphoreGet((rf12_hdr & RF12_HDR_MASK), rf12_grp);
-                	if ( (v) && (!(special)) ) {			// Post pending?
+                	if ( (v) && (!(special)) ) {	// Post pending?
                 		bool dropNow = false;                			
             	        ackLen = (*(v + 0) >> 5) + 1;	// ACK length in high bits of node
 	                    if (rf12_data[0] == (*(v + 2)) && ( *(v + 6)) ) { // Matched and transmitted at least once
@@ -2727,51 +2727,54 @@ void loop () {
                     		showString(PSTR(" Posted "));
                     		(byte)++(*(v + 6));
                     		postingsOut++;
-                    	}
+                    	}	// 09/05/2020 17:37:08 TX 132 -> ack i19 Posted c1 (k1) k212 f203 v300 l4
                     	printOneChar('c');
-                    	showByte((*(v + 6)));
+                    	showByte((*(v + 6)));			// Count
                     	showString(PSTR(" (k"));
-            	    	showByte( (rf12_data[0] ) );
+            	    	showByte( (rf12_data[0]) );		// Incoming Key
         	            showString(PSTR(") "));
 
                     	printOneChar('k');
-						showByte( (*(v + 2) ) );
+						showByte( (*(v + 2) ) );		// Outgoing Key
 						showString(PSTR(" f"));
-						Serial.print( (*(v + 3) ) );
+						Serial.print( (*(v + 3) ) );	// Outgoing Function
 
 						if (ackLen > 2) {
-							showString(PSTR(" p"));
+							showString(PSTR(" v"));		// Outgoing Value
 							Serial.print( (uint16_t) ( (*(v + 5)) << 8 | (*(v + 4) ) ) );
 						}
 						showString(PSTR(" l"));
 						crlf = true;
-                     	Serial.print(ackLen);
+                     	Serial.print(ackLen);			// Length
                      	                    	
                     	if (i) {
                     		if ( (*(v + 6) > highestAck[NodeMap]) ) 
                     	  	highestAck[NodeMap] = (*(v + 6));		// Save hi point
                     	}
-                    	v+=2;										// Adjust pointer
+                    	
+                    	v+=2;		// Adjust pointer past semaphore header bytes
+                    	
                      	if (dropNow) {
 	                    	if ( !(semaphoreDrop((rf12_hdr & RF12_HDR_MASK), rf12_grp) ) )
 	                			showString(PSTR(" NOT FOUND "));
-        	      				v = (byte *)&rf12_rssi;	// Use as the TX buffer pointer
-		        	      		printOneChar(' ');
-		        	      		showByte(rf12_rssi);       	      		
-		        	        	ackLen = 1;		// Convert to a basic ACK	                		
+	                		// Deliver a standard, one byte Ack
+        	      			v = (byte *)&rf12_rssi;	// Use as the TX buffer pointer
+		        	      	printOneChar(' ');
+		        			showByte(rf12_rssi);       	      		
+		                	ackLen = 1;		// Convert to a basic ACK	                		
                     	}
         	        } else {
-        	      		v = (byte *)&rf12_rssi;	// Use as the TX buffer pointer
+        	      		v = (byte *)&rf12_rssi;	// Point to RSSI as the TX buffer
         	      		printOneChar(' ');
         	      		showByte(rf12_rssi);       	      		
         	        	ackLen = 1;		// Supply received RSSI value in all basic ACKs
+        	        }	// if ( (v) && (!(special)) )
 
- 						if (rf12_data[0] != 85) {
-               				showString(PSTR(" Alert (k")); 
-    						showByte( (rf12_data[0] ) );
-                        	printOneChar(')');
-        	        	}
-	       	        }
+ 					if (rf12_data[0] != 85) {
+               			showString(PSTR(" Alert (k")); 
+    					showByte( (rf12_data[0] ) );
+                    	printOneChar(')');
+    	        	}
 
 #endif                                        
 ////////////////////////////////////////////////////////////////////      	                	                
@@ -2785,39 +2788,41 @@ void loop () {
 ////////////////////////////////////////////////////////////////////      	                	                
 ////////////////////////////////////////////////////////////////////      	                	                
     	                	                
-                    rf12_sendStart(RF12_ACK_REPLY, (v), ackLen);
-                    rf12_sendWait(0);
+					rf12_sendStart(RF12_ACK_REPLY, (v), ackLen);
+                	rf12_sendWait(0);
     				chkNoise = elapsedSeconds + (unsigned long)config.chkNoise;// Delay check
     				ping = false;		// Cancel any pending Noise Floor checks
                     
-                } else {
-                    packetAborts++;   
+            	} else { // if (r)
+            		packetAborts++;   
             		Serial.print(rfapi.sendRSSI);
-                    showString(ABORTED);		// Airwaves busy, drop ACK and await a retransmission.
-                    showByte(packetAborts);
-                    printOneChar(' ');
+                	showString(ABORTED);		// Airwaves busy, drop ACK and await a retransmission.
+                	showByte(packetAborts);
+                	printOneChar(' ');
 #if RF69_COMPAT && !TINY
-                    Serial.print(minTxRSSI);
-                    printOneChar(' ');
-                    Serial.print(maxTxRSSI);
-                    printOneChar(' ');
+                	Serial.print(minTxRSSI);
+                	printOneChar(' ');
+                	Serial.print(maxTxRSSI);
+                	printOneChar(' ');
 #endif
-                    Serial.print(rfapi.rxfill);
-                    printOneChar(' ');
-                    Serial.print(rfapi.rxdone);
-                    for (byte c = 0; c < 10; c++ ) {
-                    	printOneChar(' ');
+					Serial.print(rfapi.rxfill);
+                	printOneChar(' ');
+                	Serial.print(rfapi.rxdone);
+                	for (byte c = 0; c < 10; c++ ) {
+                		printOneChar(' ');
 						Serial.print(c);
-                    	printOneChar('=');
-                    	Serial.print(RF69::currentRSSI());
-                    }
-                }
-            }
-            if (crlf) Serial.println();
-            activityLed(0);
-            OldHdr = rf12_hdr;	// Save node number in case next packet triggers an inquest.
-        }
-    }
+            			printOneChar('=');
+            			Serial.print(RF69::currentRSSI());
+            		}
+				} //if (r)
+			} // if ( ((RF12_WANTS_ACK
+			
+			if (crlf) Serial.println();
+        	activityLed(0);
+        	OldHdr = rf12_hdr;	// Save node number in case next packet triggers an inquest.
+		} // if (rf12_crc
+		
+	}// if ( rf12_recvDone()
     
 #if RF69_COMPAT && !TINY			// Weird conditional when Tiny84    
     else if (currentRestarts != lastRSSIrestart) {
@@ -2888,7 +2893,7 @@ void loop () {
     			Serial.print(rfapi.cumCount[1] +  rfapi.cumCount[2] + rfapi.cumCount[3]
     		 	+ rfapi.cumCount[4] + rfapi.cumCount[5] + rfapi.cumCount[6] + rfapi.cumCount[7]);
             
-/* New */		for (byte i = 0; i < 8; i++) {
+				for (byte i = 0; i < 8; i++) {
             		if (rfapi.cumCount[i]) {
             			showString(PSTR(" [ "));
 						Serial.print(i);
