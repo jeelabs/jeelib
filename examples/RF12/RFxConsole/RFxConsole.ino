@@ -321,6 +321,7 @@ static RF12Config config;
 
 static char cmd;
 static bool nullValue = true;
+static bool extendedTimestamp;
 static unsigned int value;
 static word messageCount = 0;
 static byte stack[RF12_MAXDATA+4], top, sendLen, dest;
@@ -426,7 +427,7 @@ static byte nextKey;
 static unsigned int CRCbadCount = 0;
 static unsigned int pktCount[MAX_NODES];
 static unsigned int nonBroadcastCount = 0;
-static unsigned int postingsIn, postingsClr, postingsOut, postingsLost;
+static unsigned int postingsIn, postingsClr, postingsOut, postingsRej, postingsLost;
 #endif
 
 static void showNibble (byte nibble) {
@@ -1186,7 +1187,10 @@ static void handleInput (char c) {
             			if (stack[0] == 0) statsInterval = 60;
             			else statsInterval = stack[0];
             		 } else statsInterval = 60;
-                     config.verbosity = value;        
+                     config.verbosity = value;
+                     if (value == 15) extendedTimestamp = true;
+                     else
+                     if (value == 0) extendedTimestamp = false;
                      displayVersion();
                      saveConfig();
 #if configSTRING
@@ -1215,7 +1219,7 @@ static void handleInput (char c) {
 						top = 4;
 					}
 					if (top) {
-						if (!(getIndex(stack[1], stack[0]))) {// Validate Group & Node 
+						if (!(getIndex(stack[1], stack[0]))) {	// Validate Group & Node 
 							showByte(stack[0]);
 							printOneChar(',');
 							showByte(stack[1]);
@@ -1606,8 +1610,10 @@ void elapsed (uint32_t s) {
 		p = true;
 	}
 	Serial.print(s%60UL);
-	printOneChar('.');
-	Serial.print(millis()%1000UL);	
+	if (extendedTimestamp) {
+		printOneChar('.');
+		Serial.print(millis()%1000UL);
+	}	
 	printOneChar('s');
 }
 
@@ -1882,6 +1888,8 @@ static void nodeShow(byte group) {
     Serial.print((word) postingsClr);
     printOneChar(',');
     Serial.print((word) postingsOut);
+    printOneChar(',');
+    Serial.print((word) postingsRej);
     printOneChar(',');
     Serial.println((word) postingsLost);
     
@@ -2723,6 +2731,7 @@ void loop () {
                 		if (rf12_data[0] == 170) {
                     		dropNow = true;
         	                showString(PSTR(" Rejected ")); 
+                    		postingsRej++;
            	        	} else {
                     		showString(PSTR(" Posted "));
                     		(byte)++(*(v + 6));
