@@ -72,6 +72,7 @@
 // Use 3 bits of eeprom per node to store a multiplier of 15ms additional delay to ACK 2020-04-16
 //  use 17,212,7n to set the upper bits in eeprom node number to the multiplier 7
 // Extend basic ACK to also return the RSSI value of the packet being ACKed 2020-04-19
+// Added 'I' command to ignore packets from specific nodes 2020-05-11
 
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
 	#define TINY 1
@@ -343,6 +344,7 @@ static observed observedRX;
 byte ones = 0;
 byte other = 0;
 byte watchNode = 0;
+byte ignoreNode = 0;
 byte lastTest;
 byte busyCount;
 byte missedTests;
@@ -731,6 +733,14 @@ static void showStatus() {
     printOneChar('^');
     Serial.print(maxCrcGap);
 #endif
+	if (ignoreNode) {
+		showString(PSTR("\nIgnoring i"));
+	    Serial.print(ignoreNode);
+	}
+	if (watchNode) {
+		showString(PSTR("\nWatching i"));
+	    Serial.print(watchNode);
+	}	
 //    printOneChar('\n');
     showString(PSTR("\nEeprom U"));
     Serial.print(config.helpMenu);
@@ -1143,7 +1153,10 @@ static void handleInput (char c) {
                      }
                      break;
 #endif
-            case 'W': // Watch specific packet type
+            case 'I': // Ignore a specific node
+                     ignoreNode = value;
+                     break;
+            case 'W': // Only watch a specific node
                      watchNode = value;
                      break;
 #if OOK
@@ -1493,7 +1506,7 @@ static void handleInput (char c) {
 
     }	// else if (c > ' ')
 	 
-    if ( ('a' <= c && c <= 'z') || ('R' <= c && c <= 'W') || ('+' <= c && c <= '-') ) {
+    if ( ('a' <= c && c <= 'z') || ('I' <= c && c <= 'W') || ('+' <= c && c <= '-') ) {
         showString(PSTR("> "));
         for (byte i = 0; i < top; ++i) {
             showByte(stack[i]);
@@ -2218,6 +2231,7 @@ void loop () {
             messageCount++;                             // Count a broadcast packet
 #endif
 //            goodCRC++;
+            if ((ignoreNode) && ((rf12_hdr & RF12_HDR_MASK) == ignoreNode)) return;
             if ((watchNode) && ((rf12_hdr & RF12_HDR_MASK) != watchNode)) return;
             
             if (outputTime) {
@@ -2717,10 +2731,10 @@ void loop () {
         	        // the additional data from the message store is appended to the buffer and the whole buffer transmitted to the 
             	    // originating node with the ACK.
             	    
+                	bool dropNow = false;                			
             	    byte * v;    
                     v = semaphoreGet((rf12_hdr & RF12_HDR_MASK), rf12_grp);
                 	if ( (v) && (!(special)) ) {	// Post pending?
-                		bool dropNow = false;                			
             	        ackLen = (*(v + 0) >> 5) + 1;	// ACK length in high bits of node
 	                    if (rf12_data[0] == (*(v + 2)) && ( *(v + 6)) ) { // Matched and transmitted at least once
 	                    // Check if previous Post value is the first byte of this payload 
@@ -2779,7 +2793,7 @@ void loop () {
         	        	ackLen = 1;		// Supply received RSSI value in all basic ACKs
         	        }	// if ( (v) && (!(special)) )
 
- 					if (rf12_data[0] != 85) {
+ 					if ( (rf12_data[0] != 85) && !(dropNow) ) {
                			showString(PSTR(" Alert (k")); 
     					showByte( (rf12_data[0] ) );
                     	printOneChar(')');
@@ -2791,9 +2805,8 @@ void loop () {
 //////////////////////////////////////////////////////////////////// 
 					if ( (rf12_hdr & RF12_HDR_MASK) == 21) {
 						ackLen = 0;
-						showString(PSTR("Above Ack set zero length")); 
-					}
-					
+						showString(PSTR(" This Ack set zero length")); 
+					}					
 ////////////////////////////////////////////////////////////////////      	                	                
 ////////////////////////////////////////////////////////////////////      	                	                
     	                	                
