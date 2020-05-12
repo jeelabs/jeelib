@@ -11,7 +11,7 @@
 // other sensor values are being collected and averaged in a more regular cycle.
 ///////////////////////////////////////////////////////////////////////////////
 
-#define RF69_COMPAT      0	 // define this to use the RF69 driver i.s.o. RF12 
+#define RF69_COMPAT      1	 // define this to use the RF69 driver i.s.o. RF12 
 ///                          // The above flag must be set similarly in RF12.cpp
 ///                          // and RF69_avr.h
 
@@ -129,16 +129,19 @@ typedef struct {
     bool spareTwo :1;
     bool spareThree :1;
     uint8_t lowVcc;
+    int8_t	ackBounds;
     word crc;
 } eeprom;
 static eeprom settings;
 
-int lastTemp;
-byte firstTime = true;
-byte lastLight;
-byte lastHumi;
-bool changed;
-bool rebootRequested;
+int		lastTemp;
+byte	firstTime = true;
+byte 	lastLight;
+byte	lastHumi;
+byte	ackSW = RF12_HDR_ACK;
+int8_t	ackPacer = 5;
+bool	changed;
+bool	rebootRequested;
 
 // Conditional code, depending on which sensors are connected and how:
 
@@ -366,17 +369,17 @@ static void doReport() {
 
 // send packet and wait for ack when there is a motion trigger
 static void doTrigger() {
-/*
+
     if (rf12_recvDone()) {
-		showString(PSTR("Discarded: "));	// Flush the buffer
+//		showString(PSTR("Discarded: "));	// Flush the buffer
         for (byte i = 0; i < 8; i++) {
-            showByte(rf12_buf[i]);
+//            showByte(rf12_buf[i]);
             rf12_buf[i] = 0xFF;			// Paint it over
-            printOneChar(' ');
+//            printOneChar(' ');
         }
-		Serial.println();
+//		Serial.println();
 	}
-*/
+
 	payload.sequence++;
 #if SERIAL
 	Serial.print("Sequence ");
@@ -397,179 +400,206 @@ static void doTrigger() {
     	Serial.print("Transmitting ");
 		Serial.print(payloadLength);
 		showString(PSTR(" @ "));
-		Serial.println(rfapi.txPower); serialFlush();
+		Serial.print(rfapi.txPower);
+		showString(PSTR(" ackPacer "));
+		Serial.println(ackPacer); serialFlush();
 	#endif
+		if ( !(ackPacer + settings.ackBounds) ) ackPacer = 1;
+		if (ackPacer-- <= 0) ackSW = 0;
+		else {
+			ackSW = RF12_HDR_ACK;
+		} 
 		clock_prescale(RADIOSPEED);
-		rf12_sendStart(RF12_HDR_ACK, &payload, payloadLength);
+		rf12_sendStart(ackSW, &payload, payloadLength);
         rf12_sendWait(RADIO_SYNC_MODE);	// Don't slow processor for this :-(
         
 /*		
 		for (byte tick = 0; tick < 11; tick++) NOP;	// Kill some time
 */
-//		clock_prescale(RADIOSPEED);
-        byte acked = waitForAck();
- 		clock_prescale(IDLESPEED);
+		if (ackSW) {
+//			clock_prescale(RADIOSPEED);
+        	byte acked = waitForAck();
+ 			clock_prescale(IDLESPEED);
    	
-        if (acked) {
-        	if (rebootRequested) asm volatile ("  jmp 0");  
-			clock_prescale(IDLESPEED);
+        	if (acked) {
+        		if (rebootRequested) asm volatile ("  jmp 0");  
+				clock_prescale(IDLESPEED);
 #if RF69_COMPAT
 	#if SERIAL
-			Serial.print(" Inbound packet at ");
-			Serial.print(payload.inboundRssi);
-			Serial.print(" with threshold of ");
-			Serial.print(rfapi.rssiThreshold);
-			Serial.print(", setting new threshold to ");
+				Serial.print(" Inbound packet at ");
+				Serial.print(payload.inboundRssi);
+				Serial.print(" with threshold of ");
+				Serial.print(rfapi.rssiThreshold);
+				Serial.print(", setting new threshold to ");
 	#endif
-			rfapi.rssiThreshold = (payload.inboundRssi + 3);
+				rfapi.rssiThreshold = (payload.inboundRssi + 3);
 #else
 	#if SERIAL
-			Serial.print("Threshold was ");
-			Serial.print(rfapi.rssiThreshold);			
-			Serial.print(" LNA was "); 
-			Serial.println(rfapi.lna);
+				Serial.print("Threshold was ");
+				Serial.print(rfapi.rssiThreshold);			
+				Serial.print(" LNA was "); 
+				Serial.println(rfapi.lna);
 	#endif
-			if ( (rfapi.rssiThreshold & 7) < 5) rfapi.rssiThreshold++;
-			else									// Reduce LNA
-			if ( (rfapi.rssiThreshold >> 3) < 3) rfapi.rssiThreshold+=3;			
+				if ( (rfapi.rssiThreshold & 7) < 5) rfapi.rssiThreshold++;
+				else									// Reduce LNA
+				if ( (rfapi.rssiThreshold >> 3) < 3) rfapi.rssiThreshold+=3;			
 #endif
-			payload.rssiThreshold = rfapi.rssiThreshold;
-			payloadLength = BASIC_PAYLOADLENGTH;			// Reset to typical
-			if (rf12_buf[2] == 1) {
-				payload.powerSeenAs = rf12_buf[3];
+				payload.rssiThreshold = rfapi.rssiThreshold;
+				payloadLength = BASIC_PAYLOADLENGTH;			// Reset to typical
+				if (rf12_buf[2] == 1) {
+					payload.powerSeenAs = rf12_buf[3];
 #if SERIAL
-				showString(PSTR("Central saw my last packet at power ")); 
-				Serial.println(rf12_buf[3]);
+					showString(PSTR("Central saw my last packet at power ")); 
+					Serial.println(rf12_buf[3]);
 #endif
-				payload.command = 85;// Clear alert after a node restart
+					payload.command = 85;// Clear alert after a node restart
 								
-          		if (payload.vcc < settings.lowVcc) payload.command = 240;
+          			if (payload.vcc < settings.lowVcc) payload.command = 240;
 #if RF69_COMPAT          		
-          		if ( (payload.powerSeenAs > 180) && (rfapi.txPower < 159) ) rfapi.txPower++;
-          		else
-          		if ( (payload.powerSeenAs < 180) && (rfapi.txPower > 128) ) rfapi.txPower--;
+          			if ( (payload.powerSeenAs > 180) && (rfapi.txPower < 159) ) rfapi.txPower++;
+          			else
+          			if ( (payload.powerSeenAs < 180) && (rfapi.txPower > 128) ) rfapi.txPower--;
 #else										// RFM12B: smaller value are more powerful TX
-          		if ( (payload.powerSeenAs < 180) && (rfapi.txPower < 7) ) rfapi.txPower++;
-          		else
-          		if ( (payload.powerSeenAs > 180) && (rfapi.txPower > 0) ) rfapi.txPower--;
+          			if ( (payload.powerSeenAs < 180) && (rfapi.txPower < 7) ) rfapi.txPower++;
+          			else
+          			if ( (payload.powerSeenAs > 180) && (rfapi.txPower > 0) ) rfapi.txPower--;
 #endif
-          		payload.sendingPower = rfapi.txPower;
-          		break;
-			} else
-			if ( (rf12_buf[2] > 1) && (rf12_buf[2] <= 4) ) {
-	            payload.command = rf12_buf[3];		// Acknowledge the command
-				uint16_t value = 0;
-				if (rf12_buf[2] == 4) 
-					value = ( (rf12_buf[6] << 8) + rf12_buf[5] );
+          			payload.sendingPower = rfapi.txPower;
+          			break;
+				} else
+				if ( (rf12_buf[2] > 1) && (rf12_buf[2] <= 4) ) {
+					ackPacer+=2;							// We will need two Ack to complete
+	            	payload.command = rf12_buf[3];		// Acknowledge the command
+					uint16_t value = 0;
+					if (rf12_buf[2] == 4) 
+						value = ( (rf12_buf[6] << 8) + rf12_buf[5] );
 #if SERIAL
-					Serial.print("Key:");
-					Serial.print(rf12_buf[3]);
-					Serial.print(", Flag:");
-					Serial.print(rf12_buf[4]);
-					Serial.print(", Value1:");
-					Serial.print(rf12_buf[5]);
-					Serial.print(", Value2:");
-					Serial.print(rf12_buf[6]);
-					Serial.print(", Value=");
-					Serial.println(value);
+						Serial.print("Key:");
+						Serial.print(rf12_buf[3]);
+						Serial.print(", Flag:");
+						Serial.print(rf12_buf[4]);
+						Serial.print(", Value1:");
+						Serial.print(rf12_buf[5]);
+						Serial.print(", Value2:");
+						Serial.print(rf12_buf[6]);
+						Serial.print(", Value=");
+						Serial.println(value);
 #endif
-				switch (rf12_buf[4]) {
-//					case 0				// Flags 0 through to 15 are
-//					case 15				// reserved for error codes
-					case 20:
-						settings.changedLight = false;
-                      	break;      
-					case 21:
-						settings.changedLight = true;
-                      	break;      
-					case 30:
-						settings.changedHumi = false;
-                      	break;      
-					case 31:
-						settings.changedHumi = true;
-                      	break;      
-					case 40:
+					switch (rf12_buf[4]) {
+//						case 0				// Flags 0 through to 15 are
+//						case 15				// reserved for error codes
+						case 20:
+							settings.changedLight = false;
+                      		break;      
+						case 21:
+							settings.changedLight = true;
+                      		break;      
+						case 30:
+							settings.changedHumi = false;
+                      		break;      
+						case 31:
+							settings.changedHumi = true;
+                      		break;      
+						case 40:
 						settings.changedTemp = false;
                       	break;      
-					case 41:
-						settings.changedLight = true;
+						case 41:
+							settings.changedLight = true;
+                      		break; 
+						case 50:
+							if(rf12_buf[2] == 4) settings.lowVcc = value;
+                      		break; 
+						case 60:
+							ackPacer = 1;
                       	break; 
-					case 50:
-						if(rf12_buf[2] == 4) settings.lowVcc = value;
+						case 61:
+							if( (rf12_buf[2] == 4) && (value < 128) ) ackPacer = value;
+							else ackPacer = 127;
                       	break; 
-//					case 51:
-//						settings.changedLight = true;
-//                      	break; 
-//                  case 85 is reserved     
-					case 99:
+//                  	case 85 is reserved     
+						case 99:
 #if SERIAL
-						Serial.println("Saving settings to eeprom");
+							Serial.println("Saving settings to eeprom");
 #endif
-                      	saveSettings();
-                      	break;      
-					case 100:
-						settings.MEASURE = false;
-                  		break;
-					case 101:
-						settings.MEASURE = true;
-						if(rf12_buf[2] == 4) settings.MEASURE_PERIOD = value;
-                  		break;
-//                  case 170 is reserved     
-//					case 200:
-//						settings.REPORT = false;
-//                  	break;
-					case 201:
-						settings.REPORT = true;
-						if(rf12_buf[2] == 4) settings.REPORT_EVERY = value;
-                  		break;
-					case 203:
-						settings.MEASURE = true;
-						if(rf12_buf[2] == 4) 
-							settings.MEASURE_PERIOD = settings.REPORT_EVERY = value;
-                  		break;
-//                  case 240 is reserved
-					case 254: 		// Reboot
-                    	 if (value == 254) rebootRequested = true;
-                    	 break;                    
-					case 255: 		// Reboot
-                    	 if (value == 255) rebootRequested = true;
-                    	 break;
-                    default:                   
+                      		saveSettings();
+                      		break;      
+						case 100:
+							settings.MEASURE = false;
+                  			break;
+						case 101:
+							settings.MEASURE = true;
+							if(rf12_buf[2] == 4) settings.MEASURE_PERIOD = value;
+                  			break;
+//                  	case 170 is reserved     
+//						case 200:
+//							settings.REPORT = false;
+//                  		break;
+						case 201:
+							settings.REPORT = true;
+							if(rf12_buf[2] == 4) settings.REPORT_EVERY = value;
+                  			break;
+						case 203:
+							settings.MEASURE = true;
+							if(rf12_buf[2] == 4) 
+								settings.MEASURE_PERIOD = settings.REPORT_EVERY = value;
+                  			break;
+						case 204:
+							settings.MEASURE = true;
+							if( (rf12_buf[2] == 4) && (value < 128) ) 
+								settings.ackBounds = value;
+                  			break;
+//                  	case 240 is reserved
+						case 254: 		// Reboot
+                    		 if (value == 254) rebootRequested = true;
+                    		 break;                    
+						case 255: 		// Reboot
+							if (value == 255) rebootRequested = true;
+                    	 	break;
+                    	default:                   
 #if SERIAL
-						Serial.println("Unknown Command");
+							Serial.println("Unknown Command");
 #endif
-	            		payload.command = 170;		// Rejected command									                       
-    					scheduler.timer(REPORT, 1);
-    					return;
-//                     	break;
+	            			payload.command = 170;		// Rejected command									                       
+    						scheduler.timer(REPORT, 1);
+    						return;
+//                     		break;
                      	   
-                  	} // end switch
-          	} else {          	
+                  		} // end switch
+          		} else {          	
 #if SERIAL
-				Serial.print("Unknown ACK type ");
-				Serial.println( rf12_buf[2] );
+					Serial.print("Unknown ACK type ");
+					Serial.println( rf12_buf[2] );
 #endif
-	            payload.command = 170;		// Rejected command
-	            scheduler.timer(REPORT, 1);
-	            return;							                                 	
-          	}          		          			
-        } else {
-	    	payload.missedACK++;
+	            	payload.command = 170;		// Rejected command
+	            	scheduler.timer(REPORT, 1);
+	            	return;							                                 	
+          		}          		          			
+        	} else {
+        		if (ackPacer < 127) ackPacer++;
+	    		payload.missedACK++;
 /*	    	
-	    	byte m = RF69::readMode(1);
+	    		byte m = RF69::readMode(1);
 		#if SERIAL
-	    	Serial.print("Radio Mode R is ");
-			Serial.println( m ); serialFlush();
+	    		Serial.print("Radio Mode R is ");
+				Serial.println( m ); serialFlush();
 		#endif
-	    	if (m & 0x70 ) {
-	    		rfapi.txPower = 128;
-	    		payload.command = 15;
-	    		scheduler.timer(REPORT, 1);
-				return;
-	    	}
+	    		if (m & 0x70 ) {
+	    			rfapi.txPower = 128;
+	    			payload.command = 15;
+	    			scheduler.timer(REPORT, 1);
+					return;
+	    		}
 */
-    	}
-	}
+    		}// if (acked)
+    	} // if (ackSW)
+    	else {
+    		payload.command = settings.ackBounds + ackPacer;	// Countdown to next Ack request
+    		if ( !(payload.command) ) payload.command = 85;	// No Alert on first Acked packet
+	    	break;
+	    }
+	} // RETRY_LIMIT
+	
+    clock_prescale(IDLESPEED);	
 	scheduler.timer(REPORT, settings.REPORT_EVERY);
 #if SERIAL
 	Serial.println("Report scheduled");
@@ -732,13 +762,15 @@ static void loadSettings () {
         settings.REPORT_EVERY = 600;
         settings.MEASURE = settings.REPORT = true;
         settings.lowVcc = 140;
+        settings.ackBounds = 60;
         settings.changedLight = settings.changedHumi = settings.changedTemp = true;
     } 
 #if SERIAL    
     else {
 		Serial.println("is good");
         settings.MEASURE_PERIOD = 60;	// Override eeprom if on serial port
-        settings.REPORT_EVERY = 60;		
+        settings.REPORT_EVERY = 60;
+        settings.ackBounds = 30;		
     }
 #endif
 } // loadSettings
