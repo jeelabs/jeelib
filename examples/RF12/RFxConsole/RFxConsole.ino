@@ -402,6 +402,7 @@ static byte semaphoreStack[ (ackQueue * ackEntry) + 1];	// FIFO per node group /
 static int32_t CumNodeFEI[MAX_NODES];
 static uint32_t CumNodeTfr[MAX_NODES];
 static uint32_t rxTimeStamp[MAX_NODES];
+static uint32_t rxAckTimeStamp[MAX_NODES];
 static uint16_t CumNodeRtp[MAX_NODES];
 static signed int minFEI[MAX_NODES];
 static signed int lastFEI[MAX_NODES];
@@ -2011,8 +2012,14 @@ static void oneShow(byte index) {
     showString(PSTR(" g"));      
     showByte(g);
 #if STATISTICS 
-	printOneChar(' ');
-	elapsed(elapsedSeconds - rxTimeStamp[index]);	
+	if (rxTimeStamp[index]) {
+    	showString(PSTR(" n"));      
+		elapsed(elapsedSeconds - rxTimeStamp[index]);
+	}	
+	if (rxAckTimeStamp[index]) {
+    	showString(PSTR(" a"));      
+		elapsed(elapsedSeconds - rxAckTimeStamp[index]);
+	}	
 	unsigned int c = pktCount[index];
 	if (c) {   
 	    showString(PSTR(" rx:"));
@@ -2470,10 +2477,14 @@ void loop () {
 		bool gotIndex = getIndex(rf12_grp, (rf12_hdr & RF12_HDR_MASK));
 		if (gotIndex) {
 	        printOneChar(' ');
-    	    elapsed(elapsedSeconds - rxTimeStamp[NodeMap]);
-//        	printOneChar(' ');
-//        	Serial.print(NodeMap);
-	        rxTimeStamp[NodeMap] = elapsedSeconds;
+	        if (rf12_hdr & RF12_HDR_ACK) {
+	        	elapsed(elapsedSeconds - rxAckTimeStamp[NodeMap]);
+	        	rxAckTimeStamp[NodeMap] = elapsedSeconds;
+	        }
+    	    else {
+    	    	elapsed(elapsedSeconds - rxTimeStamp[NodeMap]);
+		        rxTimeStamp[NodeMap] = elapsedSeconds;
+		    }
         }
 #endif        
         if (config.verbosity & 2) {
@@ -2681,7 +2692,8 @@ void loop () {
 	            // This code is used when an incoming packet is requesting an ACK, it determines if a semaphore is posted for this Node/Group.
     	        // If a semaphore exists it is used as the TX buffer. The buffer transmitted to the 
         	    // originating node with the ACK.
-
+				rxAckTimeStamp[NodeMap] = elapsedSeconds;
+				
 	            bool dropNow = false; 
             	byte * v;    
                 v = semaphoreGet((rf12_hdr & RF12_HDR_MASK), rf12_grp);
@@ -2698,23 +2710,36 @@ void loop () {
                 		postingsRej++;
                 	} else 
  					if (rf12_data[0] != 85) {
-               			showString(PSTR("RX Alert ")); 
-    					Serial.println( rf12_data[0] );
+               			showString(PSTR("RX Alert i")); 
+                    	showByte(rf12_hdr & RF12_HDR_MASK);	// Node                   
+                    	if (config.group == 0) {
+                        	showString(PSTR(" g"));
+                        	showByte(rf12_grp);				// Group
+                        }
+                    	printOneChar(' ');
+    					Serial.println( rf12_data[0] );		// Alert code
     	        	}
-					if (dropNow) {
-                    	printOneChar('c');
-                    	showByte((*(v + 6)));			// Count
+					if (dropNow) {					
+                    	printOneChar('i');
+                    	showByte(rf12_hdr & RF12_HDR_MASK);	// Node                   
+
+                    	if (config.group == 0) {
+                        	showString(PSTR(" g"));
+                        	showByte(rf12_grp);				// Group
+						}					
+                        showString(PSTR(" c"));
+                    	showByte((*(v + 6)));				// Count
                     	showString(PSTR(" (k"));
-            	    	showByte( (rf12_data[0]) );		// Incoming Key
+            	    	showByte( (rf12_data[0]) );			// Incoming Key
         	            showString(PSTR(") "));
 
                     	printOneChar('k');
-						showByte( (*(v + 2) ) );		// Outgoing Key
+						showByte( (*(v + 2) ) );			// Outgoing Key
 						showString(PSTR(" f"));
-						Serial.print( (*(v + 3) ) );	// Outgoing Function
+						Serial.print( (*(v + 3) ) );		// Outgoing Function
 
 						if (ackLen > 2) {
-							showString(PSTR(" v"));		// Outgoing Value
+							showString(PSTR(" v"));			// Outgoing Value
 							Serial.print( (uint16_t) ( (*(v + 5)) << 8 | (*(v + 4) ) ) );
 						}
 						showString(PSTR(" l"));
@@ -2752,8 +2777,7 @@ void loop () {
 
 #if RF69_COMPAT && !TINY
                     if (config.group == 0) {
-                        printOneChar(' ');
-                        showString(PSTR("g"));
+                        showString(PSTR(" g"));
                         showByte(rf12_grp);
                         RF69::radioIndex(SYNCGROUP | 0x80, rf12_grp); // Reply to incoming group number
                     }
