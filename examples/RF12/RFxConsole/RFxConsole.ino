@@ -2682,10 +2682,10 @@ void loop () {
     	        // If a semaphore exists it is used as the TX buffer. The buffer transmitted to the 
         	    // originating node with the ACK.
 
+	            bool dropNow = false; 
             	byte * v;    
                 v = semaphoreGet((rf12_hdr & RF12_HDR_MASK), rf12_grp);
             	if ( (v) && (!(special)) ) {	// Post pending?
-	                bool dropNow = false; 
                     if (rf12_data[0] == (*(v + 2)) && ( *(v + 6)) ) { // Matched and transmitted at least once
 	                // Check if previous Post value is the first byte of this payload 
         	            showString(PSTR("RX Release "));
@@ -2699,7 +2699,7 @@ void loop () {
                 	} else 
  					if (rf12_data[0] != 85) {
                			showString(PSTR("RX Alert ")); 
-    					showByte( rf12_data[0] );
+    					Serial.println( rf12_data[0] );
     	        	}
 					if (dropNow) {
                     	printOneChar('c');
@@ -2760,7 +2760,8 @@ void loop () {
 #endif
  #if MESSAGING
 	        		// Post still pending?
-            		v = semaphoreGet((rf12_hdr & RF12_HDR_MASK), rf12_grp);
+	        		if (dropNow)
+            			v = semaphoreGet((rf12_hdr & RF12_HDR_MASK), rf12_grp);
                 	if ( (v) && (!(special)) ) {	// Post still pending?
             	        ackLen = (*(v + 0) >> 5) + 1;	// ACK length in high bits of node
                 		showString(PSTR(" Posted "));
