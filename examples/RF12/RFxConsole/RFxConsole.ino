@@ -2542,7 +2542,6 @@ void loop () {
         }
 #endif
         if (rf12_crc == 0) {
-            byte crlf = false;
             activityLed(1);
 
             if (df_present())
@@ -2662,7 +2661,6 @@ void loop () {
                             byte* d = &stack[sizeof stack];
                             memcpy(d - (ackLen - 1), &observedRX, (ackLen - 1));
                             showString(PSTR("Node allocation "));
-                            //                            crlf = true;
                             showByte(rf12_grp);
                             printOneChar('g');
                             printOneChar(' ');
@@ -2674,24 +2672,59 @@ void loop () {
                     }
                     if (!ackLen) {
                         showString(PSTR("No free node numbers in "));
-                        //                        crlf = true;
                         showByte(rf12_grp);
                         printOneChar('g');
                     }
                     Serial.println(); 
                 }
 #endif                    
-                crlf = true;									// A static delay for all ACK's, more later
-/*
-				if (rf12_data[0] != 85) {
-               		showString(PSTR("Alert (k")); 
-    				showByte( (rf12_data[0] ) );
-					showString(PSTR(") i")); 
-					showByte(rf12_hdr & RF12_HDR_MASK);
-					showString(PSTR(" g")); 
-             		Serial.println(rf12_grp);
-             	}
-*/                                       
+	            // This code is used when an incoming packet is requesting an ACK, it determines if a semaphore is posted for this Node/Group.
+    	        // If a semaphore exists it is used as the TX buffer. The buffer transmitted to the 
+        	    // originating node with the ACK.
+
+            	byte * v;    
+                v = semaphoreGet((rf12_hdr & RF12_HDR_MASK), rf12_grp);
+            	if ( (v) && (!(special)) ) {	// Post pending?
+	                bool dropNow = false; 
+                    if (rf12_data[0] == (*(v + 2)) && ( *(v + 6)) ) { // Matched and transmitted at least once
+	                // Check if previous Post value is the first byte of this payload 
+        	            showString(PSTR("RX Release "));
+        	            dropNow = true;
+ 	               		postingsClr++;
+                	} else	
+            		if (rf12_data[0] == 170) {
+        	            showString(PSTR("RX Reject ")); 
+        	            dropNow = true;
+                		postingsRej++;
+                	} else 
+ 					if (rf12_data[0] != 85) {
+               			showString(PSTR("RX Alert ")); 
+    					showByte( rf12_data[0] );
+    	        	}
+					if (dropNow) {
+                    	printOneChar('c');
+                    	showByte((*(v + 6)));			// Count
+                    	showString(PSTR(" (k"));
+            	    	showByte( (rf12_data[0]) );		// Incoming Key
+        	            showString(PSTR(") "));
+
+                    	printOneChar('k');
+						showByte( (*(v + 2) ) );		// Outgoing Key
+						showString(PSTR(" f"));
+						Serial.print( (*(v + 3) ) );	// Outgoing Function
+
+						if (ackLen > 2) {
+							showString(PSTR(" v"));		// Outgoing Value
+							Serial.print( (uint16_t) ( (*(v + 5)) << 8 | (*(v + 4) ) ) );
+						}
+						showString(PSTR(" l"));
+                     	Serial.println( ((*(v + 0) >> 5) + 1) );// Length
+	                   	if ( !(semaphoreDrop((rf12_hdr & RF12_HDR_MASK), rf12_grp) ) )
+	            			showString(PSTR(" NOT FOUND "));
+	            		rf12_data[0] = 85;				// Now change default to a standard Ack
+	            	}
+	            }
+
                 if (config.ackDelay) delayMicroseconds( 800 + (config.ackDelay * 50) );	// changing into TX mode is quicker than changing into RX mode for RF69.     
 
                 byte i = getIndex( rf12_grp, (rf12_hdr & RF12_HDR_MASK) );
@@ -2726,31 +2759,14 @@ void loop () {
                     }
 #endif
  #if MESSAGING
-	                // This code is used when an incoming packet is requesting an ACK, it determines if a semaphore is posted for this Node/Group.
-    	            // If a semaphore exists it is stored in the buffer. If the semaphore has a message addition associated with it then
-        	        // the additional data from the message store is appended to the buffer and the whole buffer transmitted to the 
-            	    // originating node with the ACK.
-            	    
-                	bool dropNow = false;                			
-            	    byte * v;    
-                    v = semaphoreGet((rf12_hdr & RF12_HDR_MASK), rf12_grp);
-                	if ( (v) && (!(special)) ) {	// Post pending?
+	        		// Post still pending?
+            		v = semaphoreGet((rf12_hdr & RF12_HDR_MASK), rf12_grp);
+                	if ( (v) && (!(special)) ) {	// Post still pending?
             	        ackLen = (*(v + 0) >> 5) + 1;	// ACK length in high bits of node
-	                    if (rf12_data[0] == (*(v + 2)) && ( *(v + 6)) ) { // Matched and transmitted at least once
-	                    // Check if previous Post value is the first byte of this payload 
-        	                showString(PSTR(" Released "));
-                    		postingsClr++;
-                    		dropNow = true;
-                    	} else	
-                		if (rf12_data[0] == 170) {
-                    		dropNow = true;
-        	                showString(PSTR(" Rejected ")); 
-                    		postingsRej++;
-           	        	} else {
-                    		showString(PSTR(" Posted "));
-                    		(byte)++(*(v + 6));
-                    		postingsOut++;
-                    	}	// 09/05/2020 17:37:08 TX 132 -> ack i19 Posted c1 (k1) k212 f203 v300 l4
+                		showString(PSTR(" Posted "));
+                    	(byte)++(*(v + 6));
+                    	postingsOut++;
+                    	// 09/05/2020 17:37:08 TX 132 -> ack i19 Posted c1 (k1) k212 f203 v300 l4
                     	printOneChar('c');
                     	showByte((*(v + 6)));			// Count
                     	showString(PSTR(" (k"));
@@ -2767,7 +2783,6 @@ void loop () {
 							Serial.print( (uint16_t) ( (*(v + 5)) << 8 | (*(v + 4) ) ) );
 						}
 						showString(PSTR(" l"));
-						crlf = true;
                      	Serial.print(ackLen);			// Length
                      	                    	
                     	if (i) {
@@ -2777,28 +2792,13 @@ void loop () {
                     	
                     	v+=2;		// Adjust pointer past semaphore header bytes
                     	
-                     	if (dropNow) {
-	                    	if ( !(semaphoreDrop((rf12_hdr & RF12_HDR_MASK), rf12_grp) ) )
-	                			showString(PSTR(" NOT FOUND "));
-	                		// Deliver a standard, one byte Ack
-        	      			v = (byte *)&rf12_rssi;	// Use as the TX buffer pointer
-		        	      	printOneChar(' ');
-		        			showByte(rf12_rssi);       	      		
-		                	ackLen = 1;		// Convert to a basic ACK	                		
-                    	}
-        	        } else {
+                    	
+         	        } else {	// if ( (v) && (!(special)) )
         	      		v = (byte *)&rf12_rssi;	// Point to RSSI as the TX buffer
         	      		printOneChar(' ');
         	      		showByte(rf12_rssi);       	      		
         	        	ackLen = 1;		// Supply received RSSI value in all basic ACKs
         	        }	// if ( (v) && (!(special)) )
-
- 					if ( (rf12_data[0] != 85) && !(dropNow) ) {
-               			showString(PSTR(" Alert (k")); 
-    					showByte( (rf12_data[0] ) );
-                    	printOneChar(')');
-    	        	}
-
 #endif                                        
 ////////////////////////////////////////////////////////////////////      	                	                
 // Temporary Code until i21 is upgraded to understand new Acks//////
@@ -2814,7 +2814,7 @@ void loop () {
                 	rf12_sendWait(0);
     				chkNoise = elapsedSeconds + (unsigned long)config.chkNoise;// Delay check
     				ping = false;		// Cancel any pending Noise Floor checks
-                    
+					Serial.println();                    
             	} else { // if (r)
             		packetAborts++;   
             		Serial.print(rfapi.sendRSSI);
@@ -2839,7 +2839,6 @@ void loop () {
 				} //if (r)
 			} // if ( ((RF12_WANTS_ACK
 			
-			if (crlf) Serial.println();
         	activityLed(0);
         	OldHdr = rf12_hdr;	// Save node number in case next packet triggers an inquest.
 		} // if (rf12_crc
