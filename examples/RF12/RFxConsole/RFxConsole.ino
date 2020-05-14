@@ -424,7 +424,7 @@ static signed int previousFEI;
 static unsigned int changedAFC;
 static unsigned int changedFEI;
 #endif
-static byte nextKey;
+//static byte nextKey;
 #if STATISTICS
 static unsigned int CRCbadCount = 0;
 static unsigned int pktCount[MAX_NODES];
@@ -1228,7 +1228,7 @@ static void handleInput (char c) {
 					else if (top == 2) {
 						top = 1;
 					} else if (top == 3) {
-						stack[3] = stack[2]; stack[2] = stack[1]; stack[1] = stickyGroup;
+						stack[3] = stack[2]; /*stack[2] = stack[1];*/ stack[1] = stickyGroup;
 						top = 4;
 					}
 					if (top) {
@@ -1241,14 +1241,14 @@ static void handleInput (char c) {
 						}
 					}
 
-					if (top == 5) {			// Node    Group     Old Key   New Key   flag      Post
-						if (semaphoreUpdate((stack[0] | stack[5]), stack[1], stack[2], stack[3], stack[4], value)) {
+					if (top == 5) {			// Node    Group     Old Key   New Key     Function  Post
+						if (semaphoreUpdate( (stack[0] | stack[5]), stack[1], stack[2], stack[3], stack[4], value) ) {
 							showPost();
 					 		c = 0;	// loose command printout
 							break;
 						} else showString(UNKNOWN);
 					}
-					if (top == 4) {		// Node       Length     Group     Key       Flag      Post
+					if (top == 4) {		// Node       Length     Group     Key       Function  Post
 						if (semaphoreSave((stack[0] | stack[5]), stack[1], stack[2], stack[3], value)) {							
 							showPost();
 					 		c = 0;	// loose command printout
@@ -1272,9 +1272,9 @@ static void handleInput (char c) {
 						stack[2] = (uint8_t) value;
 						// nextKey is used to try and prevent keys being duplicated
 						// such that an Ack may released before actually being posted.
-						if (semaphoreSave((stack[0] | 1<<5), stack[1], nextKey, stack[2], 0)) {
-							nextKey++;
-							nextKey = nextKey%16;						
+						if (semaphoreSave((stack[0] | 1<<5), stack[1], stack[2], stack[2], 0)) {
+//							nextKey++;
+//							nextKey = nextKey%16;						
 							postingsIn++;
 							showPost();
 				 			c = 0;	// loose command printout
@@ -1871,7 +1871,7 @@ static void showPost() {
     	byte l = (semaphoreStack[ c * ackEntry + 0 ] >> 5);
 	    if (l > 1) {
 	        printOneChar(' ');
-	        printOneChar('p');
+	        printOneChar('v');
 			showWord((semaphoreStack[(c * ackEntry) + 5]) << 8 | semaphoreStack[(c * ackEntry) + 4]);
 		}
 		Serial.println();										// Integer post
