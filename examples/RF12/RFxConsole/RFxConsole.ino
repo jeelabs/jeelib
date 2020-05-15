@@ -141,8 +141,8 @@ const char SEMAPHOREFULL[] PROGMEM = "Semaphore table full";
 byte salusMode = false;
 unsigned int SalusFrequency = SALUSFREQUENCY;
 
-unsigned int NodeMap;
-unsigned int newNodeMap;
+signed int NodeMap;
+signed int newNodeMap;
 unsigned long lastRSSIrestart;
 unsigned long lastThresholdRSSIrestart;
 unsigned long rxCrcLast;
@@ -323,6 +323,7 @@ static RF12Config config;
 static char cmd;
 static bool nullValue = true;
 static bool extendedTimestamp;
+static bool gotIndex = false;
 static unsigned int value;
 static word messageCount = 0;
 static byte stack[RF12_MAXDATA+4], top, sendLen, dest;
@@ -397,7 +398,7 @@ unsigned int loopCount, idleTime = 0, offTime = 0;
 #define ackQueue 16
 static byte semaphoreStack[ (ackQueue * ackEntry) + 1];	// FIFO per node group /* integer aligned */
 #endif
-//static unsigned long goodCRC;
+static uint32_t arrivalTime;
 #if RF69_COMPAT && STATISTICS
 static int32_t CumNodeFEI[MAX_NODES];
 static uint32_t CumNodeTfr[MAX_NODES];
@@ -1797,11 +1798,13 @@ static void clrNodeStore() {
     // Clear Node Store eeprom
     showString(PSTR("Clearing NodeStore\n"));
     for (unsigned int n = 0; n < 0x3D0; n++) {
-    	Serial.print( eeprom_read_byte(RF12_EEPROM_ADDR + n) );
-    	printOneChar(' ');
-        eeprom_write_byte((RF12_EEPROM_NODEMAP) + n, 0xFF);
+    	byte b = eeprom_read_byte(RF12_EEPROM_NODEMAP + n);
+    	showByte(b);
+    	if ( !(n % 8) ) Serial.println();
+    	else printOneChar(' ');
+    	if (b != 0xFF) eeprom_write_byte((RF12_EEPROM_NODEMAP) + n, 0xFF);
+    	delay(1);
     }
-    delay(4);
 #if RF69_COMPAT
 	for (byte i = 0; i < MAX_NODES; i++) {
 		pktCount[i] = lastFEI[i] = minFEI[i] = maxFEI[i]
@@ -2086,14 +2089,14 @@ static void oneShow(byte index) {
 
 byte specificNodeDelay = 0;
 static bool getIndex (byte group, byte node) {
-    newNodeMap = NodeMap = 0xFFFF;
+    newNodeMap = NodeMap = (-1);
     // Search eeprom RF12_EEPROM_NODEMAP for node/group match
     for (unsigned int index = 0; index < MAX_NODES; index++) {
         byte n = eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4));
         //              http://forum.arduino.cc/index.php/topic,140376.msg1054626.html
-        if ( (n == 0) || (n == 0xFF) ) {					// Erased (0xFF) or empty (0x00) entry?
-            if (newNodeMap == 0xFFFF) newNodeMap = index;   // Save pointer to a first free entry
-            if (n == 0xFF) return(false);                   // Erased, assume end of table!
+        if ( (n == 0) || (n == 0xFF) ) {			// Erased (0xFF) or empty (0x00) entry?
+            if ( (newNodeMap < 0) ) newNodeMap = index;// Save pointer to a first free entry
+            if (n == 0xFF) return(false);			// Assume end of table!
         } else {
             if ((n & RF12_HDR_MASK) == (node & RF12_HDR_MASK)) {  // Node match?
                 byte g = eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4) + 1);
@@ -2190,6 +2193,10 @@ void loop () {
 #if RF69_COMPAT && !TINY	// At this point the radio is in standby
 
         if (rf12_crc == 0) {
+        
+            if ((ignoreNode) && ((rf12_hdr & RF12_HDR_MASK) == ignoreNode)) return;
+            if ((watchNode) && ((rf12_hdr & RF12_HDR_MASK) != watchNode)) return;
+                    
 			unsigned long rxCrcGap;
         
  			if (RF12_WANTS_ACK && (config.collect_mode) == 0) {
@@ -2200,9 +2207,15 @@ void loop () {
         		// At this point the receiver is active but previous buffer intact        		     					
  			}
  
-//        	rf12_recvDone();		// Attempt to buffer next RF packet
-//        	// At this point the receiver is active but previous buffer intact        		     					
- 			
+			arrivalTime = elapsedSeconds;
+			
+			gotIndex = getIndex(rf12_grp, (rf12_hdr & RF12_HDR_MASK));
+			if (gotIndex) {
+				// NodeMap global is now valid
+	           if ( ((pktCount[NodeMap] + 1) % 101) == 0) oneShow(NodeMap);
+    	        pktCount[NodeMap]++;			
+			}
+						 			
          	rxCrcGap = rf12_interpacketTS - rxCrcLast;
  			rxCrcLast = rf12_interpacketTS;
  			if (rxCrcGap < minCrcGap) {
@@ -2238,9 +2251,6 @@ void loop () {
             messageCount++;                             // Count a broadcast packet
 #endif
 //            goodCRC++;
-            if ((ignoreNode) && ((rf12_hdr & RF12_HDR_MASK) == ignoreNode)) return;
-            if ((watchNode) && ((rf12_hdr & RF12_HDR_MASK) != watchNode)) return;
-            
             if (outputTime) {
             	elapsed(elapsedSeconds);
                 printOneChar(' ');
@@ -2474,18 +2484,19 @@ void loop () {
             if (observedRX.rssi2 & 0x01) showString(PSTR(".5"));
             showString(PSTR("dB"));
         }
-		bool gotIndex = getIndex(rf12_grp, (rf12_hdr & RF12_HDR_MASK));
+
 		if (gotIndex) {
 	        printOneChar(' ');
 	        if (rf12_hdr & RF12_HDR_ACK) {
-	        	elapsed(elapsedSeconds - rxAckTimeStamp[NodeMap]);
-	        	rxAckTimeStamp[NodeMap] = elapsedSeconds;
+	        	elapsed(arrivalTime - rxAckTimeStamp[NodeMap]);
+	        	rxAckTimeStamp[NodeMap] = arrivalTime;
 	        }
     	    else {
-    	    	elapsed(elapsedSeconds - rxTimeStamp[NodeMap]);
-		        rxTimeStamp[NodeMap] = elapsedSeconds;
+    	    	elapsed(arrivalTime - rxTimeStamp[NodeMap]);
+		        rxTimeStamp[NodeMap] = arrivalTime;
 		    }
         }
+
 #endif        
         if (config.verbosity & 2) {
             if(!(crc)) showString(PSTR(" Bad"));
@@ -2567,7 +2578,7 @@ void loop () {
                 // Search RF12_EEPROM_NODEMAP for node/group match
 #if !TINY
                 if ( !(gotIndex) && !(testPacket) ) {
-                    if (newNodeMap != 0xFFFF) { // Storage space available?
+                     if ( newNodeMap > (-1) ) { // Storage space available?
                         showString(PSTR("New Node g"));
                         showByte(rf12_grp);
                         showString(PSTR(" i"));
@@ -2582,7 +2593,7 @@ void loop () {
   #endif
                         delay(4);
                         NodeMap = newNodeMap;
-                        newNodeMap = 0xFFFF;
+                        newNodeMap = (-1);
                     } else {
                         showString(PSTR("Node table full g"));
                         showByte(rf12_grp);
@@ -2618,9 +2629,11 @@ void loop () {
                     maxRSSI[NodeMap] = observedRX.rssi2;   
 #endif
 #if STATISTICS            
+/*
                 pktCount[NodeMap]++;
                 if ((pktCount[NodeMap] % 100) == 0) oneShow(NodeMap);
-            } else {
+
+*/            } else {
                 nonBroadcastCount++;
 #endif
             }
@@ -2641,20 +2654,10 @@ void loop () {
                 // TODO perhaps we should increment the Group number and find a spare node number there?
                 if (((rf12_hdr & RF12_HDR_MASK) == hubID) && (!(rf12_hdr & RF12_HDR_DST)) && (!(testPacket))) {
                 	special = true;
-                    // Special Node 31 source node
-/*
-                    // Make sure this nodes node/group is already in the eeprom
-                    if (((getIndex(config.group, config.nodeId))) && (newNodeMap != 0xFFFF)) {   
-                        // node/group not found but there is space to save
-                        eeprom_write_byte((RF12_EEPROM_NODEMAP) + (newNodeMap * 4), (config.nodeId & RF12_HDR_MASK));
-                        eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 1), config.group);
-                        eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 2), 255);
-                    }
-                    delay(4);
-*/
+
                     for (byte i = 1; i < hubID; i++) {
                         // Find a spare node number within received group number
-                        if (!(getIndex(rf12_grp, i ))) {         // Node/Group pair not found?
+                        if (!(gotIndex)) {         // Node/Group pair not Earlier?
                             observedRX.offset_TX = config.frequency_offset;
 /*
   #if RF69_COMPAT  			// Below may need rework as a result of double buffering the radio                     
@@ -2751,8 +2754,6 @@ void loop () {
 	            }
 
                 if (config.ackDelay) delayMicroseconds( 800 + (config.ackDelay * 50) );	// changing into TX mode is quicker than changing into RX mode for RF69.     
-
-                bool i = getIndex( rf12_grp, (rf12_hdr & RF12_HDR_MASK) );
                 
                 if (specificNodeDelay) {
             		delay( (specificNodeDelay * 5) );	// Multiplier of 5ms
@@ -2810,7 +2811,7 @@ void loop () {
 						showString(PSTR(" l"));
                      	Serial.print(ackLen);			// Length
                      	                    	
-                    	if (i) {
+                    	if (gotIndex) {
                     		if ( (*(v + 6) > highestAck[NodeMap]) ) 
                     	  	highestAck[NodeMap] = (*(v + 6));		// Save hi point
                     	}
