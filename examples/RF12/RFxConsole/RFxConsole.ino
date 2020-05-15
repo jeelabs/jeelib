@@ -2085,7 +2085,7 @@ static void oneShow(byte index) {
 }
 
 byte specificNodeDelay = 0;
-static byte getIndex (byte group, byte node) {
+static bool getIndex (byte group, byte node) {
     newNodeMap = NodeMap = 0xFFFF;
     // Search eeprom RF12_EEPROM_NODEMAP for node/group match
     for (unsigned int index = 0; index < MAX_NODES; index++) {
@@ -2752,7 +2752,7 @@ void loop () {
 
                 if (config.ackDelay) delayMicroseconds( 800 + (config.ackDelay * 50) );	// changing into TX mode is quicker than changing into RX mode for RF69.     
 
-                byte i = getIndex( rf12_grp, (rf12_hdr & RF12_HDR_MASK) );
+                bool i = getIndex( rf12_grp, (rf12_hdr & RF12_HDR_MASK) );
                 
                 if (specificNodeDelay) {
             		delay( (specificNodeDelay * 5) );	// Multiplier of 5ms
