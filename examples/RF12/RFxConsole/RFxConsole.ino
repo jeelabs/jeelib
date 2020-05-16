@@ -398,6 +398,7 @@ unsigned int loopCount, idleTime = 0, offTime = 0;
 #define ackQueue 16
 static byte semaphoreStack[ (ackQueue * ackEntry) + 1];	// FIFO per node group /* integer aligned */
 #endif
+static byte arrivalHeader;
 static uint32_t arrivalTime;
 #if RF69_COMPAT && STATISTICS
 static int32_t CumNodeFEI[MAX_NODES];
@@ -2212,8 +2213,9 @@ void loop () {
 			gotIndex = getIndex(rf12_grp, (rf12_hdr & RF12_HDR_MASK));
 			if (gotIndex) {
 				// NodeMap global is now valid
-	           if ( ((pktCount[NodeMap] + 1) % 101) == 0) oneShow(NodeMap);
-    	        pktCount[NodeMap]++;			
+				arrivalHeader = rf12_hdr;
+				if ( ((pktCount[NodeMap] + 1) % 101) == 0) oneShow(NodeMap);
+				pktCount[NodeMap]++;			
 			}
 						 			
          	rxCrcGap = rf12_interpacketTS - rxCrcLast;
@@ -2487,7 +2489,7 @@ void loop () {
 
 		if (gotIndex) {
 	        printOneChar(' ');
-	        if (rf12_hdr & RF12_HDR_ACK) {
+	        if (arrivalHeader & RF12_HDR_ACK) {
 	        	elapsed(arrivalTime - rxAckTimeStamp[NodeMap]);
 	        	rxAckTimeStamp[NodeMap] = arrivalTime;
 	        }
