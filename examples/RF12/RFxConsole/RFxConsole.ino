@@ -1,9 +1,9 @@
 /// @dir RFxConsole
 ///////////////////////////////////////////////////////////////////////////////
-#define RF69_COMPAT     1	 // define this to use the RF69 driver i.s.o. RF12 
+#define RF69_COMPAT     0	 // define this to use the RF69 driver i.s.o. RF12 
 ///                          // The above flag must be set similarly in RF12.cpp
 ///                          // and RF69_avr.h
-#define SX1276			1
+#define SX1276			0
 #define BLOCK  			0	// Alternate LED pin?
 #define INVERT_LED      1	// 0 is Jeenode usual and 1 inverse
 
@@ -101,8 +101,11 @@
 #define REG_SYNCVALUE8 0x36  // RFM69 only
 */
 #include <JeeLib.h>
+#include "RFAPI.h"		// Define
+rfAPI rfapi;			// Declare
+
 #include <util/crc16.h>
-//#include <avr/eeprom.h>
+#include <avr/eeprom.h>
 #include <avr/pgmspace.h>
 #include <util/parity.h>
 #include <avr/wdt.h>
@@ -329,18 +332,6 @@ static word messageCount = 0;
 static byte stack[RF12_MAXDATA+4], top, sendLen, dest;
 static byte testCounter;
 
-typedef struct {
-    signed int afc;
-    signed int fei;
-    byte lna;
-    byte rssi2;
-    unsigned int offset_TX;
-    byte PaLvl_TX;
-    byte TestLna_TX;
-    byte TestPa1_TX;
-    byte TestPa2_TX;
-} observed;
-static observed observedRX;
 
 byte ones = 0;
 byte other = 0;
@@ -403,8 +394,6 @@ static uint32_t arrivalTime;
 #if RF69_COMPAT && STATISTICS
 static int32_t CumNodeFEI[MAX_NODES];
 static uint32_t CumNodeTfr[MAX_NODES];
-static uint32_t rxTimeStamp[MAX_NODES];
-static uint32_t rxAckTimeStamp[MAX_NODES];
 static uint16_t CumNodeRtp[MAX_NODES];
 static signed int minFEI[MAX_NODES];
 static signed int lastFEI[MAX_NODES];
@@ -429,6 +418,8 @@ static unsigned int changedFEI;
 #endif
 //static byte nextKey;
 #if STATISTICS
+static uint32_t rxTimeStamp[MAX_NODES];
+static uint32_t rxAckTimeStamp[MAX_NODES];
 static unsigned int CRCbadCount = 0;
 static unsigned int pktCount[MAX_NODES];
 static unsigned int nonBroadcastCount = 0;
@@ -657,6 +648,7 @@ static void showHelp () {
 static void showStatus() {
 #if SX1276
     showString(SX1276x);
+//    showString(radioType);
 #elif RF69_COMPAT
     showString(RFM69x);
 #else
@@ -1744,17 +1736,18 @@ Serial.println(MCUSR, HEX);
         config.helpMenu = true;
 #if RF69_COMPAT == 0
         config.group = 212;			// Default group 212
-        config.RssiThresh = 2;
-        config.clearAir = 160;      // 80dB
+        config.RegPaLvl = 0;		// Maximum power TX for RFM12B
+        config.RegRssiThresh = 2;
 #else
+        config.clearAir = 160;      // 80dB
         config.group = 0x00;        // Default group 0
         config.RegRssiThresh = 180;	// -90dB
         config.clearAir = 160;      // -80dB
-	#if SX1276
-        config.RegPaLvl = 223;		// Maximum power TX for SX1276!
-	#else        
+/*	#if SX1276
+        config.RegPaLvl = 223;		// Maximum power TX for SX1276! 0x64 bit doesn't have hardware to support it!
+	#else */       
         config.RegPaLvl = 159;		// Maximum power TX for RFM69CW!
-    #endif
+//    #endif
 #endif
         saveConfig();
         WDTCSR |= _BV(WDE);			// Trigger watchdog restart
@@ -2095,7 +2088,7 @@ static bool getIndex (byte group, byte node) {
     for (unsigned int index = 0; index < MAX_NODES; index++) {
         byte n = eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4));
         //              http://forum.arduino.cc/index.php/topic,140376.msg1054626.html
-        if ( (n == 0) || (n == 0xFF) ) {			// Erased (0xFF) or empty (0x00) entry?
+        if ( (n == 0) || (n == 0xFF) ) {			// Empty (0x00) or erased (0xFF) entry?
             if ( (newNodeMap < 0) ) newNodeMap = index;// Save pointer to a first free entry
             if (n == 0xFF) return(false);			// Assume end of table!
         } else {
@@ -2191,13 +2184,13 @@ void loop () {
 	if ( rf12_recvDone() ) {
     	currentRestarts = rfapi.RSSIrestart;
 
-#if RF69_COMPAT && !TINY	// At this point the radio is in standby
 
         if (rf12_crc == 0) {
         
             if ((ignoreNode) && ((rf12_hdr & RF12_HDR_MASK) == ignoreNode)) return;
             if ((watchNode) && ((rf12_hdr & RF12_HDR_MASK) != watchNode)) return;
-                    
+
+#if RF69_COMPAT && !TINY	// At this point the radio is in standby                    
 			unsigned long rxCrcGap;
         
  			if (RF12_WANTS_ACK && (config.collect_mode) == 0) {
@@ -2207,7 +2200,7 @@ void loop () {
         		rf12_recvDone();		// Attempt to buffer next RF packet
         		// At this point the receiver is active but previous buffer intact        		     					
  			}
- 
+#endif 
 			arrivalTime = elapsedSeconds;
 			
 			gotIndex = getIndex(rf12_grp, (rf12_hdr & RF12_HDR_MASK));
@@ -2217,7 +2210,8 @@ void loop () {
 				if ( ((pktCount[NodeMap] + 1) % 101) == 0) oneShow(NodeMap);
 				pktCount[NodeMap]++;			
 			}
-						 			
+
+#if RF69_COMPAT && !TINY					 			
          	rxCrcGap = rf12_interpacketTS - rxCrcLast;
  			rxCrcLast = rf12_interpacketTS;
  			if (rxCrcGap < minCrcGap) {
@@ -2227,9 +2221,10 @@ void loop () {
  				minHdr = rf12_hdr;
  			}
  			if (rxCrcGap > maxCrcGap) maxCrcGap = rxCrcGap;
- 			
+#endif 			
 		}
-       
+		
+#if RF69_COMPAT && !TINY				 			       
         observedRX.afc = rf12_afc;
         observedRX.fei = rf12_fei;
         observedRX.rssi2 = rf12_rssi;
@@ -2487,6 +2482,7 @@ void loop () {
             showString(PSTR("dB"));
         }
 
+#endif        
 		if (gotIndex) {
 	        printOneChar(' ');
 	        if (arrivalHeader & RF12_HDR_ACK) {
@@ -2499,7 +2495,6 @@ void loop () {
 		    }
         }
 
-#endif        
         if (config.verbosity & 2) {
             if(!(crc)) showString(PSTR(" Bad"));
             if (!(rf12_hdr & 0xA0)) showString(PSTR(" Packet "));
@@ -2512,9 +2507,9 @@ void loop () {
             showString(PSTR(" len "));
             Serial.print(rf12_len);
 #if RF69_COMPAT                        
-            if(rf12_len != rf12_advisedLen) {
+            if(rf12_len != rfapi.advisedLen) {
                 printOneChar('(');
-                Serial.print(rf12_advisedLen);	// Show actual length received
+                Serial.print(rfapi.advisedLen);	// Show actual length received
                 printOneChar(')');
             }
 #endif
@@ -2587,13 +2582,16 @@ void loop () {
                         showByte(rf12_hdr & RF12_HDR_MASK);
                         showString(PSTR(" Index "));
                         Serial.println(newNodeMap);
-                        eeprom_write_byte( (RF12_EEPROM_NODEMAP) + (newNodeMap * 4), (rf12_hdr & RF12_HDR_MASK) );  // Store Node and
-                        eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 1), rf12_grp);              // and Group number
+                        eeprom_write_byte( (RF12_EEPROM_NODEMAP + (newNodeMap * 4)), (rf12_hdr & RF12_HDR_MASK) );  // Store Node and
+                        delay(1);
+                        eeprom_write_byte( (RF12_EEPROM_NODEMAP + ((newNodeMap * 4) + 1)), rf12_grp);              // and Group number
+                        delay(1);
   #if RF69_COMPAT
                         eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 2), observedRX.rssi2);      //  First RSSI value
+                        delay(1);
                         eeprom_write_byte(((RF12_EEPROM_NODEMAP) + (newNodeMap * 4) + 3), observedRX.lna);        //  First LNA value
+                        delay(1);
   #endif
-                        delay(4);
                         NodeMap = newNodeMap;
                         newNodeMap = (-1);
                     } else {

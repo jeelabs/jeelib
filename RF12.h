@@ -2,15 +2,13 @@
 
 #ifndef RF12_h
 #define RF12_h
-
 /// @file
 /// RFM12B driver definitions
+#include <stdint.h>
 
 // Modify the RF12 driver in such a way that it can inter-operate with RFM69
 // modules running in "native" mode. This affects packet layout and some more.
 #define RF12_COMPAT 0
-
-#include <stdint.h>
 
 /// RFM12B Protocol version.
 /// Version 1 did not include the group code in the crc.

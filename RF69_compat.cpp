@@ -1,4 +1,6 @@
 #include <JeeLib.h>
+#include "RFAPI.h"
+extern rfAPI rfapi;
 #include <avr/eeprom.h>
 #include <avr/sleep.h>
 #include <util/crc16.h>

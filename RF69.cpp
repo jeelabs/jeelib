@@ -5,15 +5,19 @@
 #define NOP __asm__ __volatile__ ("nop\n\t")
 #include <avr/pgmspace.h>
 #include <util/delay_basic.h>
+#include "RFAPI.h"
+extern rfAPI rfapi;
 
 #define ROM_UINT8       const uint8_t // Does this change storage to RAM?
 #define ROM_READ_UINT8  pgm_read_byte
 #define ROM_DATA        PROGMEM
+#define RF_MAX   72
 
 #define SX1276	1
 #define TX_INTERRUPT 1
 
 #if !SX1276
+// How to get this working... extern PGM_P constant char radioType[] PROGMEM = "RFM69 ";
 #warning RF69.cpp: Building for RFM69xx 
       
 #define LIBRARY_VERSION     15      // Stored in REG_SYNCVALUE6 by initRadio 
@@ -198,13 +202,11 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0
 };
 
-RF_API rfapi;
-
-#define RF_MAX   72
-
-#else	///////////////////////////
-
+/////////////////////////////////
+#else	/////////////////////////
+/////////////////////////////////
 // SX1276 in FSK Mode
+// How to get this working... extern PGM_P constant char radio[] PROGMEM = "SX1276 ";
 #warning RF69.cpp: Building for SX1276 
       
 #define LIBRARY_VERSION     128      // Stored in REG_SYNCVALUE6 by initRadio 
@@ -394,10 +396,6 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0
 };
 
-RF_API rfapi;
-
-#define RF_MAX   72
-
 #endif	/////////////////////////// SX1276
 
 // transceiver states, these determine what to do with each interrupt
@@ -478,7 +476,7 @@ uint8_t RF69::control(uint8_t cmd, uint8_t val) {
 // Do not change the order or values in the array below, add new values to a max of 127
 // pre-existing code is using these translate values!
 // See enum in RF69_compat.h line 52 (2018/09/28)
-const char translateReg[] = { 
+const char translateReg[] ROM_DATA = { 
 	REG_SYNCVALUE7,			//[0]
 	REG_SYNCVALUE8,			//[1]
 	REG_BITRATEMSB,			//[2]
@@ -782,7 +780,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
 
             rf12_rst = rst; // Count of resets used to capture packet
             rf12_tfr = tfr; // Time to receive in microseconds
-            rf12_advisedLen = rfapi.lastLen;
+            rfapi.advisedLen = rfapi.lastLen;
             
             for (byte i = 0; i < (payloadLen + 5); i++) {
                 rf12_buf[i] = rf69_buf[i];
