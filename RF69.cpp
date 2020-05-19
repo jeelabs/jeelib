@@ -7,14 +7,17 @@
 #include <util/delay_basic.h>
 #include "RFAPI.h"
 extern rfAPI rfapi;
+///////////////////////////////////////////////////////////////////////////////
 
+#define TX_INTERRUPT 1
+
+#define SX1276	1
+
+///////////////////////////////////////////////////////////////////////////////
 #define ROM_UINT8       const uint8_t // Does this change storage to RAM?
 #define ROM_READ_UINT8  pgm_read_byte
 #define ROM_DATA        PROGMEM
 #define RF_MAX   72
-
-#define SX1276	1
-#define TX_INTERRUPT 1
 
 #if !SX1276
 // How to get this working... extern PGM_P constant char radioType[] PROGMEM = "RFM69 ";
@@ -208,7 +211,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 // SX1276 in FSK Mode
 // How to get this working... extern PGM_P constant char radio[] PROGMEM = "SX1276 ";
 #warning RF69.cpp: Building for SX1276 
-      
+
 #define LIBRARY_VERSION     128      // Stored in REG_SYNCVALUE6 by initRadio 
 #define REG_FIFO            0x00
 #define REG_OPMODE          0x01
@@ -665,8 +668,11 @@ uint8_t RF69::currentRSSI() {
       
       writeReg(REG_AFCFEI, AFC_CLEAR);
       writeReg(REG_RSSITHRESHOLD, 64);  			// Quiet down threshold
+#if !SX1276      
+	  setMode(MODE_SLEEP);                       	// Get out of RX mode
+#else
 	  setMode(MODE_FS_RX);                        	// Get out of RX mode
-       
+#endif       
       writeReg(REG_RSSITHRESHOLD, rfapi.rssiThreshold);  // Set threshold
       writeReg(REG_DIOMAPPING1, storeDIOM);         // Restore Interrupt trigger
       setMode(storedMode); 							// Restore mode
@@ -682,7 +688,11 @@ uint8_t RF69::currentRSSI() {
 #include <RF12.h>
 
 void RF69::configure_compat () {
-
+#if !SX1276
+Serial.println("Built for RFM69"); 
+#else    
+Serial.println("Built for SX1276");      
+#endif
     present = 0;                                    // Assume radio is absent
     if (initRadio(configRegs_compat)) {
         if (group == 0) {
@@ -751,7 +761,12 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
 
         rxstate = TXRECV;
 //        writeReg(REG_DIOMAPPING2, DIO4_RSSI);
+
+#if !SX1276      
+	  	rfapi.setmode = setMode(MODE_RECEIVER);
+#else
         rfapi.setmode = setMode(MODE_FS_RX);
+#endif
         writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
         rfapi.setmode = setMode(MODE_RECEIVER);
         rxstate = TXRECV;
@@ -940,7 +955,7 @@ void RF69::interrupt_compat (uint8_t rssi_interrupt) {
   the choices are limited because of the short time gap between RSSI & SyncMatch,
   being driven by recvDone and the size of the radio FIFO.
 */
-//        writeReg(REG_DIOMAPPING2, DIO4_TempChangeLowBat);  // Disable further interrupts?
+
 /*
 micros() returns the hardware timer contents (which updates continuously), 
 plus a count of rollovers (ie. one rollover ever 1.024 mS). 
@@ -951,6 +966,9 @@ second rollover and then will be 1.024 mS out.
         // N.B. millis is not updating until IRQ_ENABLE
         ms = millis();
         if (rxstate == TXRECV) {
+
+//			RXinterruptCount++;
+
             if (rssi_interrupt) {
             	RssiToSync = 0;
 				for (volatile byte tick = 0; tick < 10; tick++) NOP;	// Kill some time waiting for sync bytes
@@ -960,7 +978,7 @@ second rollover and then will be 1.024 mS out.
 	                if (RssiToSync == 0) {
 	                	writeReg(REG_AFCFEI, (afcfei | FEI_START));
 	                	
-						for (volatile uint16_t tick = 0; tick < 865; tick++) NOP;	// Keep the SPI quiet while FEI calculation is done.
+						for (volatile uint16_t tick = 0; tick < 840; tick++) NOP;	// Keep the SPI quiet while FEI calculation is done.
 						
             			rssi = readReg(REG_RSSIVALUE);
 #if SX1276
@@ -1003,8 +1021,12 @@ second rollover and then will be 1.024 mS out.
                         minimum i.e. 0.02uS per bit x 6bytes is 
                         about 1mS minimum."
 */
+#if SX1276
 						writeReg(REG_AFCFEI, AFC_CLEAR);                                                                
 					    setMode(MODE_STANDBY);
+#else
+						setMode(MODE_SLEEP);
+#endif
                         rxstate = TXIDLE;   // Cause a RX restart by FSM
         				// Collect RX stats per LNA
 	                	rfapi.RSSIrestart++;
@@ -1028,7 +1050,7 @@ second rollover and then will be 1.024 mS out.
 						}
 						lastFEI = fei;
                         return;
-                    } // SyncMatch or Timeout  
+                    } // SyncMatch or Timeout 
                 } //  while
             } //  RSSI 
                        
@@ -1093,8 +1115,31 @@ second rollover and then will be 1.024 mS out.
         } else
         if (rxstate == RXFIFO) {	// Interrupted while filling FIFO ?
         	rfapi.intRXFIFO++;
+        	return;					// Get back to it.
 
+	    } else 
+	    if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
+    		writeReg(REG_PALEVEL, 0);	// Drop TX power to clear airwaves quickly	
+#if SX1276
+			setMode(MODE_STANDBY);
+#else
+			setMode(MODE_SLEEP);
+//			TXinterruptCount++;
+          	writeReg(REG_OCP, OCP_NORMAL);			// Overcurrent protection on
+          	writeReg(REG_TESTPA1, TESTPA1_NORMAL);	// Turn off high power 
+          	writeReg(REG_TESTPA2, TESTPA2_NORMAL);	// transmit
+#endif
+
+//    		writeReg(REG_PALEVEL, ((rfapi.txPower & 0x9F) | 0x80));	// PA1/PA2 off
+          	// rxstate will be TXDONE at this point
+          	txP++;
+          	// Restore sync bytes configuration
+          	if (group == 0) {               // Allow receiving from all groups
+				writeReg(REG_SYNCCONFIG, threeByteSync);             
+          	}
+          	rxstate = TXIDLE;
         } else {
+    		writeReg(REG_PALEVEL, 0);	// Drop TX power to clear airwaves quickly	
             // We get here when a interrupt that is not for RX/TX completion.
             // Appears related to receiving noise when the bad CRC
             // packet display is enabled using "0q".
@@ -1102,34 +1147,10 @@ second rollover and then will be 1.024 mS out.
             // Instances of RX mode with rxstate = TXIDILE
             unexpectedFSM = rxstate; // Save Finite State Machine status
             unexpectedIRQFLAGS2 = readReg(REG_IRQFLAGS2);
-            unexpectedMode = readReg(REG_OPMODE);
+            unexpectedMode = readReg(REG_OPMODE) >> 2;
             unexpected++;
-			writeReg(REG_AFCFEI, AFC_CLEAR);			// If we are in RX mode
-    		writeReg(REG_PALEVEL, 0);	// Drop TX power to clear airwaves quickly	
-    		setMode(MODE_STANDBY);
-            rxstate = TXIDLE;							// Cause a RX restart by FSM
+//			writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
+            rxstate = TXIDLE;   // Cause a RX restart by FSM
+			setMode(MODE_SLEEP);
         }
-	}
-
-#if TX_INTERRUPT
-#warning RF69.cpp: TX completed using an Interrupt       
-void RF69::interruptTX () {
-//	    if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
-    		writeReg(REG_PALEVEL, 0);	// Drop TX power to clear airwaves quickly	
-		    setMode(MODE_STANDBY);
-	#if !SX1276
-          	writeReg(REG_OCP, OCP_NORMAL);			// Overcurrent protection on
-          	writeReg(REG_TESTPA1, TESTPA1_NORMAL);	// Turn off high power 
-          	writeReg(REG_TESTPA2, TESTPA2_NORMAL);	// transmit
-    		writeReg(REG_PALEVEL, ((rfapi.txPower & 0x9F) | 0x80));	// PA1/PA2 off
-	#endif
-          	// rxstate will be TXDONE at this point
-          	txP++;
-         	// Restore sync bytes configuration
-          	if (group == 0) {               // Allow receiving from all groups
-				writeReg(REG_SYNCCONFIG, threeByteSync);             
-          	}
-          	rxstate = TXIDLE;
- //         }
-        }
-#endif
+}

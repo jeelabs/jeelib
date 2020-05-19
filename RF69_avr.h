@@ -9,10 +9,12 @@
 #include "RFAPI.h"
 extern rfAPI rfapi;
 ///////////////////////////////////////////////////////////////////////////////
-#define SX1276	0
 
-#define RF69_COMPAT 0  /* Set this true to use the RF69 driver
+#define SX1276	1
 
+#define RF69_COMPAT 1  /* Set this true to use the RF69 driver
+
+///////////////////////////////////////////////////////////////////////////////
 If using the above with ATTiny84 hardware the sleep functions are more limited since 
 the RFM69 only provides interrupt active high and ATTiny INT0 requires active low to 
 exit a sleep power down. 
@@ -202,7 +204,7 @@ static void spiConfigPins () {
 #if SX1276
 void interrupt_stub0() {
         rfapi.interruptCountTX++;
-        RF69::interruptTX();
+        RF69::INTERRUPT_HANDLER;	// Same ISR for two different interrupts
 }
 #endif
 void interrupt_stub1() {

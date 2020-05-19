@@ -1,9 +1,9 @@
 /// @dir RFxConsole
 ///////////////////////////////////////////////////////////////////////////////
-#define RF69_COMPAT     0	 // define this to use the RF69 driver i.s.o. RF12 
+#define RF69_COMPAT     1	 // define this to use the RF69 driver i.s.o. RF12 
 ///                          // The above flag must be set similarly in RF12.cpp
 ///                          // and RF69_avr.h
-#define SX1276			0
+#define SX1276			1
 #define BLOCK  			0	// Alternate LED pin?
 #define INVERT_LED      1	// 0 is Jeenode usual and 1 inverse
 
@@ -332,6 +332,18 @@ static word messageCount = 0;
 static byte stack[RF12_MAXDATA+4], top, sendLen, dest;
 static byte testCounter;
 
+typedef struct {
+    signed int afc;
+    signed int fei;
+    byte lna;
+    byte rssi2;
+    unsigned int offset_TX;
+    byte RegPaLvl_TX;
+    byte RegTestLna_TX;
+    byte RegTestPa1_TX;
+    byte RegTestPa2_TX;
+} observed;
+static observed observedRX;
 
 byte ones = 0;
 byte other = 0;
