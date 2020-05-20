@@ -202,12 +202,12 @@ static void spiConfigPins () {
 
 #define INTERRUPT_HANDLER interrupt_compat(RSSI_INTERRUPT)
 void interrupt_stub0() {
-        rfapi.interruptCountTX++;
+//        rfapi.interruptCountTX++;
         RF69::INTERRUPT_HANDLER;	// Same ISR for two different interrupts
 }
 #if SX1276
 void interrupt_stub1() {
-        rfapi.interruptCountRX++;
+//        rfapi.interruptCountRX++;
         RF69::INTERRUPT_HANDLER;
 }
 #endif

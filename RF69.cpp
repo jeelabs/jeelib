@@ -984,8 +984,8 @@ second rollover and then will be 1.024 mS out.
         ms = millis();
         if (rxstate == TXRECV) {
 
-//			RXinterruptCount++;
-
+        	rfapi.interruptCountRX++;
+        
             if (rssi_interrupt) {
             	RssiToSync = 0;
 				for (volatile byte tick = 0; tick < 10; tick++) NOP;	// Kill some time waiting for sync bytes
