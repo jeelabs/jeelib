@@ -9,9 +9,9 @@
 extern rfAPI rfapi;
 ///////////////////////////////////////////////////////////////////////////////
 
-#define TX_INTERRUPT 1
+#define TX_INTERRUPT 0
 
-#define SX1276	1	// Also see setting in RF69_avr.h & RFxConsole.ino
+#define SX1276	0	// Also see setting in RF69_avr.h & RFxConsole.ino
 
 ///////////////////////////////////////////////////////////////////////////////
 #define ROM_UINT8       const uint8_t // Does this change storage to RAM?
@@ -509,8 +509,13 @@ static uint8_t readReg (uint8_t addr) {
 }
 
 static void flushFifo () {
+#if !SX1276
+    while (readReg(REG_IRQFLAGS2) & (IRQ2_FIFONOTEMPTY | IRQ2_FIFOOVERRUN))
+        readReg(REG_FIFO);
+#else
     while (readReg(REG_IRQFLAGS2) & !(IRQ2_FIFOEMPTY | IRQ2_FIFOOVERRUN))
         readReg(REG_FIFO);
+#endif
 }
 
 #if !SX1276
@@ -525,7 +530,7 @@ uint8_t setMode (uint8_t mode) {	// TODO enhance return code
     while ((readReg(REG_IRQFLAGS1) & IRQ1_MODEREADY) == 0) {
         c++; 
         if (c >= 254) { 
-        	Serial.print("Mode overrun"); Serial.println();
+        	Serial.print("SetMode overrun"); Serial.println();
         	break;
         }
     }
@@ -693,11 +698,11 @@ uint8_t RF69::currentRSSI() {
 #include <RF12.h>
 
 void RF69::configure_compat () {
-#if !SX1276
+/*#if !SX1276
 Serial.println("Built for RFM69"); 
 #else    
 Serial.println("Built for SX1276");      
-#endif
+#endif*/
     present = 0;                                    // Assume radio is absent
     if (initRadio(configRegs_compat)) {
         if (group == 0) {

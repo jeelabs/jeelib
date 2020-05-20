@@ -2497,9 +2497,9 @@ void loop () {
 #endif        
 		if (gotIndex) {
 	        printOneChar(' ');
-	        if (arrivalHeader & RF12_HDR_ACK) {
+	        if (arrivalHeader & (RF12_HDR_ACK || RF12_HDR_CTL) ) {
 	        	elapsed(arrivalTime - rxAckTimeStamp[NodeMap]);
-	        	rxAckTimeStamp[NodeMap] = arrivalTime;
+	        	if (RF12_HDR_ACK) rxAckTimeStamp[NodeMap] = arrivalTime;
 	        }
     	    else {
     	    	elapsed(arrivalTime - rxTimeStamp[NodeMap]);
