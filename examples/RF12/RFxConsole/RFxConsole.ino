@@ -2495,11 +2495,11 @@ void loop () {
         }
 
 #endif        
-		if (gotIndex) {
+		if ( (gotIndex) && !(arrivalHeader & RF12_HDR_DST) ) {	// Only broadcast packets
 	        printOneChar(' ');
-	        if (arrivalHeader & (RF12_HDR_ACK || RF12_HDR_CTL) ) {
+	        if (arrivalHeader & RF12_HDR_ACK) {
 	        	elapsed(arrivalTime - rxAckTimeStamp[NodeMap]);
-	        	if (RF12_HDR_ACK) rxAckTimeStamp[NodeMap] = arrivalTime;
+	        	rxAckTimeStamp[NodeMap] = arrivalTime;
 	        }
     	    else {
     	    	elapsed(arrivalTime - rxTimeStamp[NodeMap]);
