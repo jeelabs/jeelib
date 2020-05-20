@@ -11,7 +11,7 @@ extern rfAPI rfapi;
 
 #define TX_INTERRUPT 1
 
-#define SX1276	0
+#define SX1276	1	// Also see setting in RF69_avr.h & RFxConsole.ino
 
 ///////////////////////////////////////////////////////////////////////////////
 #define ROM_UINT8       const uint8_t // Does this change storage to RAM?
@@ -509,7 +509,7 @@ static uint8_t readReg (uint8_t addr) {
 }
 
 static void flushFifo () {
-    while (readReg(REG_IRQFLAGS2) & (IRQ2_FIFONOTEMPTY | IRQ2_FIFOOVERRUN))
+    while (readReg(REG_IRQFLAGS2) & !(IRQ2_FIFOEMPTY | IRQ2_FIFOOVERRUN))
         readReg(REG_FIFO);
 }
 
@@ -850,7 +850,7 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
     rf12_hdr = hdr & RF12_HDR_DST ? hdr : (hdr & ~RF12_HDR_MASK) + node; 
     rf12_len = len;
     rxstate = - (2 + rf12_len);// Preamble/SYN1/SYN2/2D/Group are inserted by hardware
-    flushFifo();
+//    flushFifo();
     writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
 /*  All packets are transmitted with a 4 byte header SYN1/SYN2/2D/Group  
     even when the group is zero                                               */

@@ -1,9 +1,9 @@
 /// @dir RFxConsole
 ///////////////////////////////////////////////////////////////////////////////
-#define RF69_COMPAT     1	 // define this to use the RF69 driver i.s.o. RF12 
-///                          // The above flag must be set similarly in RF12.cpp
-///                          // and RF69_avr.h
-#define SX1276			0
+#define RF69_COMPAT     0	// define this to use the RF69 driver i.s.o. RF12 
+///							// The above flag must be set similarly in RF12.cpp
+///							// and RF69_avr.h
+#define SX1276			0	// Also see setting in RF69.cpp & RF69_avr.h
 #define BLOCK  			0	// Alternate LED pin?
 #define INVERT_LED      1	// 0 is Jeenode usual and 1 inverse
 
