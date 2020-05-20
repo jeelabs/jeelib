@@ -165,7 +165,6 @@ static int8_t matchRF = 0;          // Hardware matching value
 static uint8_t ackDelay = 0;        // Additional delay before sending ACK's
 //static uint8_t rfapi.rssiThreshold = 2;     // Receiver threshold from eeprom
 static volatile uint16_t status = 0;// Status word from RFM12B
-static volatile uint16_t interruptCount = 0;
 
 static volatile uint8_t rxfill;     // number of data bytes in rf12_buf
 static volatile int8_t rxstate;     // current transceiver state
@@ -367,9 +366,9 @@ static void rf12_interrupt () {
     // a transfer of 2x 16 bits @ 2 MHz over SPI takes 2x 8 us inside this ISR
     // correction: now takes 2 + 8 µs, since sending can be done at 8 MHz
     status = rf12_xfer(0x0000);
-    interruptCount++;
     
     if (rxstate == TXRECV) {
+       	rfapi.interruptCountRX++;
         uint8_t in = rf12_xferSlow(RF_RX_FIFO_READ);
 
         if (rxfill == 0 && group != 0)
@@ -385,6 +384,7 @@ static void rf12_interrupt () {
         if (rxfill >= rf12_len + 5 + RF12_COMPAT || rxfill >= rf12_max_len)
             rf12_xfer(RF_IDLE_MODE);
     } else {
+    	rfapi.interruptCountTX++;
         uint8_t out;
 
         if (rxstate < 0) {
@@ -558,10 +558,6 @@ uint8_t rf12_canSend (uint8_t clearAir) {
 uint16_t rf12_status() {
     uint16_t s = status; status = 0;
     return s;
-}
-
-uint16_t rf12_interrupts() {
-    return interruptCount;
 }
 
 void rf12_skip_hdr (uint8_t skip) {
