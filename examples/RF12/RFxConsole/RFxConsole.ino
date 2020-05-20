@@ -3,7 +3,7 @@
 #define RF69_COMPAT     1	 // define this to use the RF69 driver i.s.o. RF12 
 ///                          // The above flag must be set similarly in RF12.cpp
 ///                          // and RF69_avr.h
-#define SX1276			1
+#define SX1276			0
 #define BLOCK  			0	// Alternate LED pin?
 #define INVERT_LED      1	// 0 is Jeenode usual and 1 inverse
 
@@ -2849,7 +2849,7 @@ void loop () {
 ////////////////////////////////////////////////////////////////////      	                	                
     	                	                
 					rf12_sendStart(RF12_ACK_REPLY, (v), ackLen);
-                	rf12_sendWait(0);
+					rf12_sendWait(0);
     				chkNoise = elapsedSeconds + (unsigned long)config.chkNoise;// Delay check
     				ping = false;		// Cancel any pending Noise Floor checks
 					Serial.println();                    

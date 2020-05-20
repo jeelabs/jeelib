@@ -10,7 +10,7 @@
 extern rfAPI rfapi;
 ///////////////////////////////////////////////////////////////////////////////
 
-#define SX1276	1
+#define SX1276	0
 
 #define RF69_COMPAT 1  /* Set this true to use the RF69 driver
 
@@ -201,16 +201,16 @@ static void spiConfigPins () {
 #define RSSI_INTERRUPT  1
 
 #define INTERRUPT_HANDLER interrupt_compat(RSSI_INTERRUPT)
-#if SX1276
 void interrupt_stub0() {
         rfapi.interruptCountTX++;
         RF69::INTERRUPT_HANDLER;	// Same ISR for two different interrupts
 }
-#endif
+#if SX1276
 void interrupt_stub1() {
         rfapi.interruptCountRX++;
         RF69::INTERRUPT_HANDLER;
 }
+#endif
 
 #ifdef EIMSK    // Test for ATMega
     #if PINCHG_IRQ
@@ -445,13 +445,15 @@ static void InitIntPin () {
     #elif RF69_COMPAT
         if (RF69::node != 0) {
 			cli();
-		#if SX1276
             attachInterrupt(digitalPinToInterrupt(2), interrupt_stub0, RISING);           
-		#endif
+		#if SX1276
             attachInterrupt(INT_NUMBER, interrupt_stub1, RISING);
+		#endif
             sei();
         } else {
+		#if SX1276
             detachInterrupt(0);
+        #endif
             detachInterrupt(INT_NUMBER);
         }
     #endif

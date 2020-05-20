@@ -11,7 +11,7 @@ extern rfAPI rfapi;
 
 #define TX_INTERRUPT 1
 
-#define SX1276	1
+#define SX1276	0
 
 ///////////////////////////////////////////////////////////////////////////////
 #define ROM_UINT8       const uint8_t // Does this change storage to RAM?
@@ -508,30 +508,34 @@ static uint8_t readReg (uint8_t addr) {
     return RF69::control(addr, 0);
 }
 
+static void flushFifo () {
+    while (readReg(REG_IRQFLAGS2) & (IRQ2_FIFONOTEMPTY | IRQ2_FIFOOVERRUN))
+        readReg(REG_FIFO);
+}
+
 #if !SX1276
 uint8_t setMode (uint8_t mode) {	// TODO enhance return code
     uint8_t c = 0;
-    if (mode >= MODE_FS) {
-        uint8_t s = readReg(REG_DIOMAPPING1);// Save Interrupt triggers
-         // Mask FS PllLock and appropriate target mode Interrupt
-        if (mode == MODE_TRANSMITTER) writeReg(REG_DIOMAPPING1, DIO0_FS_UNDEF_TX);
-        else writeReg(REG_DIOMAPPING1, DIO0_FS_UNDEF_RX);
-        
-        writeReg(REG_OPMODE, (MODE_FS /*| MODE_SEQUENCER_OFF*/));
-        while (readReg(REG_IRQFLAGS1 & (IRQ1_PLL | IRQ1_MODEREADY)) == 0) {
-            c++; if (c >= 127) break;
-        }
-        writeReg(REG_DIOMAPPING1, s);        // Restore Interrupt triggers
-    }
-	if (mode != MODE_FS) writeReg(REG_OPMODE, (mode | MODE_SEQUENCER_OFF));
+	cli();	// The approach negates the *buffering* of single interrupts
+	sei();	// Following instruction will not be interrupted
+	uint8_t eimsk = EIMSK;
+	EIMSK = 0;
+	writeReg(REG_OPMODE, (mode | MODE_SEQUENCER_OFF));
         
     while ((readReg(REG_IRQFLAGS1) & IRQ1_MODEREADY) == 0) {
-        c++; if (c >= 254) break;
+        c++; 
+        if (c >= 254) { 
+        	Serial.print("Mode overrun"); Serial.println();
+        	break;
+        }
     }
+// EIMSK was also re-enabled by the PreventInterrupt structure
+	EIMSK = eimsk;
     return c;	// May need to beef this up since sometimes we don't appear to setmode correctly
 }
 
 #else
+
 uint8_t setMode (uint8_t mode) {	// TODO enhance return code
 //    PreventInterrupt RF69_avr_h_INT;
 	uint8_t eimsk = EIMSK;
@@ -542,6 +546,7 @@ uint8_t setMode (uint8_t mode) {	// TODO enhance return code
     EIMSK = eimsk;
 	return true;
 }
+
 #endif
 
 static uint8_t initRadio (ROM_UINT8* init) {
@@ -747,6 +752,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
 		rf12_drx = delayTXRECV;
 
 #if !SX1276
+		writeReg(REG_DIOMAPPING1, (DIO0_RSSI /*| DIO3_RSSI  DIO0_SYNCADDRESS*/));// Interrupt triggers
 		writeReg(REG_PALEVEL, ((rfapi.txPower & 0x1F) | 0x80));	// PA1/PA2 off
         writeReg(REG_OCP, OCP_NORMAL);			// Overcurrent protection on
         writeReg(REG_TESTPA1, TESTPA1_NORMAL);	// Turn off high power 
@@ -844,7 +850,7 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
     rf12_hdr = hdr & RF12_HDR_DST ? hdr : (hdr & ~RF12_HDR_MASK) + node; 
     rf12_len = len;
     rxstate = - (2 + rf12_len);// Preamble/SYN1/SYN2/2D/Group are inserted by hardware
-//    flushFifo();
+    flushFifo();
     writeReg(REG_IRQFLAGS2, IRQ2_FIFOOVERRUN);  // Clear FIFO
 /*  All packets are transmitted with a 4 byte header SYN1/SYN2/2D/Group  
     even when the group is zero                                               */
@@ -859,15 +865,17 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
 	if (rfapi.txPower & 0x80) {
 		rfapi.txPower = (rfapi.txPower & 0x9F);
 	}
-	else if
-		(rfapi.txPower == 0x7F) {
-          	writeReg(REG_OCP, OCP_20DB);    		// Overcurrent protection OFF!
-          	writeReg(REG_TESTPA1, TESTPA1_20DB);    // Turn on transmit highest power 
-          	writeReg(REG_TESTPA2, TESTPA2_20DB);    // cross your fingers
-          	// Beware the duty cycle - 1% only
-    	}
+	else
+	if (rfapi.txPower == 0x7F) {
+      	writeReg(REG_OCP, OCP_20DB);    		// Overcurrent protection OFF!
+		writeReg(REG_TESTPA1, TESTPA1_20DB);    // Turn on transmit highest power 
+		writeReg(REG_TESTPA2, TESTPA2_20DB);    // cross your fingers
+		// Beware the duty cycle - 1% only
+    }
+    #if TX_INTERRUPT
+	writeReg(REG_DIOMAPPING1, (DIO0_PACKETSENT /*| DIO3_TX_UNDEFINED*/));
+	#endif
 #endif
-//    writeReg(REG_DIOMAPPING1, (DIO0_PACKETSENT /*| DIO3_TX_UNDEFINED*/));
 
     if (ptr != 0) {
     	writeReg(REG_SYNCCONFIG, fourByteSync);
@@ -876,11 +884,12 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
     	writeReg(REG_SYNCCONFIG, 0);	// Turn off sync generation
 //	    writeReg(REG_PALEVEL, 0);
     }
-
+//Serial.println("Transmit Mode"); Serial.flush();
     setMode(MODE_TRANSMITTER);
 //	delay(1);
 #
-//	Serial.println(readReg(REG_OPMODE));
+//	Serial.print("OpMode=");
+//	Serial.println(readReg(REG_OPMODE)); Serial.flush();
     
 /*  We must begin transmission to avoid overflowing the FIFO since
     jeelib packet size can exceed FIFO size. We also want to avoid the
@@ -920,16 +929,24 @@ condition is met to transmit the packet data.
 /*  At this point packet is typically in the FIFO but not fully transmitted.
     transmission complete will be indicated by an interrupt or conditional code below:                  
 */
+//	Serial.print("OpMode=");
+//	Serial.println(readReg(REG_OPMODE)); Serial.flush();
+//Serial.println("Buffer filled"); Serial.flush();
+
 #if !TX_INTERRUPT
 #warning RF69.cpp: TX completed using scanning       
 	while (1) {
 	    if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
-	#if !SX1276
+			writeReg(REG_PALEVEL, 0);	// Drop TX power to clear airwaves quickly	
+#if SX1276
+			setMode(MODE_STANDBY);
+#else
+			setMode(MODE_SLEEP);
+			rfapi.interruptCountTX++;
           	writeReg(REG_OCP, OCP_NORMAL);			// Overcurrent protection on
           	writeReg(REG_TESTPA1, TESTPA1_NORMAL);	// Turn off high power 
           	writeReg(REG_TESTPA2, TESTPA2_NORMAL);	// transmit
-    		writeReg(REG_PALEVEL, ((rfapi.txPower & 0x9F) | 0x80));	// PA1/PA2 off
-	#endif
+#endif
           	// rxstate will be TXDONE at this point
           	txP++;
             writeReg(REG_AFCFEI, AFC_CLEAR);	// If we are in RX mode
@@ -1124,7 +1141,7 @@ second rollover and then will be 1.024 mS out.
 			setMode(MODE_STANDBY);
 #else
 			setMode(MODE_SLEEP);
-//			TXinterruptCount++;
+			rfapi.interruptCountTX++;
           	writeReg(REG_OCP, OCP_NORMAL);			// Overcurrent protection on
           	writeReg(REG_TESTPA1, TESTPA1_NORMAL);	// Turn off high power 
           	writeReg(REG_TESTPA2, TESTPA2_NORMAL);	// transmit
