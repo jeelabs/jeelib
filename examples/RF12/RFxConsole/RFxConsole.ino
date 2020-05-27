@@ -1,9 +1,9 @@
 /// @dir RFxConsole
 ///////////////////////////////////////////////////////////////////////////////
-#define RF69_COMPAT     0	// define this to use the RF69 driver i.s.o. RF12 
+#define RF69_COMPAT     1	// define this to use the RF69 driver i.s.o. RF12 
 ///							// The above flag must be set similarly in RF12.cpp
 ///							// and RF69_avr.h
-#define SX1276			0	// Also see setting in RF69.cpp & RF69_avr.h
+#define SX1276			1	// Also see setting in RF69.cpp & RF69_avr.h
 #define BLOCK  			0	// Alternate LED pin?
 #define INVERT_LED      1	// 0 is Jeenode usual and 1 inverse
 
@@ -127,7 +127,7 @@ rfAPI rfapi;			// Declare
   #if F_CPU == 8000000UL
   	#define SERIAL_BAUD 57600  	// adjust as needed
   #else 
-  	#define SERIAL_BAUD 11520	// adjust as needed
+  	#define SERIAL_BAUD 115200	// adjust as needed
   #endif
   #define DATAFLASH   0			// set to 0 for non-JeeLinks, else 4/8/16 (Mbit)
 #endif
@@ -2757,7 +2757,7 @@ void loop () {
 						showString(PSTR(" f"));
 						Serial.print( (*(v + 3) ) );		// Outgoing Function
 
-						if (ackLen > 2) {
+						if ((*(v + 0) >> 5) > 2) {			// Length of post
 							showString(PSTR(" v"));			// Outgoing Value
 							Serial.print( (uint16_t) ( (*(v + 5)) << 8 | (*(v + 4) ) ) );
 						}
