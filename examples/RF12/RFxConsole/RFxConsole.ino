@@ -124,8 +124,12 @@ rfAPI rfapi;			// Declare
   #undef  LED_PIN                // do not change
 #else
   #define TINY        0
-  #define SERIAL_BAUD 115200  // adjust as needed
-  #define DATAFLASH   0       // set to 0 for non-JeeLinks, else 4/8/16 (Mbit)
+  #if F_CPU == 8000000UL
+  	#define SERIAL_BAUD 57600  	// adjust as needed
+  #else 
+  	#define SERIAL_BAUD 11520	// adjust as needed
+  #endif
+  #define DATAFLASH   0			// set to 0 for non-JeeLinks, else 4/8/16 (Mbit)
 #endif
 
 /// Save a few bytes of flash by declaring const if used more than once.

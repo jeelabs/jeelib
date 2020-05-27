@@ -11,9 +11,11 @@
 // other sensor values are being collected and averaged in a more regular cycle.
 ///////////////////////////////////////////////////////////////////////////////
 
-#define RF69_COMPAT      1	 // define this to use the RF69 driver i.s.o. RF12 
+#define RF69_COMPAT      0	 // define this to use the RF69 driver i.s.o. RF12 
 ///                          // The above flag must be set similarly in RF12.cpp
 ///                          // and RF69_avr.h
+#define BME280_PORT  1   // defined if BME280 is connected to I2C
+//#define BMP280_PORT  1   // defined if BME280 is connected to I2C
 
 #include <JeeLib.h>
 #include "RFAPI.h"		// Define
@@ -28,7 +30,11 @@ rfAPI rfapi;			// Declare
 #include <Wire.h>
 
 #include <Adafruit_Sensor.h>
-#include <Adafruit_BME280.h>
+#if BME280_PORT
+	#include <Adafruit_BME280.h>
+#elif BMP280_PORT
+	#include <Adafruit_BMP280.h>
+#endif
 
 uint8_t resetFlags __attribute__ ((section(".noinit")));
 void resetFlagsInit(void) __attribute__ ((naked)) __attribute__ ((section (".init0")));
@@ -44,7 +50,6 @@ void resetFlagsInit(void)
 #define SERIAL  0   // set to 1 to also report readings on the serial port
 #define DEBUG   0   // set to 1 to display each loop() run and PIR trigger
 
-#define BME280_PORT  1   // defined if BME280 is connected to I2C
 // #define SHT11_PORT  1   // defined if SHT11 is connected to a port
 //	#define HYT131_PORT 1   // defined if HYT131 is connected to a port
 #define LDR_PORT    4   // defined if LDR is connected to a port's AIO pin
@@ -57,8 +62,13 @@ void resetFlagsInit(void)
 
 #define ADC_CALIBRATE	0
 
-#define IDLESPEED		4
-#define RADIOSPEED		2
+#if F_CPU == 8000000UL
+	#define IDLESPEED		4
+	#define RADIOSPEED		1
+#else
+	#define IDLESPEED		4
+	#define RADIOSPEED		2
+#endif
 
 #define SETTINGS_EEPROM_ADDR ((uint8_t*) 0x00)
 
@@ -73,8 +83,11 @@ enum { MEASURE, REPORT, TASK_END };
 
 static word schedbuf[TASK_END];
 Scheduler scheduler (schedbuf, TASK_END);
-#if BME280_PORT    
+
+#if BME280_PORT
 	Adafruit_BME280 bme; // I2C
+#elif BMP280_PORT
+	Adafruit_BMP280 bmp; // I2C
 #endif
 #if SERIAL
 static void showString (PGM_P s); // forward declaration
@@ -83,13 +96,13 @@ static void showString (PGM_P s); // forward declaration
 
 static byte reportCount;    // count up until next report, i.e. packet send
 static byte myNodeID;       // node ID used for this unit
+static uint16_t measureCount;
 
 // This defines the structure of the packets which get sent out by wireless:
 
 #define BASIC_PAYLOADLENGTH		14
 #define TIMEOUT_PAYLOADLENGTH 	17
 #define EXTENDED_PAYLOADLENGTH 	21
-static uint16_t reportInterval = 100;	// 10s initial
 static byte payloadLength;
 
 struct {					//0		Offset, node #
@@ -101,7 +114,7 @@ struct {					//0		Offset, node #
 //    byte moved 		:1;  	//3		motion detector: 0..1
 //    byte lobat 		:1;  	//3		supply voltage dropped under 3.1V: 0..1
 //	byte spare2		:2;		//3    
-#if BME280_PORT
+#if BME280_PORT || BMP280_PORT
     uint32_t pressure:24;	//4&5&6
 #endif
     byte light;     		//7		light sensor: 0..255
@@ -293,23 +306,39 @@ static void doMeasure() {
         payload.temp = smoothedAverage(payload.temp, temp, firstTime);
     #endif
     
-    #if BME280_PORT
+	#if BME280_PORT
     	bme.setSampling(Adafruit_BME280::MODE_FORCED,
 			Adafruit_BME280::SAMPLING_X1, // temperature
             Adafruit_BME280::SAMPLING_X1, // pressure
             Adafruit_BME280::SAMPLING_X1, // humidity
             Adafruit_BME280::FILTER_OFF   );
-
     	// Only needed in forced mode! In normal mode, you can remove the next line.
     	bme.takeForcedMeasurement();// has no effect in normal mode
     	Sleepy::loseSomeTime(32);	// must wait a while see page 51 of datasheet
     	
-    	payload.pressure = bme.readPressure();
-		payload.temp = bme.readTemperature();
-		payload.humi = bme.readHumidity();
+    	float f = bme.readPressure();
+    	payload.pressure = f * 100;
+		f = bme.readTemperature();
+		payload.temp = f * 100;
+		f = bme.readHumidity();
+		payload.humi = f * 100;
+		bme.write8(0xE0, 0xB6);	// Soft reset this makes sure the IIR is off, etc.
+	#elif BMP280_PORT
+    	bmp.setSampling(Adafruit_BMP280::MODE_FORCED,
+			Adafruit_BMP280::SAMPLING_X1, // temperature
+            Adafruit_BMP280::SAMPLING_X1, // pressure
+            Adafruit_BMP280::FILTER_OFF   );
+    	// Only needed in forced mode! In normal mode, you can remove the next line.
+//    	bmp.takeForcedMeasurement();// has no effect in normal mode
+    	Sleepy::loseSomeTime(32);	// must wait a while see page 51 of datasheet
+    	
+    	float f = bmp.readPressure();
+    	payload.pressure = f * 100;
+		f = bmp.readTemperature();
+		payload.temp = f * 100;
+		bmp.reset();	// Soft reset this makes sure the IIR is off, etc.
+	#endif
 
-		bme.write8(0xE0, 0xB6);	// Power on reset
-	#endif 
 	   
     #if LDR_PORT
         ldr.digiWrite2(1);  // enable AIO pull-up
@@ -329,7 +358,11 @@ static void doMeasure() {
 //        payload.moved = 0;//pir.state();
     #endif
 #if SERIAL
+	#if BME280_PORT
         Serial.print("ROOM_BME280 ");
+	#elif BMP280_PORT
+        Serial.print("ROOM_BMP280 ");
+    #endif
         Serial.print((int) payload.light);
         Serial.print(' ');
 //        Serial.print((int) payload.moved);
@@ -341,15 +374,21 @@ static void doMeasure() {
         Serial.print(x);
         Serial.print("°C ");
 //        Serial.print((int) payload.lobat);
-        Serial.print(' ');
-        Serial.print((int) countPCINT);
-        Serial.print(" p=");
+//        Serial.print(' ');
+//        Serial.print((int) countPCINT);
+//        Serial.print(" p=");
+        Serial.print("p=");
         x = payload.pressure / 100.0f;
         Serial.print(x);
         Serial.print("hPa Vcc=");
         Serial.println(payload.vcc);
         serialFlush();
 #endif
+		if (++measureCount >= settings.REPORT_EVERY) {
+			scheduler.timer(REPORT, 1);
+			measureCount = 0;
+		}
+
 } // doMeasure
 
 #if SERIAL
@@ -373,7 +412,6 @@ static void doReport() {
 // send packet and wait for ack when there is a motion trigger
 static void doTrigger() {
 	bool releaseAck = false;
-	scheduler.timer(REPORT, reportInterval );
 
     if (rf12_recvDone()) {
 //		showString(PSTR("Discarded: "));	// Flush the buffer
@@ -554,7 +592,8 @@ static void doTrigger() {
 						case 203:
 							settings.MEASURE = true;
 							if(rf12_buf[2] == 4) 
-								settings.MEASURE_PERIOD = settings.REPORT_EVERY = value;
+								settings.MEASURE_PERIOD = value;
+								settings.REPORT_EVERY = 1;
                   			break;
 						case 204:
 							settings.MEASURE = true;
@@ -589,10 +628,6 @@ static void doTrigger() {
 	            	releaseAck = true;
 	            	return;							                                 	
           		} // if ( (rf12_buf[2] > 1)
-#if SERIAL
-				Serial.println("Setting Report Interval");          		
-				reportInterval = settings.REPORT_EVERY;	// Once we have seen the Central!				
-#endif
         	}
         	else // if (acked)
         	{
@@ -770,7 +805,7 @@ static void loadSettings () {
 		Serial.println(crc, HEX);
 #endif
         settings.MEASURE_PERIOD = 600;
-        settings.REPORT_EVERY = 600;
+        settings.REPORT_EVERY = 1;
         settings.MEASURE = settings.REPORT = true;
         settings.lowVcc = 140;
         settings.ackBounds = 60;
@@ -779,8 +814,13 @@ static void loadSettings () {
 #if SERIAL    
     else {
 		Serial.println("is good");
+		
+		showString(PSTR("EEprom Measure Period "));
+		Serial.print(settings.MEASURE_PERIOD);
+		showString(PSTR(" Report Every "));
+		Serial.println(settings.REPORT_EVERY);
         settings.MEASURE_PERIOD = 60;	// Override eeprom if on serial port
-        settings.REPORT_EVERY = 60;
+        settings.REPORT_EVERY = 1;
         settings.ackBounds = 30;		
     }
 #endif
@@ -872,8 +912,6 @@ void setup ()
 #endif
 	loadSettings();
 	
-//	rfapi.txPower = 128;
-	
     rf12_sleep(RF12_SLEEP); // power down
 #if SERIAL
 	Serial.print("Transmit Power "); Serial.println(rfapi.txPower);
@@ -883,23 +921,17 @@ void setup ()
 	serialFlush();
 #endif    
     
-#if BME280_PORT    
+#if BME280_PORT
 	if (! bme.begin(BMX280_ADDRESS)) {
-	#if SERIAL
-    	Serial.println("Could not find a valid BME280 sensor");
-    #endif
+#elif BMP280_PORT
+	if (! bmp.begin(BMX280_ADDRESS)) {
+#endif
+#if SERIAL
+    	 Serial.println("Could not find a valid BME280 or BMP280 sensor"); serialFlush();
+#endif
     	
     }
-    else
-    {
-		bme.setSampling(Adafruit_BME280::MODE_FORCED,
-			Adafruit_BME280::SAMPLING_X1, // temperature
-            Adafruit_BME280::SAMPLING_X1, // pressure
-            Adafruit_BME280::SAMPLING_X1, // humidity
-            Adafruit_BME280::FILTER_OFF   );
-    }
-#endif
-    
+
 #if PIR_PORT
 	pir.digiWrite(PIR_PULLUP);
 	#ifdef PCMSK2
@@ -912,7 +944,7 @@ void setup ()
 
     if (settings.MEASURE)
 		scheduler.timer(MEASURE, 10);
-    scheduler.timer(REPORT, 10);
+//    scheduler.timer(REPORT, 10);
     	
 /*
 uint16_t lastPass = 0; 

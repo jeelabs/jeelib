@@ -9,7 +9,7 @@
 extern rfAPI rfapi;
 ///////////////////////////////////////////////////////////////////////////////
 
-#define TX_INTERRUPT 0
+#define TX_INTERRUPT 1
 
 #define SX1276	0	// Also see setting in RF69_avr.h & RFxConsole.ino
 
