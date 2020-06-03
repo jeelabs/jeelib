@@ -370,6 +370,7 @@ volatile unsigned long previousRestarts;
 volatile unsigned long chkNoise;
 volatile unsigned int restartRate;
 volatile unsigned int maxRestartRate;
+volatile byte maxRestartRSSI;
 volatile byte ping = false;
 volatile byte minuteTick = false;
 volatile byte statsInterval = 60;
@@ -386,10 +387,11 @@ ISR(TIMER1_COMPA_vect){
               	
     	if (restartRate > maxRestartRate) { 
     		maxRestartRate = restartRate;
+    		maxRestartRSSI = rfapi.rssiThreshold;
     	}
     	if ( (restartRate > 15000UL) && (rfapi.rssiThreshold > 160) ) rfapi.rssiThreshold--;
     	else
-    	if ( (restartRate < 100UL) && (rfapi.rssiThreshold < 220) ) rfapi.rssiThreshold++;
+    	if ( (restartRate < 5000UL) && (rfapi.rssiThreshold <= rfapi.configThreshold) ) rfapi.rssiThreshold++;
     }
 /*
     if (config.chkNoise) {
@@ -504,9 +506,8 @@ static void saveConfig (byte force = false) {
             	eepromWrite++;
 			}
 		}
- 
 		loadConfig();
-	
+		
     	salusMode = false;
 #if STATISTICS    
     	messageCount = nonBroadcastCount = CRCbadCount = 0; // Clear stats counters
@@ -693,7 +694,9 @@ static void showStatus() {
     Serial.print(restartRate);
     printOneChar('^');
     Serial.print(maxRestartRate);
-    showString(PSTR("/min,\nSync Match "));
+    showString(PSTR("/min @ "));
+    Serial.println(maxRestartRSSI);
+    showString(PSTR("Sync Match "));
     Serial.print(rfapi.syncMatch);
 
     showString(PSTR(", Good CRC "));
@@ -760,7 +763,9 @@ static void showStatus() {
 //    printOneChar('\n');
     showString(PSTR("\nEeprom U"));
     Serial.print(config.helpMenu);
+ 	byte t = rfapi.rssiThreshold;
     rf12_configDump();
+	rfapi.rssiThreshold = t;
 #if RF69_COMPAT
     if (!RF69::present) {
         showString(PSTR("RFM69x Problem "));        
@@ -1120,7 +1125,7 @@ static void handleInput (char c) {
                          rfapi.rateInterval = (uint32_t)(config.rateInterval) << 10;
                      }
                      saveConfig();
-                     currentRestarts = previousRestarts = maxRestartRate = 0;
+                     currentRestarts = previousRestarts = maxRestartRate = maxRestartRSSI = 0;
                      previousRestarts = currentRestarts;
                      break;
 
@@ -1795,7 +1800,7 @@ Serial.println(MCUSR, HEX);
 #endif
 
     Serial.flush();
-    maxRestartRate = 0;
+    maxRestartRate = maxRestartRate = 0;
     previousRestarts = rfapi.RSSIrestart;
 
 } // setup
