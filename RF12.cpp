@@ -849,7 +849,7 @@ uint8_t rf12_configSilent () {
     nodeId = eeprom_read_byte(RF12_EEPROM_ADDR + 0);
     group  = eeprom_read_byte(RF12_EEPROM_ADDR + 1);
     rfapi.txPower = eeprom_read_byte(RF12_EEPROM_ADDR + 6) & 7;     // Store from eeprom
-    rfapi.rssiThreshold = eeprom_read_byte(RF12_EEPROM_ADDR + 7) & 0x1F; // Store from eeprom
+    rfapi.configThreshold = rfapi.rssiThreshold = eeprom_read_byte(RF12_EEPROM_ADDR + 7) & 0x1F;
     rfapi.lna = rfapi.rssiThreshold >> 3;
     matchRF = eeprom_read_byte(RF12_EEPROM_ADDR + 8); // Store hardware matching 
     
@@ -871,7 +871,7 @@ void rf12_configDump () {
     frequency = (frequency << 8) + (eeprom_read_byte(RF12_EEPROM_ADDR + 4));
     rfapi.txPower = eeprom_read_byte(RF12_EEPROM_ADDR + 6) & 7;		// Store from eeprom
     ackDelay = eeprom_read_byte(RF12_EEPROM_ADDR + 9); 			// Store from eeprom
-    rfapi.rssiThreshold = eeprom_read_byte(RF12_EEPROM_ADDR + 7) & 0x1F;// Store from eeprom
+    rfapi.configThreshold = rfapi.rssiThreshold = eeprom_read_byte(RF12_EEPROM_ADDR + 7) & 0x1F;
     rfapi.lna = rfapi.rssiThreshold >> 3;
     matchRF = eeprom_read_byte(RF12_EEPROM_ADDR + 8);     		// Store from eeprom
     

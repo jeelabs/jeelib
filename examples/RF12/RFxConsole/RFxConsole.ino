@@ -5,7 +5,7 @@
 ///							// and RF69_avr.h
 #define SX1276			1	// Also see setting in RF69.cpp & RF69_avr.h
 #define BLOCK  			0	// Alternate LED pin?
-#define INVERT_LED      1	// 0 is Jeenode usual and 1 inverse
+#define INVERT_LED      0	// 0 is Jeenode usual and 1 inverse
 
 #define hubID			31
 //
@@ -387,6 +387,9 @@ ISR(TIMER1_COMPA_vect){
     	if (restartRate > maxRestartRate) { 
     		maxRestartRate = restartRate;
     	}
+    	if ( (restartRate > 15000UL) && (rfapi.rssiThreshold > 160) ) rfapi.rssiThreshold--;
+    	else
+    	if ( (restartRate < 100UL) && (rfapi.rssiThreshold < 220) ) rfapi.rssiThreshold++;
     }
 /*
     if (config.chkNoise) {
@@ -708,7 +711,9 @@ static void showStatus() {
     	Serial.print(rfapi.rtpMax);
     }
 //    printOneChar('\n');
-    showString(PSTR(", RSSI Rx "));
+    showString(PSTR(", RSSI "));
+    Serial.print(rfapi.rssiThreshold);
+    showString(PSTR("t, Rx "));
     Serial.print(rf12_rssi);
     printOneChar(';');
     Serial.print(rfapi.noiseFloorMin);
