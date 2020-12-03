@@ -1906,12 +1906,18 @@ static void showPost() {
 			showWord((semaphoreStack[(c * ackEntry) + 5]) << 8 | semaphoreStack[(c * ackEntry) + 4]);
 		}
 
-	    uint32_t t = semaphoreStack[(c * ackEntry) + 11]; t<<8;
-	    t = t + semaphoreStack[(c * ackEntry) + 10]; t<<8;
-	    t = t + semaphoreStack[(c * ackEntry) + 9]; t<<8;
+	    uint32_t t = semaphoreStack[(c * ackEntry) + 11]; t = t<<8;
+	    t = t + semaphoreStack[(c * ackEntry) + 10]; t = t<<8;
+	    t = t + semaphoreStack[(c * ackEntry) + 9]; t = t<<8;
 	    t = t + semaphoreStack[(c * ackEntry) + 8];
-	    t = (elapsedSeconds - t);
-	    
+
+	        printOneChar(' ');
+	    				Serial.print(elapsedSeconds);
+	        printOneChar('-');
+	    				Serial.print(t);
+	        printOneChar('=');
+	        
+	    t = (elapsedSeconds - t);	    
 		if (t) {
 			printOneChar(' ');
 			printOneChar('t');
@@ -2806,10 +2812,17 @@ void loop () {
 						showString(PSTR(" l"));
                      	Serial.print( ((*(v + 0) >> 5) + 1) );// Length
 						showString(PSTR(" t"));
-	    				uint32_t t = (*(v + 11)); t<<8;
-	    				t = t + (*(v + 10)); t<<8;
-	    				t = t + (*(v + 9)); t<<8;
+	    				uint32_t t = (*(v + 11)); t = t<<8;
+	    				t = t + (*(v + 10)); t = t<<8;
+	    				t = t + (*(v + 9)); t = t<<8;
 	    				t = t + (*(v + 8));
+
+	        printOneChar(' ');
+	    				Serial.print(elapsedSeconds);
+	        printOneChar('-');
+	    				Serial.print(t);
+	        printOneChar('=');
+	        
 						t = elapsedSeconds - t;
 						elapsed(t);
                      	Serial.println();                    	                     	                    	
@@ -2878,10 +2891,17 @@ void loop () {
                      	Serial.print(ackLen);			// Length
 
 						showString(PSTR(" t"));
-	    				uint32_t t = (*(v + 11)); t<<8;
-	    				t = t + (*(v + 10)); t<<8;
-	    				t = t + (*(v + 9)); t<<8;
+	    				uint32_t t = (*(v + 11)); t = t<<8;
+	    				t = t + (*(v + 10)); t = t<<8;
+	    				t = t + (*(v + 9)); t = t<<8;
 	    				t = t + (*(v + 8));
+
+	        printOneChar(' ');
+	    				Serial.print(elapsedSeconds);
+	        printOneChar('-');
+	    				Serial.print(t);
+	        printOneChar('=');
+	        
 						t = elapsedSeconds - t;
 						elapsed(t);
                      	                     	                     	                    	
