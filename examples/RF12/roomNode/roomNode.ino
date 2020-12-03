@@ -11,6 +11,8 @@
 // other sensor values are being collected and averaged in a more regular cycle.
 
 #include <JeeLib.h>
+#include "RFAPI.h"		// Define
+rfAPI rfapi;			// Declare
 #include <PortsSHT11.h>
 #include <avr/sleep.h>
 #include <util/atomic.h>
@@ -18,7 +20,7 @@
 #include <util/crc16.h>
 #define crc_update      _crc16_update
 
-#define SERIAL  0   // set to 1 to also report readings on the serial port
+#define SERIAL  1   // set to 1 to also report readings on the serial port
 #define DEBUG   0   // set to 1 to display each loop() run and PIR trigger
 
 #define SHT11_PORT  1   // defined if SHT11 is connected to a port

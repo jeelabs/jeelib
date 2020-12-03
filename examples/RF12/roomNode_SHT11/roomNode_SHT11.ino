@@ -11,10 +11,10 @@
 // other sensor values are being collected and averaged in a more regular cycle.
 ///////////////////////////////////////////////////////////////////////////////
 
-#define RF69_COMPAT      1	 // define this to use the RF69 driver i.s.o. RF12 
+#define RF69_COMPAT      0	 // define this to use the RF69 driver i.s.o. RF12 
 ///                          // The above flag must be set similarly in RF12.cpp
 ///                          // and RF69_avr.h
-#define BME280_PORT  1   // defined if BME280 is connected to I2C
+#define BME280_PORT  0   // defined if BME280 is connected to I2C
 //#define BMP280_PORT  1   // defined if BME280 is connected to I2C
 
 #include <JeeLib.h>
@@ -47,13 +47,13 @@ void resetFlagsInit(void)
 #define crc_update      _crc16_update
 #define BMX280_ADDRESS	0x76
 
-#define SERIAL  0   // set to 1 to also report readings on the serial port
-#define DEBUG   0   // set to 1 to display each loop() run and PIR trigger
+#define SERIAL  1   // set to 1 to also report readings on the serial port
+#define DEBUG   1   // set to 1 to display each loop() run and PIR trigger
 
-// #define SHT11_PORT  1   // defined if SHT11 is connected to a port
+#define SHT11_PORT  1   // defined if SHT11 is connected to a port
 //	#define HYT131_PORT 1   // defined if HYT131 is connected to a port
-#define LDR_PORT    4   // defined if LDR is connected to a port's AIO pin
-#define PIR_PORT    4   // defined if PIR is connected to a port's DIO pin
+//#define LDR_PORT    4   // defined if LDR is connected to a port's AIO pin
+//#define PIR_PORT    4   // defined if PIR is connected to a port's DIO pin
 
 //#define RETRY_PERIOD    20  // how soon to retry if ACK didn't come in
 #define RETRY_LIMIT     1   // maximum number of times to try transmission
@@ -114,9 +114,9 @@ struct {					//0		Offset, node #
 //    byte moved 		:1;  	//3		motion detector: 0..1
 //    byte lobat 		:1;  	//3		supply voltage dropped under 3.1V: 0..1
 //	byte spare2		:2;		//3    
-#if BME280_PORT || BMP280_PORT
+//#if BME280_PORT || BMP280_PORT
     uint32_t pressure:24;	//4&5&6
-#endif
+//#endif
     byte light;     		//7		light sensor: 0..255
     unsigned int humi:16;	//8&9	humidity: 0..100.00
     int temp:16; 			//10&11	temperature: -5000..+5000 (hundredths)
@@ -286,15 +286,16 @@ static void doMeasure() {
     payload.vcc = vccRead();
     
 	#if SHT11_PORT
+		payload.pressure = (uint24_t)11184810;	// Alternating bits for transmission
 		#ifndef __AVR_ATtiny84__
         sht11.measure(SHT11::HUMI, shtDelay);        
         sht11.measure(SHT11::TEMP, shtDelay);
         float h, t;
         sht11.calculate(h, t);
-        int humi = h, temp = 10 * t;
+        int humi = 100 * h, temp = 100 * t;
 		#else
         //XXX TINY!
-        int humi = 50, temp = 25;
+        int humi = 5000, temp = 2500;
 		#endif
         payload.humi = smoothedAverage(payload.humi, humi, firstTime);
         payload.temp = smoothedAverage(payload.temp, temp, firstTime);
@@ -378,8 +379,10 @@ static void doMeasure() {
 //        Serial.print((int) countPCINT);
 //        Serial.print(" p=");
         Serial.print("p=");
+	#if BME280_PORT || BMP280_PORT
         x = payload.pressure / 100.0f;
         Serial.print(x);
+    #endif
         Serial.print("hPa Vcc=");
         Serial.println(payload.vcc);
         serialFlush();
@@ -927,23 +930,24 @@ void setup ()
 	if (! bme.begin(BMX280_ADDRESS)) {
 #elif BMP280_PORT
 	if (! bmp.begin(BMX280_ADDRESS)) {
-#endif
-#if SERIAL
+
+	#if SERIAL
     	 Serial.println("Could not find a valid BME280 or BMP280 sensor"); serialFlush();
-#endif
+	#endif
     	
     }
-
+#endif
+/*
 #if PIR_PORT
 	pir.digiWrite(PIR_PULLUP);
 	#ifdef PCMSK2
     bitSet(PCMSK2, PIR_PORT + 3);
     bitSet(PCICR, PCIE2);
-#else
+//#else
 //XXX TINY!
+//#endif
 #endif
-#endif
-
+*/
     if (settings.MEASURE)
 		scheduler.timer(MEASURE, 10);
 //    scheduler.timer(REPORT, 10);

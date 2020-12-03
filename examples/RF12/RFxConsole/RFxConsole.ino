@@ -73,6 +73,7 @@
 //  use 17,212,7n to set the upper bits in eeprom node number to the multiplier 7
 // Extend basic ACK to also return the RSSI value of the packet being ACKed 2020-04-19
 // Added 'I' command to ignore packets from specific nodes 2020-05-11
+// Added a second timer for Semaphores on the queue 2020-12-03, improved elapsedSeconds
 
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
 	#define TINY 1
@@ -161,6 +162,7 @@ byte eepromWrite;
 byte qMin = ~0;
 byte qMax = 0;
 byte lastrssiThreshold;
+byte RESETFLAGS;
 
 #if TINY
 // Serial support (output only) for Tiny supported by TinyDebugSerial
@@ -237,13 +239,13 @@ static byte inChar () {
   #define LED_PIN     15       // activity LED, comment out to disable on/off operation is reversed to a normal Jeenode
   #define LED_ON       1
   #define LED_OFF      0
-  #define MAX_NODES 100			// Constrained by eeprom
+  #define MAX_NODES 96			// Constrained by eeprom
 
 #elif defined(__AVR_ATmega2560__) || defined(__AVR_ATmega1280__)
   #define LED_PIN     13		// activity LED, comment out to disable on/off operation is reversed to a normal Jeenode
   #define LED_ON       1
   #define LED_OFF      0
-  #define MAX_NODES 100			// Constrained by eeprom
+  #define MAX_NODES 96			// Constrained by eeprom
 
 #else
   #if BLOCK
@@ -364,7 +366,8 @@ unsigned int testRX;
 
 ISR(WDT_vect) { Sleepy::watchdogEvent(); }
 
-volatile unsigned long elapsedSeconds;
+volatile unsigned long secondsTick;
+static unsigned long elapsedSeconds;
 static unsigned long currentRestarts;
 volatile unsigned long previousRestarts;
 volatile unsigned long chkNoise;
@@ -376,7 +379,7 @@ volatile byte minuteTick = false;
 volatile byte statsInterval = 60;
 
 ISR(TIMER1_COMPA_vect){
-	elapsedSeconds++;
+	secondsTick++;
 
 #if RF69_COMPAT
     // Update restart rate
@@ -406,9 +409,9 @@ ISR(TIMER1_COMPA_vect){
 
 unsigned int loopCount, idleTime = 0, offTime = 0;
 #if MESSAGING
-#define ackEntry 8
+#define ackEntry 12
 #define ackQueue 16
-static byte semaphoreStack[ (ackQueue * ackEntry) + 1];	// FIFO per node group /* integer aligned */
+static byte semaphoreStack[ (ackQueue * ackEntry) + 1];
 #endif
 static byte arrivalHeader;
 static uint32_t arrivalTime;
@@ -653,6 +656,7 @@ static void showHelp () {
     	showString(helpText1);
     	if (df_present()) showString(helpText2);
 #endif
+   }
 #if !TINY && configSTRING
     	Serial.print((__DATE__));
     	Serial.print(" ");
@@ -661,8 +665,7 @@ static void showHelp () {
     	Serial.println(VERSION_SIG);
 
     	if (config.helpMenu) showStatus();
-    }
-#endif
+ #endif
 }
 
 static void showStatus() {
@@ -674,12 +677,11 @@ static void showStatus() {
 #else
 	showString(RFM12x);
 #endif
-	unsigned long s = elapsedSeconds;
     showString(PSTR("Elapsed "));
-	elapsed(s);
+	elapsed(elapsedSeconds);
 	
 	printOneChar('=');
-    Serial.print(s);
+    Serial.print(elapsedSeconds);
 	printOneChar('s');
     showString(PSTR(", Led is ")); if (ledStatus) showString(PSTR("on")); else showString(PSTR("off"));
     showString(PSTR(", Free Ram(B) "));
@@ -728,7 +730,9 @@ static void showStatus() {
     Serial.print(minTxRSSI);
     printOneChar('^');    
     Serial.print(maxTxRSSI);
-    showString(PSTR(",\nAck Aborts "));
+    showString(PSTR(",\nReset 0x"));
+    Serial.print(RESETFLAGS, HEX);
+    showString(PSTR(", Ack Aborts "));
     Serial.print(packetAborts);
     showString(PSTR(", Busy Count "));
     Serial.print(busyCount);
@@ -1322,15 +1326,17 @@ static void handleInput (char c) {
             		}
 //            		else config.helpMenu = value & 1;
             		break;	
-
+#if MESSAGING
             case 'm':
             		for (uint8_t i = 0; i < MAX_NODES; i++) {
+            			if ( !(i%16) ) Serial.println();
             			Serial.print(highestAck[i]);
         				printOneChar(' ');
             		}
             		Serial.println();
             		
             		for (byte i = 0; i < (ackQueue * ackEntry); i++) {
+            			if ( !(i%ackEntry) ) Serial.println();
             			Serial.print(semaphoreStack[i]);
         				printOneChar(' ');
             		}
@@ -1338,7 +1344,7 @@ static void handleInput (char c) {
             		
  					showPost();
             		break;	
-
+#endif
             case 'n':
 #if DEBUG
                      dumpAPI();
@@ -1716,6 +1722,7 @@ void setup () {
 showString(PSTR("ReInit "));showNibble(resetFlags >> 4);
 showNibble(resetFlags);
 printOneChar(' ');
+RESETFLAGS = resetFlags;
 Serial.println(MCUSR, HEX);
     // TODO the above doesn't do what we need, results vary with Bootloader etc
 #endif
@@ -1898,7 +1905,19 @@ static void showPost() {
 	        printOneChar('v');
 			showWord((semaphoreStack[(c * ackEntry) + 5]) << 8 | semaphoreStack[(c * ackEntry) + 4]);
 		}
-		Serial.println();										// Integer post
+
+	    uint32_t t = semaphoreStack[(c * ackEntry) + 11]; t<<8;
+	    t = t + semaphoreStack[(c * ackEntry) + 10]; t<<8;
+	    t = t + semaphoreStack[(c * ackEntry) + 9]; t<<8;
+	    t = t + semaphoreStack[(c * ackEntry) + 8];
+	    t = (elapsedSeconds - t);
+	    
+		if (t) {
+			printOneChar(' ');
+			printOneChar('t');
+			elapsed(t);
+		}
+		Serial.println();
    		++c;   
     }    
 return;
@@ -2026,7 +2045,7 @@ static void oneShow(byte index) {
     byte n = eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4) + 0);	// Node number
     if (n == 0xFF) return;
     byte g = eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4) + 1);	// Group number
-//	printOneChar('#');         
+    showString(PSTR("# "));      
     showByte(index);
     showString(PSTR(" d"));      
     showByte(n >> 5);				// Ack additional delay indicator
@@ -2142,7 +2161,12 @@ static bool semaphoreSave (byte node, byte group, byte key, byte flag, unsigned 
 			semaphoreStack[(c * ackEntry) + 4] = value;
 			semaphoreStack[(c * ackEntry) + 5] = value >> 8;
 			semaphoreStack[(c * ackEntry) + 6] = 0;	// TX Count
-			semaphoreStack[(c * ackEntry) + 7] = 0;	// Spare		
+			semaphoreStack[(c * ackEntry) + 7] = 0;	// Spare
+			uint32_t t = elapsedSeconds;
+			semaphoreStack[(c * ackEntry) + 8] = (uint8_t)t;// Timestamp	
+			semaphoreStack[(c * ackEntry) + 9] = (uint8_t)(t>>8);// Timestamp		
+			semaphoreStack[(c * ackEntry) + 10] = (uint8_t)(t>>16);// Timestamp		
+			semaphoreStack[(c * ackEntry) + 11] = (uint8_t)(t>>24);	// Timestamp	
 			return true;	
 		}
 	}
@@ -2160,6 +2184,11 @@ static bool semaphoreUpdate (byte node, byte group, byte key, byte newKey, byte 
 				semaphoreStack[(c * ackEntry) + 4] = value;
 				semaphoreStack[(c * ackEntry) + 5] = value >> 8;
 				semaphoreStack[(c * ackEntry) + 6] = 0;	// Clear TX count
+				uint32_t t = elapsedSeconds;
+				semaphoreStack[(c * ackEntry) + 8] = (uint8_t)t;// Timestamp	
+				semaphoreStack[(c * ackEntry) + 9] = (uint8_t)(t>>8);// Timestamp		
+				semaphoreStack[(c * ackEntry) + 10] = (uint8_t)(t>>16);// Timestamp		
+				semaphoreStack[(c * ackEntry) + 11] = (uint8_t)(t>>24);	// Timestamp	
 				return true;	
 		} else
 			if (semaphoreSave(node, group, newKey, flag, value)) return true;
@@ -2183,6 +2212,10 @@ static bool semaphoreDrop (byte node, byte group) {
 				semaphoreStack[ (c * ackEntry) + 5] = semaphoreStack[ (c * ackEntry) + (ackEntry + 5)];
 				semaphoreStack[ (c * ackEntry) + 6] = semaphoreStack[ (c * ackEntry) + (ackEntry + 6)];
 				semaphoreStack[ (c * ackEntry) + 7] = semaphoreStack[ (c * ackEntry) + (ackEntry + 7)];
+				semaphoreStack[ (c * ackEntry) + 8] = semaphoreStack[ (c * ackEntry) + (ackEntry + 8)];
+				semaphoreStack[ (c * ackEntry) + 9] = semaphoreStack[ (c * ackEntry) + (ackEntry + 9)];
+				semaphoreStack[ (c * ackEntry) + 10] = semaphoreStack[ (c * ackEntry) + (ackEntry + 10)];
+				semaphoreStack[ (c * ackEntry) + 11] = semaphoreStack[ (c * ackEntry) + (ackEntry + 11)];
 				++c;
 			}
 		return true;
@@ -2202,6 +2235,9 @@ static byte * semaphoreGet (byte node, byte group) {
 
 void loop () {
 	wdt_reset();
+	
+	noInterrupts(); elapsedSeconds = secondsTick; interrupts();
+	
 #if TINY
     if ( _receive_buffer_index ) handleInput( inChar() );
 #else
@@ -2655,11 +2691,7 @@ void loop () {
                     maxRSSI[NodeMap] = observedRX.rssi2;   
 #endif
 #if STATISTICS            
-/*
-                pktCount[NodeMap]++;
-                if ((pktCount[NodeMap] % 100) == 0) oneShow(NodeMap);
-
-*/            } else {
+            } else {
                 nonBroadcastCount++;
 #endif
             }
@@ -2772,7 +2804,15 @@ void loop () {
 							Serial.print( (uint16_t) ( (*(v + 5)) << 8 | (*(v + 4) ) ) );
 						}
 						showString(PSTR(" l"));
-                     	Serial.println( ((*(v + 0) >> 5) + 1) );// Length
+                     	Serial.print( ((*(v + 0) >> 5) + 1) );// Length
+						showString(PSTR(" t"));
+	    				uint32_t t = (*(v + 11)); t<<8;
+	    				t = t + (*(v + 10)); t<<8;
+	    				t = t + (*(v + 9)); t<<8;
+	    				t = t + (*(v + 8));
+						t = elapsedSeconds - t;
+						elapsed(t);
+                     	Serial.println();                    	                     	                    	
 	                   	if ( !(semaphoreDrop((rf12_hdr & RF12_HDR_MASK), rf12_grp) ) )
 	            			showString(PSTR(" NOT FOUND "));
 	            		rf12_data[0] = 85;				// Now change default to a standard Ack
@@ -2836,7 +2876,15 @@ void loop () {
 						}
 						showString(PSTR(" l"));
                      	Serial.print(ackLen);			// Length
-                     	                    	
+
+						showString(PSTR(" t"));
+	    				uint32_t t = (*(v + 11)); t<<8;
+	    				t = t + (*(v + 10)); t<<8;
+	    				t = t + (*(v + 9)); t<<8;
+	    				t = t + (*(v + 8));
+						t = elapsedSeconds - t;
+						elapsed(t);
+                     	                     	                     	                    	
                     	if (gotIndex) {
                     		if ( (*(v + 6) > highestAck[NodeMap]) ) 
                     	  	highestAck[NodeMap] = (*(v + 6));		// Save hi point

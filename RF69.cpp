@@ -191,7 +191,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 
   0x26, 0x07, // disable clkout
 
-  0x29, 0xBE, // RssiThresh ... -95dB
+  0x29, 0xA0, // RssiThresh ... -95dB
 
   0x37, 0x00, // PacketConfig1 = fixed, no crc, filt off
   0x38, 0x00, // PayloadLength = 0, unlimited
@@ -372,7 +372,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 //  0x0D, 0x0E, // AgcAutoOn
   0x0E, 0x00, // RSSI two sample smoothing - we are a star network
   
-  0x10, 0xC0, // RSSI Threshold -100dB
+  0x10, 0xA0, // RSSI Threshold -100dB
   0x12, 0x09, // RxBw 200 KHz, DCC 16%
   0x13, 0x09, // RxBwAFC 200 Khz, DCC 16%. Only handling initial RSSI phase, not payload!
 
