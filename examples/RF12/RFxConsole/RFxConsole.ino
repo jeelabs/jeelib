@@ -394,7 +394,7 @@ ISR(TIMER1_COMPA_vect){
     	}
     	if ( (restartRate > 15000UL) && (rfapi.rssiThreshold > 160) ) rfapi.rssiThreshold--;
     	else
-    	if ( (restartRate < 5000UL) && (rfapi.rssiThreshold <= rfapi.configThreshold) ) rfapi.rssiThreshold++;
+    	if ( (restartRate < 5000UL) && (rfapi.rssiThreshold < rfapi.configThreshold) ) rfapi.rssiThreshold++;
     }
 /*
     if (config.chkNoise) {
@@ -1910,13 +1910,6 @@ static void showPost() {
 	    t = t + semaphoreStack[(c * ackEntry) + 10]; t = t<<8;
 	    t = t + semaphoreStack[(c * ackEntry) + 9]; t = t<<8;
 	    t = t + semaphoreStack[(c * ackEntry) + 8];
-
-	        printOneChar(' ');
-	    				Serial.print(elapsedSeconds);
-	        printOneChar('-');
-	    				Serial.print(t);
-	        printOneChar('=');
-	        
 	    t = (elapsedSeconds - t);	    
 		if (t) {
 			printOneChar(' ');
@@ -2811,19 +2804,12 @@ void loop () {
 						}
 						showString(PSTR(" l"));
                      	Serial.print( ((*(v + 0) >> 5) + 1) );// Length
-						showString(PSTR(" t"));
 	    				uint32_t t = (*(v + 11)); t = t<<8;
 	    				t = t + (*(v + 10)); t = t<<8;
 	    				t = t + (*(v + 9)); t = t<<8;
 	    				t = t + (*(v + 8));
-
-	        printOneChar(' ');
-	    				Serial.print(elapsedSeconds);
-	        printOneChar('-');
-	    				Serial.print(t);
-	        printOneChar('=');
-	        
 						t = elapsedSeconds - t;
+						showString(PSTR(" t"));
 						elapsed(t);
                      	Serial.println();                    	                     	                    	
 	                   	if ( !(semaphoreDrop((rf12_hdr & RF12_HDR_MASK), rf12_grp) ) )
@@ -2896,12 +2882,6 @@ void loop () {
 	    				t = t + (*(v + 9)); t = t<<8;
 	    				t = t + (*(v + 8));
 
-	        printOneChar(' ');
-	    				Serial.print(elapsedSeconds);
-	        printOneChar('-');
-	    				Serial.print(t);
-	        printOneChar('=');
-	        
 						t = elapsedSeconds - t;
 						elapsed(t);
                      	                     	                     	                    	
