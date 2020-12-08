@@ -286,7 +286,7 @@ static void doMeasure() {
     payload.vcc = vccRead();
     
 	#if SHT11_PORT
-		payload.pressure = (uint24_t)11184810;	// Alternating bits for transmission
+		payload.pressure = (uint32_t)11184810;	// Alternating bits for transmission
 		#ifndef __AVR_ATtiny84__
         sht11.measure(SHT11::HUMI, shtDelay);        
         sht11.measure(SHT11::TEMP, shtDelay);

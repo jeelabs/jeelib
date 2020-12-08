@@ -1913,7 +1913,7 @@ static void showPost() {
 	    t = (elapsedSeconds - t);	    
 		if (t) {
 			printOneChar(' ');
-			printOneChar('t');
+//			printOneChar('t');
 			elapsed(t);
 		}
 		Serial.println();
@@ -2809,7 +2809,8 @@ void loop () {
 	    				t = t + (*(v + 9)); t = t<<8;
 	    				t = t + (*(v + 8));
 						t = elapsedSeconds - t;
-						showString(PSTR(" t"));
+//						showString(PSTR(" t"));
+                    	printOneChar(' ');
 						elapsed(t);
                      	Serial.println();                    	                     	                    	
 	                   	if ( !(semaphoreDrop((rf12_hdr & RF12_HDR_MASK), rf12_grp) ) )
@@ -2876,12 +2877,13 @@ void loop () {
 						showString(PSTR(" l"));
                      	Serial.print(ackLen);			// Length
 
-						showString(PSTR(" t"));
+//						showString(PSTR(" t"));
 	    				uint32_t t = (*(v + 11)); t = t<<8;
 	    				t = t + (*(v + 10)); t = t<<8;
 	    				t = t + (*(v + 9)); t = t<<8;
 	    				t = t + (*(v + 8));
 
+        	      		printOneChar(' ');
 						t = elapsedSeconds - t;
 						elapsed(t);
                      	                     	                     	                    	
