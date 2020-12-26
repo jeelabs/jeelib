@@ -75,6 +75,16 @@
 // Added 'I' command to ignore packets from specific nodes 2020-05-11
 // Added a second timer for Semaphores on the queue 2020-12-03, improved elapsedSeconds
 
+/*
+• Bit 3 – WDRF: Watchdog System Reset Flag
+This bit is set if a Watchdog System Reset occurs. The bit is reset by a Power-on Reset, or by writing a logic zero to the flag.
+• Bit 2 – BORF: Brown-out Reset Flag
+This bit is set if a Brown-out Reset occurs. The bit is reset by a Power-on Reset, or by writing a logic zero to the flag.
+• Bit 1 – EXTRF: External Reset Flag
+This bit is set if an External Reset occurs. The bit is reset by a Power-on Reset, or by writing a logic zero to the flag.
+• Bit 0 – PORF: Power-on Reset Flag
+This bit is set if a Power-on Reset occurs. The bit is reset only by writing a logic zero to the flag.
+*/
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
 	#define TINY 1
 #endif
@@ -730,8 +740,8 @@ static void showStatus() {
     Serial.print(minTxRSSI);
     printOneChar('^');    
     Serial.print(maxTxRSSI);
-    showString(PSTR(",\nReset 0x"));
-    Serial.print(RESETFLAGS, HEX);
+    showString(PSTR(",\nReset 0b"));
+    Serial.print(RESETFLAGS, BIN);
     showString(PSTR(", Ack Aborts "));
     Serial.print(packetAborts);
     showString(PSTR(", Busy Count "));
@@ -1328,6 +1338,7 @@ static void handleInput (char c) {
             		break;	
 #if MESSAGING
             case 'm':
+            		Serial.println();
             		for (uint8_t i = 0; i < MAX_NODES; i++) {
             			if ( !(i%16) ) Serial.println();
             			Serial.print(highestAck[i]);
@@ -2938,6 +2949,7 @@ void loop () {
             			printOneChar('=');
             			Serial.print(RF69::currentRSSI());
             		}
+            		Serial.println();
 				} //if (r)
 			} // if ( ((RF12_WANTS_ACK
 			

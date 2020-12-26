@@ -11,7 +11,7 @@
 // other sensor values are being collected and averaged in a more regular cycle.
 ///////////////////////////////////////////////////////////////////////////////
 
-#define RF69_COMPAT      1	 // define this to use the RF69 driver i.s.o. RF12 
+#define RF69_COMPAT      0	 // define this to use the RF69 driver i.s.o. RF12 
 ///                          // The above flag must be set similarly in RF12.cpp
 ///                          // and RF69_avr.h
 #define BME280_PORT  1   // defined if BME280 is connected to I2C
@@ -47,8 +47,8 @@ void resetFlagsInit(void)
 #define crc_update      _crc16_update
 #define BMX280_ADDRESS	0x76
 
-#define SERIAL  0   // set to 1 to also report readings on the serial port
-#define DEBUG   0   // set to 1 to display each loop() run and PIR trigger
+#define SERIAL  1   // set to 1 to also report readings on the serial port
+#define DEBUG   1   // set to 1 to display each loop() run and PIR trigger
 
 // #define SHT11_PORT  1   // defined if SHT11 is connected to a port
 //	#define HYT131_PORT 1   // defined if HYT131 is connected to a port
@@ -323,6 +323,7 @@ static void doMeasure() {
 		f = bme.readHumidity();
 		payload.humi = f * 100;
 		bme.write8(0xE0, 0xB6);	// Soft reset this makes sure the IIR is off, etc.
+    	Sleepy::loseSomeTime(32);	// Allow power to settle
 	#elif BMP280_PORT
     	bmp.setSampling(Adafruit_BMP280::MODE_FORCED,
 			Adafruit_BMP280::SAMPLING_X1, // temperature
@@ -337,6 +338,7 @@ static void doMeasure() {
 		f = bmp.readTemperature();
 		payload.temp = f * 100;
 		bmp.reset();	// Soft reset this makes sure the IIR is off, etc.
+    	Sleepy::loseSomeTime(32);	// Allow power to settle
 	#endif
 
 	   
