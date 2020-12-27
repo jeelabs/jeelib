@@ -370,6 +370,7 @@ byte busyCount;
 byte missedTests;
 byte sendRetry = 0;
 static byte highestAck[MAX_NODES];
+static byte hiFloor[MAX_NODES];
 unsigned int packetAborts;
 unsigned int testTX;
 unsigned int testRX;
@@ -455,7 +456,9 @@ static unsigned int changedFEI;
 static uint32_t rxTimeStamp[MAX_NODES];
 static uint32_t rxAckTimeStamp[MAX_NODES];
 static unsigned int CRCbadCount = 0;
-static unsigned int pktCount[MAX_NODES];
+static unsigned int rxCount[MAX_NODES];
+static unsigned int txCount[MAX_NODES];
+static unsigned int abortCount[MAX_NODES];
 static unsigned int nonBroadcastCount = 0;
 static unsigned int postingsIn, postingsClr, postingsOut, postingsRej, postingsLost;
 #endif
@@ -1500,7 +1503,7 @@ static void handleInput (char c) {
 					if (value < MAX_NODES) {
 						oneShow(value);
 #if RF69_COMPAT
-						pktCount[value] = lastFEI[value] = minFEI[value] = maxFEI[value]
+						rxCount[value] = lastFEI[value] = minFEI[value] = maxFEI[value]
 						= lastRSSI[value] = minRSSI[value] = maxRSSI[value] = CumNodeFEI[value] = CumNodeTfr[value]
 						= CumNodeRtp[value] = lastLNA[value] = minLNA[value] = maxLNA[value] = 0;
 #endif
@@ -1754,9 +1757,10 @@ Serial.println(MCUSR, HEX);
     memset(maxRSSI,0,sizeof(maxRSSI));
     memset(minLNA,255,sizeof(minLNA));
     memset(maxLNA,0,sizeof(maxLNA));
+    memset(hiFloor,255,sizeof(maxLNA));
 #endif
 #if STATISTICS
-    memset(pktCount,0,sizeof(pktCount));
+    memset(rxCount,0,sizeof(rxCount));
 #endif
 
 #if JNuMOSFET     // Power up the wireless hardware
@@ -1845,7 +1849,7 @@ static void clrNodeStore() {
     }
 #if RF69_COMPAT
 	for (byte i = 0; i < MAX_NODES; i++) {
-		pktCount[i] = lastFEI[i] = minFEI[i] = maxFEI[i]
+		rxCount[i] = lastFEI[i] = minFEI[i] = maxFEI[i]
 		= lastRSSI[i] = minRSSI[i] = maxRSSI[i] = CumNodeFEI[i] = CumNodeTfr[i]
 		= CumNodeRtp[i] = lastLNA[i] = minLNA[i] = maxLNA[i] = 0;
 	}
@@ -2072,11 +2076,27 @@ static void oneShow(byte index) {
     	showString(PSTR(" a"));      
 		elapsed(elapsedSeconds - rxAckTimeStamp[index]);
 	}	
-	unsigned int c = pktCount[index];
+	unsigned int c = rxCount[index];
 	if (c) {   
 	    showString(PSTR(" rx:"));
 	    Serial.print(c);
 	}
+
+	if (txCount[index]) {   
+	    showString(PSTR(" tx:"));
+	    Serial.print( txCount[index] );
+	}
+	
+	if ( hiFloor[index] < 255) {
+	    showString(PSTR(" hf:"));
+	    Serial.print( hiFloor[index] );		
+	}
+	
+	if ( abortCount[index] ) {	
+	    showString(PSTR(" ab:"));
+	    Serial.print( abortCount[index] );
+	}
+	
 	if (highestAck[index]) {
 		showString(PSTR(" h-ack:"));		
 		Serial.print(highestAck[index]);	
@@ -2103,7 +2123,7 @@ static void oneShow(byte index) {
         showString(PSTR(" Mid:"));
 		Serial.print(minFEI[index] + (delta / 2));     	     	
         showString(PSTR(" Avg:"));
-        Serial.print((CumNodeFEI[index]) / (int32_t)pktCount[index]);
+        Serial.print((CumNodeFEI[index]) / (int32_t)rxCount[index]);
         printOneChar(';');
         Serial.print(minFEI[index]);
         printOneChar('-');
@@ -2128,7 +2148,7 @@ static void oneShow(byte index) {
         printOneChar('^');
         Serial.print(maxLNA[index]);
         showString(PSTR(") TFR "));
-        Serial.print(((CumNodeTfr[index]) / (uint32_t)pktCount[index]) + 1000);
+        Serial.print(((CumNodeTfr[index]) / (uint32_t)rxCount[index]) + 1000);
         printOneChar(' ');
         Serial.print(CumNodeRtp[index]);
   }
@@ -2279,8 +2299,8 @@ void loop () {
 			if (gotIndex) {
 				// NodeMap global is now valid
 				arrivalHeader = rf12_hdr;
-				if ( ((pktCount[NodeMap] + 1) % 101) == 0) oneShow(NodeMap);
-				pktCount[NodeMap]++;			
+				if ( ((rxCount[NodeMap] + 1) % 101) == 0) oneShow(NodeMap);
+				rxCount[NodeMap]++;			
 			}
 
 #if RF69_COMPAT && !TINY					 			
@@ -2838,28 +2858,30 @@ void loop () {
 
             	showString(TX);
                 byte r = rf12_canSend(config.clearAir);
-                if (r) {
+                if (hiFloor[NodeMap] > rfapi.sendRSSI) hiFloor[NodeMap] = rfapi.sendRSSI;	// Save lowest RSSI floor we are sending into
 #if RF69_COMPAT && !TINY
-                    Serial.print(rfapi.sendRSSI);	//delay(10);
-                    if (rfapi.sendRSSI < minTxRSSI) minTxRSSI = rfapi.sendRSSI;
-                    if (rfapi.sendRSSI > maxTxRSSI) maxTxRSSI = rfapi.sendRSSI;
+                Serial.print(rfapi.sendRSSI);	//delay(10);
+                if (rfapi.sendRSSI < minTxRSSI) minTxRSSI = rfapi.sendRSSI;
+                if (rfapi.sendRSSI > maxTxRSSI) maxTxRSSI = rfapi.sendRSSI;
 #endif            
-                    showString(PSTR(" -> ack "));
-                    if (testPacket) {  // Return test packet number being ACK'ed
-                        stack[(sizeof stack - 2)] = 0x80;
-                        stack[(sizeof stack - 1)] = rf12_data[0];
-                        ackLen = 2;
-                    }
-                    printOneChar('i');
-                    showByte(rf12_hdr & RF12_HDR_MASK);                    
+                showString(PSTR(" -> ack "));
+                if (testPacket) {  // Return test packet number being ACK'ed
+                    stack[(sizeof stack - 2)] = 0x80;
+                    stack[(sizeof stack - 1)] = rf12_data[0];
+                    ackLen = 2;
+                }
+                printOneChar('i');
+                showByte(rf12_hdr & RF12_HDR_MASK);                    
 
 #if RF69_COMPAT && !TINY
-                    if (config.group == 0) {
-                        showString(PSTR(" g"));
-                        showByte(rf12_grp);
-                        RF69::radioIndex(SYNCGROUP | 0x80, rf12_grp); // Reply to incoming group number
-                    }
+               if (config.group == 0) {
+                    showString(PSTR(" g"));
+                    showByte(rf12_grp);                        
+                    RF69::radioIndex(SYNCGROUP | 0x80, rf12_grp); // Reply to incoming group number
+                }
 #endif
+                if (r) {
+					txCount[NodeMap]++;
  #if MESSAGING
 	        		// Post still pending?
 	        		if (dropNow)
@@ -2930,9 +2952,9 @@ void loop () {
 					Serial.println();                    
             	} else { // if (r)
             		packetAborts++;   
-            		Serial.print(rfapi.sendRSSI);
+					abortCount[NodeMap]++;
                 	showString(ABORTED);		// Airwaves busy, drop ACK and await a retransmission.
-                	showByte(packetAborts);
+                	showByte( abortCount[NodeMap] );
                 	printOneChar(' ');
 #if RF69_COMPAT && !TINY
                 	Serial.print(minTxRSSI);
@@ -2940,15 +2962,18 @@ void loop () {
                 	Serial.print(maxTxRSSI);
                 	printOneChar(' ');
 #endif
+/*
 					Serial.print(rfapi.rxfill);
                 	printOneChar(' ');
                 	Serial.print(rfapi.rxdone);
+
                 	for (byte c = 0; c < 10; c++ ) {
                 		printOneChar(' ');
 						Serial.print(c);
             			printOneChar('=');
             			Serial.print(RF69::currentRSSI());
             		}
+*/
             		Serial.println();
 				} //if (r)
 			} // if ( ((RF12_WANTS_ACK
