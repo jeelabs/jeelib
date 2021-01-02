@@ -1341,7 +1341,7 @@ static void handleInput (char c) {
             		break;	
 #if MESSAGING
             case 'm':
-            		Serial.println();
+//            		Serial.println();
             		for (uint8_t i = 0; i < MAX_NODES; i++) {
             			if ( !(i%16) ) Serial.println();
             			Serial.print(highestAck[i]);
