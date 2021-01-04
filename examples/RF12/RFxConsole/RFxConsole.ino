@@ -74,6 +74,7 @@
 // Extend basic ACK to also return the RSSI value of the packet being ACKed 2020-04-19
 // Added 'I' command to ignore packets from specific nodes 2020-05-11
 // Added a second timer for Semaphores on the queue 2020-12-03, improved elapsedSeconds
+// Collect received tail count - when the transmitter is late turning off its RF
 
 /*
 • Bit 3 – WDRF: Watchdog System Reset Flag
@@ -374,6 +375,8 @@ static byte hiFloor[MAX_NODES];
 unsigned int packetAborts;
 unsigned int testTX;
 unsigned int testRX;
+unsigned int noiseTailLo;
+unsigned int noiseTailHi;
 
 ISR(WDT_vect) { Sleepy::watchdogEvent(); }
 
@@ -430,6 +433,8 @@ static uint32_t arrivalTime;
 static int32_t CumNodeFEI[MAX_NODES];
 static uint32_t CumNodeTfr[MAX_NODES];
 static uint16_t CumNodeRtp[MAX_NODES];
+static uint16_t rxTailLo[MAX_NODES];
+static uint16_t rxTailHi[MAX_NODES];
 static signed int minFEI[MAX_NODES];
 static signed int lastFEI[MAX_NODES];
 static signed int maxFEI[MAX_NODES];
@@ -1474,6 +1479,11 @@ static void handleInput (char c) {
 					 Serial.println(PCMSK0, BIN);
 					 showString(PSTR("EIMSK:"));
 					 Serial.println(EIMSK, BIN);
+					 showString(PSTR("Noise Tail:"));
+					 Serial.print(noiseTailLo);
+                     printOneChar('^');					 
+					 Serial.println(noiseTailHi);
+ 					 
                      break;
 
             case 'r': // replay from specified seqnum/time marker
@@ -1757,7 +1767,9 @@ Serial.println(MCUSR, HEX);
     memset(maxRSSI,0,sizeof(maxRSSI));
     memset(minLNA,255,sizeof(minLNA));
     memset(maxLNA,0,sizeof(maxLNA));
-    memset(hiFloor,255,sizeof(maxLNA));
+    memset(hiFloor,255,sizeof(hiFloor));
+    memset(rxTailLo,255,sizeof(rxTailLo));
+    noiseTailLo = 65535;
 #endif
 #if STATISTICS
     memset(rxCount,0,sizeof(rxCount));
@@ -2101,6 +2113,13 @@ static void oneShow(byte index) {
 		showString(PSTR(" h-ack:"));		
 		Serial.print(highestAck[index]);	
 	}
+	if (c ) {
+		showString(PSTR(" tail:"));		
+		Serial.print(rxTailLo[index]);	
+    	printOneChar('^');
+		Serial.print(rxTailHi[index]);	
+	}
+	
 #endif
 
 #if MESSAGING 
@@ -2300,7 +2319,9 @@ void loop () {
 				// NodeMap global is now valid
 				arrivalHeader = rf12_hdr;
 				if ( ((rxCount[NodeMap] + 1) % 101) == 0) oneShow(NodeMap);
-				rxCount[NodeMap]++;			
+				rxCount[NodeMap]++;	
+				if ( rf12_rxTail	> rxTailHi[NodeMap] ) rxTailHi[NodeMap] = rf12_rxTail;
+				if ( rf12_rxTail	< rxTailLo[NodeMap] ) rxTailLo[NodeMap] = rf12_rxTail;
 			}
 
 #if RF69_COMPAT && !TINY					 			
@@ -2571,7 +2592,10 @@ void loop () {
         else {
             Serial.print(observedRX.rssi2 >> 1);
             if (observedRX.rssi2 & 0x01) showString(PSTR(".5"));
-            showString(PSTR("dB"));
+            showString(PSTR("dB T"));
+
+	        Serial.print(rf12_rxTail);
+
         }
 
 #endif        
@@ -2843,7 +2867,7 @@ void loop () {
 //						showString(PSTR(" t"));
                     	printOneChar(' ');
 						elapsed(t);
-                     	Serial.println();                    	                     	                    	
+      //               	Serial.println();                    	                     	                    	
 	                   	if ( !(semaphoreDrop((rf12_hdr & RF12_HDR_MASK), rf12_grp) ) )
 	            			showString(PSTR(" NOT FOUND "));
 	            		rf12_data[0] = 85;				// Now change default to a standard Ack
@@ -3008,6 +3032,8 @@ void loop () {
                 Serial.print((RF69::lna));
                 showString(PSTR(" rssi="));
                 Serial.print(RF69::rssi);
+                showString(PSTR(" tail="));
+                Serial.print(rfapi.noiseTail);
                 printOneChar(' ');
                 unsigned long m = millis();
                 Serial.print(m - rfapi.interpacketTS);
@@ -3015,6 +3041,10 @@ void loop () {
 				Serial.println(m);
             }
         }
+        
+        if (rfapi.noiseTail > noiseTailHi) noiseTailHi = rfapi.noiseTail;
+        if (rfapi.noiseTail < noiseTailLo) noiseTailLo = rfapi.noiseTail;
+        
 
         if ((config.verbosity & 8) && (minuteTick)) {
             minuteTick = false;            	

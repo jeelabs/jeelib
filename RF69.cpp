@@ -454,6 +454,7 @@ static volatile uint32_t previousMillis;
 static volatile uint32_t noiseMillis;
 static volatile uint32_t SYNCinterruptMillis;
 static volatile uint16_t RssiToSync;
+static volatile uint16_t rxTail;
 static volatile uint8_t startRSSI;
 static volatile uint8_t afcfei;
 static long missedCarry = 512;
@@ -796,6 +797,7 @@ uint16_t RF69::recvDone_compat (uint8_t* buf) {
             rf12_afc = afc;
             rf12_fei = fei;
             rf12_interpacketTS = rfapi.interpacketTS;
+            rf12_rxTail = rxTail;
             delayTXRECV = 0;
             rf12_sri = currentRSSI();
             
@@ -1043,6 +1045,15 @@ second rollover and then will be 1.024 mS out.
                         minimum i.e. 0.02uS per bit x 6bytes is 
                         about 1mS minimum."
 */
+
+
+// Provide some damping, delaying receiver restart until RSSI is higher than threshold
+						for (rfapi.noiseTail = 0; rfapi.noiseTail < 65535; rfapi.noiseTail++) {
+							if ( readReg(REG_RSSIVALUE) >  rfapi.configThreshold) break;
+						}	// Wait for RSSI level to go above threshold
+
+
+
 #if SX1276
 						writeReg(REG_AFCFEI, AFC_CLEAR);                                                                
 					    setMode(MODE_STANDBY);
@@ -1122,6 +1133,23 @@ second rollover and then will be 1.024 mS out.
                     }
                 } //  if 
             } // busy loop
+
+
+
+
+						for (rxTail = 0; rxTail < 65535; rxTail++) {
+							if ( readReg(REG_RSSIVALUE) >  rfapi.configThreshold) break;
+						}	// Wait for RSSI level to go above threshold
+
+
+
+
+
+
+
+
+
+
             writeReg(REG_AFCFEI, AFC_CLEAR);
 		    setMode(MODE_STANDBY);
 
@@ -1133,7 +1161,6 @@ second rollover and then will be 1.024 mS out.
             rxP++;           
             rxdone = true;      // force TXRECV in RF69::recvDone_compat       
             rxstate = TXRECV;   // Restore state machine
-
         } else
         if (rxstate == RXFIFO) {	// Interrupted while filling FIFO ?
         	rfapi.intRXFIFO++;

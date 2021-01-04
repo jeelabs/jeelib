@@ -27,6 +27,7 @@ struct rfapi
     volatile uint16_t rtpMin;    
 	volatile uint16_t rtpMax;
 	volatile uint16_t intRXFIFO;
+	volatile uint16_t noiseTail;
 	volatile uint16_t debug;
 	uint8_t modeError;    
 	uint8_t	configThreshold;

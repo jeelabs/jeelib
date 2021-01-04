@@ -191,6 +191,7 @@ volatile uint8_t rf12_sri;          // Only available with RFM69 hardware
 volatile unsigned long rf12_interpacketTS;// Only available with RFM69 hardware
 volatile uint16_t rf12_rtp;         // Only available with RFM69 hardware
 volatile uint16_t rf12_rst;         // Only available with RFM69 hardware
+volatile uint16_t rf12_rxTail;
 volatile uint32_t rf12_tfr;         // Only available with RFM69 hardware
 
 volatile uint8_t rf12_skip;         // header bytes to skip
