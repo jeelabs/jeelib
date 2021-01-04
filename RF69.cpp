@@ -589,7 +589,7 @@ static uint8_t initRadio (ROM_UINT8* init) {
         writeReg(REG_RSSITHRESHOLD, rfapi.configThreshold);
 
 		previousMillis = millis();
-		rfapi.rtpMin = 0; /*65535;*/ rfapi.rtpMax = 0;
+		rfapi.rtpMin = 0; /*65535;*/ rfapi.rtpMax = 0; rfapi.noiseTailLo = 65535;
 
         InitIntPin();
         
@@ -1137,13 +1137,19 @@ second rollover and then will be 1.024 mS out.
 
 
 
-						for (rxTail = 0; rxTail < 65535; rxTail++) {
-							if ( readReg(REG_RSSIVALUE) >  rfapi.configThreshold) break;
-						}	// Wait for RSSI level to go above threshold
+			for (rxTail = 0; rxTail < 65535; rxTail++) {
+				if ( readReg(REG_RSSIVALUE) >  rfapi.configThreshold) break;
+			}	// Wait for RSSI level to go above threshold
 
-
-
-
+        	if (rxTail >= rfapi.noiseTailHi) {
+        		rfapi.noiseTailHi = rxTail;
+        		rfapi.noiseHiRSSI = rssi;
+        	}
+        	
+       		if (rxTail <= rfapi.noiseTailLo) {
+       			rfapi.noiseTailLo = rxTail;
+       			rfapi.noiseLoRSSI = rssi;
+       		}
 
 
 
@@ -1169,11 +1175,11 @@ second rollover and then will be 1.024 mS out.
 	    } else 
 	    if (readReg(REG_IRQFLAGS2) & IRQ2_PACKETSENT) {
     		writeReg(REG_PALEVEL, 0);	// Drop TX power to clear airwaves quickly	
+			rfapi.interruptCountTX++;
 #if SX1276
 			setMode(MODE_STANDBY);
 #else
 			setMode(MODE_SLEEP);
-			rfapi.interruptCountTX++;
           	writeReg(REG_OCP, OCP_NORMAL);			// Overcurrent protection on
           	writeReg(REG_TESTPA1, TESTPA1_NORMAL);	// Turn off high power 
           	writeReg(REG_TESTPA2, TESTPA2_NORMAL);	// transmit

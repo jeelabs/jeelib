@@ -375,8 +375,6 @@ static byte hiFloor[MAX_NODES];
 unsigned int packetAborts;
 unsigned int testTX;
 unsigned int testRX;
-unsigned int noiseTailLo;
-unsigned int noiseTailHi;
 
 ISR(WDT_vect) { Sleepy::watchdogEvent(); }
 
@@ -1480,10 +1478,13 @@ static void handleInput (char c) {
 					 showString(PSTR("EIMSK:"));
 					 Serial.println(EIMSK, BIN);
 					 showString(PSTR("Noise Tail:"));
-					 Serial.print(noiseTailLo);
+					 Serial.print(rfapi.noiseTailLo);
+                     printOneChar('@');
+                     Serial.print(rfapi.noiseLoRSSI);
                      printOneChar('^');					 
-					 Serial.println(noiseTailHi);
- 					 
+					 Serial.print(rfapi.noiseTailHi);
+                     printOneChar('@');
+                     Serial.println(rfapi.noiseHiRSSI); 					 
                      break;
 
             case 'r': // replay from specified seqnum/time marker
@@ -1768,8 +1769,6 @@ Serial.println(MCUSR, HEX);
     memset(minLNA,255,sizeof(minLNA));
     memset(maxLNA,0,sizeof(maxLNA));
     memset(hiFloor,255,sizeof(hiFloor));
-    memset(rxTailLo,255,sizeof(rxTailLo));
-    noiseTailLo = 65535;
 #endif
 #if STATISTICS
     memset(rxCount,0,sizeof(rxCount));
@@ -2867,7 +2866,7 @@ void loop () {
 //						showString(PSTR(" t"));
                     	printOneChar(' ');
 						elapsed(t);
-      //               	Serial.println();                    	                     	                    	
+						Serial.println();                    	                     	                    	
 	                   	if ( !(semaphoreDrop((rf12_hdr & RF12_HDR_MASK), rf12_grp) ) )
 	            			showString(PSTR(" NOT FOUND "));
 	            		rf12_data[0] = 85;				// Now change default to a standard Ack
@@ -3041,10 +3040,10 @@ void loop () {
 				Serial.println(m);
             }
         }
-        
+/*        
         if (rfapi.noiseTail > noiseTailHi) noiseTailHi = rfapi.noiseTail;
         if (rfapi.noiseTail < noiseTailLo) noiseTailLo = rfapi.noiseTail;
-        
+*/        
 
         if ((config.verbosity & 8) && (minuteTick)) {
             minuteTick = false;            	
