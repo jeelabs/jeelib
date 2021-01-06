@@ -367,7 +367,8 @@ static void rf12_interrupt () {
     // a transfer of 2x 16 bits @ 2 MHz over SPI takes 2x 8 us inside this ISR
     // correction: now takes 2 + 8 µs, since sending can be done at 8 MHz
     status = rf12_xfer(0x0000);
-    
+
+// Receive Coed
     if (rxstate == TXRECV) {
        	rfapi.interruptCountRX++;
         uint8_t in = rf12_xferSlow(RF_RX_FIFO_READ);
@@ -384,6 +385,8 @@ static void rf12_interrupt () {
         // typically non Jee packets to be received sensibly.
         if (rxfill >= rf12_len + 5 + RF12_COMPAT || rxfill >= rf12_max_len)
             rf12_xfer(RF_IDLE_MODE);
+
+// Transmit Code            
     } else {
     	rfapi.interruptCountTX++;
         uint8_t out;

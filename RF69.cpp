@@ -1138,8 +1138,10 @@ second rollover and then will be 1.024 mS out.
 
 
 			for (rxTail = 0; rxTail < 65535; rxTail++) {
+				for (volatile uint16_t tick = 0; tick < 1023; tick++) NOP;	// Delay around packet tail
 				if ( readReg(REG_RSSIVALUE) >  rfapi.configThreshold) break;
 			}	// Wait for RSSI level to go above threshold
+			
 
         	if (rxTail >= rfapi.noiseTailHi) {
         		rfapi.noiseTailHi = rxTail;

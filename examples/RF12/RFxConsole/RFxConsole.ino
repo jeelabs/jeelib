@@ -427,12 +427,12 @@ static byte semaphoreStack[ (ackQueue * ackEntry) + 1];
 #endif
 static byte arrivalHeader;
 static uint32_t arrivalTime;
+static uint16_t rxTailLo[MAX_NODES];
+static uint16_t rxTailHi[MAX_NODES];
 #if RF69_COMPAT && STATISTICS
 static int32_t CumNodeFEI[MAX_NODES];
 static uint32_t CumNodeTfr[MAX_NODES];
 static uint16_t CumNodeRtp[MAX_NODES];
-static uint16_t rxTailLo[MAX_NODES];
-static uint16_t rxTailHi[MAX_NODES];
 static signed int minFEI[MAX_NODES];
 static signed int lastFEI[MAX_NODES];
 static signed int maxFEI[MAX_NODES];
