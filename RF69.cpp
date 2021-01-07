@@ -150,7 +150,7 @@ extern rfAPI rfapi;
 static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x25, 0x00, // Set DIOMAPPING1 to POR value
   0x28, IRQ2_FIFOOVERRUN, // Clear the FIFO
-  0x2E, 0x98, // SyncConfig = sync on, sync size = 4
+  0x2E, 0x98, // SyncConfig = sync on, sync size = 4 (Dynamically changed in code)
   0x2F, 0xAA, // SyncValue1 = 0xAA
   0x30, 0xAA, // SyncValue2 = 0xAA
   0x31, 0x2D, // SyncValue3 = 0x2D
@@ -348,7 +348,7 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 #define FEI_DONE			0x40
 
 static ROM_UINT8 configRegs_compat [] ROM_DATA = {
-  0x27, 0x13, // SyncConfig = sync on, sync size = 4
+  0x27, 0x13, // SyncConfig = sync on, sync size = 4 (Dynamically changed in code)
   0x28, 0xAA, // SyncValue1 = 0xAA
   0x29, 0xAA, // SyncValue2 = 0xAA
   0x2A, 0x2D, // SyncValue3 = 0x2D
@@ -1048,8 +1048,9 @@ second rollover and then will be 1.024 mS out.
 
 
 // Provide some damping, delaying receiver restart until RSSI is higher than threshold
-						for (rfapi.noiseTail = 0; rfapi.noiseTail < 65535; rfapi.noiseTail++) {
+						for (rfapi.noiseTail = 0; rfapi.noiseTail < 16; ++rfapi.noiseTail) {
 							if ( readReg(REG_RSSIVALUE) >  rfapi.configThreshold) break;
+							for (volatile uint16_t tick = 0; tick < 1023; tick++) NOP;	// Delay around packet tail
 						}	// Wait for RSSI level to go above threshold
 
 
@@ -1137,9 +1138,9 @@ second rollover and then will be 1.024 mS out.
 
 
 
-			for (rxTail = 0; rxTail < 65535; rxTail++) {
-				for (volatile uint16_t tick = 0; tick < 1023; tick++) NOP;	// Delay around packet tail
+			for (rxTail = 0; rxTail < 16; ++rxTail) {
 				if ( readReg(REG_RSSIVALUE) >  rfapi.configThreshold) break;
+				for (volatile uint16_t tick = 0; tick < 1023; tick++) NOP;	// Delay around packet tail
 			}	// Wait for RSSI level to go above threshold
 			
 
