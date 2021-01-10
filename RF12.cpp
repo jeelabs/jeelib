@@ -17,7 +17,7 @@ extern rfAPI rfapi;
 
 ///////////////////////////////////////////////////////////////////////////////
 
-#define RF69_COMPAT 1	// Set this true to use the RF69 driver
+#define RF69_COMPAT 0	// Set this true to use the RF69 driver
 #define PINCHG_IRQ  0	// Set this true to use pin-change interrupts
 						// The above flags must be set similarly in RF69_avr.h
 
@@ -152,7 +152,7 @@ extern rfAPI rfapi;
 enum {
     TXCRC1, TXCRC2, TXTAIL, TXDONE, TXIDLE,
     TXRECV,
-    TXPRE1, TXPRE2, TXPRE3, TXSYN1, TXSYN2,
+    TXPRE1, TXPRE2, /*TXPRE3,*/ TXSYN1, TXSYN2,
 };
 
 static uint8_t cs_pin = SS_BIT;     // chip select pin
@@ -384,7 +384,7 @@ static void rf12_interrupt () {
         // rf12_max_len has replaced RF_MAX below to permit shorter
         // typically non Jee packets to be received sensibly.
         if (rxfill >= rf12_len + 5 + RF12_COMPAT || rxfill >= rf12_max_len)
-            rf12_xfer(RF_IDLE_MODE);
+            rf12_xfer(RF_SLEEP_MODE);
 
 // Transmit Code            
     } else {
@@ -411,8 +411,7 @@ static void rf12_interrupt () {
                 case TXCRC1: out = rf12_crc; break;
                 case TXCRC2: out = rf12_crc >> 8; break;
 #endif
-                case TXDONE: rf12_xfer(RF_IDLE_MODE); // fall through
-//                             rf12_skip = 0; // Cancel frame skip if applicable
+                case TXDONE: rf12_xfer(RF_SLEEP_MODE); out = 0; break;
                 default:     out = 0xAA;
             }
 #if RF12_COMPAT
