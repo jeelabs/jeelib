@@ -411,7 +411,7 @@ static void rf12_interrupt () {
                 case TXCRC1: out = rf12_crc; break;
                 case TXCRC2: out = rf12_crc >> 8; break;
 #endif
-                case TXDONE: rf12_xfer(RF_SLEEP_MODE); out = 0; break;
+                case TXDONE: rf12_xfer(RF_SLEEP_MODE); break;
                 default:     out = 0xAA;
             }
 #if RF12_COMPAT
