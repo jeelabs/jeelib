@@ -1382,7 +1382,7 @@ static void handleInput (char c) {
 						maxLNA[value] = 0;    
 #endif
 #if STATISTICS
-						rxCount[value] = 0;
+						rxCount[value] = txCount[value] = 0;
 						rxAckTimeStamp[value] = rxTimeStamp[value] = 0;
 #endif
                              
