@@ -1,9 +1,9 @@
 /// @dir RFxConsole
 ///////////////////////////////////////////////////////////////////////////////
-#define RF69_COMPAT     0	// define this to use the RF69 driver i.s.o. RF12 
+#define RF69_COMPAT     1	// define this to use the RF69 driver i.s.o. RF12 
 ///							// The above flag must be set similarly in RF12.cpp
 ///							// and RF69_avr.h
-#define SX1276			0	// Also see setting in RF69.cpp & RF69_avr.h
+#define SX1276			1	// Also see setting in RF69.cpp & RF69_avr.h
 #define BLOCK  			0	// Alternate LED pin?
 #define INVERT_LED      0	// 0 is Jeenode usual and 1 inverse
 
@@ -371,7 +371,6 @@ byte busyCount;
 byte missedTests;
 byte sendRetry = 0;
 static byte highestAck[MAX_NODES];
-static byte hiFloor[MAX_NODES];
 unsigned int packetAborts;
 unsigned int testTX;
 unsigned int testRX;
@@ -436,6 +435,7 @@ static uint16_t CumNodeRtp[MAX_NODES];
 static signed int minFEI[MAX_NODES];
 static signed int lastFEI[MAX_NODES];
 static signed int maxFEI[MAX_NODES];
+static byte hiFloor[MAX_NODES];
 static byte minRSSI[MAX_NODES];
 static byte lastRSSI[MAX_NODES];
 static byte maxRSSI[MAX_NODES];
@@ -1323,7 +1323,9 @@ static void handleInput (char c) {
                     		showString(SEMAPHOREFULL);
                     		++postingsLost;
 				 		}
-                     } else nodeShow(value);
+                     } else 
+                     	if (!(nullValue)) oneShow(value);
+                     else nodeShow(0);
 #endif
                      break;
             
@@ -1369,10 +1371,21 @@ static void handleInput (char c) {
 #endif
                      if ((top == 0) && (config.group == 0)) {
                          showByte(stickyGroup);
-                         stickyGroup = (int)value;
+                         stickyGroup = (byte)value;
                          showString(UNKNOWN);
                          showByte(stickyGroup);
                      } else if (top == 1) {
+						oneShow(value);
+                              
+#if RF69_COMPAT
+						minRSSI[value] = minLNA[value] = hiFloor[value] = 255;
+						maxLNA[value] = 0;    
+#endif
+#if STATISTICS
+						rxCount[value] = 0;
+						rxAckTimeStamp[value] = rxTimeStamp[value] = 0;
+#endif
+                             
                          for (byte i = 0; i < 4; ++i) {
                              // Display eeprom byte                  
                              byte b = eeprom_read_byte((RF12_EEPROM_NODEMAP) + (value * 4) + i);
@@ -1477,6 +1490,7 @@ static void handleInput (char c) {
 					 Serial.println(PCMSK0, BIN);
 					 showString(PSTR("EIMSK:"));
 					 Serial.println(EIMSK, BIN);
+#if RF69_COMPAT
 					 showString(PSTR("Noise Tail:"));
 					 Serial.print(rfapi.noiseTailLo);
                      printOneChar('@');
@@ -1484,7 +1498,8 @@ static void handleInput (char c) {
                      printOneChar('^');					 
 					 Serial.print(rfapi.noiseTailHi);
                      printOneChar('@');
-                     Serial.println(rfapi.noiseHiRSSI); 					 
+                     Serial.println(rfapi.noiseHiRSSI); 
+#endif					 
                      break;
 
             case 'r': // replay from specified seqnum/time marker
@@ -2097,12 +2112,12 @@ static void oneShow(byte index) {
 	    showString(PSTR(" tx:"));
 	    Serial.print( txCount[index] );
 	}
-	
+	#if RF69_COMPAT	
 	if ( hiFloor[index] < 255) {
 	    showString(PSTR(" hf:"));
 	    Serial.print( hiFloor[index] );		
 	}
-	
+	#endif	
 	if ( abortCount[index] ) {	
 	    showString(PSTR(" ab:"));
 	    Serial.print( abortCount[index] );
@@ -2112,13 +2127,14 @@ static void oneShow(byte index) {
 		showString(PSTR(" h-ack:"));		
 		Serial.print(highestAck[index]);	
 	}
+	#if RF69_COMPAT	
 	if (c ) {
 		showString(PSTR(" tail:"));		
 		Serial.print(rxTailLo[index]);	
     	printOneChar('^');
 		Serial.print(rxTailHi[index]);	
 	}
-	
+	#endif	
 #endif
 
 #if MESSAGING 
@@ -2881,8 +2897,8 @@ void loop () {
 
             	showString(TX);
                 byte r = rf12_canSend(config.clearAir);
-                if (hiFloor[NodeMap] > rfapi.sendRSSI) hiFloor[NodeMap] = rfapi.sendRSSI;	// Save lowest RSSI floor we are sending into
 #if RF69_COMPAT && !TINY
+                if (hiFloor[NodeMap] > rfapi.sendRSSI) hiFloor[NodeMap] = rfapi.sendRSSI;	// Save lowest RSSI floor we are sending into
                 Serial.print(rfapi.sendRSSI);	//delay(10);
                 if (rfapi.sendRSSI < minTxRSSI) minTxRSSI = rfapi.sendRSSI;
                 if (rfapi.sendRSSI > maxTxRSSI) maxTxRSSI = rfapi.sendRSSI;
