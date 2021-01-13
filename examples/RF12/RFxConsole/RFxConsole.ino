@@ -435,6 +435,7 @@ static uint16_t CumNodeRtp[MAX_NODES];
 static signed int minFEI[MAX_NODES];
 static signed int lastFEI[MAX_NODES];
 static signed int maxFEI[MAX_NODES];
+static byte loFloor[MAX_NODES];
 static byte hiFloor[MAX_NODES];
 static byte minRSSI[MAX_NODES];
 static byte lastRSSI[MAX_NODES];
@@ -1379,7 +1380,7 @@ static void handleInput (char c) {
                               
 #if RF69_COMPAT
 						minRSSI[value] = minLNA[value] = hiFloor[value] = 255;
-						maxLNA[value] = 0;    
+						maxLNA[value] = loFloor[value] = 0;    
 #endif
 #if STATISTICS
 						rxCount[value] = txCount[value] = 0;
@@ -1392,7 +1393,7 @@ static void handleInput (char c) {
                              showByte(b);
                              if (!(config.output & 0x1)) printOneChar(' ');
 
-                             if ((stack[0] >= 128) & (i == 0)) {
+                             if (stack[0] >= 128) {
                                  // Set the removed flag 0x00
                                  eeprom_write_byte((RF12_EEPROM_NODEMAP) + (value * 4), 0);
                                  delay(4);
@@ -1783,6 +1784,7 @@ Serial.println(MCUSR, HEX);
     memset(maxRSSI,0,sizeof(maxRSSI));
     memset(minLNA,255,sizeof(minLNA));
     memset(maxLNA,0,sizeof(maxLNA));
+    memset(loFloor,0,sizeof(maxLNA));
     memset(hiFloor,255,sizeof(hiFloor));
 #endif
 #if STATISTICS
@@ -2114,7 +2116,9 @@ static void oneShow(byte index) {
 	}
 	#if RF69_COMPAT	
 	if ( hiFloor[index] < 255) {
-	    showString(PSTR(" hf:"));
+	    showString(PSTR(" tf:"));
+	    Serial.print( loFloor[index] );		
+    	printOneChar('^');
 	    Serial.print( hiFloor[index] );		
 	}
 	#endif	
@@ -2899,6 +2903,7 @@ void loop () {
                 byte r = rf12_canSend(config.clearAir);
 #if RF69_COMPAT && !TINY
                 if (hiFloor[NodeMap] > rfapi.sendRSSI) hiFloor[NodeMap] = rfapi.sendRSSI;	// Save lowest RSSI floor we are sending into
+                if (loFloor[NodeMap] < rfapi.sendRSSI) loFloor[NodeMap] = rfapi.sendRSSI;	// Save highest RSSI floor we are sending into
                 Serial.print(rfapi.sendRSSI);	//delay(10);
                 if (rfapi.sendRSSI < minTxRSSI) minTxRSSI = rfapi.sendRSSI;
                 if (rfapi.sendRSSI > maxTxRSSI) maxTxRSSI = rfapi.sendRSSI;

@@ -1050,7 +1050,7 @@ second rollover and then will be 1.024 mS out.
 // Provide some damping, delaying receiver restart until RSSI is higher than threshold
 						for (rfapi.noiseTail = 0; rfapi.noiseTail < 16; ++rfapi.noiseTail) {
 							if ( readReg(REG_RSSIVALUE) >  rfapi.configThreshold) break;
-							for (volatile uint16_t tick = 0; tick < 1023; tick++) NOP;	// Delay around packet tail
+							for (volatile uint16_t tick = 0; tick < 511; tick++) NOP;	// Delay around packet tail
 						}	// Wait for RSSI level to go above threshold
 
 
@@ -1140,7 +1140,7 @@ second rollover and then will be 1.024 mS out.
 
 			for (rxTail = 0; rxTail < 16; ++rxTail) {
 				if ( readReg(REG_RSSIVALUE) >  rfapi.configThreshold) break;
-				for (volatile uint16_t tick = 0; tick < 1023; tick++) NOP;	// Delay around packet tail
+				for (volatile uint16_t tick = 0; tick < 511; tick++) NOP;	// Delay around packet tail
 			}	// Wait for RSSI level to go above threshold
 			
 
