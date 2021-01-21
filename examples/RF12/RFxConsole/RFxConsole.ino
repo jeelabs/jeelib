@@ -1379,8 +1379,8 @@ static void handleInput (char c) {
 						oneShow(value);
                               
 #if RF69_COMPAT
-						minRSSI[value] = minLNA[value] = hiFloor[value] = 255;
-						maxLNA[value] = loFloor[value] = 0;    
+						minRSSI[value] = minLNA[value] = hiFloor[value] = rxTailLo[value] = 255;
+						maxLNA[value] = loFloor[value] = rxTailHi[value] = highestAck[value] = 0;    
 #endif
 #if STATISTICS
 						rxCount[value] = txCount[value] = 0;

@@ -116,11 +116,11 @@ fprintf (stderr, "Start Up\n") ;
 	      		|| ((rx_buf[14] == 'E') && (rx_buf[15] == 'e'))	// Eeprom
 	      		|| ((rx_buf[14] == 'T') && (rx_buf[15] == 'X'))	// TX
 	      		|| ((rx_buf[14] == 'R') && (rx_buf[15] == 'e'))	// ReInit
+	      		|| ((rx_buf[14] == '#') && (rx_buf[15] == ' '))	// # 
 	      														)
 			{
                 int ret = system(rx_buf);
-                if (ret)
-                  printf("System(1) Returned %i\n", ret);
+                if (ret) printf("System(1) Returned %i\n", ret);
                 fflush (stdout);        
             } else {
                 /*if ((rx_other++) >= 39){
@@ -140,7 +140,7 @@ fprintf (stderr, "Start Up\n") ;
                 time ( &rawtime );
                 timeinfo = localtime ( &rawtime );
 
-                printf("%02d/%02d/%04d %02d:%02d:%02d %s\n", timeinfo->tm_mday,       \
+                printf("%02d/%02d/%04d %02d:%02d:%02d %s %s\n", timeinfo->tm_mday,       \
                   timeinfo->tm_mon + 1, timeinfo->tm_year + 1900,         \
                   timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec,  \
                   rx_buf + 14);
@@ -185,8 +185,7 @@ fprintf (stderr, "Start Up\n") ;
                 	printf("%02d/%02d/%04d %02d:%02d:%02d FIFO bytes=%i buffer=%s\n", \
 						timeinfo->tm_mday,timeinfo->tm_mon + 1, timeinfo->tm_year + 1900,\
                   		timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec,  \
-                  		fifo_length, fifo_buffer);
-                  		
+                  		fifo_length, fifo_buffer);                  		
                 		fifo_buffer[0] = '\0';  		// Mark buffer empty
                 } else if (fifo_length > 0) printf("FIFO Read error\n");
                 fflush (stdout);
