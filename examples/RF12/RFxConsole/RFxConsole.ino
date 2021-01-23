@@ -386,8 +386,8 @@ volatile unsigned int restartRate;
 volatile unsigned int maxRestartRate;
 volatile byte maxRestartRSSI;
 volatile byte ping = false;
-volatile byte minuteTick = false;
-volatile byte statsInterval = 60;
+volatile byte statsTick = false;
+volatile byte statsInterval = 255;
 
 ISR(TIMER1_COMPA_vect){
 	secondsTick++;
@@ -395,7 +395,7 @@ ISR(TIMER1_COMPA_vect){
 #if RF69_COMPAT
     // Update restart rate
     if ((elapsedSeconds % (uint32_t)statsInterval) == 0UL) {
-    	minuteTick = true;
+    	statsTick = true;
     	restartRate = (currentRestarts - previousRestarts);
     	previousRestarts = currentRestarts;
               	
@@ -747,6 +747,15 @@ static void showStatus() {
     Serial.print(minTxRSSI);
     printOneChar('^');    
     Serial.print(maxTxRSSI);
+	showString(PSTR(", Noise Tail:"));
+	Serial.print(rfapi.noiseTailLo);
+    printOneChar('@');
+    Serial.print(rfapi.noiseLoRSSI);
+    printOneChar('^');					 
+	Serial.print(rfapi.noiseTailHi);
+    printOneChar('@');
+    Serial.print(rfapi.noiseHiRSSI); 
+
     showString(PSTR(",\nReset 0b"));
     Serial.print(RESETFLAGS, BIN);
     showString(PSTR(", Ack Aborts "));
@@ -852,7 +861,9 @@ static void handleInput (char c) {
     	if (c < 32 || top > sizeof stack - 2) {
 			stack[top++] = 0;
 			printOneChar('#');
-			for (byte i = 0; i < top; i++) printOneChar((char)stack[i]);
+			for (byte i = 0; i < top; i++) {
+				printOneChar((char)stack[i]);
+			}
 			Serial.println();
     		hash = false;
     		value = top = 0;
@@ -1239,9 +1250,9 @@ static void handleInput (char c) {
 
             case 'v': // display the interpreter version
             		 if (top == 1) {
-            			if (stack[0] == 0) statsInterval = 60;
+            			if (stack[0] == 0) statsInterval = 255;
             			else statsInterval = stack[0];
-            		 } else statsInterval = 60;
+            		 } else statsInterval = 255;
                      config.verbosity = value;
                      if (value == 15) extendedTimestamp = true;
                      else
@@ -1313,11 +1324,10 @@ static void handleInput (char c) {
 						}
 						stack[2] = (uint8_t) value;
 						// nextKey is used to try and prevent keys being duplicated
-						// such that an Ack may released before actually being posted.
+						// such that an Ack may be released before actually being posted.
 						if (semaphoreSave((stack[0] | 1<<5), stack[1], stack[2], stack[2], 0)) {
 //							nextKey++;
 //							nextKey = nextKey%16;						
-							postingsIn++;
 							showPost();
 				 			c = 0;	// loose command printout
 					 	} else {
@@ -1491,16 +1501,6 @@ static void handleInput (char c) {
 					 Serial.println(PCMSK0, BIN);
 					 showString(PSTR("EIMSK:"));
 					 Serial.println(EIMSK, BIN);
-#if RF69_COMPAT
-					 showString(PSTR("Noise Tail:"));
-					 Serial.print(rfapi.noiseTailLo);
-                     printOneChar('@');
-                     Serial.print(rfapi.noiseLoRSSI);
-                     printOneChar('^');					 
-					 Serial.print(rfapi.noiseTailHi);
-                     printOneChar('@');
-                     Serial.println(rfapi.noiseHiRSSI); 
-#endif					 
                      break;
 
             case 'r': // replay from specified seqnum/time marker
@@ -2234,7 +2234,8 @@ static bool semaphoreSave (byte node, byte group, byte key, byte flag, unsigned 
 			semaphoreStack[(c * ackEntry) + 8] = (uint8_t)t;// Timestamp	
 			semaphoreStack[(c * ackEntry) + 9] = (uint8_t)(t>>8);// Timestamp		
 			semaphoreStack[(c * ackEntry) + 10] = (uint8_t)(t>>16);// Timestamp		
-			semaphoreStack[(c * ackEntry) + 11] = (uint8_t)(t>>24);	// Timestamp	
+			semaphoreStack[(c * ackEntry) + 11] = (uint8_t)(t>>24);	// Timestamp
+			postingsIn++;
 			return true;	
 		}
 	}
@@ -3066,8 +3067,8 @@ void loop () {
         if (rfapi.noiseTail < noiseTailLo) noiseTailLo = rfapi.noiseTail;
 */        
 
-        if ((config.verbosity & 8) && (minuteTick)) {
-            minuteTick = false;            	
+        if ((config.verbosity & 8) && (statsTick)) {
+            statsTick = false;            	
             if (rfapi.changed) {
             	rfapi.changed = false;
 	            showString(PSTR("RX Stats "));
