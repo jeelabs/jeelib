@@ -159,7 +159,7 @@ const char SEMAPHOREFULL[] PROGMEM = "Semaphore table full";
 #define SALUSFREQUENCY 1660       // Default value
 byte salusMode = false;
 unsigned int SalusFrequency = SALUSFREQUENCY;
-
+unsigned int radioInit;
 signed int NodeMap;
 signed int newNodeMap;
 unsigned long lastRSSIrestart;
@@ -367,10 +367,10 @@ byte other = 0;
 byte watchNode = 0;
 byte ignoreNode = 0;
 byte lastTest;
-byte busyCount;
 byte missedTests;
 byte sendRetry = 0;
 static byte highestAck[MAX_NODES];
+unsigned int busyCount;
 unsigned int packetAborts;
 unsigned int testTX;
 unsigned int testRX;
@@ -758,10 +758,18 @@ static void showStatus() {
 
     showString(PSTR(",\nReset 0b"));
     Serial.print(RESETFLAGS, BIN);
-    showString(PSTR(", Ack Aborts "));
-    Serial.print(packetAborts);
-    showString(PSTR(", Busy Count "));
-    Serial.print(busyCount);
+    if (packetAborts) {
+    	showString(PSTR(", Ack Aborts "));
+		Serial.print(packetAborts);
+	}
+    if (busyCount) {
+    	showString(PSTR(", Busy Count "));
+    	Serial.print(busyCount);
+    }
+    if (radioInit) {
+    	showString(PSTR(", Radio Init "));
+    	Serial.print(radioInit);
+    }
     showString(PSTR(", InterSync(ms) "));
     uint32_t ms = millis();
     Serial.print(ms - rfapi.rxLast);
@@ -2078,7 +2086,7 @@ static void nodeShow(byte group) {
     Serial.print(missedTests);
     printOneChar('=');
     Serial.println(testRX + missedTests);
-    busyCount = missedTests = testTX = testRX = testCounter = lastTest = 0;
+    missedTests = testTX = testRX = testCounter = lastTest = 0;
     idleTime = loopCount = 0;
 } // nodeShow
 
@@ -2613,9 +2621,9 @@ void loop () {
             Serial.print(observedRX.rssi2 >> 1);
             if (observedRX.rssi2 & 0x01) showString(PSTR(".5"));
             showString(PSTR("dB T"));
-
+	#if SX1276
 	        Serial.print(rf12_rxTail);
-
+	#endif
         }
 
 #endif        
@@ -3184,18 +3192,23 @@ void loop () {
             Serial.print(rfapi.sendRSSI);
             printOneChar(' ');
 #endif            
-            Serial.print(busyCount);
+            Serial.print(busyCount++);
             printOneChar(',');
             Serial.print(sendRetry);
             showString(PSTR(" Busy 0x"));				// Not ready to send            
             Serial.print(s, HEX);
-            busyCount++;
+//            busyCount++;
+			wdt_reset();		//Debug
             if ((++sendRetry) > 3) {
             	sendRetry = 0;
                 showString(ABORTED);					// Drop the command
                 cmd = 0;								// Request dropped
                 ping = false;							// Drop Noise level check
-            }
+                
+                loadConfig();		// Debug
+                showString(PSTR("ReInit Radio "));
+				Serial.println(radioInit++);                
+			}
             Serial.println();   
         } // (r)
     } // (cmd || ping)

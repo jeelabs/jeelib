@@ -368,7 +368,7 @@ static void rf12_interrupt () {
     // correction: now takes 2 + 8 µs, since sending can be done at 8 MHz
     status = rf12_xfer(0x0000);
 
-// Receive Coed
+// Receive Code
     if (rxstate == TXRECV) {
        	rfapi.interruptCountRX++;
         uint8_t in = rf12_xferSlow(RF_RX_FIFO_READ);
@@ -412,6 +412,7 @@ static void rf12_interrupt () {
                 case TXCRC2: out = rf12_crc >> 8; break;
 #endif
                 case TXDONE: rf12_xfer(RF_SLEEP_MODE); break;
+                
                 default:     out = 0xAA;
             }
 #if RF12_COMPAT
