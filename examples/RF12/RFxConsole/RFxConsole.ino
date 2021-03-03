@@ -370,6 +370,7 @@ byte lastTest;
 byte missedTests;
 byte sendRetry = 0;
 static byte highestAck[MAX_NODES];
+unsigned int ignoreCount;
 unsigned int busyCount;
 unsigned int packetAborts;
 unsigned int testTX;
@@ -793,6 +794,8 @@ static void showStatus() {
 	if (ignoreNode) {
 		showString(PSTR("\nIgnoring i"));
 	    Serial.print(ignoreNode);
+		printOneChar('=');
+	    Serial.print(ignoreCount);
 	}
 	if (watchNode) {
 		showString(PSTR("\nWatching i"));
@@ -1215,6 +1218,7 @@ static void handleInput (char c) {
                      break;
 #endif
             case 'I': // Ignore a specific node
+            		 ignoreCount = 0;
                      ignoreNode = value;
                      break;
             case 'W': // Only watch a specific node
@@ -2326,7 +2330,7 @@ void loop () {
 
         if (rf12_crc == 0) {
         
-            if ((ignoreNode) && ((rf12_hdr & RF12_HDR_MASK) == ignoreNode)) return;
+            if ((ignoreNode) && ((rf12_hdr & RF12_HDR_MASK) == ignoreNode)) { ignoreCount++; return; }
             if ((watchNode) && ((rf12_hdr & RF12_HDR_MASK) != watchNode)) return;
 
 #if RF69_COMPAT && !TINY	// At this point the radio is in standby                    
