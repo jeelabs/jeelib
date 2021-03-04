@@ -365,7 +365,7 @@ static observed observedRX;
 byte ones = 0;
 byte other = 0;
 byte watchNode = 0;
-byte ignoreNode = 0;
+byte ignoreNode = 8;	// Electricity Monitor
 byte lastTest;
 byte missedTests;
 byte sendRetry = 0;
@@ -2001,6 +2001,7 @@ static void nodeShow(byte group) {
         	oneShow(index);
         }
     }
+    if (ignoreNode) ignoreStats();
 #if MESSAGING    
     showString(PSTR("Postings "));      
     Serial.print((word) postingsIn);
