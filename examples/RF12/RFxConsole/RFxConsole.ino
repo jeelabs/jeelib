@@ -381,6 +381,7 @@ ISR(WDT_vect) { Sleepy::watchdogEvent(); }
 volatile unsigned long secondsTick;
 static unsigned long elapsedSeconds;
 static unsigned long currentRestarts;
+static unsigned long ignoreTime;
 volatile unsigned long previousRestarts;
 volatile unsigned long chkNoise;
 volatile unsigned int restartRate;
@@ -791,12 +792,6 @@ static void showStatus() {
     printOneChar('^');
     Serial.print(maxCrcGap);
 #endif
-	if (ignoreNode) {
-		showString(PSTR("\nIgnoring i"));
-	    Serial.print(ignoreNode);
-		printOneChar('=');
-	    Serial.print(ignoreCount);
-	}
 	if (watchNode) {
 		showString(PSTR("\nWatching i"));
 	    Serial.print(watchNode);
@@ -860,9 +855,22 @@ printOneChar(',');
 Serial.println(rfapi.rssiZero);
 //Serial.print("Micros="); Serial.println((uint32_t)micros());        
 #endif    
+
+if (ignoreNode) ignoreStats();
+
 Serial.flush();
 }
 
+static void ignoreStats() {
+	showString(PSTR("RX Ignoring i"));
+	Serial.print(ignoreNode);
+	showString(PSTR(" for "));
+	elapsed(elapsedSeconds - ignoreTime);
+    showString(PSTR(", dropped "));
+	Serial.print(ignoreCount);
+    showString(PSTR(" packets"));
+    Serial.println();
+}
 // Null handling could be made to store null true/false for each stack entry
 bool cr = false;
 bool outputTime;
@@ -1218,8 +1226,10 @@ static void handleInput (char c) {
                      break;
 #endif
             case 'I': // Ignore a specific node
+            		if (ignoreNode) ignoreStats();
             		 ignoreCount = 0;
                      ignoreNode = value;
+                     ignoreTime = elapsedSeconds;
                      break;
             case 'W': // Only watch a specific node
                      watchNode = value;
@@ -3080,6 +3090,7 @@ void loop () {
 */        
 
         if ((config.verbosity & 8) && (statsTick)) {
+        	if (ignoreNode) ignoreStats();
             statsTick = false;            	
             if (rfapi.changed) {
             	rfapi.changed = false;
