@@ -24,6 +24,8 @@ char rx_buf[512] = {'.','/','j','e','e','b','a','s','h','.','s','h',' ','"'};
 int rx_len = 0;
 int rx_other = 0;
 int result;
+int peekNode1 = 0;
+int peekNode2 = 0;
 
 void openPipe() {
 // http://www.raspberry-projects.com/pi/programming-in-c/pipes/named-pipes-fifos
@@ -121,6 +123,20 @@ fprintf (stderr, "Start Up\n") ;
 			{
                 int ret = system(rx_buf);
                 if (ret) printf("System(1) Returned %i\n", ret);
+                
+                if (rx_buf[14] == 'O' && rx_buf[15] == 'K' && peekNode1 == rx_buf[17] && peekNode2 == rx_buf[18]) {
+//                 	printf("Node detected\n");
+               
+					rx_buf[rx_len - 2] = '\0';  // Drop trailing double quote
+                
+                	time ( &rawtime );
+                	timeinfo = localtime ( &rawtime );
+
+                	printf("%02d/%02d/%04d %02d:%02d:%02d %s\n", timeinfo->tm_mday,       \
+                	  timeinfo->tm_mon + 1, timeinfo->tm_year + 1900,         \
+                	  timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec,  \
+                	  rx_buf + 14);
+                }
                 fflush (stdout);        
             } else {
                 /*if ((rx_other++) >= 39){
@@ -176,12 +192,18 @@ fprintf (stderr, "Start Up\n") ;
 					}
                 	time ( &rawtime );
                 	timeinfo = localtime ( &rawtime );
-                	
+// deliver the command to the Jeenode                	
                 	for (int c = 0; c < fifo_length; c++) {
                 		serialPutchar (fd, fifo_buffer[c]);
                 		delayMicroseconds(2000);                	
                 	}
-
+// Test for a command to this code              
+                	if (fifo_buffer[0] == 37 && fifo_length > 3) {
+//                		printf("Command input detected\n");
+                		peekNode1 = fifo_buffer[1];
+                		peekNode2 = fifo_buffer[2];
+               		 }
+// Display buffer contents
                 	printf("%02d/%02d/%04d %02d:%02d:%02d FIFO bytes=%i buffer=%s\n", \
 						timeinfo->tm_mday,timeinfo->tm_mon + 1, timeinfo->tm_year + 1900,\
                   		timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec,  \
