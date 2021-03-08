@@ -109,14 +109,14 @@ fprintf (stderr, "Start Up\n") ;
             
             if (   ((rx_buf[14] == 'O') && (rx_buf[15] == 'K'))	// OK
             	|| ((rx_buf[14] == 'R') && (rx_buf[15] == 'X'))	// RX
-            	|| ((rx_buf[14] == 'R') && (rx_buf[15] == 'F'))	// RFM69
-	      		|| ((rx_buf[14] == 'S') && (rx_buf[15] == 'X'))	// SX1276
-	      		|| ((rx_buf[14] == 'S') && (rx_buf[15] == 'y'))	// Sync
+//            	|| ((rx_buf[14] == 'R') && (rx_buf[15] == 'F'))	// RFM69
+//	      		|| ((rx_buf[14] == 'S') && (rx_buf[15] == 'X'))	// SX1276
+//	      		|| ((rx_buf[14] == 'S') && (rx_buf[15] == 'y'))	// Sync
 	      		|| ((rx_buf[14] == 'A') && (rx_buf[15] == 'c'))	// Ack
-	      		|| ((rx_buf[14] == 'E') && (rx_buf[15] == 'e'))	// Eeprom
+//	      		|| ((rx_buf[14] == 'E') && (rx_buf[15] == 'e'))	// Eeprom
 	      		|| ((rx_buf[14] == 'T') && (rx_buf[15] == 'X'))	// TX
 	      		|| ((rx_buf[14] == 'R') && (rx_buf[15] == 'e'))	// ReInit
-	      		|| ((rx_buf[14] == '#') && (rx_buf[15] == ' '))	// # 
+//	      		|| ((rx_buf[14] == '#') && (rx_buf[15] == ' '))	// # 
 	      														)
 			{
                 int ret = system(rx_buf);
@@ -140,7 +140,7 @@ fprintf (stderr, "Start Up\n") ;
                 time ( &rawtime );
                 timeinfo = localtime ( &rawtime );
 
-                printf("%02d/%02d/%04d %02d:%02d:%02d %s %s\n", timeinfo->tm_mday,       \
+                printf("%02d/%02d/%04d %02d:%02d:%02d %s\n", timeinfo->tm_mday,       \
                   timeinfo->tm_mon + 1, timeinfo->tm_year + 1900,         \
                   timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec,  \
                   rx_buf + 14);
