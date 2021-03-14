@@ -370,7 +370,6 @@ byte lastTest;
 byte missedTests;
 byte sendRetry = 0;
 static byte highestAck[MAX_NODES];
-unsigned int ignoreCount;
 unsigned int busyCount;
 unsigned int packetAborts;
 unsigned int testTX;
@@ -382,6 +381,7 @@ volatile unsigned long secondsTick;
 static unsigned long elapsedSeconds;
 static unsigned long currentRestarts;
 static unsigned long ignoreTime;
+unsigned long ignoreCount;
 volatile unsigned long previousRestarts;
 volatile unsigned long chkNoise;
 volatile unsigned int restartRate;
@@ -1227,7 +1227,7 @@ static void handleInput (char c) {
 #endif
             case 'I': // Ignore a specific node
             		if (ignoreNode) ignoreStats();
-            		 ignoreCount = 0;
+            		 ignoreCount = 0L;
                      ignoreNode = value;
                      ignoreTime = elapsedSeconds;
                      break;
@@ -2341,7 +2341,10 @@ void loop () {
 
         if (rf12_crc == 0) {
         
-            if ((ignoreNode) && ((rf12_hdr & RF12_HDR_MASK) == ignoreNode)) { ignoreCount++; return; }
+            if ((ignoreNode) && ((rf12_hdr & RF12_HDR_MASK) == ignoreNode)) {
+            	if ( (++ignoreCount) % 1000L == 0L) ignoreStats(); 
+            	return; 
+            }
             if ((watchNode) && ((rf12_hdr & RF12_HDR_MASK) != watchNode)) return;
 
 #if RF69_COMPAT && !TINY	// At this point the radio is in standby                    
