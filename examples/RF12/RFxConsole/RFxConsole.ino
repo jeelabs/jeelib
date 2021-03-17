@@ -3224,7 +3224,7 @@ void loop () {
                 cmd = 0;								// Request dropped
                 ping = false;							// Drop Noise level check
                 
-                loadConfig();		// Debug
+    			if (rf12_configSilent()) loadConfig();
                 showString(PSTR("ReInit Radio "));
 				Serial.println(radioInit++);                
 			}
