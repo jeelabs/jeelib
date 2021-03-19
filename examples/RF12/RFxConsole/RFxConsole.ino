@@ -865,10 +865,18 @@ static void ignoreStats() {
 	showString(PSTR("RX Ignoring i"));
 	Serial.print(ignoreNode);
 	showString(PSTR(" for "));
-	elapsed(elapsedSeconds - ignoreTime);
+	unsigned long t = (elapsedSeconds - ignoreTime);
+	elapsed(t);
     showString(PSTR(", dropped "));
 	Serial.print(ignoreCount);
     showString(PSTR(" packets"));
+    
+    t = (t / 60ul);		// Convert to minutes
+    if (t) {
+	    showString(PSTR(", rate "));
+    	Serial.print(ignoreCount / t);
+    	showString(PSTR("/m"));
+    }
     Serial.println();
 }
 // Null handling could be made to store null true/false for each stack entry
