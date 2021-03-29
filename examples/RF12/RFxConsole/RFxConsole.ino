@@ -400,7 +400,7 @@ ISR(TIMER1_COMPA_vect){
     	statsTick = true;
     	restartRate = (currentRestarts - previousRestarts);
     	previousRestarts = currentRestarts;
-              	
+/*              	
     	if (restartRate > maxRestartRate) { 
     		maxRestartRate = restartRate;
     		maxRestartRSSI = rfapi.rssiThreshold;
@@ -408,6 +408,7 @@ ISR(TIMER1_COMPA_vect){
     	if ( (restartRate > 15000UL) && (rfapi.rssiThreshold > 160) ) rfapi.rssiThreshold--;
     	else
     	if ( (restartRate < 5000UL) && (rfapi.rssiThreshold < rfapi.configThreshold) ) rfapi.rssiThreshold++;
+*/
     }
 /*
     if (config.chkNoise) {
@@ -2336,8 +2337,22 @@ static byte * semaphoreGet (byte node, byte group) {
 void loop () {
 	wdt_reset();
 	
-	noInterrupts(); elapsedSeconds = secondsTick; interrupts();
+	noInterrupts();
+/////////////////// 
+    if (restartRate > maxRestartRate) { 
+		maxRestartRate = restartRate;
+		maxRestartRSSI = rfapi.rssiThreshold;
+		showString(PSTR("RX Restart Rate is "));    	
+    	Serial.println(restartRate);
+    }
+    if ( (restartRate > 15000UL) && (rfapi.rssiThreshold > 160) ) rfapi.rssiThreshold--;
+    else
+    if ( (restartRate < 5000UL) && (rfapi.rssiThreshold < rfapi.configThreshold) ) rfapi.rssiThreshold++;
 	
+	elapsedSeconds = secondsTick; 
+	
+	interrupts();
+/////////////////	
 #if TINY
     if ( _receive_buffer_index ) handleInput( inChar() );
 #else
