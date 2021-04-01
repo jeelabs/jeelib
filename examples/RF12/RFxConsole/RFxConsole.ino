@@ -385,7 +385,7 @@ unsigned long ignoreCount;
 volatile unsigned long previousRestarts;
 volatile unsigned long chkNoise;
 volatile unsigned int restartRate;
-volatile unsigned int maxRestartRate;
+unsigned int maxRestartRate;
 volatile byte maxRestartRSSI;
 volatile byte ping = false;
 volatile byte statsTick = false;
@@ -400,15 +400,6 @@ ISR(TIMER1_COMPA_vect){
     	statsTick = true;
     	restartRate = (currentRestarts - previousRestarts);
     	previousRestarts = currentRestarts;
-/*              	
-    	if (restartRate > maxRestartRate) { 
-    		maxRestartRate = restartRate;
-    		maxRestartRSSI = rfapi.rssiThreshold;
-    	}
-    	if ( (restartRate > 15000UL) && (rfapi.rssiThreshold > 160) ) rfapi.rssiThreshold--;
-    	else
-    	if ( (restartRate < 5000UL) && (rfapi.rssiThreshold < rfapi.configThreshold) ) rfapi.rssiThreshold++;
-*/
     }
 /*
     if (config.chkNoise) {

@@ -24,8 +24,8 @@ char rx_buf[512] = {'.','/','j','e','e','b','a','s','h','.','s','h',' ','"'};
 int rx_len = 0;
 int rx_other = 0;
 int result;
-int peekNode1 = 0;
-int peekNode2 = 0;
+char peekNode1 = '0';
+char peekNode2 = '0';
 
 void openPipe() {
 // http://www.raspberry-projects.com/pi/programming-in-c/pipes/named-pipes-fifos
@@ -117,7 +117,8 @@ fprintf (stderr, "Start Up\n") ;
 	      		|| ((rx_buf[14] == 'A') && (rx_buf[15] == 'c'))	// Ack
 //	      		|| ((rx_buf[14] == 'E') && (rx_buf[15] == 'e'))	// Eeprom
 	      		|| ((rx_buf[14] == 'T') && (rx_buf[15] == 'X'))	// TX
-	      		|| ((rx_buf[14] == 'R') && (rx_buf[15] == 'e'))	// ReInit
+	      		|| ((rx_buf[14] == 'R') && (rx_buf[16] == 'I'))	// ReInit
+//	      		|| ((rx_buf[14] == 'R') && (rx_buf[15] == 'e'))	// Reset
 //	      		|| ((rx_buf[14] == '#') && (rx_buf[15] == ' '))	// # 
 	      														)
 			{
@@ -195,21 +196,31 @@ fprintf (stderr, "Start Up\n") ;
 // deliver the command to the Jeenode                	
                 	for (int c = 0; c < fifo_length; c++) {
                 		serialPutchar (fd, fifo_buffer[c]);
-                		delayMicroseconds(2000);                	
+                		delayMicroseconds(200);                	
                 	}
 // Test for a command to this code              
-                	if (fifo_buffer[0] == 37 && fifo_length > 3) {
-//                		printf("Command input detected\n");
-                		peekNode1 = fifo_buffer[1];
-                		peekNode2 = fifo_buffer[2];
+                	if (fifo_buffer[0] == 37) {
+                		if (fifo_length > 3) {
+//                			printf("Command input detected\n");
+                			peekNode1 = fifo_buffer[1];
+                			peekNode2 = fifo_buffer[2];
+               		 	} else printf("%02d/%02d/%04d %02d:%02d:%02d FIFO bytes=%i buffer=%s\n", \
+								timeinfo->tm_mday,timeinfo->tm_mon + 1, timeinfo->tm_year + 1900,\
+                  				timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec,  \
+                  				fifo_length, fifo_buffer);                 		 	
                		 }
+               		 
 // Display buffer contents
+
                 	printf("%02d/%02d/%04d %02d:%02d:%02d FIFO bytes=%i buffer=%s\n", \
 						timeinfo->tm_mday,timeinfo->tm_mon + 1, timeinfo->tm_year + 1900,\
                   		timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec,  \
-                  		fifo_length, fifo_buffer);                  		
+                  		fifo_length, fifo_buffer);   
+
                 		fifo_buffer[0] = '\0';  		// Mark buffer empty
-                } else if (fifo_length > 0) printf("FIFO Read error\n");
+                } else if (fifo_length == 0) delayMicroseconds(100);
+                else printf("FIFO Read error %i\n", errno);
+                
                 fflush (stdout);
                 
         	} else {
