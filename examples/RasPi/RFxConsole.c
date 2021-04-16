@@ -218,13 +218,13 @@ fprintf (stderr, "Start Up\n") ;
                   		fifo_length, fifo_buffer);   
 
                 		fifo_buffer[0] = '\0';  		// Mark buffer empty
-                } else if (fifo_length == 0) delayMicroseconds(100);
+                } else if (fifo_length == 0) delayMicroseconds(1000);
                 else printf("FIFO Read error %i\n", errno);
                 
                 fflush (stdout);
                 
         	} else {
-        		delayMicroseconds(10);
+        		delayMicroseconds(1000);
 			}
 		}
 }
