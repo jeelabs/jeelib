@@ -99,7 +99,7 @@ fprintf (stderr, "Start Up\n") ;
             	}          
             	rx_buf[rx_len++] = result;
 //printf("%i ", result);
-            	delayMicroseconds(10);
+            	delayMicroseconds(10000);
             }
         }
         
@@ -184,7 +184,7 @@ fprintf (stderr, "Start Up\n") ;
         
 		    // Read up to 2048 characters from the FIFO if they are there
 		    if (our_input_fifo_filestream != -1)  {		    
-		        fifo_length = read(our_input_fifo_filestream, (void*)fifo_buffer, 2048);
+		        fifo_length = read(our_input_fifo_filestream, (void*)fifo_buffer, 256);
 		        if (fifo_length > 0) {
 		        	if (fifo_buffer[fifo_length - 1] == 10) { 		
 						fifo_buffer[fifo_length - 1] = '\0';// Loose <LF>, terminate the char
@@ -196,7 +196,7 @@ fprintf (stderr, "Start Up\n") ;
 // deliver the command to the Jeenode                	
                 	for (int c = 0; c < fifo_length; c++) {
                 		serialPutchar (fd, fifo_buffer[c]);
-                		delayMicroseconds(200);                	
+                		delayMicroseconds(10000);                	
                 	}
 // Test for a command to this code              
                 	if (fifo_buffer[0] == 37) {
@@ -218,13 +218,13 @@ fprintf (stderr, "Start Up\n") ;
                   		fifo_length, fifo_buffer);   
 
                 		fifo_buffer[0] = '\0';  		// Mark buffer empty
-                } else if (fifo_length == 0) delayMicroseconds(1000);
+                } else if (fifo_length == 0) delayMicroseconds(10000);
                 else printf("FIFO Read error %i\n", errno);
                 
                 fflush (stdout);
                 
         	} else {
-        		delayMicroseconds(1000);
+        		delayMicroseconds(10000);
 			}
 		}
 }
