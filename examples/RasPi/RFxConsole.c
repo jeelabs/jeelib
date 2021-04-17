@@ -99,7 +99,7 @@ fprintf (stderr, "Start Up\n") ;
             	}          
             	rx_buf[rx_len++] = result;
 //printf("%i ", result);
-            	delayMicroseconds(10000);
+            	delayMicroseconds(1000);
             }
         }
         
@@ -182,7 +182,7 @@ fprintf (stderr, "Start Up\n") ;
         
         */
         
-		    // Read up to 2048 characters from the FIFO if they are there
+		    // Read up to 256 characters from the FIFO if they are there
 		    if (our_input_fifo_filestream != -1)  {		    
 		        fifo_length = read(our_input_fifo_filestream, (void*)fifo_buffer, 256);
 		        if (fifo_length > 0) {
@@ -224,7 +224,7 @@ fprintf (stderr, "Start Up\n") ;
                 fflush (stdout);
                 
         	} else {
-        		delayMicroseconds(10000);
+        		delayMicroseconds(1000);
 			}
 		}
 }
