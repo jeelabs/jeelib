@@ -456,6 +456,7 @@ static uint32_t rxAckTimeStamp[MAX_NODES];
 static unsigned int CRCbadCount = 0;
 static unsigned int rxCount[MAX_NODES];
 static unsigned int txCount[MAX_NODES];
+static unsigned int possibleCRC[MAX_NODES];
 static unsigned int abortCount[MAX_NODES];
 static unsigned int nonBroadcastCount = 0;
 static unsigned int postingsIn, postingsClr, postingsOut, postingsRej, postingsLost;
@@ -1500,8 +1501,17 @@ static void handleInput (char c) {
             		 }
             		 Serial.println();
             	*/
-            		 dumpRegs();
-
+            	
+					dumpRegs();
+					if (value == 1953) {
+					// hardware reset the radio
+					pinMode(9, OUTPUT);
+            		digitalWrite(9, LOW);
+            			delay(1);
+            			digitalWrite(9, HIGH);
+            			delay(5);
+            		 	dumpRegs();
+					}
             		 showString(PSTR("InterruptCounts="));
             		 Serial.print(rfapi.interruptCountTX);
                      printOneChar(',');
@@ -2118,6 +2128,10 @@ static void oneShow(byte index) {
     showByte(n & RF12_HDR_MASK);	
     showString(PSTR(" g"));      
     showByte(g);
+    if (possibleCRC[index]) {
+	    showString(PSTR(" re:"));	// Received a possible CRC error
+    	Serial.print(possibleCRC[index]);    
+    }
 #if STATISTICS 
 	if (rxTimeStamp[index]) {
     	showString(PSTR(" n"));      
@@ -2351,7 +2365,9 @@ void loop () {
 #endif
 	if ( rf12_recvDone() ) {
     	currentRestarts = rfapi.RSSIrestart;
-
+			
+		gotIndex = getIndex(rf12_grp, (rf12_hdr & RF12_HDR_MASK));
+		// NodeMap global set based on above
 
         if (rf12_crc == 0) {
         
@@ -2374,9 +2390,8 @@ void loop () {
 #endif 
 			arrivalTime = elapsedSeconds;
 			
-			gotIndex = getIndex(rf12_grp, (rf12_hdr & RF12_HDR_MASK));
+//			gotIndex = getIndex(rf12_grp, (rf12_hdr & RF12_HDR_MASK));
 			if (gotIndex) {
-				// NodeMap global is now valid
 				arrivalHeader = rf12_hdr;
 				if ( ((rxCount[NodeMap] + 1) % 101) == 0) oneShow(NodeMap);
 				rxCount[NodeMap]++;	
@@ -2433,6 +2448,9 @@ void loop () {
             CRCbadCount++;
 #endif
 #if RF69_COMPAT && STATISTICS && !TINY
+			if (gotIndex) {
+				possibleCRC[NodeMap]++;
+			}
             if (observedRX.rssi2 < (CRCbadMinRSSI))
                 CRCbadMinRSSI = observedRX.rssi2;   
             if (observedRX.rssi2 > (CRCbadMaxRSSI))
@@ -3101,12 +3119,7 @@ void loop () {
                 printOneChar(' ');
 				Serial.println(m);
             }
-        }
-/*        
-        if (rfapi.noiseTail > noiseTailHi) noiseTailHi = rfapi.noiseTail;
-        if (rfapi.noiseTail < noiseTailLo) noiseTailLo = rfapi.noiseTail;
-*/        
-
+        }		
         if ((config.verbosity & 8) && (statsTick)) {
         	if (ignoreNode) ignoreStats();
             statsTick = false;            	

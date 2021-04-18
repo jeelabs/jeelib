@@ -559,25 +559,29 @@ static uint8_t initRadio (ROM_UINT8* init) {
 
 #if SX1276
 	#if defined(__AVR_ATmega2560__) || defined(__AVR_ATmega1280__)
-    bitSet(PORTH, 6);
-    delay(10);
-    bitClear(DDRH, 6);	// ATMega2560 D9 wired to radio RESET line
-    delay(100);
+    pinMode(9, OUTPUT);
+    digitalWrite(9, LOW);
+    delay(1);
+    digitalWrite(9, HIGH);
+    delay(5);
     #else
     bitClear(DDRB, 1);	// ATMega328 D9 wired to radio RESET line
     delay(10);
     bitSet(PORTB, 1);
-    delay(10);
+    delay(100);
     #endif
 #endif
 
     spiInit();
-        
+// Verify that reset actually worked
+	if ((readReg(REG_SYNCVALUE7) != 0x55) && (readReg(REG_SYNCVALUE8) != 0x55)) return 0;   
+	     
+
 // Validate SPI bus operation
     writeReg(REG_SYNCVALUE6, LIBRARY_VERSION);
-    writeReg(REG_SYNCVALUE7, 0xAA);
-    writeReg(REG_SYNCVALUE8, 0x55);
-    if ((readReg(REG_SYNCVALUE7) == 0xAA) && (readReg(REG_SYNCVALUE8) == 0x55)) {
+    writeReg(REG_SYNCVALUE7, 0xAA);	// Default value is 0x55
+    writeReg(REG_SYNCVALUE8, 0xAA);
+    if ((readReg(REG_SYNCVALUE7) == 0xAA) && (readReg(REG_SYNCVALUE8) == 0xAA)) {
 
 // Configure radio
         for (;;) {
@@ -595,7 +599,7 @@ static uint8_t initRadio (ROM_UINT8* init) {
         
         return 1;
     }
-    else return 0;
+	else return 0;
 }
 
 void RF69::setFrequency (uint32_t freq) {
