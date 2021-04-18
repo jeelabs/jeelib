@@ -1505,11 +1505,12 @@ static void handleInput (char c) {
 					dumpRegs();
 					if (value == 1953) {
 					// hardware reset the radio
-					pinMode(9, OUTPUT);
-            		digitalWrite(9, LOW);
-            			delay(1);
+						pinMode(9, OUTPUT);
+            			digitalWrite(9, LOW);
+            			delay(10);
+						pinMode(9, INPUT);
             			digitalWrite(9, HIGH);
-            			delay(5);
+            			delay(10);
             		 	dumpRegs();
 					}
             		 showString(PSTR("InterruptCounts="));
