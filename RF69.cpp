@@ -1139,10 +1139,6 @@ second rollover and then will be 1.024 mS out.
                     }
                 } //  if 
             } // busy loop
-
-
-
-
 			for (rxTail = 0; rxTail < 16; ++rxTail) {
 				if ( readReg(REG_RSSIVALUE) >  rfapi.configThreshold) break;
 				for (volatile uint16_t tick = 0; tick < 511; tick++) NOP;	// Delay around packet tail
@@ -1158,11 +1154,6 @@ second rollover and then will be 1.024 mS out.
        			rfapi.noiseTailLo = rxTail;
        			rfapi.noiseLoRSSI = rssi;
        		}
-
-
-
-
-
 
             writeReg(REG_AFCFEI, AFC_CLEAR);
 		    setMode(MODE_STANDBY);

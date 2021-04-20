@@ -457,6 +457,7 @@ static unsigned int CRCbadCount = 0;
 static unsigned int rxCount[MAX_NODES];
 static unsigned int txCount[MAX_NODES];
 static unsigned int possibleCRC[MAX_NODES];
+static unsigned int retransmissions[MAX_NODES];
 static unsigned int abortCount[MAX_NODES];
 static unsigned int nonBroadcastCount = 0;
 static unsigned int postingsIn, postingsClr, postingsOut, postingsRej, postingsLost;
@@ -2128,9 +2129,13 @@ static void oneShow(byte index) {
     showString(PSTR(" i"));      
     showByte(n & RF12_HDR_MASK);	
     showString(PSTR(" g"));      
-    showByte(g);
+    showByte(g);    
+    if (retransmissions[index]) {
+	    showString(PSTR(" dup:"));	// Possible duplicate packet count
+    	Serial.print(retransmissions[index]);    
+    }    
     if (possibleCRC[index]) {
-	    showString(PSTR(" re:"));	// Received a possible CRC error
+	    showString(PSTR(" crc:"));	// Received a possible CRC error
     	Serial.print(possibleCRC[index]);    
     }
 #if STATISTICS 
@@ -2682,11 +2687,13 @@ void loop () {
 		// Only broadcast packets
 	        printOneChar(' ');
 	        if ( (arrivalHeader & RF12_HDR_ACK) ) {
-	        	elapsed(arrivalTime - rxAckTimeStamp[NodeMap]);
+	        	if ( (arrivalTime - 2l) < rxAckTimeStamp[NodeMap] ) retransmissions[NodeMap]++;
+	        	elapsed (arrivalTime - rxAckTimeStamp[NodeMap]);
 	        	rxAckTimeStamp[NodeMap] = arrivalTime;
 	        }
     	    else {
-    	    	elapsed(arrivalTime - rxTimeStamp[NodeMap]);
+	        	if ( (arrivalTime - 2l) < rxTimeStamp[NodeMap] ) retransmissions[NodeMap]++;
+    	    	elapsed (arrivalTime - rxTimeStamp[NodeMap]);
 		        rxTimeStamp[NodeMap] = arrivalTime;
 		    }
         }
