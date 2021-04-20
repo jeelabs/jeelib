@@ -2678,9 +2678,10 @@ void loop () {
         }
 
 #endif        
-		if ( (gotIndex) && !(arrivalHeader & RF12_HDR_DST) ) {	// Only broadcast packets
+		if ( (gotIndex) && !(arrivalHeader & RF12_HDR_DST) && (rf12_crc == 0) ) {	
+		// Only broadcast packets
 	        printOneChar(' ');
-	        if (arrivalHeader & RF12_HDR_ACK) {
+	        if ( (arrivalHeader & RF12_HDR_ACK) ) {
 	        	elapsed(arrivalTime - rxAckTimeStamp[NodeMap]);
 	        	rxAckTimeStamp[NodeMap] = arrivalTime;
 	        }
@@ -3246,7 +3247,7 @@ void loop () {
             Serial.print(s, HEX);
 //            busyCount++;
 			wdt_reset();		//Debug
-            if ((++sendRetry) > 3) {
+            if ((++sendRetry) > 1) {
             	sendRetry = 0;
                 showString(ABORTED);					// Drop the command
                 cmd = 0;								// Request dropped

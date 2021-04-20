@@ -557,7 +557,7 @@ uint8_t setMode (uint8_t mode) {	// TODO enhance return code
 
 static uint8_t initRadio (ROM_UINT8* init) {
 
-#if SX1276
+//#if SX1276
 //	#if defined(__AVR_ATmega2560__) || defined(__AVR_ATmega1280__)
 //    bitSet(PORTH, 6);
 //    delay(10);
@@ -565,17 +565,17 @@ static uint8_t initRadio (ROM_UINT8* init) {
 //    delay(100);
 //    #else
 	pinMode(9, OUTPUT);
-    bitClear(DDRB, 1);	// ATMega328 D9 wired to radio RESET line
+    bitClear(DDRB, 1);	// D9 wired to radio RESET line
     delay(10);
 	pinMode(9, INPUT);
     bitSet(PORTB, 1);
     delay(10);
 //    #endif
-#endif
+//#endif
 
     spiInit();
 // Verify that reset actually worked
-	if ((readReg(REG_SYNCVALUE7) != 0x55) || (readReg(REG_SYNCVALUE8) != 0x55)) return 0;   
+	if ((readReg(REG_SYNCVALUE7) != 0x55) && (readReg(REG_SYNCVALUE8) != 0x55)) return 0;   
 	     
 
 // Validate SPI bus operation
