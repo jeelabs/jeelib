@@ -158,7 +158,6 @@ void rf69_configDump () {
 
 // same code as rf12_config(Silent), just calling rf69_initialize() instead
 uint8_t rf69_configSilent () {
-	cli();
     uint16_t crc = ~0;
     for (uint8_t i = 0; i < RF12_EEPROM_SIZE; ++i) {
         byte e = eeprom_read_byte(RF12_EEPROM_ADDR + i);

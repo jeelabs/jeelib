@@ -716,6 +716,9 @@ static void showStatus() {
 
     showString(PSTR(", Good CRC "));
     Serial.print(rfapi.goodCRC);
+    showString(PSTR(", "));
+    Serial.print( (rfapi.goodCRC * 100l) / rfapi.syncMatch );
+    printOneChar('%');
     if (rfapi.discards) {
 		showString(PSTR(", Discards "));
    		Serial.print(rfapi.discards);
@@ -3130,7 +3133,7 @@ void loop () {
             }
         }		
         if ((config.verbosity & 8) && (statsTick)) {
-        	if (ignoreNode) ignoreStats();
+//        	if (ignoreNode) ignoreStats();
             statsTick = false;            	
             if (rfapi.changed) {
             	rfapi.changed = false;
