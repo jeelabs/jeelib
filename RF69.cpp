@@ -11,7 +11,7 @@ extern rfAPI rfapi;
 
 #define TX_INTERRUPT 1
 
-#define SX1276	1	// Also see setting in RF69_avr.h & RFxConsole.ino
+#define SX1276	0	// Also see setting in RF69_avr.h & RFxConsole.ino
 
 ///////////////////////////////////////////////////////////////////////////////
 #define ROM_UINT8       const uint8_t // Does this change storage to RAM?
@@ -575,8 +575,11 @@ static uint8_t initRadio (ROM_UINT8* init) {
 
     spiInit();
 // Verify that reset actually worked
+#if SX1276
 	if ((readReg(REG_SYNCVALUE7) != 0x55) && (readReg(REG_SYNCVALUE8) != 0x55)) return 0;   
-	     
+#else
+//	if ((readReg(REG_SYNCVALUE7) != 0x00) && (readReg(REG_SYNCVALUE8) != 0x00)) return 0;
+#endif    
 
 // Validate SPI bus operation
     writeReg(REG_SYNCVALUE6, LIBRARY_VERSION);
