@@ -11,7 +11,7 @@ extern rfAPI rfapi;
 
 #define TX_INTERRUPT 1
 
-#define SX1276	0	// Also see setting in RF69_avr.h & RFxConsole.ino
+#define SX1276	1	// Also see setting in RF69_avr.h & RFxConsole.ino
 
 ///////////////////////////////////////////////////////////////////////////////
 #define ROM_UINT8       const uint8_t // Does this change storage to RAM?
@@ -557,7 +557,7 @@ uint8_t setMode (uint8_t mode) {	// TODO enhance return code
 
 static uint8_t initRadio (ROM_UINT8* init) {
 
-//#if SX1276
+#if SX1276
 //	#if defined(__AVR_ATmega2560__) || defined(__AVR_ATmega1280__)
 //    bitSet(PORTH, 6);
 //    delay(10);
@@ -571,7 +571,7 @@ static uint8_t initRadio (ROM_UINT8* init) {
     bitSet(PORTB, 1);
     delay(10);
 //    #endif
-//#endif
+#endif
 
     spiInit();
 // Verify that reset actually worked

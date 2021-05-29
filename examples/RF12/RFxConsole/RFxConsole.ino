@@ -262,7 +262,7 @@ static byte inChar () {
   #if BLOCK
     #define LED_PIN     8		// activity LED, comment out to disable
   #else
-//    #define LED_PIN     13		// activity LED, comment out to disable
+    #define LED_PIN     9		// activity LED, comment out to disable
   #endif
   #define MAX_NODES 10			// Contrained by RAM (22 bytes RAM per node)
 #endif
@@ -284,6 +284,27 @@ static void activityLed (byte on) {
   #endif
 #endif
 }
+
+#define ADC_CALIBRATE	0
+volatile bool adcDone;
+ISR(ADC_vect) { adcDone = true; }
+
+static byte vccRead (byte count =4) {
+  set_sleep_mode(SLEEP_MODE_ADC);
+  ADMUX = bit(REFS0) | 14; // use VCC and internal bandgap
+  bitSet(ADCSRA, ADIE);
+  while ( (count--) > 0) {
+    adcDone = false;
+    while (!adcDone)
+      sleep_mode();
+  }
+  ADMUX = 0;
+  bitClear(ADCSRA, ADIE);  
+  // convert ADC readings to fit in one byte, i.e. 20 mV steps:
+  //  1.0V = 0, 1.8V = 40, 3.3V = 115, 5.0V = 200, 6.0V = 250
+  return (55U * 1023U) / (ADC + 1) - ADC_CALIBRATE;
+}
+
 
 static void printOneChar (char c) {
     Serial.print(c);
@@ -381,6 +402,7 @@ volatile unsigned long secondsTick;
 static unsigned long elapsedSeconds;
 static unsigned long currentRestarts;
 static unsigned long ignoreTime;
+static unsigned long extendedStart;
 unsigned long ignoreCount;
 volatile unsigned long previousRestarts;
 volatile unsigned long chkNoise;
@@ -682,7 +704,9 @@ static void showHelp () {
 }
 
 static void showStatus() {
-#if SX1276
+	Serial.flush();
+    byte v = vccRead();
+#if SX1276 && RF69_COMPAT
     showString(SX1276x);
 //    showString(radioType);
 #elif RF69_COMPAT
@@ -696,7 +720,9 @@ static void showStatus() {
 	printOneChar('=');
     Serial.print(elapsedSeconds);
 	printOneChar('s');
-    showString(PSTR(", Led is ")); if (ledStatus) showString(PSTR("on")); else showString(PSTR("off"));
+    showString(PSTR(", Led ")); Serial.print(LED_PIN); if (ledStatus) showString(PSTR(" is on")); else showString(PSTR(" is off"));
+    showString(PSTR(", Voltage "));
+    Serial.print( (float)v * 0.020f );     
     showString(PSTR(", Free Ram(B) "));
     Serial.print(freeRam());     
 #if RF69_COMPAT
@@ -1538,6 +1564,9 @@ static void handleInput (char c) {
 					 Serial.println(PCMSK0, BIN);
 					 showString(PSTR("EIMSK:"));
 					 Serial.println(EIMSK, BIN);
+					 showString(PSTR("ACIE:"));
+					 Serial.println(ACIE, BIN);
+
                      break;
 
             case 'r': // replay from specified seqnum/time marker
@@ -1746,8 +1775,6 @@ void setup () {
 // Enable global interrupts
 	sei();
 
-//    delay(380);
-
     //  clrConfig();
 
 #if TINY
@@ -1760,7 +1787,6 @@ void setup () {
 
     Serial.begin(SERIAL_BAUD);
     displayVersion();
-//	Serial.print("Micros="); Serial.println((uint32_t)micros()); Serial.flush();       
 #if LED_PIN == 8
     showString(BLOC);
 #endif
@@ -1768,12 +1794,12 @@ void setup () {
 #ifndef PRR
 #define PRR PRR0
 #endif   
-    ACSR &= (1<<ACIE);      // Disable Analog Comparator Interrupt
-    ACSR |= (1<<ACD);       // Disable Analog Comparator
-    ADCSRA &= ~ bit(ADEN);  // disable the ADC
+//    ACSR &= (1<<ACIE);      // Disable Analog Comparator Interrupt
+//    ACSR |= (1<<ACD);       // Disable Analog Comparator
+//    ADCSRA &= ~ bit(ADEN);  // disable the ADC
     // Switch off some unused hardware
-//	PRR |= (1 << PRTIM1) | (1 << PRADC);
-    PRR |= (1 << PRADC);
+//	PRR |= (1 << PRTIM1); //| (1 << PRADC);
+//    PRR |= (1 << PRADC);
 #if defined PRTIM2
     PRR |= (1 << PRTIM2);
 #endif
@@ -1802,6 +1828,7 @@ showNibble(resetFlags);
 printOneChar(' ');
 RESETFLAGS = resetFlags;
 Serial.println(MCUSR, HEX);
+Serial.flush();
     // TODO the above doesn't do what we need, results vary with Bootloader etc
 #endif
 
@@ -1856,7 +1883,7 @@ Serial.println(MCUSR, HEX);
         config.group = 0x00;        // Default group 0
         config.RegRssiThresh = 180;	// -90dB
         config.clearAir = 160;      // -80dB
-/*	#if SX1276
+/*	#if SX1276 && RF69_COMPAT
         config.RegPaLvl = 223;		// Maximum power TX for SX1276! 0x64 bit doesn't have hardware to support it!
 	#else */       
         config.RegPaLvl = 159;		// Maximum power TX for RFM69CW!
@@ -2398,6 +2425,7 @@ void loop () {
  			}
 #endif 
 			arrivalTime = elapsedSeconds;
+			extendedStart = millis();
 			
 //			gotIndex = getIndex(rf12_grp, (rf12_hdr & RF12_HDR_MASK));
 			if (gotIndex) {
@@ -2680,7 +2708,7 @@ void loop () {
             Serial.print(observedRX.rssi2 >> 1);
             if (observedRX.rssi2 & 0x01) showString(PSTR(".5"));
             showString(PSTR("dB T"));
-	#if SX1276
+	#if SX1276 && RF69_COMPAT
 	        Serial.print(rf12_rxTail);
 	#endif
         }
@@ -3064,6 +3092,11 @@ void loop () {
 					rf12_sendWait(0);
     				chkNoise = elapsedSeconds + (unsigned long)config.chkNoise;// Delay check
     				ping = false;		// Cancel any pending Noise Floor checks
+        	        if (extendedTimestamp) {
+        	      		printOneChar(' ');
+						Serial.print( (millis() - extendedStart) );
+						showString(PSTR("ms"));
+    	        	}
 					Serial.println();                    
             	} else { // if (r)
             		packetAborts++;   

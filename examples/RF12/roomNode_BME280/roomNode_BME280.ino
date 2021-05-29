@@ -11,7 +11,7 @@
 // other sensor values are being collected and averaged in a more regular cycle.
 ///////////////////////////////////////////////////////////////////////////////
 
-#define RF69_COMPAT      0	 // define this to use the RF69 driver i.s.o. RF12 
+#define RF69_COMPAT      1	 // define this to use the RF69 driver i.s.o. RF12 
 #define SERIAL  0   // set to 1 to also report readings on the serial port
 #define DEBUG   0   // set to 1 to display each loop() run and PIR trigger
 ///                          // The above flag must be set similarly in RF12.cpp
@@ -56,7 +56,7 @@ void resetFlagsInit(void)
 
 //#define RETRY_PERIOD    20  // how soon to retry if ACK didn't come in
 #define RETRY_LIMIT     1   // maximum number of times to try transmission
-#define ACK_TIME        10  // number of milliseconds to wait for an ack
+#define ACK_TIME        40  // number of milliseconds to wait for an ack
 #define SMOOTH          3   // smoothing factor used for running averages
 
 #define ADC_CALIBRATE	0
@@ -145,6 +145,8 @@ typedef struct {
     bool spareThree :1;
     uint8_t lowVcc;
     int8_t	ackBounds;
+    uint8_t seenAsRSSI;
+    uint8_t	RSSI;
     word crc;
 } eeprom;
 static eeprom settings;
@@ -459,7 +461,9 @@ static void doTrigger() {
 		{
 			ackSW = RF12_HDR_ACK;
 		} 
-		clock_prescale(RADIOSPEED);
+ 		payload.rssiThreshold = rfapi.rssiThreshold = settings.RSSI;
+ 		
+ 		clock_prescale(RADIOSPEED);
 		rf12_sendStart(ackSW, &payload, payloadLength);
         rf12_sendWait(RADIO_SYNC_MODE);	// Don't slow processor for this :-(
         
@@ -485,7 +489,7 @@ static void doTrigger() {
 				//Serial.print(", setting new threshold to ");
 				//Serial.println( (payload.inboundRssi + 3) );
 	#endif
-				rfapi.rssiThreshold = (payload.inboundRssi + 3);
+//				rfapi.rssiThreshold = payload.inboundRssi;
 #else
 	#if SERIAL
 				//Serial.print("Threshold was ");
@@ -493,11 +497,12 @@ static void doTrigger() {
 				//Serial.print(" LNA was "); 
 				//Serial.println(rfapi.lna);
 	#endif
+/*
 				if ( (rfapi.rssiThreshold & 7) < 5) rfapi.rssiThreshold++;
 				else									// Reduce LNA
-				if ( (rfapi.rssiThreshold >> 3) < 3) rfapi.rssiThreshold+=3;			
+				if ( (rfapi.rssiThreshold >> 3) < 3) rfapi.rssiThreshold+=3;	
+*/		
 #endif
-				payload.rssiThreshold = rfapi.rssiThreshold;
 				payloadLength = BASIC_PAYLOADLENGTH;			// Reset to typical
 				if (rf12_buf[2] == 1)
 				{
@@ -510,13 +515,13 @@ static void doTrigger() {
 								
           			if (payload.vcc < settings.lowVcc) payload.command = 240;
 #if RF69_COMPAT          		
-          			if ( (payload.powerSeenAs > 180) && (rfapi.txPower < 159) ) rfapi.txPower++;
+          			if ( (payload.powerSeenAs > settings.seenAsRSSI) && (rfapi.txPower < 159) ) rfapi.txPower++;
           			else
-          			if ( (payload.powerSeenAs < 180) && (rfapi.txPower > 128) ) rfapi.txPower--;
+          			if ( (payload.powerSeenAs < settings.seenAsRSSI) && (rfapi.txPower > 128) ) rfapi.txPower--;
 #else										// RFM12B: smaller value are more powerful TX
-          			if ( (payload.powerSeenAs < 180) && (rfapi.txPower < 7) ) rfapi.txPower++;
+          			if ( (payload.powerSeenAs < settings.seenAsRSSI) && (rfapi.txPower < 7) ) rfapi.txPower++;
           			else
-          			if ( (payload.powerSeenAs > 180) && (rfapi.txPower > 0) ) rfapi.txPower--;
+          			if ( (payload.powerSeenAs > settings.seenAsRSSI) && (rfapi.txPower > 0) ) rfapi.txPower--;
 #endif
           			payload.sendingPower = rfapi.txPower;
           			break;
@@ -573,6 +578,22 @@ static void doTrigger() {
 							if( (rf12_buf[2] == 4) && (value < 128) ) ackPacer = value;
 							else ackPacer = 127;
                       	break; 
+						case 70:
+							if(rf12_buf[2] == 4) settings.seenAsRSSI = value;
+                      		break; 
+						case 71:
+							if(settings.seenAsRSSI < 255) settings.seenAsRSSI++;
+						case 72:
+							if(settings.seenAsRSSI > 0) settings.seenAsRSSI--;
+                      		break; 
+						case 80:
+							if(rf12_buf[2] == 4) settings.RSSI = value;
+                      		break; 
+						case 81:
+							if(settings.RSSI < 255) settings.RSSI++;
+						case 82:
+							if(settings.RSSI > 0) settings.RSSI--;
+                      		break; 
 //                  	case 85 is reserved     
 						case 99:
 #if SERIAL
@@ -733,22 +754,27 @@ static byte waitForAck() {
 	//Serial.print(ACK_TIME);
 	showString(PSTR("ms ACK Timeout "));
 #endif
+
 #if RF69_COMPAT
-	if (rfapi.rssiThreshold < 210) rfapi.rssiThreshold += 5;                    
+//	if (rfapi.rssiThreshold < 210) rfapi.rssiThreshold += 5;                    
 	if ( (rfapi.txPower < 159) ) rfapi.txPower++;
 #else
+/*
 	if ( (rfapi.rssiThreshold & 7) > 0) rfapi.rssiThreshold--;		// Increase RX threshold
 	else
 	if ( (rfapi.rssiThreshold >> 3) > 0) rfapi.rssiThreshold-=3;	// LNA			
-
+*/
 	if ( (rfapi.txPower > 0) ) rfapi.txPower--;			// Increase TX power
 #endif
+
+/*
 #if SERIAL
     showString(PSTR(" Increasing threshold to "));
     //Serial.print(rfapi.rssiThreshold);
     showString(PSTR(" Increasing transmit power "));
 	//Serial.println(rfapi.txPower); serialFlush();
 #endif
+*/
     return false;
 } // waitForAck
 
@@ -814,6 +840,8 @@ static void loadSettings () {
         settings.lowVcc = 140;
         settings.ackBounds = 60;
         settings.changedLight = settings.changedHumi = settings.changedTemp = true;
+        settings.RSSI = rfapi.rssiThreshold;
+        settings.seenAsRSSI = 140;
     } 
 #if SERIAL    
     else {
@@ -914,6 +942,7 @@ void setup ()
 #else
 	myNodeID = rf12_config(0); // don't report info on the serial port
 #endif
+
 	loadSettings();
 	
     rf12_sleep(RF12_SLEEP); // power down

@@ -443,7 +443,7 @@ static void InitIntPin () {
                 bitClear(PCMSK2, RFM_IRQ - 16);
         #endif
     #elif RF69_COMPAT
-        if (RF69::node != 0) {
+        if ( (RF69::node != 0) ) {
 			cli();
             attachInterrupt(digitalPinToInterrupt(2), interrupt_stub0, RISING);           
 		#if SX1276

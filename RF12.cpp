@@ -715,7 +715,7 @@ uint8_t rf12_initialize (uint8_t id, uint8_t band, uint8_t g, uint16_t f) {
     group = g;
     frequency = f;
 // caller should validate!    if (frequency < 96) frequency = 1600;
-
+	noInterrupts();
     rf12_spiInit();
     rf12_xfer(0x0000); // initial SPI transfer added to avoid power-up problem
     rf12_xfer(RF_SLEEP_MODE); // DC (disable clk pin), enable lbd
@@ -806,7 +806,9 @@ uint8_t rf12_initialize (uint8_t id, uint8_t band, uint8_t g, uint16_t f) {
             detachInterrupt(0);
     #endif
 #endif
-
+	
+	interrupts();
+	
     return nodeid;
 }
 #endif
