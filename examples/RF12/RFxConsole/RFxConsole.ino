@@ -289,17 +289,27 @@ static void activityLed (byte on) {
 volatile bool adcDone;
 ISR(ADC_vect) { adcDone = true; }
 
-static byte vccRead (byte count =4) {
+static byte vccRead (byte count =2) {
   set_sleep_mode(SLEEP_MODE_ADC);
-  ADMUX = bit(REFS0) | 14; // use VCC and internal bandgap
-  bitSet(ADCSRA, ADIE);
+  
+#if defined(__AVR_ATmega2560__) || defined(__AVR_ATmega1280__)
+ADMUX = (0<<REFS1) | (1<<REFS0) | (0<<ADLAR)| (0<<MUX5) | (1<<MUX4) | (1<<MUX3) | (1<<MUX2) | (1<<MUX1) | (0<<MUX0);
+#else
+  ADMUX = (0<<REFS1) | (1<<REFS0) | (0<<ADLAR) | (1<<MUX3) | (1<<MUX2) | (1<<MUX1) | (0<<MUX0); // use VCC and internal bandgap
+#endif
+  ADCSRA = 0x8E;
+
+  delay(1);
+
+//  bitSet(ADCSRA, ADIE);
   while ( (count--) > 0) {
     adcDone = false;
     while (!adcDone)
       sleep_mode();
   }
-  ADMUX = 0;
-  bitClear(ADCSRA, ADIE);  
+  ADCSRA = 0;
+  ADMUX = 0; 
+//  bitClear(ADCSRA, ADIE);  
   // convert ADC readings to fit in one byte, i.e. 20 mV steps:
   //  1.0V = 0, 1.8V = 40, 3.3V = 115, 5.0V = 200, 6.0V = 250
   return (55U * 1023U) / (ADC + 1) - ADC_CALIBRATE;
@@ -1566,6 +1576,12 @@ static void handleInput (char c) {
 					 Serial.println(EIMSK, BIN);
 					 showString(PSTR("ACIE:"));
 					 Serial.println(ACIE, BIN);
+					 showString(PSTR("ADCSRA:"));
+					 Serial.println(ADCSRA, BIN);
+					 showString(PSTR("ADCSRB:"));
+					 Serial.println(ADCSRB, BIN);
+					 
+					 
 
                      break;
 
