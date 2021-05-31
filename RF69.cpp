@@ -11,7 +11,7 @@ extern rfAPI rfapi;
 
 #define TX_INTERRUPT 1
 
-#define SX1276	1	// Also see setting in RF69_avr.h & RFxConsole.ino
+#define SX1276	0	// Also see setting in RF69_avr.h & RFxConsole.ino
 
 ///////////////////////////////////////////////////////////////////////////////
 #define ROM_UINT8       const uint8_t // Does this change storage to RAM?

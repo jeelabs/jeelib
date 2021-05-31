@@ -3,7 +3,7 @@
 #define RF69_COMPAT     1	// define this to use the RF69 driver i.s.o. RF12 
 ///							// The above flag must be set similarly in RF12.cpp
 ///							// and RF69_avr.h
-#define SX1276			1	// Also see setting in RF69.cpp & RF69_avr.h
+#define SX1276			0	// Also see setting in RF69.cpp & RF69_avr.h
 #define BLOCK  			0	// Alternate LED pin?
 #define INVERT_LED      0	// 0 is Jeenode usual and 1 inverse
 
@@ -264,7 +264,7 @@ static byte inChar () {
   #else
     #define LED_PIN     9		// activity LED, comment out to disable
   #endif
-  #define MAX_NODES 10			// Contrained by RAM (22 bytes RAM per node)
+  #define MAX_NODES 	0		// Contrained by RAM (22 bytes RAM per node)
 #endif
 
 byte ledStatus = 0;
@@ -2724,7 +2724,7 @@ void loop () {
             Serial.print(observedRX.rssi2 >> 1);
             if (observedRX.rssi2 & 0x01) showString(PSTR(".5"));
             showString(PSTR("dB T"));
-	#if SX1276 && RF69_COMPAT
+	#if RF69_COMPAT
 	        Serial.print(rf12_rxTail);
 	#endif
         }
@@ -2819,7 +2819,7 @@ void loop () {
 			if ((rf12_hdr & (RF12_HDR_CTL | RF12_HDR_DST)) == (RF12_HDR_CTL | RF12_HDR_DST)) 
 			  rf12_hdr = (hubID | RF12_HDR_CTL | RF12_HDR_ACK);	
 				         
-            if ( !(rf12_hdr & RF12_HDR_DST) && (rf12_hdr & RF12_HDR_MASK) != hubID ) {
+            if ( !(rf12_hdr & RF12_HDR_DST) && (MAX_NODES) && (rf12_hdr & RF12_HDR_MASK) != hubID ) {
                 // This code only sees broadcast packets *from* other nodes.
                 // Packets addressed to nodes do not identify the source node!          
                 // Search RF12_EEPROM_NODEMAP for node/group match
