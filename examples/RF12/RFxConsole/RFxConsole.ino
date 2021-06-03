@@ -2443,7 +2443,6 @@ void loop () {
 			arrivalTime = elapsedSeconds;
 			extendedStart = millis();
 			
-//			gotIndex = getIndex(rf12_grp, (rf12_hdr & RF12_HDR_MASK));
 			if (gotIndex) {
 				arrivalHeader = rf12_hdr;
 				if ( ((rxCount[NodeMap] + 1) % 101) == 0) oneShow(NodeMap);
@@ -2488,7 +2487,6 @@ void loop () {
 #if STATISTICS && !TINY
             messageCount++;                             // Count a broadcast packet
 #endif
-//            goodCRC++;
             if (outputTime) {
             	elapsed(elapsedSeconds);
                 printOneChar(' ');
