@@ -18,7 +18,7 @@
 ///                          // The above flag must be set similarly in RF12.cpp
 ///                          // and RF69_avr.h
 //#define BME280_PORT  1   // defined if BME280 is connected to I2C
-//#define BMP280_PORT  1   // defined if BME280 is connected to I2C
+#define BMP280_PORT  1   // defined if BME280 is connected to I2C
 
 #include <JeeLib.h>
 #include "RFAPI.h"		// Define
@@ -35,8 +35,10 @@ rfAPI rfapi;			// Declare
 #include <Adafruit_Sensor.h>
 #if BME280_PORT
 	#include <Adafruit_BME280.h>
+	#warning BME280
 #elif BMP280_PORT
 	#include <Adafruit_BMP280.h>
+	#warning BMP280
 #endif
 
 uint8_t resetFlags __attribute__ ((section(".noinit")));
@@ -50,6 +52,12 @@ void resetFlagsInit(void)
 #define crc_update      _crc16_update
 #define BMX280_ADDRESS	0x76
 
+#if F_CPU == 8000000UL
+#define CPU_MULT 2
+#else
+#define CPU_MULT 1
+#endif
+
 // #define SHT11_PORT  1   // defined if SHT11 is connected to a port
 //	#define HYT131_PORT 1   // defined if HYT131 is connected to a port
 #define LDR_PORT    4   // defined if LDR is connected to a port's AIO pin
@@ -60,7 +68,7 @@ void resetFlagsInit(void)
 #if RF69_COMPAT
 #define ACK_TIME        15	// number of milliseconds to wait for an ack
 #else
-#define ACK_TIME        3	// number of milliseconds to wait for an ack
+#define ACK_TIME 3 * CPU_MULT	// number of milliseconds to wait for an ack
 #endif
 #define SMOOTH          3   // smoothing factor used for running averages
 
@@ -69,9 +77,11 @@ void resetFlagsInit(void)
 #if F_CPU == 8000000UL
 	#define IDLESPEED		4	//	/16
 	#define RADIOSPEED		1	//	/2
+	#warning roomNode_* Serial port to be set at 1200 bps
 #elif F_CPU == 16000000UL
 	#define IDLESPEED		5	//	/32
 	#define RADIOSPEED		2	//	/4
+	#warning roomNode_* Serial port to be set at 1200 bps
 #endif
 
 #define SETTINGS_EEPROM_ADDR ((uint8_t*) 0x00)
@@ -454,14 +464,6 @@ static void doTrigger() {
     for (byte i = 1; i <= RETRY_LIMIT; ++i) {
     	payload.attempts = i;
         rf12_sleep(RF12_WAKEUP);
-/*
-    	while (!(rf12_canSend())) {
-    #if SERIAL
-			showString(PSTR("Airwaves Busy\n")); serialFlush();
-	#endif
-    	Sleepy::loseSomeTime(32);	// Wait a while
-		}
-*/		
 	#if SERIAL
     	Serial.print("Transmitting ");
 		Serial.print(payloadLength);
@@ -521,6 +523,9 @@ static void doTrigger() {
 				if (rf12_buf[2] == 1)
 				{
 					payload.powerSeenAs = rf12_buf[3];
+#if !RF69_COMPAT
+					payload.rssiThreshold = rf12_buf[3];
+#endif					
 #if SERIAL
 					showString(PSTR("Central saw my last packet at power ")); 
 					Serial.println(rf12_buf[3]);
@@ -678,7 +683,6 @@ static void doTrigger() {
 #else			// RFM12B: smaller value mean a more powerful TX
           		if (rfapi.txPower > 0) rfapi.txPower--;
 #endif
-
     		} // if (acked)
     	}
     	else // if (ackSW)
@@ -950,7 +954,11 @@ void setup ()
 
     clock_prescale(IDLESPEED);	// Divide clock by 4, Serial viewable at 2400
 #if SERIAL || DEBUG
+	#if F_CPU == 8000000UL
+    Serial.begin(19200);
+	#else
     Serial.begin(38400);
+    #endif
  	Serial.flush();
 	Serial.print("\n[roomNode.3.2] ");
 	Serial.print("Reboot Code: 0x");

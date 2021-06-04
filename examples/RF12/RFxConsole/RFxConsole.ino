@@ -3,7 +3,7 @@
 #define RF69_COMPAT     1	// define this to use the RF69 driver i.s.o. RF12 
 ///							// The above flag must be set similarly in RF12.cpp
 ///							// and RF69_avr.h
-#define SX1276			0	// Also see setting in RF69.cpp & RF69_avr.h
+#define SX1276			1	// Also see setting in RF69.cpp & RF69_avr.h
 #define BLOCK  			0	// Alternate LED pin?
 #define INVERT_LED      0	// 0 is Jeenode usual and 1 inverse
 
@@ -753,8 +753,15 @@ static void showStatus() {
     showString(PSTR(", Good CRC "));
     Serial.print(rfapi.goodCRC);
     showString(PSTR(", "));
+    
     Serial.print( (rfapi.goodCRC * 100l) / rfapi.syncMatch );
     printOneChar('%');
+    
+    if (possibleCRC[0]) {
+    	showString(PSTR(", UX !CRC "));
+    	Serial.print(possibleCRC[0]);
+	}
+	
     if (rfapi.discards) {
 		showString(PSTR(", Discards "));
    		Serial.print(rfapi.discards);
@@ -2501,6 +2508,8 @@ void loop () {
 #if RF69_COMPAT && STATISTICS && !TINY
 			if (gotIndex) {
 				possibleCRC[NodeMap]++;
+			} else {
+				possibleCRC[0]++;			
 			}
             if (observedRX.rssi2 < (CRCbadMinRSSI))
                 CRCbadMinRSSI = observedRX.rssi2;   
@@ -2872,7 +2881,11 @@ void loop () {
 
                 if (observedRX.rssi2 < (minRSSI[NodeMap]))
                     minRSSI[NodeMap] = observedRX.rssi2;
-                lastRSSI[NodeMap] = observedRX.rssi2;   
+                    
+                if (lastRSSI[NodeMap]) {	// Approx average RSSI from two packets
+                	lastRSSI[NodeMap] = (uint16_t)(lastRSSI[NodeMap] + observedRX.rssi2) / 2;
+                } else lastRSSI[NodeMap] = observedRX.rssi2;  
+                 
                 if (observedRX.rssi2 > (maxRSSI[NodeMap]))
                     maxRSSI[NodeMap] = observedRX.rssi2;   
 #endif
@@ -3086,9 +3099,9 @@ void loop () {
                     	
                     	
          	        } else {	// if ( (v) && (!(special)) )
-        	      		v = (byte *)&rf12_rssi;	// Point to RSSI as the TX buffer
+        	      		v = (byte *)&lastRSSI[NodeMap];	// Point to RSSI as the TX buffer
         	      		printOneChar(' ');
-        	      		showByte(rf12_rssi);       	      		
+        	      		showByte(lastRSSI[NodeMap]);       	      		
         	        	ackLen = 1;		// Supply received RSSI value in all basic ACKs
         	        }	// if ( (v) && (!(special)) )
 #endif                                        
