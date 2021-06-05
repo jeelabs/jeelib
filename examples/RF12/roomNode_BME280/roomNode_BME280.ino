@@ -138,14 +138,14 @@ struct {					//0		Offset, node #
     unsigned int humi:16;	//8&9	humidity: 0..100.00
     int temp:16; 			//10&11	temperature: -5000..+5000 (hundredths)
     byte vcc;				//12	Bandgap battery voltage
-    uint8_t rssiThreshold;	//13
+    uint8_t returnedRSSI;	//13    Received power of a transmission as reported by a remote node
     uint8_t sendingPower;	//14	Power applied to transmission
-    uint8_t RXrssi;			//15
+    uint8_t RXrssi;			//15	Locally measured RSSI of the received Ack
     uint8_t lna;			//16
-    uint8_t inboundRssi;	//17	Measured RSSI of the received Ack
+    uint8_t spare1;	//17	Measured RSSI of the received Ack
     uint16_t	fei;		//18&19
 	uint8_t rebootCode;		//20
-    uint8_t powerSeenAs;	//21	Received power of a transmission as reported by a remote node
+    uint8_t spare2;			//21
     byte ack_delay;			//22
     byte message[ (RF12_MAXDATA - EXTENDED_PAYLOADLENGTH) ];
 } payload;
@@ -310,9 +310,7 @@ static void doMeasure() {
     #if SERIAL || DEBUG
 	Serial.println("doMeasure"); serialFlush();
 	#endif
-#if !RF69_COMPAT
-//    payload.lobat = 0;//rf12_lowbat();
-#endif
+
     payload.vcc = vccRead();
     
 	#if SHT11_PORT
@@ -507,11 +505,10 @@ static void doTrigger() {
 #if RF69_COMPAT
 	#if SERIAL
 				Serial.print(" Inbound packet at ");
-				Serial.print(payload.inboundRssi);
+				Serial.print(rf12_rssi);
 				Serial.print(" with threshold of ");
 				Serial.println(rfapi.rssiThreshold);
 	#endif
-//				rfapi.rssiThreshold = payload.inboundRssi;
 #else
 	#if SERIAL
 				Serial.print("Threshold was ");
@@ -524,10 +521,7 @@ static void doTrigger() {
 				payloadLength = BASIC_PAYLOADLENGTH;			// Reset to typical
 				if (rf12_buf[2] == 1)
 				{
-					payload.powerSeenAs = rf12_buf[3];
-#if !RF69_COMPAT	// RFM12B
-					payload.rssiThreshold = rf12_buf[3];
-#endif					
+					payload.returnedRSSI = rf12_buf[3];
 #if SERIAL
 					showString(PSTR("Central saw my last packet at power ")); 
 					Serial.println(rf12_buf[3]);
@@ -536,13 +530,13 @@ static void doTrigger() {
 								
           			if (payload.vcc < settings.lowVcc) payload.command = 240;
 #if RF69_COMPAT          		
-          			if ( (payload.powerSeenAs > settings.seenAsRSSI) && (rfapi.txPower < 159) ) rfapi.txPower++;
+          			if ( (payload.returnedRSSI > settings.seenAsRSSI) && (rfapi.txPower < 159) ) rfapi.txPower++;
           			else
-          			if ( (payload.powerSeenAs < settings.seenAsRSSI) && (rfapi.txPower > 128) ) rfapi.txPower--;
+          			if ( (payload.returnedRSSI < settings.seenAsRSSI) && (rfapi.txPower > 128) ) rfapi.txPower--;
 #else										// RFM12B: smaller value are more powerful TX
-          			if ( (payload.powerSeenAs > settings.seenAsRSSI) && (rfapi.txPower > 0) ) rfapi.txPower--;
+          			if ( (payload.returnedRSSI > settings.seenAsRSSI) && (rfapi.txPower > 0) ) rfapi.txPower--;
           			else
-          			if ( (payload.powerSeenAs < settings.seenAsRSSI) && (rfapi.txPower < 7) ) rfapi.txPower++;
+          			if ( (payload.returnedRSSI < settings.seenAsRSSI) && (rfapi.txPower < 7) ) rfapi.txPower++;
 #endif
           			payload.sendingPower = rfapi.txPower;
           			break;
@@ -705,7 +699,7 @@ static byte waitForAck() {
         if (rf12_recvDone()) {
             rf12_sleep(RF12_SLEEP);
         	byte ack_delay = ( (ACK_TIME) - ackTimer.remaining() );
-			payload.inboundRssi = rf12_rssi;
+//			payload.inboundRssi = rf12_rssi;
 			clock_prescale(IDLESPEED);
 #if SERIAL
             Serial.println();
@@ -794,7 +788,6 @@ void blink (byte pin) {
 static void saveSettings () {
 	wdt_reset();
     settings.start = ~0;
-//    settings.RSSI = payload.rssiThreshold;
     settings.crc = calcCrc(&settings, sizeof settings - 2);
     // this uses 170 bytes less flash than eeprom_write_block(), no idea why
     for (byte i = 0; i < sizeof settings; ++i) {
