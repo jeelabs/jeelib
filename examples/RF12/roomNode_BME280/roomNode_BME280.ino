@@ -12,13 +12,13 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #warning roomNode_* Serial port to be set at 1200 bps
-#define RF69_COMPAT      1	 // define this to use the RF69 driver i.s.o. RF12 
-#define SERIAL  0   // set to 1 to also report readings on the serial port
+#define RF69_COMPAT      0	 // define this to use the RF69 driver i.s.o. RF12 
+#define SERIAL  1   // set to 1 to also report readings on the serial port
 #define DEBUG   0   // set to 1 to display each loop() run and PIR trigger
 ///                          // The above flag must be set similarly in RF12.cpp
 ///                          // and RF69_avr.h
 ///////////////////////////////////////////////////////////////////////////////
-#define BME280_PORT  1   // defined if BME280 is connected to I2C
+//#define BME280_PORT  1   // defined if BME280 is connected to I2C
 //#define BMP280_PORT  1   // defined if BME280 is connected to I2C
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -60,7 +60,7 @@ void resetFlagsInit(void)
 #define CPU_MULT 1
 #endif
 
-// #define SHT11_PORT  1   // defined if SHT11 is connected to a port
+#define SHT11_PORT  1   // defined if SHT11 is connected to a port
 //	#define HYT131_PORT 1   // defined if HYT131 is connected to a port
 #define LDR_PORT    4   // defined if LDR is connected to a port's AIO pin
 #define PIR_PORT    0//4   // defined if PIR is connected to a port's DIO pin
@@ -70,7 +70,7 @@ void resetFlagsInit(void)
 #if RF69_COMPAT
 #define ACK_TIME        15 * CPU_MULT	// number of milliseconds to wait for an ack
 #else
-#define ACK_TIME 3 * CPU_MULT	// number of milliseconds to wait for an ack
+#define ACK_TIME 4 * CPU_MULT	// number of milliseconds to wait for an ack
 #endif
 #define SMOOTH          3   // smoothing factor used for running averages
 
@@ -319,7 +319,7 @@ static void doMeasure() {
         sht11.measure(SHT11::TEMP, shtDelay);
         float h, t;
         sht11.calculate(h, t);
-        int humi = h, temp = 10 * t;
+        int humi = h * 100, temp = 100 * t;
 		#else
         //XXX TINY!
         int humi = 50, temp = 25;
@@ -526,14 +526,14 @@ static void doTrigger() {
 					showString(PSTR("Central saw my last packet at power ")); 
 					Serial.println(rf12_buf[3]);
 #endif
-					payload.command = 85;// Clear alert after a node restart
+//					payload.command = 85; // Clear alert after a node restart
 								
           			if (payload.vcc < settings.lowVcc) payload.command = 240;
 #if RF69_COMPAT          		
           			if ( (payload.returnedRSSI > settings.seenAsRSSI) && (rfapi.txPower < 159) ) rfapi.txPower++;
           			else
           			if ( (payload.returnedRSSI < settings.seenAsRSSI) && (rfapi.txPower > 128) ) rfapi.txPower--;
-#else										// RFM12B: smaller value are more powerful TX
+#else	// RFM12B: smaller value are more powerful TX
           			if ( (payload.returnedRSSI > settings.seenAsRSSI) && (rfapi.txPower > 0) ) rfapi.txPower--;
           			else
           			if ( (payload.returnedRSSI < settings.seenAsRSSI) && (rfapi.txPower < 7) ) rfapi.txPower++;
@@ -544,6 +544,7 @@ static void doTrigger() {
 				else
 				if ( (rf12_buf[2] > 1) && (rf12_buf[2] <= 4) )
 				{
+    				payloadLength = EXTENDED_PAYLOADLENGTH + (sizeof settings);
 					ackPacer++;
 	            	payload.command = rf12_buf[3];		// Acknowledge the command
 	            	releaseAck = true;
@@ -641,6 +642,9 @@ static void doTrigger() {
 							else payload.command = 170;		// Rejected command	
                   			break;
 //                  	case 240 is reserved
+						case 250: 		// Reboot
+   							payloadLength = EXTENDED_PAYLOADLENGTH + (sizeof settings);
+                    	 	break;
 						case 254: 		// Reboot
                     		 if (value == 254) rebootRequested = true;
                     		 break;                    
@@ -790,12 +794,13 @@ static void saveSettings () {
     settings.start = ~0;
     settings.crc = calcCrc(&settings, sizeof settings - 2);
     // this uses 170 bytes less flash than eeprom_write_block(), no idea why
+     byte* p = &settings.start;
     for (byte i = 0; i < sizeof settings; ++i) {
-        byte* p = &settings.start;
         payload.message[i] = eeprom_read_byte(SETTINGS_EEPROM_ADDR + i);
         if ((byte)payload.message[i] != (byte)p[i]) {
         	delay(1);	// Avoid brownout?
             eeprom_write_byte(SETTINGS_EEPROM_ADDR + i, p[i]);
+            payload.message[i] = (byte)p[i];
 #if SERIAL
      		Serial.print("Eeprom change ");
      		Serial.print(i);
@@ -834,14 +839,14 @@ static void loadSettings () {
 		Serial.print("is bad, defaulting ");
 		Serial.println(crc, HEX);
 #endif
-        settings.MEASURE_PERIOD = 2850;
+        settings.MEASURE_PERIOD = 60;
         settings.REPORT_EVERY = 1;
         settings.MEASURE = settings.REPORT = true;
         settings.lowVcc = 140;
-        settings.ackBounds = 60;
+        settings.ackBounds = 12;
         settings.changedLight = settings.changedHumi = settings.changedTemp = true;
-        settings.RSSI = rfapi.rssiThreshold;
-        settings.seenAsRSSI = 170;
+        settings.RSSI = 180;
+        settings.seenAsRSSI = 160;
     } 
 #if SERIAL    
     else {

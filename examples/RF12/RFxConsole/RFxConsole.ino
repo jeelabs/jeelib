@@ -1,9 +1,9 @@
 /// @dir RFxConsole
 ///////////////////////////////////////////////////////////////////////////////
-#define RF69_COMPAT     1	// define this to use the RF69 driver i.s.o. RF12 
+#define RF69_COMPAT     0	// define this to use the RF69 driver i.s.o. RF12 
 ///							// The above flag must be set similarly in RF12.cpp
 ///							// and RF69_avr.h
-#define SX1276			1	// Also see setting in RF69.cpp & RF69_avr.h
+#define SX1276			0	// Also see setting in RF69.cpp & RF69_avr.h
 #define BLOCK  			0	// Alternate LED pin?
 #define INVERT_LED      0	// 0 is Jeenode usual and 1 inverse
 
@@ -256,7 +256,7 @@ static byte inChar () {
   #define LED_PIN     13		// activity LED, comment out to disable on/off operation is reversed to a normal Jeenode
   #define LED_ON       1
   #define LED_OFF      0
-  #define MAX_NODES 96			// Constrained by eeprom
+  #define MAX_NODES	   96		// Constrained by eeprom
 
 #else
   #if BLOCK
@@ -264,7 +264,7 @@ static byte inChar () {
   #else
     #define LED_PIN     9		// activity LED, comment out to disable
   #endif
-  #define MAX_NODES 	0		// Contrained by RAM (22 bytes RAM per node)
+  #define MAX_NODES 	1		// Contrained by RAM (22 bytes RAM per node)
 #endif
 
 byte ledStatus = 0;
@@ -400,7 +400,9 @@ byte ignoreNode = 8;	// Electricity Monitor
 byte lastTest;
 byte missedTests;
 byte sendRetry = 0;
-static byte highestAck[MAX_NODES];
+#if MAX_NODES > 0
+	static byte highestAck[MAX_NODES];
+#endif
 unsigned int busyCount;
 unsigned int packetAborts;
 unsigned int testTX;
@@ -422,7 +424,9 @@ volatile byte maxRestartRSSI;
 volatile byte ping = false;
 volatile byte statsTick = false;
 volatile byte statsInterval = 255;
-
+#if MAX_NODES > 0
+	static byte commandByte[MAX_NODES];
+#endif
 ISR(TIMER1_COMPA_vect){
 	secondsTick++;
 
@@ -452,9 +456,10 @@ static byte semaphoreStack[ (ackQueue * ackEntry) + 1];
 #endif
 static byte arrivalHeader;
 static uint32_t arrivalTime;
+#if MAX_NODES > 0
 static uint16_t rxTailLo[MAX_NODES];
 static uint16_t rxTailHi[MAX_NODES];
-#if RF69_COMPAT && STATISTICS
+	#if RF69_COMPAT && STATISTICS
 static int32_t CumNodeFEI[MAX_NODES];
 static uint32_t CumNodeTfr[MAX_NODES];
 static uint16_t CumNodeRtp[MAX_NODES];
@@ -469,6 +474,7 @@ static byte maxRSSI[MAX_NODES];
 static byte minLNA[MAX_NODES];
 static byte lastLNA[MAX_NODES];
 static byte maxLNA[MAX_NODES];
+	#endif
 #endif
 #if RF69_COMPAT && !TINY
 static byte CRCbadMinRSSI = 255;
@@ -483,15 +489,19 @@ static unsigned int changedFEI;
 #endif
 //static byte nextKey;
 #if STATISTICS
-static uint32_t rxTimeStamp[MAX_NODES];
-static uint32_t rxAckTimeStamp[MAX_NODES];
+#if MAX_NODES > 0
+	static uint32_t rxTimeStamp[MAX_NODES];
+	static uint32_t rxAckTimeStamp[MAX_NODES];
+#endif
 static unsigned int CRCbadCount = 0;
-static unsigned int rxCount[MAX_NODES];
-static unsigned int txCount[MAX_NODES];
-static unsigned int possibleCRC[MAX_NODES];
-static unsigned int retransmissions[MAX_NODES];
-static unsigned int abortCount[MAX_NODES];
-static unsigned int nonBroadcastCount = 0;
+	#if MAX_NODES > 0
+	static unsigned int rxCount[MAX_NODES];
+	static unsigned int txCount[MAX_NODES];
+	static unsigned int possibleCRC[MAX_NODES];
+	static unsigned int retransmissions[MAX_NODES];
+	static unsigned int abortCount[MAX_NODES];
+#endif
+	static unsigned int nonBroadcastCount = 0;
 static unsigned int postingsIn, postingsClr, postingsOut, postingsRej, postingsLost;
 #endif
 
@@ -894,7 +904,9 @@ Serial.print(RF69::DIOMAPPING1);
 printOneChar(',');
 Serial.println(rfapi.rssiZero);
 //Serial.print("Micros="); Serial.println((uint32_t)micros());        
-#endif    
+#endif 
+   
+showPost();
 
 if (ignoreNode) ignoreStats();
 
@@ -2182,7 +2194,11 @@ static void oneShow(byte index) {
     showString(PSTR(" i"));      
     showByte(n & RF12_HDR_MASK);	
     showString(PSTR(" g"));      
-    showByte(g);    
+    showByte(g);
+#if MAX_NODES > 0
+	showString(PSTR(" c"));      
+    Serial.print(commandByte[index]);
+#endif       
     if (retransmissions[index]) {
 	    showString(PSTR(" dup:"));	// Possible duplicate packet count
     	Serial.print(retransmissions[index]);    
@@ -2739,6 +2755,9 @@ void loop () {
 #endif        
 		if ( (gotIndex) && !(arrivalHeader & RF12_HDR_DST) && (rf12_crc == 0) ) {	
 		// Only broadcast packets
+#if MAX_NODES > 0
+			commandByte[NodeMap] = rf12_data[0];
+#endif
 	        printOneChar(' ');
 	        if ( (arrivalHeader & RF12_HDR_ACK) ) {
 	        	if ( (arrivalTime - 2l) < rxAckTimeStamp[NodeMap] ) retransmissions[NodeMap]++;
@@ -3099,10 +3118,12 @@ void loop () {
                     	
                     	
          	        } else {	// if ( (v) && (!(special)) )
+#if RF69_COMPAT
         	      		v = (byte *)&lastRSSI[NodeMap];	// Point to RSSI as the TX buffer
         	      		printOneChar(' ');
         	      		showByte(lastRSSI[NodeMap]);       	      		
         	        	ackLen = 1;		// Supply received RSSI value in all basic ACKs
+#endif
         	        }	// if ( (v) && (!(special)) )
 #endif                                        
 ////////////////////////////////////////////////////////////////////      	                	                
