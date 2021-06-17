@@ -1,6 +1,6 @@
 /// @dir RFxConsole
 ///////////////////////////////////////////////////////////////////////////////
-#define RF69_COMPAT     0	// define this to use the RF69 driver i.s.o. RF12 
+#define RF69_COMPAT     1	// define this to use the RF69 driver i.s.o. RF12 
 ///							// The above flag must be set similarly in RF12.cpp
 ///							// and RF69_avr.h
 #define SX1276			0	// Also see setting in RF69.cpp & RF69_avr.h
@@ -8,6 +8,8 @@
 #define INVERT_LED      0	// 0 is Jeenode usual and 1 inverse
 
 #define hubID			31
+
+//#define Serial Serial1
 //
 /* AutoRxRestartOn = 1, page 24:
    after the controller has emptied the FIFO the receiver will re-enter the WAIT mode described
@@ -264,9 +266,11 @@ static byte inChar () {
   #else
     #define LED_PIN     9		// activity LED, comment out to disable
   #endif
-  #define MAX_NODES 	1		// Contrained by RAM (22 bytes RAM per node)
+  #define MAX_NODES 	0		// Contrained by RAM (22 bytes RAM per node)
 #endif
-
+#if MAX_NODES < 1
+#warning MAX_NODES is set to 0
+#endif
 byte ledStatus = 0;
 static void activityLed (byte on) {
 #ifdef LED_PIN
@@ -400,9 +404,9 @@ byte ignoreNode = 8;	// Electricity Monitor
 byte lastTest;
 byte missedTests;
 byte sendRetry = 0;
-#if MAX_NODES > 0
+//#if MAX_NODES > 0
 	static byte highestAck[MAX_NODES];
-#endif
+#//endif
 unsigned int busyCount;
 unsigned int packetAborts;
 unsigned int testTX;
@@ -424,9 +428,9 @@ volatile byte maxRestartRSSI;
 volatile byte ping = false;
 volatile byte statsTick = false;
 volatile byte statsInterval = 255;
-#if MAX_NODES > 0
+//#if MAX_NODES > 0
 	static byte commandByte[MAX_NODES];
-#endif
+//#endif
 ISR(TIMER1_COMPA_vect){
 	secondsTick++;
 
@@ -456,7 +460,7 @@ static byte semaphoreStack[ (ackQueue * ackEntry) + 1];
 #endif
 static byte arrivalHeader;
 static uint32_t arrivalTime;
-#if MAX_NODES > 0
+//#if MAX_NODES > 0
 static uint16_t rxTailLo[MAX_NODES];
 static uint16_t rxTailHi[MAX_NODES];
 	#if RF69_COMPAT && STATISTICS
@@ -475,7 +479,7 @@ static byte minLNA[MAX_NODES];
 static byte lastLNA[MAX_NODES];
 static byte maxLNA[MAX_NODES];
 	#endif
-#endif
+//#endif
 #if RF69_COMPAT && !TINY
 static byte CRCbadMinRSSI = 255;
 static byte CRCbadMaxRSSI = 0;
@@ -489,18 +493,18 @@ static unsigned int changedFEI;
 #endif
 //static byte nextKey;
 #if STATISTICS
-#if MAX_NODES > 0
+//#if MAX_NODES > 0
 	static uint32_t rxTimeStamp[MAX_NODES];
 	static uint32_t rxAckTimeStamp[MAX_NODES];
-#endif
+//#endif
 static unsigned int CRCbadCount = 0;
-	#if MAX_NODES > 0
+//	#if MAX_NODES > 0
 	static unsigned int rxCount[MAX_NODES];
 	static unsigned int txCount[MAX_NODES];
 	static unsigned int possibleCRC[MAX_NODES];
 	static unsigned int retransmissions[MAX_NODES];
 	static unsigned int abortCount[MAX_NODES];
-#endif
+//	#endif
 	static unsigned int nonBroadcastCount = 0;
 static unsigned int postingsIn, postingsClr, postingsOut, postingsRej, postingsLost;
 #endif
@@ -1439,8 +1443,8 @@ static void handleInput (char c) {
             		break;	
 #if MESSAGING
             case 'm':
-//            		Serial.println();
-            		for (uint8_t i = 0; i < MAX_NODES; i++) {
+            
+		     		for (uint8_t i = 0; i < MAX_NODES; i++) {
             			if ( !(i%16) ) Serial.println();
             			Serial.print(highestAck[i]);
         				printOneChar(' ');
@@ -1631,7 +1635,7 @@ static void handleInput (char c) {
 					if (value < MAX_NODES) {
 						oneShow(value);
 #if RF69_COMPAT
-						rxCount[value] = lastFEI[value] = minFEI[value] = maxFEI[value]
+						rxCount[value] = lastFEI[value] = minFEI[value] = maxFEI[value] 
 						= lastRSSI[value] = minRSSI[value] = maxRSSI[value] = CumNodeFEI[value] = CumNodeTfr[value]
 						= CumNodeRtp[value] = lastLNA[value] = minLNA[value] = maxLNA[value] = 0;
 #endif
@@ -2841,10 +2845,10 @@ void loop () {
 
             if (df_present())
                 df_append((const char*) rf12_data - 2, rf12_len + 2);
-
+/*	This detects node number == 0, not currently used.
 			if ((rf12_hdr & (RF12_HDR_CTL | RF12_HDR_DST)) == (RF12_HDR_CTL | RF12_HDR_DST)) 
 			  rf12_hdr = (hubID | RF12_HDR_CTL | RF12_HDR_ACK);	
-				         
+*///	This detects node number == 0, not currently used.				         
             if ( !(rf12_hdr & RF12_HDR_DST) && (MAX_NODES) && (rf12_hdr & RF12_HDR_MASK) != hubID ) {
                 // This code only sees broadcast packets *from* other nodes.
                 // Packets addressed to nodes do not identify the source node!          
@@ -2922,7 +2926,8 @@ void loop () {
 
                 byte ackLen = 0;
 				byte special = false;
-#if NODE31ALLOC                    
+#if NODE31ALLOC	// The code section below requires updating or removing
+                    
                 // This code is used when an incoming packet requesting an ACK is also from Node 31
                 // The purpose is to find a "spare" Node number within the incoming group and offer 
                 // it with the returning ACK.
@@ -2967,7 +2972,8 @@ void loop () {
                     }
                     Serial.println(); 
                 }
-#endif                    
+#endif			// The code section above requires updating or removing      
+                    
 	            // This code is used when an incoming packet is requesting an ACK, it determines if a semaphore is posted for this Node/Group.
     	        // If a semaphore exists it is used as the TX buffer. The buffer transmitted to the 
         	    // originating node with the ACK.
