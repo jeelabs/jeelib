@@ -2743,7 +2743,6 @@ void loop () {
         }
 
         // display RSSI value after packet data
-     //   showString(PSTR(" ("));
         printOneChar(' ');                
         if (config.output & 0x1)                  // Hex output?
             showByte(observedRX.rssi2);
@@ -2753,8 +2752,7 @@ void loop () {
 	#if SX1276
             showString(PSTR("dB T"));
 	        Serial.print(rf12_rxTail);
-	#endif
-	#if RF69_COMPAT
+	#elif RF69_COMPAT
             showString(PSTR("dB"));
 	#endif
         }
