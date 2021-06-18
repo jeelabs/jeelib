@@ -94,7 +94,7 @@ This bit is set if a Power-on Reset occurs. The bit is reset only by writing a l
 
 #if TINY
   #define OOK          0   // Define this to include OOK code f, k - Adds ?? bytes to Tiny image
-  #define JNuMOSFET    1   // Define to power up RFM12B on JNu2/3 - Adds 4 bytes to Tiny image
+  #define JNuMOSFET    0   // Define to power up RFM12B on JNu2/3 - Adds 4 bytes to Tiny image
 #else
   #define configSTRING 1   // Define to include "A i1 g210 @ 868 MHz q1" - Adds ?? bytes to Tiny image
   #define HELP         0   // Define to include the help text
@@ -1216,7 +1216,7 @@ static void handleInput (char c) {
                      // Set hardware specific TX power in eeprom
                      config.RegPaLvl = value;
                      // Transmit permit threshold
-                     if (top == 1 && (stack[0])) config.clearAir = stack[0];
+                     if (top == 1 /*&& (stack[0] )*/) config.clearAir = stack[0];
                      saveConfig();
                      break;
 
@@ -2750,9 +2750,12 @@ void loop () {
         else {
             Serial.print(observedRX.rssi2 >> 1);
             if (observedRX.rssi2 & 0x01) showString(PSTR(".5"));
+	#if SX1276
             showString(PSTR("dB T"));
-	#if RF69_COMPAT
 	        Serial.print(rf12_rxTail);
+	#endif
+	#if RF69_COMPAT
+            showString(PSTR("dB"));
 	#endif
         }
 
