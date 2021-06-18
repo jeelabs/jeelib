@@ -10,7 +10,7 @@ extern rfAPI rfapi;
 ///////////////////////////////////////////////////////////////////////////////
 
 #define TX_INTERRUPT 1
-
+//#define Serial Serial1
 #define SX1276	0	// Also see setting in RF69_avr.h & RFxConsole.ino
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1142,6 +1142,7 @@ second rollover and then will be 1.024 mS out.
                     }
                 } //  if 
             } // busy loop
+#if SX1276
 			for (rxTail = 0; rxTail < 16; ++rxTail) {
 				if ( readReg(REG_RSSIVALUE) >  rfapi.configThreshold) break;
 				for (volatile uint16_t tick = 0; tick < 511; tick++) NOP;	// Delay around packet tail
@@ -1157,7 +1158,7 @@ second rollover and then will be 1.024 mS out.
        			rfapi.noiseTailLo = rxTail;
        			rfapi.noiseLoRSSI = rssi;
        		}
-
+#endif
             writeReg(REG_AFCFEI, AFC_CLEAR);
 		    setMode(MODE_STANDBY);
 
