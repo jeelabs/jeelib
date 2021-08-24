@@ -20,6 +20,7 @@ extern rfAPI rfapi;
 #define RF69_COMPAT 0	// Set this true to use the RF69 driver
 #define PINCHG_IRQ  0	// Set this true to use pin-change interrupts
 						// The above flags must be set similarly in RF69_avr.h
+//#define Serial Serial1
 
 // NOTE: The following does not apply to the ATTiny processors which uses USI
 #define OPTIMIZE_SPI 1	// uncomment this to write to the RFM12B @ 8 Mhz

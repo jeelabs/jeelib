@@ -499,7 +499,10 @@ static void doTrigger() {
    	
         	if (acked)
         	{
-        		if (rebootRequested) asm volatile ("  jmp 0");
+        		if (rebootRequested) {
+        			asm volatile ("  jmp 0");
+        			delay(10000);
+				}
         		payload.RXrssi = rfapi.rssi;
 				clock_prescale(IDLESPEED);
 #if RF69_COMPAT
@@ -721,6 +724,7 @@ static byte waitForAck() {
 #endif
                     return true;            
                 }  else {
+            		incrementPWR();
 #if SERIAL
                 	Serial.print(rf12_hdr, HEX); printOneChar(' ');
 					Serial.print((RF12_HDR_DST | RF12_HDR_CTL | myNodeID), HEX);
@@ -742,8 +746,10 @@ static byte waitForAck() {
 					return false;
                 }
             } else { 
+            	incrementPWR();
             	payload.command = 1;	// CRC bad
             	payload.badCRC++;
+            	incrementPWR();
 #if SERIAL
             	showString(PSTR("Bad CRC"));	            
 				Serial.println();serialFlush();
@@ -753,6 +759,7 @@ static byte waitForAck() {
         }
     }
     rf12_sleep(RF12_SLEEP);
+    incrementPWR();
     payload.command = 2;	// Ack timeout
     payload.lna = rfapi.lna;
     payload.fei = rfapi.fei;
@@ -781,6 +788,13 @@ static byte waitForAck() {
 */
     return false;
 } // waitForAck
+void	incrementPWR() {
+#if RF69_COMPAT          		
+          			if ( (payload.returnedRSSI < settings.seenAsRSSI) && (rfapi.txPower > 128) ) rfapi.txPower--;
+#else	// RFM12B: smaller value are more powerful TX
+          			if ( (payload.returnedRSSI > settings.seenAsRSSI) && (rfapi.txPower > 0) ) rfapi.txPower--;
+#endif
+}
 
 void blink (byte pin) {
     for (byte i = 0; i < 6; ++i) {
@@ -858,7 +872,7 @@ static void loadSettings () {
 		Serial.println(settings.REPORT_EVERY);
         settings.MEASURE_PERIOD = 60;	// Override eeprom if on serial port
         settings.REPORT_EVERY = 1;
-        settings.ackBounds = 30;		
+        settings.ackBounds = 12;		
     }
 #endif
 } // loadSettings
