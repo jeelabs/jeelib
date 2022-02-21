@@ -11,7 +11,7 @@ extern rfAPI rfapi;
 
 #define TX_INTERRUPT 1
 //#define Serial Serial1
-#define SX1276	0	// Also see setting in RF69_avr.h & RFxConsole.ino
+#define SX1276	1	// Also see setting in RF69_avr.h & RFxConsole.ino
 
 ///////////////////////////////////////////////////////////////////////////////
 #define ROM_UINT8       const uint8_t // Does this change storage to RAM?
@@ -524,6 +524,9 @@ uint8_t setMode (uint8_t mode) {	// TODO enhance return code
     uint8_t c = 0;
 	cli();	// The approach negates the *buffering* of single interrupts
 	sei();	// Following instruction will not be interrupted
+#ifdef GIMSK
+	#define EIMSK GIMSK
+#endif
 	uint8_t eimsk = EIMSK;
 	EIMSK = 0;
 	writeReg(REG_OPMODE, (mode | MODE_SEQUENCER_OFF));

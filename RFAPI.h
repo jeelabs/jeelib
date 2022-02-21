@@ -15,7 +15,7 @@ struct rfapi
     volatile uint32_t rxLast;
     volatile uint32_t minGap;
     volatile uint32_t maxGap;
-    
+
     uint32_t cumRSSI[8];
     int32_t cumFEI[8];
     uint16_t cumCount[8];
