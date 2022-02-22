@@ -6,6 +6,7 @@
 #define SX1276			1	// Also see setting in RF69.cpp & RF69_avr.h
 #define BLOCK  			0	// Alternate LED pin?
 #define INVERT_LED      0	// 0 is Jeenode usual and 1 inverse
+#define DUPTIME			5l	// Number of seconds to wait for duplicate packets
 
 #define hubID			31
 
@@ -848,6 +849,10 @@ static void showStatus() {
     Serial.print(minCrcGap);
     printOneChar('^');
     Serial.print(maxCrcGap);
+    showString(PSTR(", DupTime "));
+    Serial.print(DUPTIME);
+    showString(PSTR("s"));
+
 #endif
 	if (watchNode) {
 		showString(PSTR("\nWatching i"));
@@ -2475,14 +2480,14 @@ void loop () {
 		        if ( (arrivalHeader & RF12_HDR_ACK) ) {
 		        
 					if ( (rxAckTimeStamp[NodeMap]) ) {		
-		        		if ( arrivalTime < (rxAckTimeStamp[NodeMap] + 65l) ) {
+		        		if ( arrivalTime < (rxAckTimeStamp[NodeMap] + DUPTIME) ) {
 		        			duplicate = true;
 		        			retransmissions[NodeMap]++;
 		       			 }
 		       		}
     	    	} else {
     	    		if ( (rxTimeStamp[NodeMap]) ) {
-	        			if ( arrivalTime < (rxTimeStamp[NodeMap] + 65l) ) {
+	        			if ( arrivalTime < (rxTimeStamp[NodeMap] + DUPTIME) ) {
 		        			duplicate = true;
 	        				retransmissions[NodeMap]++;
 	        			}
@@ -2726,7 +2731,6 @@ void loop () {
         	    	showByte(lastRSSI[NodeMap]); 
         	    }      	      				
 			}
-
 	#endif        
 			 
 			if ( (gotIndex) && !(arrivalHeader & RF12_HDR_DST) && (rf12_crc == 0) ) {	
@@ -2884,7 +2888,7 @@ void loop () {
 					if (observedRX.rssi2 < (minRSSI[NodeMap]))
 						minRSSI[NodeMap] = observedRX.rssi2;
 					if (lastRSSI[NodeMap]) {	// Approx average RSSI from two packets
-						lastRSSI[NodeMap] = ((uint16_t)(lastRSSI[NodeMap] + observedRX.rssi2) / 2) + 1;
+						lastRSSI[NodeMap] = ((uint16_t)((lastRSSI[NodeMap] * 2) + observedRX.rssi2) / 3) + 1;
 					} else lastRSSI[NodeMap] = observedRX.rssi2; 
 					if (observedRX.rssi2 > (maxRSSI[NodeMap]))
 						maxRSSI[NodeMap] = observedRX.rssi2;   
@@ -3242,10 +3246,6 @@ void loop () {
             Serial.println();	        	
 	        }
         }
-#endif
-
-#if TINY						// Very weird, needed to make Tiny code compile
-//    close brace // !rf12_recvDone
 #endif
 
 	wdt_reset();
