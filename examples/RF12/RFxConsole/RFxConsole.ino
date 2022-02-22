@@ -2859,8 +2859,8 @@ void loop () {
 							showByte(rf12_hdr & RF12_HDR_MASK);
 							showString(PSTR(" not saved"));
 							Serial.println(); 
-						}
 		#endif
+						}
 					}
 	#endif // !TINY
 
