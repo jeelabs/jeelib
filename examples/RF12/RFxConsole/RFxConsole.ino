@@ -3,10 +3,11 @@
 #define RF69_COMPAT     1	// define this to use the RF69 driver i.s.o. RF12 
 ///							// The above flag must be set similarly in RF12.cpp
 ///							// and RF69_avr.h
-#define SX1276			1	// Also see setting in RF69.cpp & RF69_avr.h
+#define SX1276			0	// Also see setting in RF69.cpp & RF69_avr.h
 #define BLOCK  			0	// Alternate LED pin?
 #define INVERT_LED      0	// 0 is Jeenode usual and 1 inverse
 #define DUPTIME			5l	// Number of seconds to wait for duplicate packets
+#define SALUS			1
 
 #define hubID			31
 
@@ -162,9 +163,13 @@ const char ABORTED[] PROGMEM = " Aborted ";
 const char UNKNOWN[] PROGMEM = " Unknown";
 const char TX[] PROGMEM = "TX ";
 const char SEMAPHOREFULL[] PROGMEM = "Semaphore table full";
+
+#if SALUS
 #define SALUSFREQUENCY 1660       // Default value
 byte salusMode = false;
 unsigned int SalusFrequency = SALUSFREQUENCY;
+#endif
+
 unsigned int radioInit;
 signed int NodeMap;
 signed int newNodeMap;
@@ -270,7 +275,7 @@ static byte inChar () {
   #else
     #define LED_PIN     9		// activity LED, comment out to disable
   #endif
-  #define MAX_NODES 	1		// Contrained by RAM (22 bytes RAM per node)
+  #define MAX_NODES 	14		// Contrained by RAM (22 bytes RAM per node)
 #endif
 #if MAX_NODES < 1
 #warning MAX_NODES is set to 0
@@ -1252,7 +1257,9 @@ static void handleInput (char c) {
                      previousRestarts = currentRestarts;
                      break;
 
-#if !TINY
+/*
+#if SALUS
+	#if !TINY
             case 'S': // send FSK packet to Salus devices
                      if (!top) {
                          if (value) SalusFrequency = value;
@@ -1262,16 +1269,16 @@ static void handleInput (char c) {
                      rf12_sleep(RF12_SLEEP);                                             // Sleep while we tweak things
                      rf12_initialize (config.nodeId, RF12_868MHZ, 212, SalusFrequency);  // 868.30 MHz
                      rf12_sleep(RF12_SLEEP);                                             // Sleep while we tweak things
-  #if RF69_COMPAT
+  		#if RF69_COMPAT
                      RF69::radioIndex(BITRATEMSB | 0x80, 0x34);                         // 2.4kbps
                      RF69::radioIndex(BITRATELSB | 0x80, 0x15);
                      RF69::radioIndex(BITFDEVMSB | 0x80, 0x04);                         // 75kHz freq shift
                      RF69::radioIndex(BITFDEVLSB | 0x80, 0xCE);
                      rfapi.RssiToSyncLimit = SALUSPACKET16;
-  #else
+  		#else
                      rf12_control(RF12_DATA_RATE_2);                                     // 2.4kbps
                      rf12_control(0x9830);                                               // 75khz freq shift
-  #endif
+  		#endif
                      salusMode = true;
                      rf12_skip_hdr(2);                   // Ommit Jeelib header 2 bytes on transmission & validating reception
                      rf12_fix_len(15);                   // Maximum fixed length packet size.
@@ -1285,18 +1292,20 @@ static void handleInput (char c) {
                          //                stack[1] = OK;
                          //                stack[0] = OK;  
                          sendLen = 5; //4?
-                         /*
+
                          // Command format 16,1S
                          // 16 is the ID
                          // 1 = ON
                          // 2 = OFF
-                         stack[3] = 90;
-                         stack[2] = value | stack[0];
-                         stack[1] = value;
-                         sendLen = 4; */
+//                         stack[3] = 90;
+//                         stack[2] = value | stack[0];
+//                         stack[1] = value;
+//                         sendLen = 4;
                      }
                      break;
+	#endif
 #endif
+*/
             case 'I': // Ignore a specific node
             		if (ignoreNode) ignoreStats();
             		 ignoreCount = 0L;
@@ -1584,6 +1593,7 @@ static void handleInput (char c) {
             			delay(10);
             		 	dumpRegs();
 					}
+/*
             		 showString(PSTR("InterruptCounts="));
             		 Serial.print(rfapi.interruptCountTX);
                      printOneChar(',');
@@ -1611,7 +1621,7 @@ static void handleInput (char c) {
 					 Serial.println(ADCSRA, BIN);
 					 showString(PSTR("ADCSRB:"));
 					 Serial.println(ADCSRB, BIN);
-					 
+*/					 
 					 
 
                      break;
@@ -2562,6 +2572,8 @@ void loop () {
                 CRCbadMaxRSSI = observedRX.rssi2;   
 #endif            
             activityLed(0);
+/*
+#if SALUS
 #if !TINY
             if(rf12_buf[0] == 212 && (rf12_buf[1] | rf12_buf[2]) == rf12_buf[3] && (salusMode)) {
                 Serial.print((word) elapsedSeconds, DEC);  
@@ -2606,6 +2618,8 @@ void loop () {
                 Serial.println();
             }            
 #endif
+#endif
+*/
 #if RF69_COMPAT
             if ((rf12_hdr &  ~RF12_HDR_MASK) == (RF12_HDR_DST | RF12_HDR_ACK) && 
                     ((rf12_hdr &  RF12_HDR_MASK) > 23) && (config.group != 0)) {
@@ -2626,8 +2640,7 @@ void loop () {
             if (n > 16) n = 16;
             
         }		// Bad CRC
-        
-//>>>>>>>>>
+
 		byte testPacket = false;
 		if ( !(duplicate) || ((duplicate) && !(config.quiet_mode)) ) {		
  
@@ -2898,7 +2911,6 @@ void loop () {
 					nonBroadcastCount++;
 	#endif
 				}
-//<<<<<<<<<<<
             // Where requested, acknowledge broadcast packets - not directed packets
             // unless directed to this nodeId
             if ( ((RF12_WANTS_ACK && (config.collect_mode) == 0) && (!(rf12_hdr & RF12_HDR_DST)) )             
