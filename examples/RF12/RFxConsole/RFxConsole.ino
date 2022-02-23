@@ -3,7 +3,7 @@
 #define RF69_COMPAT     1	// define this to use the RF69 driver i.s.o. RF12 
 ///							// The above flag must be set similarly in RF12.cpp
 ///							// and RF69_avr.h
-#define SX1276			0	// Also see setting in RF69.cpp & RF69_avr.h
+#define SX1276			1	// Also see setting in RF69.cpp & RF69_avr.h
 #define BLOCK  			0	// Alternate LED pin?
 #define INVERT_LED      0	// 0 is Jeenode usual and 1 inverse
 #define DUPTIME			5l	// Number of seconds to wait for duplicate packets
@@ -854,11 +854,11 @@ static void showStatus() {
     Serial.print(minCrcGap);
     printOneChar('^');
     Serial.print(maxCrcGap);
+#endif
     showString(PSTR(", DupTime "));
     Serial.print(DUPTIME);
     showString(PSTR("s"));
 
-#endif
 	if (watchNode) {
 		showString(PSTR("\nWatching i"));
 	    Serial.print(watchNode);
@@ -2927,6 +2927,8 @@ void loop () {
                 // If there are no spare Node numbers nothing is offered
                 // TODO perhaps we should increment the Group number and find a spare node number there?
                 if (((rf12_hdr & RF12_HDR_MASK) == hubID) && (!(rf12_hdr & RF12_HDR_DST)) && (!(testPacket))) {
+                	NodeMap = 0;
+                	lastRSSI[NodeMap] = observedRX.rssi2;	// RSSI to report for hubID packets
                 	special = true;
 
                     for (byte i = 1; i < hubID; i++) {

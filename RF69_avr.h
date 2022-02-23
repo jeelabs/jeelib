@@ -10,7 +10,7 @@
 extern rfAPI rfapi;
 ///////////////////////////////////////////////////////////////////////////////
 
-#define SX1276		0	// Also see setting in RF69.cpp & RFxConsole.ino
+#define SX1276		1	// Also see setting in RF69.cpp & RFxConsole.ino
 
 #define RF69_COMPAT 1  /* Set this true to use the RF69 driver
 
