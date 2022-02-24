@@ -2927,8 +2927,6 @@ void loop () {
                 // If there are no spare Node numbers nothing is offered
                 // TODO perhaps we should increment the Group number and find a spare node number there?
                 if (((rf12_hdr & RF12_HDR_MASK) == hubID) && (!(rf12_hdr & RF12_HDR_DST)) && (!(testPacket))) {
-                	NodeMap = 0;
-                	lastRSSI[NodeMap] = observedRX.rssi2;	// RSSI to report for hubID packets
                 	special = true;
 
                     for (byte i = 1; i < hubID; i++) {
@@ -3117,9 +3115,14 @@ void loop () {
                     	
          	        } else {	// if ( (v) && (!(special)) )
 #if RF69_COMPAT
-        	      		v = (byte *)&lastRSSI[NodeMap];	// Point to RSSI as the TX buffer
         	      		printOneChar(' ');
-        	      		showByte(lastRSSI[NodeMap]);       	      		
+						if (NodeMap == -1) {
+    	    				v = (byte *)&observedRX.rssi2;	// RSSI to hubID as the TX buffer        	      		
+              				showByte(observedRX.rssi2);       	      		
+      	      			} else {
+        	      			v = (byte *)&lastRSSI[NodeMap];	// Point to RSSI as the TX buffer
+         	      			showByte(lastRSSI[NodeMap]);       	      		
+    	      			}
         	        	ackLen = 1;		// Supply received RSSI value in all basic ACKs
 #endif
         	        }	// if ( (v) && (!(special)) )
