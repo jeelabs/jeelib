@@ -1652,9 +1652,12 @@ static void handleInput (char c) {
             case 'z':
 					if (value < MAX_NODES) {
 						oneShow(value);
+                        eeprom_write_byte((RF12_EEPROM_NODEMAP) + (value * 4), 0);
+            	        delay(4);
+						
 #if RF69_COMPAT
-						rxCount[value] = lastFEI[value] = minFEI[value] = maxFEI[value] 
-						= lastRSSI[value] = minRSSI[value] = maxRSSI[value] = CumNodeFEI[value] = CumNodeTfr[value]
+						commandByte[value] = retransmissions[value] = rxCount[value] = txCount[value] = lastFEI[value] = minFEI[value] = maxFEI[value] 
+						= possibleCRC[value] = rxTimeStamp[value] = rxAckTimeStamp[value] = lastRSSI[value] = minRSSI[value] = maxRSSI[value] = CumNodeFEI[value] = CumNodeTfr[value]
 						= CumNodeRtp[value] = lastLNA[value] = minLNA[value] = maxLNA[value] = 0;
 #endif
             		 }
