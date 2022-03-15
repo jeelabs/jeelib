@@ -69,9 +69,9 @@ which are used to designate different things in different contexts. Such as:
   connect directly to one of the ports, via their standard 6-pin headers.
 
 
-[JN]: http://jeelabs.net/projects/hardware/wiki/JeeNode
+[JN]: https://jeelabs.org/jn6
 [JL]: http://jeelabs.com/
 [WL]: http://jeelabs.org/
 [AI]: http://www.arduino.cc
-[LP]: http://jeelabs.net/projects/hardware/wiki/LCD_Plug
-[PP]: http://jeelabs.net/projects/hardware/wiki/Pressure_Plug
+[LP]: http://jeelabs.org/lp1
+[PP]: http://jeelabs.org/pp1

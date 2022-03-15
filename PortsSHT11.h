@@ -4,7 +4,7 @@
 /// Port library interface to SHT11 sensors connected via "something like I2C".
 
 /// Interface to the SHT11 temperature + humidity sensor.
-/// See: http://jeelabs.net/projects/hardware/wiki/rb
+/// See: http://jeelabs.org/rb1
 class SHT11 : public Port {
     void clock(uint8_t x) const;
     void release() const;

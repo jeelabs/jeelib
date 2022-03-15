@@ -17,7 +17,7 @@
 
 // tweak this to switch ATtiny84 etc to new Arduino 1.0+ conventions
 // see http://arduino.cc/forum/index.php/topic,51984.msg371307.html#msg371307
-// and http://forum.jeelabs.net/node/1567
+// and https://jeelabs.org/forum/node/1567.html
 #if ARDUINO >= 100
 #define WRITE_RESULT size_t
 #else
@@ -25,8 +25,7 @@
 #endif
 
 /// Interface for JeeNode Ports - see the wiki docs for
-/// [JeeNodes](http://jeelabs.net/projects/hardware/wiki/JeeNode) and
-/// [pinouts](http://jeelabs.net/projects/hardware/wiki/Pinouts).
+/// [JeeNodes](https://jeelabs.org/202x/jnc/).
 /// The Ports class is a thin wrapper around the Arduino's digitalRead(),
 /// digitalWrite(), analogRead(), etc. functions. It was designed to simplify
 /// the use of the four standard port headers on JeeNodes.

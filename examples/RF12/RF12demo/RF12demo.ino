@@ -142,7 +142,7 @@ static void displayVersion () {
 }
 
 /// @details
-/// For the EEPROM layout, see http://jeelabs.net/projects/jeelib/wiki/RF12demo
+/// For the EEPROM layout, see https://web.archive.org/web/20170518172835/http://jeelabs.net/projects/jeelib/wiki/RF12demo
 /// Useful url: http://blog.strobotics.com.au/2009/07/27/rfm12-tutorial-part-3a/
 
 // RF12 configuration area

@@ -2,7 +2,7 @@
 /// Receive / decode OOK signals using a RFM12B as 868 MHz OOK receiver.
 //
 // Adapted from the experiments and code by JGJ Veken, as posted on the wiki at:
-// http://jeelabs.net/projects/cafe/wiki/Receiving_OOKASK_with_a_modified_RFM12B
+// https://web.archive.org/web/20170523040812/http://jeelabs.net/projects/cafe/wiki/Receiving_OOKASK_with_a_modified_RFM12B
 //
 // The basic idea is to measure pulse widths between 0/1 and 1/0 transitions,
 // and to keep track of pulse width sequences in a state machine.
@@ -27,7 +27,7 @@ byte ookbuf[10];
 #define RXDATA 14
 
 // Following decoding logic was lifted from an earlier sketch, see
-// http://jeelabs.net/projects/cafe/wiki/Recv868ookpde_sketch
+// http://jeelabs.org/projects/cafe/wiki/Recv868ookpde_sketch
 
 // track bit-by-bit reception using multiple independent state machines
 struct { char bits; byte state; uint32_t prev; uint64_t data; } FS20;

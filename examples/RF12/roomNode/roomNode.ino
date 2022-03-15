@@ -85,7 +85,7 @@ struct {
 
         // this code is called from the pin-change interrupt handler
         void poll() {
-            // see http://talk.jeelabs.net/topic/811#post-4734 for PIR_INVERTED
+            // see https://jeelabs.org/talk/topic/811#post-4734 for PIR_INVERTED
             byte pin = digiRead() ^ PIR_INVERTED;
             // if the pin just went on, then set the changed flag to report it
             if (pin) {
@@ -141,7 +141,7 @@ static byte waitForAck() {
     MilliTimer ackTimer;
     while (!ackTimer.poll(ACK_TIME)) {
         if (rf12_recvDone() && rf12_crc == 0 &&
-                // see http://talk.jeelabs.net/topic/811#post-4712
+                // see https://jeelabs.org/talk/topic/811#post-4712
                 rf12_hdr == (RF12_HDR_DST | RF12_HDR_CTL | myNodeID))
             return 1;
         set_sleep_mode(SLEEP_MODE_IDLE);

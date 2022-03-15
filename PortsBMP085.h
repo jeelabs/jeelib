@@ -2,7 +2,7 @@
 
 /// @file
 /// Port library interface to BMP085 sensors connected via I2C.
-/// See http://jeelabs.net/projects/hardware/wiki/pp1
+/// See http://jeelabs.org/pp1
 
 /// Interface for the Pressure Plug - see http://jeelabs.org/pp
 class BMP085 : public DeviceI2C {
