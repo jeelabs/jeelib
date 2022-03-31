@@ -370,8 +370,10 @@ static void handleInput (char c) {
         switch (c) {
 
         case 'i': // set node id
-            config.nodeId = (config.nodeId & 0xE0) + (value & 0x1F);
-            saveConfig();
+            if ((value > 0) && (value < 33)) {
+                config.nodeId = (config.nodeId & 0xE0) + (value & 0x1F);
+                saveConfig();
+            }
             break;
 
         case 'b': // set band: 4 = 433, 8 = 868, 9 = 915
