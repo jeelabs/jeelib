@@ -8,8 +8,9 @@
 
 // Modify the RF12 driver in such a way that it can inter-operate with RFM69
 // modules running in "native" mode. This affects packet layout and some more.
-#define RF12_COMPAT 0
+#define RF12_COMPAT 1
 
+				    //
 #include <stdint.h>
 
 /// RFM12B Protocol version.
@@ -94,6 +95,9 @@ uint8_t rf12_initialize(uint8_t id, uint8_t band, uint8_t group=0xD4, uint16_t f
 /// Initialize the RFM12B module from settings stored in EEPROM by "RF12demo"
 /// don't call rf12_initialize() if you init the hardware with rf12_config().
 /// @return the node ID as 1..31, or 0 if there is no config on EEPROM.
+///
+void rf12_sender_id(uint8_t id) ;
+
 uint8_t rf12_configSilent();
 /// Call this to send a description of the EEPROM settings to the serial port.
 void rf12_configDump();

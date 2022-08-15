@@ -14,6 +14,11 @@
 #endif
 
 #if RF12_COMPAT
+/*
+#define rf12_rawlen     rf12_buf[1]
+#define rf12_dest       (rf12_buf[2] & RF12_HDR_MASK)
+#define rf12_orig       (rf12_buf[3] & RF12_HDR_MASK)
+*/
 #define rf12_rawlen     rf12_buf[1]
 #define rf12_dest       (rf12_buf[2] & RF12_HDR_MASK)
 #define rf12_orig       (rf12_buf[3] & RF12_HDR_MASK)
@@ -497,7 +502,8 @@ void rf12_sendStart (uint8_t hdr) {
     uint8_t parity = group ^ (group << 4);
     parity = (parity ^ (parity << 2)) & 0xC0;
     // the lower 6 bits are the destination, or zer of broadcasting
-    rf12_dst = parity | (hdr & RF12_HDR_DST ? hdr & RF12_HDR_MASK : 0);
+    //rf12_dst = parity | (hdr & RF12_HDR_DST ? hdr & RF12_HDR_MASK : 0);
+    rf12_dst = parity | ( hdr & RF12_HDR_MASK );
     // the header byte has the two flag bits and the origin address
     rf12_hdr = (hdr & ~RF12_HDR_MASK) + (nodeid & NODE_ID);
 #else
@@ -692,6 +698,10 @@ uint8_t rf12_initialize (uint8_t id, uint8_t band, uint8_t g, uint16_t f) {
 #endif
 
     return nodeid;
+}
+
+void rf12_sender_id (uint8_t id) {
+	nodeid = id ;
 }
 
 /// @details
