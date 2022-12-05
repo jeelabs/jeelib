@@ -1593,13 +1593,13 @@ static void handleInput (char c) {
             			delay(10);
             		 	dumpRegs();
 					}
-/*
+
             		 showString(PSTR("InterruptCounts="));
             		 Serial.print(rfapi.interruptCountTX);
                      printOneChar(',');
 					 Serial.println(rfapi.interruptCountRX);
-            		 
-            		 showString(PSTR("Debug="));
+					 
+/*            		 showString(PSTR("Debug="));
             		 Serial.println(rfapi.debug);
             		 rfapi.debug = 0;
             		 
