@@ -82,9 +82,9 @@
 #define SS_BIT      1
 
 #define SPI_SS      1     // PB1, pin 3
-#define SPI_MISO    4     // PA6, pin 7
+#define SPI_MISO    6     // PA6, pin 7
 #define SPI_MOSI    5     // PA5, pin 8
-#define SPI_SCK     6     // PA4, pin 9
+#define SPI_SCK     4     // PA4, pin 9
 
 #elif defined(__AVR_ATmega32U4__) //Arduino Leonardo
 
