@@ -16,7 +16,7 @@
 
 #define MAJOR_VERSION RF12_EEPROM_VERSION // bump when EEPROM layout changes
 #define MINOR_VERSION 2                   // bump on other non-trivial changes
-#define VERSION "[RF12demo.12]"           // keep in sync with the above
+#define VERSION "[RF12demo.13]"           // keep in sync with the above
 
 #if defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__)
 #define TINY        1
@@ -34,78 +34,6 @@
 /// Save a few bytes of flash by declaring const if used more than once.
 const char INVALID1[] PROGMEM = "\rInvalid\n";
 const char INITFAIL[] PROGMEM = "config save failed\n";
-
-#if TINY
-// Serial support (output only) for Tiny supported by TinyDebugSerial
-// http://www.ernstc.dk/arduino/tinycom.html
-// 9600, 38400, or 115200
-// hardware\jeelabs\avr\cores\tiny\TinyDebugSerial.h Modified to
-// moveTinyDebugSerial from PB0 to PA3 to match the Jeenode Micro V3 PCB layout
-// Connect Tiny84 PA3 to USB-BUB RXD for serial output from sketch.
-// Jeenode AIO2
-//
-// With thanks for the inspiration by 2006 David A. Mellis and his AFSoftSerial
-// code. All right reserved.
-// Connect Tiny84 PA2 to USB-BUB TXD for serial input to sketch.
-// Jeenode DIO2
-// 9600 or 38400 at present.
-
-#if SERIAL_BAUD == 9600
-#define BITDELAY 54          // 9k6 @ 8MHz, 19k2 @16MHz
-#endif
-#if SERIAL_BAUD == 38400
-#define BITDELAY 11         // 38k4 @ 8MHz, 76k8 @16MHz
-#endif
-
-#define _receivePin 8
-static int _bitDelay;
-static char _receive_buffer;
-static byte _receive_buffer_index;
-
-static void showString (PGM_P s); // forward declaration
-
-ISR (PCINT0_vect) {
-    char i, d = 0;
-    if (digitalRead(_receivePin))       // PA2 = Jeenode DIO2
-        return;             // not ready!
-    whackDelay(_bitDelay - 8);
-    for (i=0; i<8; i++) {
-        whackDelay(_bitDelay*2 - 6);    // digitalread takes some time
-        if (digitalRead(_receivePin)) // PA2 = Jeenode DIO2
-            d |= (1 << i);
-    }
-    whackDelay(_bitDelay*2);
-    if (_receive_buffer_index)
-        return;
-    _receive_buffer = d;                // save data
-    _receive_buffer_index = 1;  // got a byte
-}
-
-// TODO: replace with code from the std avr libc library:
-//  http://www.nongnu.org/avr-libc/user-manual/group__util__delay__basic.html
-void whackDelay (word delay) {
-    byte tmp=0;
-
-    asm volatile("sbiw      %0, 0x01 \n\t"
-                 "ldi %1, 0xFF \n\t"
-                 "cpi %A0, 0xFF \n\t"
-                 "cpc %B0, %1 \n\t"
-                 "brne .-10 \n\t"
-                 : "+r" (delay), "+a" (tmp)
-                 : "0" (delay)
-                 );
-}
-
-static byte inChar () {
-    byte d;
-    if (! _receive_buffer_index)
-        return -1;
-    d = _receive_buffer; // grab first and only byte
-    _receive_buffer_index = 0;
-    return d;
-}
-
-#endif
 
 static unsigned long now () {
     // FIXME 49-day overflow
@@ -228,7 +156,7 @@ static void ookPulse(int on, int off) {
     rf12_onOff(1);
     delayMicroseconds(on + 150);
     rf12_onOff(0);
-    delayMicroseconds(off - 200);
+//    delayMicroseconds(off - 200);	// Compiler issues
 }
 
 static void fs20sendBits(word data, byte bits) {
@@ -257,9 +185,11 @@ static void fs20cmd(word house, byte addr, byte cmd) {
 }
 
 static void kakuSend(char addr, byte device, byte on) {
+
     int cmd = 0x600 | ((device - 1) << 4) | ((addr - 1) & 0xF);
     if (on)
         cmd |= 0x800;
+
     for (byte i = 0; i < 4; ++i) {
         for (byte bit = 0; bit < 12; ++bit) {
             ookPulse(375, 1125);
@@ -539,7 +469,7 @@ static void displayASCII (const byte* data, byte count) {
 void setup () {
     delay(100); // shortened for now. Handy with JeeNode Micro V1 where ISP
                 // interaction can be upset by RF12B startup process.
-
+/*
 #if TINY
     PCMSK0 |= (1<<PCINT2);  // tell pin change mask to listen to PA2
     GIMSK |= (1<<PCIE0);    // enable PCINT interrupt in general interrupt mask
@@ -549,7 +479,10 @@ void setup () {
     digitalWrite(_receivePin, HIGH);    // pullup!
     _bitDelay = BITDELAY;
 #endif
-
+*/
+#if TINY
+	Serial.setTxBit(PIN3);	// https://github.com/SpenceKonde/ATTinyCore/search?q=T84+tx
+#endif	
     Serial.begin(SERIAL_BAUD);
     Serial.println();
     displayVersion();
@@ -574,6 +507,7 @@ void setup () {
 }
 
 void loop () {
+/*
 #if TINY
     if (_receive_buffer_index)
         handleInput(inChar());
@@ -581,6 +515,13 @@ void loop () {
     if (Serial.available())
         handleInput(Serial.read());
 #endif
+*/
+    if (Serial.available()) {
+        word c;
+        c = Serial.read();
+        handleInput(c);
+    }
+//Serial.read();
     if (rf12_recvDone()) {
         byte n = rf12_len;
         if (rf12_crc == 0)
