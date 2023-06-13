@@ -13,7 +13,9 @@ void setup() {
 }
 void loop() {
   // put your main code here, to run repeatedly:
-  if (Serial.available()) {
+  uint8_t count = Serial.available();
+  if (count) {
+  	Serial.print("Buffer size is: "); Serial.println(count);
     byte c = Serial.read();
     delay (1);
     Serial.println(c, HEX);
