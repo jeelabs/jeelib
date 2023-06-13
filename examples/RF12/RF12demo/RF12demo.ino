@@ -69,7 +69,7 @@ ISR (PCINT0_vect) {
     if (digitalRead(_receivePin))       // PA2 = Jeenode DIO2
         return;             // not ready!
     
-    	IRQ++;
+//    	IRQ++;
 
     whackDelay(_bitDelay - 6);
     for (i=0; i<8; i++) {
@@ -325,7 +325,7 @@ const char helpText2[] PROGMEM =
 
 static void showHelp () {
 #if TINY
-//    showString(PSTR("?\n"));
+    rf12_configDump();
 #else
     showString(helpText1);
     if (df_present())
@@ -482,7 +482,7 @@ static void handleInput (char c) {
 
         case 'v': //display the interpreter version and configuration
             displayVersion();
-//            rf12_configDump();
+            rf12_configDump();
 #if TINY
             Serial.println();
 #endif
@@ -547,7 +547,7 @@ void setup () {
     PCMSK0 |= (1<<PCINT2);  // tell pin change mask to listen to PA2
     GIMSK |= (1<<PCIE0);    // enable PCINT interrupt in general interrupt mask
     // FIXME: _bitDelay has not yet been initialised here !?
-    whackDelay(_bitDelay*2); // if we were low this establishes the end
+//    whackDelay(_bitDelay*2); // if we were low this establishes the end
     pinMode(_receivePin, INPUT);        // PA2
     digitalWrite(_receivePin, HIGH);    // pullup!
     _bitDelay = BITDELAY;
@@ -580,7 +580,7 @@ void setup () {
 }
 
 void loop () {
-
+/*
 	if (IRQ)	{
 		Serial.print("IRQ: "); Serial.println(IRQ);
 		Serial.println(_receive_buffer, BIN);
@@ -588,7 +588,7 @@ void loop () {
 		Serial.println((char)_receive_buffer);
 		IRQ = 0;
 	}
-
+*/
 #if TINY
     if (_receive_buffer_index)
         handleInput(inChar());
