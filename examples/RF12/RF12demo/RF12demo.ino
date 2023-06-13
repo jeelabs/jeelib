@@ -23,7 +23,7 @@
 #define SERIAL_BAUD 38400   // can only be 9600 or 38400
 #define DATAFLASH   0       // do not change
 #undef  LED_PIN             // do not change
-#define rf12_configDump()   // disabled
+//#define rf12_configDump()   // disabled
 #else
 #define TINY        0
 #define SERIAL_BAUD 57600   // adjust as needed
@@ -59,22 +59,25 @@ const char INITFAIL[] PROGMEM = "config save failed\n";
 
 #define _receivePin 8
 static int _bitDelay;
-static char _receive_buffer;
-static byte _receive_buffer_index;
-
+volatile byte _receive_buffer;
+volatile byte _receive_buffer_index;
+volatile uint8_t IRQ;
 static void showString (PGM_P s); // forward declaration
 
 ISR (PCINT0_vect) {
     char i, d = 0;
     if (digitalRead(_receivePin))       // PA2 = Jeenode DIO2
         return;             // not ready!
-    whackDelay(_bitDelay - 8);
+    
+    	IRQ++;
+
+    whackDelay(_bitDelay - 6);
     for (i=0; i<8; i++) {
-        whackDelay(_bitDelay*2 - 6);    // digitalread takes some time
+        whackDelay(_bitDelay*2 - 3);    // digitalread takes some time
         if (digitalRead(_receivePin)) // PA2 = Jeenode DIO2
             d |= (1 << i);
     }
-    whackDelay(_bitDelay*2);
+ //   whackDelay(_bitDelay*2 - 3);		// Skip stop bit
     if (_receive_buffer_index)
         return;
     _receive_buffer = d;                // save data
@@ -137,7 +140,7 @@ static void showString (PGM_P s) {
 static void displayVersion () {
     showString(PSTR(VERSION));
 #if TINY
-    showString(PSTR(" Tiny"));
+    showString(PSTR(" Tiny\n"));
 #endif
 }
 
@@ -322,7 +325,7 @@ const char helpText2[] PROGMEM =
 
 static void showHelp () {
 #if TINY
-    showString(PSTR("?\n"));
+//    showString(PSTR("?\n"));
 #else
     showString(helpText1);
     if (df_present())
@@ -479,7 +482,7 @@ static void handleInput (char c) {
 
         case 'v': //display the interpreter version and configuration
             displayVersion();
-            rf12_configDump();
+//            rf12_configDump();
 #if TINY
             Serial.println();
 #endif
@@ -537,7 +540,7 @@ static void displayASCII (const byte* data, byte count) {
 }
 
 void setup () {
-    delay(100); // shortened for now. Handy with JeeNode Micro V1 where ISP
+    delay(500); // shortened for now. Handy with JeeNode Micro V1 where ISP
                 // interaction can be upset by RF12B startup process.
 
 #if TINY
@@ -548,10 +551,12 @@ void setup () {
     pinMode(_receivePin, INPUT);        // PA2
     digitalWrite(_receivePin, HIGH);    // pullup!
     _bitDelay = BITDELAY;
+
+ 	Serial.setTxBit(PIN3);	// https://github.com/SpenceKonde/ATTinyCore/search?q=T84+tx
 #endif
 
     Serial.begin(SERIAL_BAUD);
-    Serial.println();
+//    Serial.println();
     displayVersion();
 
     if (rf12_configSilent()) {
@@ -561,6 +566,7 @@ void setup () {
         config.nodeId = 0x81;       // 868 MHz, node 1
         config.group = 0xD4;        // default group 212
         config.frequency_offset = 1600;
+        config.collect_mode = 1;
         config.quiet_mode = true;   // Default flags, quiet on
         saveConfig();
         rf12_configSilent();
@@ -574,6 +580,15 @@ void setup () {
 }
 
 void loop () {
+
+	if (IRQ)	{
+		Serial.print("IRQ: "); Serial.println(IRQ);
+		Serial.println(_receive_buffer, BIN);
+		Serial.println(_receive_buffer, HEX);
+		Serial.println((char)_receive_buffer);
+		IRQ = 0;
+	}
+
 #if TINY
     if (_receive_buffer_index)
         handleInput(inChar());
@@ -588,7 +603,7 @@ void loop () {
         else {
             if (config.quiet_mode)
                 return;
-            showString(PSTR(" ?"));
+            showString(PSTR("X?"));
             if (n > 20) // print at most 20 bytes if crc is wrong
                 n = 20;
         }
