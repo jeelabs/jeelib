@@ -6,7 +6,7 @@
 // Adding frequency features, author JohnO, 2013-09-05
 // Major EEPROM format change, refactoring, and cleanup for v12, 2014-02-13
 
-#define RF69_COMPAT 0 // define this to use the RF69 driver i.s.o. RF12
+#define RF69_COMPAT 1 // define this to use the RF69 driver i.s.o. RF12
 
 #include <JeeLib.h>
 #include <util/crc16.h>
@@ -544,6 +544,15 @@ void setup () {
                 // interaction can be upset by RF12B startup process.
 
 #if TINY
+    delay(500); // shortened for now. Handy with JeeNode Micro V1 where ISP
+                // interaction can be upset by RF12B startup process.
+//#if defined(__AVR_ATtiny84__)
+//# if TINY    // power up the radio on JMv3
+    bitSet(DDRB, 0);
+    bitClear(PORTB, 0);
+//    pinMode(PB0, OUTPUT); // replace PINx with the pin number
+//    digitalWrite(PB0, HIGH); //makes PINx high almost immediately (few uS)
+    
     PCMSK0 |= (1<<PCINT2);  // tell pin change mask to listen to PA2
     GIMSK |= (1<<PCIE0);    // enable PCINT interrupt in general interrupt mask
     // FIXME: _bitDelay has not yet been initialised here !?
