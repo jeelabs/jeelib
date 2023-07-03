@@ -38,6 +38,10 @@
 
 #define AFC_CLEAR           0x02
 
+#define REG_SYNCGROUP       0x2B
+#define threeByteSync       0x90
+#define fourByteSync        0x98
+
 #define RF_MAX   72
 
 // transceiver states, these determine what to do with each interrupt
@@ -65,14 +69,27 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   // 0x08, 0x00, // FrfMib, divider = 14221312
   // 0x09, 0x00, // FrfLsb, step = 61.03515625
   0x0B, 0x20, // AfcCtrl, afclowbetaon
-  0x19, 0x42, // RxBw ...
+  0x19, 0x29, // RxBw 200 KHz, DCC 16%
+  0x1A, 0x29, // RxBwAFC 200 Khz, DCC 16%. Only handling initial RSSI phase, not payload!
+//  0x19, 0x42, // RxBw ...
   0x1E, 0x2C, // FeiStart, AfcAutoclearOn, AfcAutoOn
   0x25, 0x80, // DioMapping1 = SyncAddress (Rx)
   // 0x29, 0xDC, // RssiThresh ...
+  
+  0x2E, 0x98, // SyncConfig = sync on, sync size = 4 (Dynamically changed in code)
+  0x2F, 0xAA, // SyncValue1 = 0xAA
+  0x30, 0xAA, // SyncValue2 = 0xAA
+  0x31, 0x2D, // SyncValue3 = 0x2D
+  0x32, 0xD4, // SyncValue4 = 0xD4, 212, group
+
+  
+/*  
   0x2E, 0x90, // SyncConfig = sync on, sync size = 3
   0x2F, 0xAA, // SyncValue1 = 0xAA
   0x30, 0x2D, // SyncValue2 = 0x2D
   // 0x31, 0x05, // SyncValue3 = 0x05
+  
+*/
   0x37, 0x00, // PacketConfig1 = fixed, no crc, filt off
   0x38, 0x00, // PayloadLength = 0, unlimited
   0x3C, 0x8F, // FifoTresh, not empty, level 15
@@ -154,9 +171,12 @@ void RF69::sleep (bool off) {
 
 void RF69::configure_compat () {
     initRadio(configRegs_compat);
-    // FIXME doesn't seem to work, nothing comes in but noise for group 0
-    // writeReg(REG_SYNCCONFIG, group ? 0x88 : 0x80);
-    writeReg(REG_SYNCVALUE3, group);
+    if (group == 0) {
+        writeReg(REG_SYNCCONFIG, threeByteSync);
+    } else {
+    	writeReg(REG_SYNCGROUP, group);
+        writeReg(REG_SYNCCONFIG, fourByteSync);
+    }   
 
     writeReg(REG_FRFMSB, frf >> 16);
     writeReg(REG_FRFMSB+1, frf >> 8);
@@ -202,6 +222,9 @@ void RF69::sendStart_compat (uint8_t hdr, const void* ptr, uint8_t len) {
     rf12_hdr = hdr & RF12_HDR_DST ? hdr : (hdr & ~RF12_HDR_MASK) + node;
     crc = _crc16_update(~0, group);
     rxstate = - (2 + rf12_len); // preamble and SYN1/SYN2 are sent by hardware
+    
+    writeReg(REG_SYNCCONFIG, fourByteSync);
+    
     flushFifo();
     setMode(MODE_TRANSMITTER);
     writeReg(REG_DIOMAPPING1, 0x00); // PacketSent
@@ -249,5 +272,10 @@ void RF69::interrupt_compat () {
         rxstate = TXIDLE;
         setMode(MODE_STANDBY);
         writeReg(REG_DIOMAPPING1, 0x80); // SyncAddress
+
+        if (group == 0) {               // Allow receiving from all groups
+			writeReg(REG_SYNCCONFIG, threeByteSync);             
+      	}
+
     }
 }

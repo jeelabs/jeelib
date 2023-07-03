@@ -549,7 +549,8 @@ void setup () {
 //#if defined(__AVR_ATtiny84__)
 //# if TINY    // power up the radio on JMv3
     bitSet(DDRB, 0);
-    bitClear(PORTB, 0);
+//    bitClear(DDRB, 0);
+//    bitClear(PORTB, 0);
 //    pinMode(PB0, OUTPUT); // replace PINx with the pin number
 //    digitalWrite(PB0, HIGH); //makes PINx high almost immediately (few uS)
     
