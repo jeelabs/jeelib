@@ -1,9 +1,9 @@
 /// @dir RFxConsole
 ///////////////////////////////////////////////////////////////////////////////
-#define RF69_COMPAT     1	// define this to use the RF69 driver i.s.o. RF12 
+#define RF69_COMPAT     0	// define this to use the RF69 driver i.s.o. RF12 
 ///							// The above flag must be set similarly in RF12.cpp
 ///							// and RF69_avr.h
-#define SX1276			1	// Also see setting in RF69.cpp & RF69_avr.h
+#define SX1276			0	// Also see setting in RF69.cpp & RF69_avr.h
 #define BLOCK  			0	// Alternate LED pin?
 #define INVERT_LED      0	// 0 is Jeenode usual and 1 inverse
 #define DUPTIME			5l	// Number of seconds to wait for duplicate packets
@@ -163,6 +163,7 @@ const char ABORTED[] PROGMEM = " Aborted ";
 const char UNKNOWN[] PROGMEM = " Unknown";
 const char TX[] PROGMEM = "TX ";
 const char SEMAPHOREFULL[] PROGMEM = "Semaphore table full";
+const char SALUSMODE[] PROGMEM = "SALUSMODE ";
 
 #if SALUS
 #define SALUSFREQUENCY 1660       // Default value
@@ -1257,7 +1258,7 @@ static void handleInput (char c) {
                      previousRestarts = currentRestarts;
                      break;
 
-/*
+
 #if SALUS
 	#if !TINY
             case 'S': // send FSK packet to Salus devices
@@ -1280,6 +1281,7 @@ static void handleInput (char c) {
                      rf12_control(0x9830);                                               // 75khz freq shift
   		#endif
                      salusMode = true;
+                     showString(SALUSMODE);
                      rf12_skip_hdr(2);                   // Ommit Jeelib header 2 bytes on transmission & validating reception
                      rf12_fix_len(15);                   // Maximum fixed length packet size.
                      rf12_sleep(RF12_WAKEUP);            // All set, wake up radio
@@ -1305,7 +1307,7 @@ static void handleInput (char c) {
                      break;
 	#endif
 #endif
-*/
+
             case 'I': // Ignore a specific node
             		if (ignoreNode) ignoreStats();
             		 ignoreCount = 0L;
@@ -2575,9 +2577,9 @@ void loop () {
                 CRCbadMaxRSSI = observedRX.rssi2;   
 #endif            
             activityLed(0);
-/*
+
 #if SALUS
-#if !TINY
+	#if !TINY
             if(rf12_buf[0] == 212 && (rf12_buf[1] | rf12_buf[2]) == rf12_buf[3] && (salusMode)) {
                 Serial.print((word) elapsedSeconds, DEC);  
                 showString(PSTR("s Salus I Channel "));
@@ -2594,8 +2596,13 @@ void loop () {
                 Serial.print(rf12_buf[1]);
 
                 showString(PSTR(" Addr:"));
-                unsigned int addr = (rf12_buf[3] << 8) | rf12_buf[2];   // Guessing at a 16 bit address
+                unsigned int addr = (rf12_buf[3] << 8) | rf12_buf[2];   // Guessing at a 16 bit address                
                 Serial.print(addr);
+                printOneChar(':');
+                Serial.print(rf12_buf[2]);
+                printOneChar(',');
+                Serial.print(rf12_buf[3]);
+                
                 showString(PSTR(" Type:"));
                 Serial.print(rf12_buf[4]);
                 switch (rf12_buf[1]) {
@@ -2610,7 +2617,11 @@ void loop () {
                         Serial.print(((rf12_buf[12] << 8) | rf12_buf[11]), HEX);
                         break;
                     case 166:   // OTO One Touch Override
-                        printOneChar(' ');
+                		showString(PSTR(" Chk:"));
+                        Serial.print(rf12_buf[5]);
+                        break;
+                    case 199:   // JeeStat OTO One Touch Direct Override
+                		showString(PSTR(" Jee:"));
                         Serial.print(rf12_buf[5]);
                         break;
                     default:
@@ -2620,9 +2631,9 @@ void loop () {
 
                 Serial.println();
             }            
+	#endif
 #endif
-#endif
-*/
+
 #if RF69_COMPAT
             if ((rf12_hdr &  ~RF12_HDR_MASK) == (RF12_HDR_DST | RF12_HDR_ACK) && 
                     ((rf12_hdr &  RF12_HDR_MASK) > 23) && (config.group != 0)) {
