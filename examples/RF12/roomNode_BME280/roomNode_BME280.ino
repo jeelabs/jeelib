@@ -13,7 +13,7 @@
 
 #warning roomNode_* Serial port to be set at 1200 bps
 #define RF69_COMPAT      0	 // define this to use the RF69 driver i.s.o. RF12 
-#define SERIAL  1   // set to 1 to also report readings on the serial port
+#define SERIAL_OUTPUT  0   // set to 1 to also report readings on the serial port
 #define DEBUG   0   // set to 1 to display each loop() run and PIR trigger
 ///                          // The above flag must be set similarly in RF12.cpp
 ///                          // and RF69_avr.h
@@ -105,7 +105,7 @@ Scheduler scheduler (schedbuf, TASK_END);
 #elif BMP280_PORT
 	Adafruit_BMP280 bmp; // I2C
 #endif
-#if SERIAL
+#if SERIAL_OUTPUT
 static void showString (PGM_P s); // forward declaration
 #endif
 // Other variables used in various places in the code:
@@ -307,7 +307,7 @@ static void doMeasure() {
 
     scheduler.timer(MEASURE, settings.MEASURE_PERIOD);
 
-    #if SERIAL || DEBUG
+    #if SERIAL_OUTPUT || DEBUG
 	Serial.println("doMeasure"); serialFlush();
 	#endif
 
@@ -387,7 +387,7 @@ static void doMeasure() {
     #if PIR_PORT
 //        payload.moved = 0;//pir.state();
     #endif
-#if SERIAL
+#if SERIAL_OUTPUT
 	#if BME280_PORT
         Serial.print("ROOM_BME280 ");
 	#elif BMP280_PORT
@@ -424,7 +424,7 @@ static void doMeasure() {
 
 } // doMeasure
 
-#if SERIAL
+#if SERIAL_OUTPUT
 static void serialFlush () {
     #if ARDUINO >= 100
         Serial.flush();
@@ -457,14 +457,14 @@ static void doTrigger() {
 	}
 
 	payload.sequence++;
-#if SERIAL
+#if SERIAL_OUTPUT
 	Serial.print("Sequence ");
 	Serial.println(payload.sequence);
 #endif
     for (byte i = 1; i <= RETRY_LIMIT; ++i) {
     	payload.attempts = i;
         rf12_sleep(RF12_WAKEUP);
-	#if SERIAL
+	#if SERIAL_OUTPUT
     	Serial.print("Transmitting ");
 		Serial.print(payloadLength);
 		showString(PSTR(" @ "));
@@ -506,14 +506,14 @@ static void doTrigger() {
         		payload.RXrssi = rfapi.rssi;
 				clock_prescale(IDLESPEED);
 #if RF69_COMPAT
-	#if SERIAL
+	#if SERIAL_OUTPUT
 				Serial.print(" Inbound packet at ");
 				Serial.print(rf12_rssi);
 				Serial.print(" with threshold of ");
 				Serial.println(rfapi.rssiThreshold);
 	#endif
 #else
-	#if SERIAL
+	#if SERIAL_OUTPUT
 				Serial.print("Threshold was ");
 				Serial.print(rfapi.rssiThreshold);			
 				Serial.print(" LNA was "); 
@@ -525,7 +525,7 @@ static void doTrigger() {
 				if (rf12_buf[2] == 1)
 				{
 					payload.returnedRSSI = rf12_buf[3];
-#if SERIAL
+#if SERIAL_OUTPUT
 					showString(PSTR("Central saw my last packet at power ")); 
 					Serial.println(rf12_buf[3]);
 #endif
@@ -554,7 +554,7 @@ static void doTrigger() {
 					uint16_t value = 0;
 					if (rf12_buf[2] == 4) 
 						value = ( (rf12_buf[6] << 8) + rf12_buf[5] );
-#if SERIAL
+#if SERIAL_OUTPUT
 						Serial.print("Key:");
 						Serial.print(rf12_buf[3]);
 						Serial.print(", Flag:");
@@ -655,7 +655,7 @@ static void doTrigger() {
 							if (value == 255) rebootRequested = true;
                     	 	break;
                     	default:                   
-#if SERIAL
+#if SERIAL_OUTPUT
 							Serial.println("Unknown Command");
 #endif
 	            			payload.command = 170;		// Rejected command									                       
@@ -666,7 +666,7 @@ static void doTrigger() {
           		}
           		else // if ( (rf12_buf[2] > 1)
           		{          	
-#if SERIAL
+#if SERIAL_OUTPUT
 					Serial.print("Unknown ACK type ");
 					Serial.println( rf12_buf[2] );
 #endif
@@ -698,7 +698,7 @@ static void doTrigger() {
 
 static byte waitForAck() {
 
-#if SERIAL
+#if SERIAL_OUTPUT
 //    Serial.print(" Waiting for ACK ");
 #endif
     MilliTimer ackTimer;	// How does this react to clock_prescale
@@ -708,7 +708,7 @@ static byte waitForAck() {
         	byte ack_delay = ( (ACK_TIME) - ackTimer.remaining() );
 //			payload.inboundRssi = rf12_rssi;
 			clock_prescale(IDLESPEED);
-#if SERIAL
+#if SERIAL_OUTPUT
             Serial.println();
             Serial.print(ack_delay);
             showString(PSTR("ms")); serialFlush();
@@ -717,7 +717,7 @@ static byte waitForAck() {
                 // see http://talk.jeelabs.net/topic/811#post-4712
 				if (rf12_hdr == (RF12_HDR_DST | RF12_HDR_CTL | myNodeID)) {
 					payload.ack_delay = ack_delay;
-#if SERIAL
+#if SERIAL_OUTPUT
                     showString(PSTR(" ACK "));
                     showByte(payload.attempts);
                     printOneChar(' ');
@@ -725,14 +725,14 @@ static byte waitForAck() {
                     return true;            
                 }  else {
             		incrementPWR();
-#if SERIAL
+#if SERIAL_OUTPUT
                 	Serial.print(rf12_hdr, HEX); printOneChar(' ');
 					Serial.print((RF12_HDR_DST | RF12_HDR_CTL | myNodeID), HEX);
 					showString(PSTR(" Unmatched: "));	// Flush the buffer
 #endif
 /*
                     for (byte i = 0; i < 8; i++) {
-#if SERIAL
+#if SERIAL_OUTPUT
                         showByte(rf12_buf[i]);
                         printOneChar(' ');
 #endif
@@ -740,7 +740,7 @@ static byte waitForAck() {
                     }
 */
                     payload.command = 3;	// Wrong packet
-#if SERIAL
+#if SERIAL_OUTPUT
                     Serial.println();
 #endif
 					return false;
@@ -750,7 +750,7 @@ static byte waitForAck() {
             	payload.command = 1;	// CRC bad
             	payload.badCRC++;
             	incrementPWR();
-#if SERIAL
+#if SERIAL_OUTPUT
             	showString(PSTR("Bad CRC"));	            
 				Serial.println();serialFlush();
 #endif
@@ -766,7 +766,7 @@ static byte waitForAck() {
     payloadLength = TIMEOUT_PAYLOADLENGTH;
 	payload.ack_delay = 0;
 	clock_prescale(IDLESPEED);
-#if SERIAL
+#if SERIAL_OUTPUT
 	Serial.println();
 	Serial.print(ACK_TIME);
 	showString(PSTR("ms ACK Timeout\n"));
@@ -779,7 +779,7 @@ static byte waitForAck() {
 #endif
 
 /*
-#if SERIAL
+#if SERIAL_OUTPUT
     showString(PSTR(" Increasing threshold to "));
     Serial.print(rfapi.rssiThreshold);
     showString(PSTR(" Increasing transmit power "));
@@ -815,7 +815,7 @@ static void saveSettings () {
         	delay(1);	// Avoid brownout?
             eeprom_write_byte(SETTINGS_EEPROM_ADDR + i, p[i]);
             payload.message[i] = (byte)p[i];
-#if SERIAL
+#if SERIAL_OUTPUT
      		Serial.print("Eeprom change ");
      		Serial.print(i);
      		printOneChar(' ');
@@ -845,11 +845,11 @@ static void loadSettings () {
         crc = crc_update(crc, ((byte*) &settings)[i]);
     }
     payloadLength = EXTENDED_PAYLOADLENGTH + (sizeof settings);
-#if SERIAL
+#if SERIAL_OUTPUT
      Serial.print("Settings CRC ");
 #endif     
     if (crc) {
-#if SERIAL
+#if SERIAL_OUTPUT
 		Serial.print("is bad, defaulting ");
 		Serial.println(crc, HEX);
 #endif
@@ -862,7 +862,7 @@ static void loadSettings () {
         settings.RSSI = 180;
         settings.seenAsRSSI = 160;
     } 
-#if SERIAL    
+#if SERIAL_OUTPUT    
     else {
 		Serial.println("is good");
 		
@@ -877,7 +877,7 @@ static void loadSettings () {
 #endif
 } // loadSettings
 
-#if SERIAL
+#if SERIAL_OUTPUT
 static void printOneChar (char c) {
      Serial.print(c);
 }
@@ -949,7 +949,7 @@ void setup ()
 	sei();
 
     clock_prescale(IDLESPEED);	// Divide clock by 4, Serial viewable at 2400
-#if SERIAL || DEBUG
+#if SERIAL_OUTPUT || DEBUG
 	#if F_CPU == 8000000UL
     Serial.begin(19200);
 	#else
@@ -966,7 +966,7 @@ void setup ()
 	loadSettings();
 	
     rf12_sleep(RF12_SLEEP); // power down
-#if SERIAL
+#if SERIAL_OUTPUT
 	Serial.print("i"); Serial.print(myNodeID); Serial.print(" ");
 	Serial.print("Transmit Power "); Serial.println(rfapi.txPower);
 	Serial.print(settings.MEASURE_PERIOD);
@@ -982,7 +982,7 @@ void setup ()
 #endif
 #if BME280_PORT || BMP280_PORT
 	{
-	#if SERIAL
+	#if SERIAL_OUTPUT
     	 Serial.println("Could not find a valid BME280 or BMP280 sensor"); serialFlush();   	
     #endif
     }
@@ -1044,14 +1044,14 @@ void loop ()
 	clock_prescale(IDLESPEED);
 	if (saveFlag) 
 	{
-#if SERIAL
+#if SERIAL_OUTPUT
 		Serial.println("Saving settings to eeprom");
 #endif
         saveSettings();
 		saveFlag = false;	
 	}
 
-#if SERIAL
+#if SERIAL_OUTPUT
 	serialFlush();
 #endif
 	clock_prescale(8);	//	/256
