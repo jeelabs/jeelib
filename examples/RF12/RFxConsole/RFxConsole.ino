@@ -2556,8 +2556,9 @@ void loop () {
             	elapsed(elapsedSeconds);
                 printOneChar(' ');
 			} 
-			if ( (duplicate) && (!config.quiet_mode) ) showString(PSTR("DU"));           
-            else if( !(duplicate) ) showString(PSTR("OK"));
+			if ( duplicate /*&& (!config.quiet_mode)*/ ) showString(PSTR("DU\n"));           
+            else showString(PSTR("OK"));
+            
             crc = true;
             
         } else {				// Bad CRC
@@ -2777,7 +2778,7 @@ void loop () {
 
 			}
 			if ( (config.verbosity & 2) && (rf12_crc == 0) ) {
-				if(!(crc)) showString(PSTR(" Bad"));
+				if (!(crc)) showString(PSTR(" Bad"));
 				if (!(rf12_hdr & 0xA0)) showString(PSTR(" Packet "));
 				else showString(PSTR(" Ack "));
 				if (rf12_hdr & 0x20) showString(PSTR("Requested "));
