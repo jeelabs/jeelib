@@ -13,7 +13,6 @@
 #include <avr/eeprom.h>
 #include <avr/pgmspace.h>
 #include <util/parity.h>
-#include <SoftwareSerial.h>
 
 #define MAJOR_VERSION RF12_EEPROM_VERSION // bump when EEPROM layout changes
 #define MINOR_VERSION 2                   // bump on other non-trivial changes
@@ -37,12 +36,10 @@ const char INVALID1[] PROGMEM = "\rInvalid\n";
 const char INITFAIL[] PROGMEM = "config save failed\n";
 
 #if TINY
-  SoftwareSerial mySerial(PIN_PA3, PIN_PA2); // RX, TX
-/*
 // Serial support (output only) for Tiny supported by TinyDebugSerial
 // http://www.ernstc.dk/arduino/tinycom.html
 // 9600, 38400, or 115200
-// hardware\jeelabs\avr\cores\tiny\TinyDebugmySerial.h Modified to
+// hardware\jeelabs\avr\cores\tiny\TinyDebugSerial.h Modified to
 // moveTinyDebugSerial from PB0 to PA3 to match the Jeenode Micro V3 PCB layout
 // Connect Tiny84 PA3 to USB-BUB RXD for serial output from sketch.
 // Jeenode AIO2
@@ -107,7 +104,7 @@ static byte inChar () {
     _receive_buffer_index = 0;
     return d;
 }
-*/
+
 #endif
 
 static unsigned long now () {
@@ -123,7 +120,7 @@ static void activityLed (byte on) {
 }
 
 static void printOneChar (char c) {
-    mySerial.print(c);
+    Serial.print(c);
 }
 
 static void showString (PGM_P s) {
@@ -172,7 +169,7 @@ static void showNibble (byte nibble) {
     char c = '0' + (nibble & 0x0F);
     if (c > '9')
         c += 7;
-    mySerial.print(c);
+    Serial.print(c);
 }
 
 static void showByte (byte value) {
@@ -180,7 +177,7 @@ static void showByte (byte value) {
         showNibble(value >> 4);
         showNibble(value);
     } else
-        mySerial.print((word) value);
+        Serial.print((word) value);
 }
 
 static word calcCrc (const void* ptr, byte len) {
@@ -351,11 +348,11 @@ static void handleInput (char c) {
     if ('a' <= c && c <= 'z') {
         showString(PSTR("> "));
         for (byte i = 0; i < top; ++i) {
-            mySerial.print((word) stack[i]);
+            Serial.print((word) stack[i]);
             printOneChar(',');
         }
-        mySerial.print(value);
-        mySerial.println(c);
+        Serial.print(value);
+        Serial.println(c);
     }
 
     // keeping this out of the switch reduces code size (smaller branch table)
@@ -403,7 +400,7 @@ static void handleInput (char c) {
                 case RF12_915MHZ: freq = 90; break;
             }
             uint32_t f1 = freq * 100000L + band * 25L * config.frequency_offset;
-            mySerial.print((word) (f1 / 10000));
+            Serial.print((word) (f1 / 10000));
             printOneChar('.');
             word f2 = f1 % 10000;
             // tedious, but this avoids introducing floating point
@@ -411,7 +408,7 @@ static void handleInput (char c) {
             printOneChar('0' + (f2 / 100) % 10);
             printOneChar('0' + (f2 / 10) % 10);
             printOneChar('0' + f2 % 10);
-            mySerial.println(" MHz");
+            Serial.println(" MHz");
 #endif
             break;
         }
@@ -463,7 +460,7 @@ static void handleInput (char c) {
         case 'z': // put the ATmega in ultra-low power mode (reset needed)
             if (value == 123) {
                 showString(PSTR(" Zzz...\n"));
-                mySerial.flush();
+                Serial.flush();
                 rf12_sleep(RF12_SLEEP);
                 cli();
                 Sleepy::powerDown();
@@ -484,7 +481,7 @@ static void handleInput (char c) {
             displayVersion();
             rf12_configDump();
 #if TINY
-            mySerial.println();
+            Serial.println();
 #endif
             break;
 
@@ -536,7 +533,7 @@ static void displayASCII (const byte* data, byte count) {
         char c = (char) data[i];
         printOneChar(c < ' ' || c > '~' ? '.' : c);
     }
-    mySerial.println();
+    Serial.println();
 }
 
 void setup () {
@@ -544,7 +541,6 @@ void setup () {
                 // interaction can be upset by RF12B startup process.
 
 #if TINY
-/*
     PCMSK0 |= (1<<PCINT2);  // tell pin change mask to listen to PA2
     GIMSK |= (1<<PCIE0);    // enable PCINT interrupt in general interrupt mask
     // FIXME: _bitDelay has not yet been initialised here !?
@@ -552,11 +548,10 @@ void setup () {
     pinMode(_receivePin, INPUT);        // PA2
     digitalWrite(_receivePin, HIGH);    // pullup!
     _bitDelay = BITDELAY;
-*/
 #endif
 
-    mySerial.begin(SERIAL_BAUD);
-    mySerial.println();
+    Serial.begin(SERIAL_BAUD);
+    Serial.println();
     displayVersion();
 
     if (rf12_configSilent()) {
@@ -580,11 +575,11 @@ void setup () {
 
 void loop () {
 #if TINY
-    if (mySerial.available())
-        handleInput(mySerial.read());
+    if (_receive_buffer_index)
+        handleInput(inChar());
 #else
-    if (mySerial.available())
-        handleInput(mySerial.read());
+    if (Serial.available())
+        handleInput(Serial.read());
 #endif
     if (rf12_recvDone()) {
         byte n = rf12_len;
@@ -616,10 +611,10 @@ void loop () {
         if (config.hex_output)
             showByte(RF69::rssi);
         else
-            mySerial.print(-(RF69::rssi>>1));
+            Serial.print(-(RF69::rssi>>1));
         showString(PSTR(") "));
 #endif
-        mySerial.println();
+        Serial.println();
 
         if (config.hex_output > 1) { // also print a line as ascii
             showString(PSTR("ASC "));
@@ -649,7 +644,7 @@ void loop () {
         activityLed(1);
 
         showString(PSTR(" -> "));
-        mySerial.print((word) sendLen);
+        Serial.print((word) sendLen);
         showString(PSTR(" b\n"));
         byte header = cmd == 'a' ? RF12_HDR_ACK : 0;
         if (dest)

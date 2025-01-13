@@ -9,24 +9,27 @@
 // motion needs to be reported as soon as possible, but only once, while all the
 // other sensor values are being collected and averaged in a more regular cycle.
 
+#define RF69_COMPAT 0 // define this to use the RF69 driver i.s.o. RF12
+
 #include <JeeLib.h>
 #include <PortsSHT11.h>
 #include <avr/sleep.h>
 #include <util/atomic.h>
+#include <SoftwareSerial.h>
 
-#define SERIAL  0   // set to 1 to also report readings on the serial port
+#define SERIAL  1   // set to 1 to also report readings on the serial port
 #define DEBUG   0   // set to 1 to display each loop() run and PIR trigger
 
-// #define SHT11_PORT  1   // defined if SHT11 is connected to a port
-#define HYT131_PORT 1   // defined if HYT131 is connected to a port
-#define LDR_PORT    4   // defined if LDR is connected to a port's AIO pin
-#define PIR_PORT    4   // defined if PIR is connected to a port's DIO pin
+//#define SHT11_PORT  1   // defined if SHT11 is connected to a port
+//#define HYT131_PORT 1   // defined if HYT131 is connected to a port
+//#define LDR_PORT    4   // defined if LDR is connected to a port's AIO pin
+//#define PIR_PORT    4   // defined if PIR is connected to a port's DIO pin
 
 #define MEASURE_PERIOD  600 // how often to measure, in tenths of seconds
 #define RETRY_PERIOD    10  // how soon to retry if ACK didn't come in
-#define RETRY_LIMIT     5   // maximum number of times to retry
+#define RETRY_LIMIT     1   // maximum number of times to retry
 #define ACK_TIME        10  // number of milliseconds to wait for an ack
-#define REPORT_EVERY    5   // report every N measurement cycles
+#define REPORT_EVERY    1   // report every N measurement cycles
 #define SMOOTH          3   // smoothing factor used for running averages
 
 // set the sync mode to 2 if the fuses are still the Arduino default
@@ -39,6 +42,10 @@ enum { MEASURE, REPORT, TASK_END };
 
 static word schedbuf[TASK_END];
 Scheduler scheduler (schedbuf, TASK_END);
+
+#if defined(SERIAL) && ( defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny44__) )
+  SoftwareSerial mySerial(PIN_PA3, PIN_PA2); // RX, TX
+#endif
 
 // Other variables used in various places in the code:
 
@@ -186,43 +193,43 @@ static void doMeasure() {
         payload.moved = pir.state();
     #endif
 }
-
+/*
 static void serialFlush () {
     #if ARDUINO >= 100
-        Serial.flush();
+        mySerial.flush();
     #endif  
     delay(2); // make sure tx buf is empty before going back to sleep
 }
-
+*/
 // periodic report, i.e. send out a packet and optionally report on serial port
 static void doReport() {
     rf12_sleep(RF12_WAKEUP);
     rf12_sendNow(0, &payload, sizeof payload);
     rf12_sendWait(RADIO_SYNC_MODE);
     rf12_sleep(RF12_SLEEP);
-
-    #if SERIAL
-        Serial.print("ROOM ");
-        Serial.print((int) payload.light);
-        Serial.print(' ');
-        Serial.print((int) payload.moved);
-        Serial.print(' ');
-        Serial.print((int) payload.humi);
-        Serial.print(' ');
-        Serial.print((int) payload.temp);
-        Serial.print(' ');
-        Serial.print((int) payload.lobat);
-        Serial.println();
-        serialFlush();
+/*    #if SERIAL
+        mySerial.print("ROOM ");
+        mySerial.print((int) payload.light);
+        mySerial.print(' ');
+        mySerial.print((int) payload.moved);
+        mySerial.print(' ');
+        mySerial.print((int) payload.humi);
+        mySerial.print(' ');
+        mySerial.print((int) payload.temp);
+        mySerial.print(' ');
+        mySerial.print((int) payload.lobat);
+        mySerial.println();
+//        serialFlush();
     #endif
+*/
 }
 
 // send packet and wait for ack when there is a motion trigger
 static void doTrigger() {
     #if DEBUG
-        Serial.print("PIR ");
-        Serial.print((int) payload.moved);
-        serialFlush();
+        mySerial.print("PIR ");
+        mySerial.print((int) payload.moved);
+//       serialFlush();
     #endif
 
     for (byte i = 0; i < RETRY_LIMIT; ++i) {
@@ -234,9 +241,9 @@ static void doTrigger() {
 
         if (acked) {
             #if DEBUG
-                Serial.print(" ack ");
-                Serial.println((int) i);
-                serialFlush();
+                mySerial.print(" ack ");
+                mySerial.println((int) i);
+//                serialFlush();
             #endif
             // reset scheduling to start a fresh measurement cycle
             scheduler.timer(MEASURE, MEASURE_PERIOD);
@@ -247,8 +254,8 @@ static void doTrigger() {
     }
     scheduler.timer(MEASURE, MEASURE_PERIOD);
     #if DEBUG
-        Serial.println(" no ack!");
-        serialFlush();
+        mySerial.println(" no ack!");
+//        serialFlush();
     #endif
 }
 
@@ -261,14 +268,18 @@ void blink (byte pin) {
 
 void setup () {
     #if SERIAL || DEBUG
-        Serial.begin(57600);
-        Serial.print("\n[roomNode.3]");
-        myNodeID = rf12_config();
-        serialFlush();
+    	delay(5000);
+  		mySerial.begin(9600);
+        mySerial.print("\n[rn4]");
+    rf12_initialize(30, RF12_868MHZ, 212);	// node, radio frequency, group number
+//        myNodeID = rf12_config(0);
+//        serialFlush();
     #else
-        myNodeID = rf12_config(0); // don't report info on the serial port
+//        myNodeID = rf12_config(0); // don't report info on the serial port
     #endif
-    
+         mySerial.print("Returned from radio init");
+         delay(1000);
+   
     rf12_sleep(RF12_SLEEP); // power down
     
     #if PIR_PORT
@@ -283,12 +294,12 @@ void setup () {
 
     reportCount = REPORT_EVERY;     // report right away for easy debugging
     scheduler.timer(MEASURE, 0);    // start the measurement loop going
-}
+} // setup
 
 void loop () {
     #if DEBUG
-        Serial.print('.');
-        serialFlush();
+        mySerial.print('.');
+//        serialFlush();
     #endif
 
     #if PIR_PORT
