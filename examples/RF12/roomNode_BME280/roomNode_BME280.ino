@@ -48,6 +48,14 @@ rfAPI rfapi;			// Declare
 	#warning DS18B20
 #endif
 
+#if BME280_PORT
+	Adafruit_BME280 bme; // I2C
+#elif BMP280_PORT
+	Adafruit_BMP280 bmp; // I2C
+#elif DS18B20_PORT
+	OneWire ds(4);  
+#endif
+
 uint8_t resetFlags __attribute__ ((section(".noinit")));
 void resetFlagsInit(void) __attribute__ ((naked)) __attribute__ ((section (".init0")));
 void resetFlagsInit(void)
@@ -104,14 +112,6 @@ enum { MEASURE, REPORT, TASK_END };
 
 static word schedbuf[TASK_END];
 Scheduler scheduler (schedbuf, TASK_END);
-
-#if BME280_PORT
-	Adafruit_BME280 bme; // I2C
-#elif BMP280_PORT
-	Adafruit_BMP280 bmp; // I2C
-#elif DS18B20_PORT
-	OneWire ds(ONEWIRE_PIN);  
-#endif
 
 #if SERIAL_OUTPUT
 static void showString (PGM_P s); // forward declaration
