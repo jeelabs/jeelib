@@ -53,7 +53,7 @@ rfAPI rfapi;			// Declare
 #elif BMP280_PORT
 	Adafruit_BMP280 bmp; // I2C
 #elif DS18B20_PORT
-	OneWire ds(4);  
+	OneWire ds(PD4);  
 #endif
 
 uint8_t resetFlags __attribute__ ((section(".noinit")));
