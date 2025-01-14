@@ -13,14 +13,18 @@
 
 #warning roomNode_* Serial port to be set at 1200 bps
 #define RF69_COMPAT      0	 // define this to use the RF69 driver i.s.o. RF12 
-#define SERIAL_OUTPUT  0   // set to 1 to also report readings on the serial port
+#define SERIAL_OUTPUT  1   // set to 1 to also report readings on the serial port
 #define DEBUG   0   // set to 1 to display each loop() run and PIR trigger
 ///                          // The above flag must be set similarly in RF12.cpp
 ///                          // and RF69_avr.h
 ///////////////////////////////////////////////////////////////////////////////
-//#define BME280_PORT  1   // defined if BME280 is connected to I2C
-//#define BMP280_PORT  1   // defined if BME280 is connected to I2C
+#define BME280_PORT  0		// defined if BME280 is connected to I2C
+#define BMP280_PORT  0		// defined if BME280 is connected to I2C
+#define DS18B20_PORT 1		
 ///////////////////////////////////////////////////////////////////////////////
+
+#define ONEWIRE_PIN 	PD4
+#define PwrCtl			A0		// Pin to power up the DS18B20
 
 #include <JeeLib.h>
 #include "RFAPI.h"		// Define
@@ -32,8 +36,6 @@ rfAPI rfapi;			// Declare
 #include <avr/eeprom.h>
 #include <avr/wdt.h>
 #include <util/crc16.h>
-#include <Wire.h>
-
 #include <Adafruit_Sensor.h>
 #if BME280_PORT
 	#include <Adafruit_BME280.h>
@@ -41,6 +43,9 @@ rfAPI rfapi;			// Declare
 #elif BMP280_PORT
 	#include <Adafruit_BMP280.h>
 	#warning BMP280
+#elif DS18B20
+	#include <Wire.h>
+	#warning DS18B20
 #endif
 
 uint8_t resetFlags __attribute__ ((section(".noinit")));
@@ -104,7 +109,10 @@ Scheduler scheduler (schedbuf, TASK_END);
 	Adafruit_BME280 bme; // I2C
 #elif BMP280_PORT
 	Adafruit_BMP280 bmp; // I2C
+#elif DS18B20_PORT
+	OneWire ds(ONEWIRE_PIN);  
 #endif
+
 #if SERIAL_OUTPUT
 static void showString (PGM_P s); // forward declaration
 #endif
