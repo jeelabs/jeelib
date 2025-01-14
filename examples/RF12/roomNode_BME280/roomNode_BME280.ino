@@ -44,7 +44,7 @@ rfAPI rfapi;			// Declare
 	#include <Adafruit_BMP280.h>
 	#warning BMP280
 #elif DS18B20
-	#include <Wire.h>
+	#include <OneWire.h>
 	#warning DS18B20
 #endif
 
@@ -112,6 +112,14 @@ enum { MEASURE, REPORT, TASK_END };
 
 static word schedbuf[TASK_END];
 Scheduler scheduler (schedbuf, TASK_END);
+
+#if BME280_PORT
+	Adafruit_BME280 bme; // I2C
+#elif BMP280_PORT
+	Adafruit_BMP280 bmp; // I2C
+#elif DS18B20_PORT
+	OneWire ds(ONEWIRE_PIN);  
+#endif
 
 #if SERIAL_OUTPUT
 static void showString (PGM_P s); // forward declaration
