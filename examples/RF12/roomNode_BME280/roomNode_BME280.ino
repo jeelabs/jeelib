@@ -12,19 +12,19 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #warning roomNode_* Serial port to be set at 1200 bps
-#define RF69_COMPAT      0	 // define this to use the RF69 driver i.s.o. RF12 
-#define SERIAL_OUTPUT  1   // set to 1 to also report readings on the serial port
-#define DEBUG   0   // set to 1 to display each loop() run and PIR trigger
-///                          // The above flag must be set similarly in RF12.cpp
-///                          // and RF69_avr.h
+#define RF69_COMPAT      0	// define this to use the RF69 driver i.s.o. RF12 
+#define SERIAL_OUTPUT  1	// set to 1 to also report readings on the serial port
+#define DEBUG   0			// set to 1 to display each loop() run and PIR trigger
+///                         // The above flag must be set similarly in RF12.cpp
+///                         // and RF69_avr.h
 ///////////////////////////////////////////////////////////////////////////////
 #define BME280_PORT  0		// defined if BME280 is connected to I2C
 #define BMP280_PORT  0		// defined if BME280 is connected to I2C
 #define DS18B20_PORT 1		
 ///////////////////////////////////////////////////////////////////////////////
 
-#define ONEWIRE_PIN 	PD4
-#define PwrCtl			A0		// Pin to power up the DS18B20
+#define ONEWIRE_PIN 	PD4		// Jeenode Port 1 Digital
+#define PwrCtl			A0		// Jeenode Port 1 Analogue Pin to power up the DS18B20
 
 #include <JeeLib.h>
 #include "RFAPI.h"		// Define
@@ -49,11 +49,11 @@ rfAPI rfapi;			// Declare
 #endif
 
 #if BME280_PORT
-	Adafruit_BME280 bme; // I2C
+	Adafruit_BME280 bme;	// I2C
 #elif BMP280_PORT
-	Adafruit_BMP280 bmp; // I2C
+	Adafruit_BMP280 bmp;	// I2C
 #elif DS18B20_PORT
-	OneWire ds(PD4);  
+	OneWire ds(PD4);		// OneWire
 #endif
 
 uint8_t resetFlags __attribute__ ((section(".noinit")));
@@ -73,9 +73,9 @@ void resetFlagsInit(void)
 #define CPU_MULT 1
 #endif
 
-#define SHT11_PORT  1   // defined if SHT11 is connected to a port
+#define SHT11_PORT  0   // defined if SHT11 is connected to a port
 //	#define HYT131_PORT 1   // defined if HYT131 is connected to a port
-#define LDR_PORT    4   // defined if LDR is connected to a port's AIO pin
+#define LDR_PORT    0   // defined if LDR is connected to a port's AIO pin
 #define PIR_PORT    0//4   // defined if PIR is connected to a port's DIO pin
 
 //#define RETRY_PERIOD    20  // how soon to retry if ACK didn't come in
@@ -92,18 +92,22 @@ void resetFlagsInit(void)
 #if F_CPU == 8000000UL
 	#define IDLESPEED		4	//	/16
 	#define RADIOSPEED		1	//	/2
+	#define DS18B20SPEED	0	//	/0
 	#warning roomNode_* Serial port to be set at 1200 bps
 #elif F_CPU == 16000000UL
+//	#define IDLESPEED		5	//	/32
+//	#define RADIOSPEED		2	//	/4  9600 Printing
 	#define IDLESPEED		5	//	/32
 	#define RADIOSPEED		2	//	/4
-	#warning roomNode_* Serial port to be set at 1200 bps
+	#define DS18B20SPEED	1	//	/2
+//	#warning roomNode_* Serial port to be set at 1200 bps
 #endif
 
 #define SETTINGS_EEPROM_ADDR ((uint8_t*) 0x00)
 
 // set the sync mode to 2 if the fuses are still the Arduino default
 // mode 3 (full powerdown) can only be used with 258 CK startup fuses
-#define RADIO_SYNC_MODE 0
+#define RADIO_SYNC_MODE 2
 #define NOP __asm__ __volatile__ ("nop\n\t")
 
 // The scheduler makes it easy to perform various tasks at various times:
@@ -145,10 +149,14 @@ struct {					//0		Offset, node #
     byte light;     		//7		light sensor: 0..255
     unsigned int humi:16;	//8&9	humidity: 0..100.00
     int temp:16; 			//10&11	temperature: -5000..+5000 (hundredths)
-    byte vcc;				//12	Bandgap battery voltage
+    byte vcc;				//12	Bandgap CPU voltage
     uint8_t returnedRSSI;	//13    Received power of a transmission as reported by a remote node
     uint8_t sendingPower;	//14	Power applied to transmission
-    uint8_t RXrssi;			//15	Locally measured RSSI of the received Ack
+#if RF69_COMPAT
+ 	uint8_t RXrssi;			//15	Locally measured RSSI of the received Ack
+#else
+    uint8_t battery;		//15	Locally measured battery voltage
+#endif
     uint8_t lna;			//16
     uint8_t spare1;	//17	Measured RSSI of the received Ack
     uint16_t	fei;		//18&19
@@ -268,6 +276,8 @@ ISR(ADC_vect) { adcDone = true; }
 
 static byte vccRead (byte count =2) {
   set_sleep_mode(SLEEP_MODE_ADC);
+  byte saveADMUX = ADMUX;
+  byte saveADCSRA = ADCSRA;
 #if defined(__AVR_ATmega2560__) || defined(__AVR_ATmega1280__)
 ADMUX = (0<<REFS1) | (1<<REFS0) | (0<<ADLAR)| (0<<MUX5) | (1<<MUX4) | (1<<MUX3) | (1<<MUX2) | (1<<MUX1) | (0<<MUX0);
 #else
@@ -283,8 +293,8 @@ ADMUX = (0<<REFS1) | (1<<REFS0) | (0<<ADLAR)| (0<<MUX5) | (1<<MUX4) | (1<<MUX3) 
     while (!adcDone)
       sleep_mode();
   }
-  ADCSRA = 0;
-  ADMUX = 0; 
+  ADCSRA = saveADCSRA;
+  ADMUX = saveADMUX; 
   //  bitClear(ADCSRA, ADIE);  
   // convert ADC readings to fit in one byte, i.e. 20 mV steps:
   //  1.0V = 0, 1.8V = 40, 3.3V = 115, 5.0V = 200, 6.0V = 250
@@ -316,7 +326,7 @@ static void doMeasure() {
     scheduler.timer(MEASURE, settings.MEASURE_PERIOD);
 
     #if SERIAL_OUTPUT || DEBUG
-	Serial.println("doMeasure"); serialFlush();
+//	Serial.println("doMeasure"); serialFlush();
 	#endif
 
     payload.vcc = vccRead();
@@ -334,15 +344,12 @@ static void doMeasure() {
 		#endif
         payload.humi = smoothedAverage(payload.humi, humi, firstTime);
         payload.temp = smoothedAverage(payload.temp, temp, firstTime);
-    #endif
-    #if HYT131_PORT
+    #elif HYT131_PORT
         int humi, temp;
         hyt131.reading(temp, humi);
         payload.humi = smoothedAverage(payload.humi, humi/10, firstTime);
         payload.temp = smoothedAverage(payload.temp, temp, firstTime);
-    #endif
-    
-	#if BME280_PORT
+	#elif BME280_PORT
     	bme.setSampling(Adafruit_BME280::MODE_FORCED,
 			Adafruit_BME280::SAMPLING_X1, // temperature
             Adafruit_BME280::SAMPLING_X1, // pressure
@@ -375,6 +382,13 @@ static void doMeasure() {
 		payload.temp = f * 100;
 		bmp.reset();	// Soft reset this makes sure the IIR is off, etc.
     	Sleepy::loseSomeTime(32);	// Allow power to settle
+    	
+    #elif DS18B20_PORT
+//Serial.println("Going for DS18B20");serialFlush();    	
+		prepTemp();
+     	Sleepy::loseSomeTime(800);
+//		delay(800l);
+   	 	payload.temp = readTemp();
 	#endif
 
 	   
@@ -400,29 +414,45 @@ static void doMeasure() {
         Serial.print("ROOM_BME280 ");
 	#elif BMP280_PORT
         Serial.print("ROOM_BMP280 ");
+    #elif DS18B20_PORT
+        Serial.print("ROOM DS18B20 ");    	
     #endif
+		Serial.print("l=");
         Serial.print((int) payload.light);
         Serial.print(' ');
 //        Serial.print((int) payload.moved);
+		float x;
+	#if !DS18B20_PORT
         Serial.print(" h=");
-        float x = payload.humi / 100.0f;
+        x = payload.humi / 100.0f;
         Serial.print(x);
-        Serial.print("% t=");
+        Serial.print('%');
+    #endif
+        Serial.print(" t=");
+	#if DS18B20_PORT
+		x = payload.temp / 16.0f;
+	#else        
         x = payload.temp / 100.0f;
+    #endif
         Serial.print(x);
         Serial.print("°C ");
 //        Serial.print((int) payload.lobat);
-#if PIR_PORT
+	#if PIR_PORT
         Serial.print(' ');
         Serial.print((int) countPCINT);
-#endif
-#if BME280_PORT
+	#endif
+	#if BME280_PORT
         x = payload.pressure / 100.0f;
         Serial.print(x);
         Serial.print(" hPa");
-#endif
+	#endif
         Serial.print(" Vcc=");
-        Serial.println(float(0.02f) * payload.vcc);
+        Serial.print(float(0.02f) * payload.vcc);
+	#if DS18B20_PORT
+        Serial.print(" Battery=");
+        Serial.print( (payload.battery + 200)/ 100.0f );
+	#endif
+        Serial.println();
         serialFlush();
 #endif
 		if (++measureCount >= settings.REPORT_EVERY) {
@@ -452,15 +482,18 @@ static void doReport() {
 
 // send packet and wait for ack when there is a motion trigger
 static void doTrigger() {
+#if DEBUG
+	Serial.println("doTrigger"); serialFlush();
+#endif
 	bool releaseAck = false;
 
     if (rf12_recvDone()) {
 //		showString(PSTR("Discarded: "));	// Flush the buffer
-        for (byte i = 0; i < 8; i++) {
+//        for (byte i = 0; i < 8; i++) {
 //            showByte(rf12_buf[i]);
-            rf12_buf[i] = 0xFF;			// Paint it over
+//            rf12_buf[i] = 0xFF;			// Paint it over
 //            printOneChar(' ');
-        }
+//        }
 //		Serial.println();
 	}
 
@@ -511,7 +544,9 @@ static void doTrigger() {
         			asm volatile ("  jmp 0");
         			delay(10000);
 				}
+#if RF69_COMPAT				
         		payload.RXrssi = rfapi.rssi;
+#endif
 				clock_prescale(IDLESPEED);
 #if RF69_COMPAT
 	#if SERIAL_OUTPUT
@@ -704,6 +739,83 @@ static void doTrigger() {
 	
 } // doTrigger
 
+static void prepTemp() {
+  	digitalWrite(PwrCtl, HIGH);
+    Sleepy::loseSomeTime(2); // must wait at least 2 ms
+//  	delay(2l);  
+
+	// starts a temperature measurement cycle
+	// then there needs to be a delay for DS18B20 to do its thing 
+	// at least 750ms @ 12-bit resolution, we actually wait 8 tenths = 800 ms
+	// the DS18B20 automatically goes into low power standby after its conversion is done
+	byte i;
+	byte present = 0;
+	byte type_s;
+	byte data[12];
+	byte addr[8];
+//Serial.println("Resetting DS18B20");serialFlush();
+	if ( !ds.reset() ) return;			// reset before performing any comms with onewire device
+//Serial.println("Got DS18B20");serialFlush();
+	ds.reset_search();					// start new search
+	ds.search(addr);					// get first device
+	ds.reset();							// restart comms
+	ds.select(addr);					// select this device
+	ds.write(0x44);						// issue command: start conversion
+      
+}
+
+static int readTemp() {
+	int v = map(analogRead(6), 0, 1023, 0, 660);	// Voltage on Jeenode USB
+//Serial.println(v);serialFlush();
+	payload.battery = v - 200;
+    // read the temperature back from the DS18B20 that we kicked off a little while ago
+	byte i;
+	byte present = 0;
+	byte type_s;
+	byte data[12];
+	byte addr[8];
+
+	if ( !ds.reset() ) return 0;		// reset before performing any comms with onewire device
+	ds.reset_search();					// start new search
+	ds.search(addr);					// get first device
+	ds.reset();							// restart comms
+	ds.select(addr);					// select this device
+	ds.write(0xBE);         			// issue command: read scratchpad
+	for ( i = 0; i < 9; i++) {        	// we need 9 bytes
+		data[i] = ds.read();
+			}
+	ds.depower();
+//Serial.println("Finished");	
+//serialFlush();
+ 	digitalWrite(PwrCtl, LOW);
+  	
+	int raw = (data[1] << 8) | data[0];
+    unsigned char t_mask[4] = {0x7, 0x3, 0x1, 0x0};
+    byte cfg = (data[4] & 0x60) >> 5;
+    raw &= ~t_mask[cfg];
+#if DEBUG
+//	Serial.println("Debug");serialFlush();
+	char tmp[3];
+	for (byte c = 0; c < 8; c++) {
+		sprintf(tmp, "%.2X",addr[c]); 
+	
+		Serial.print(tmp);
+		if (c < 7)Serial.print(',');
+	}
+	Serial.print(' ');
+	Serial.print((float)raw / 16);
+	Serial.print('C');
+//	Serial.print(payload.battVolts);
+	Serial.print(' ');
+	Serial.print((float)v / 100);
+  	Serial.print("V ");
+  	Serial.println(v/2);
+  	Serial.println(raw);
+    serialFlush();
+#endif 
+	return raw;   
+}
+
 static byte waitForAck() {
 
 #if SERIAL_OUTPUT
@@ -861,7 +973,7 @@ static void loadSettings () {
 		Serial.print("is bad, defaulting ");
 		Serial.println(crc, HEX);
 #endif
-        settings.MEASURE_PERIOD = 60;
+        settings.MEASURE_PERIOD = 555;
         settings.REPORT_EVERY = 1;
         settings.MEASURE = settings.REPORT = true;
         settings.lowVcc = 140;
@@ -878,8 +990,9 @@ static void loadSettings () {
 		Serial.print(settings.MEASURE_PERIOD);
 		showString(PSTR(" Report Every "));
 		Serial.println(settings.REPORT_EVERY);
-        settings.MEASURE_PERIOD = 60;	// Override eeprom if on serial port
-        settings.REPORT_EVERY = 1;
+		
+        settings.MEASURE_PERIOD = 555;	// 555=1 minute: Override eeprom if on serial port
+        settings.REPORT_EVERY = 1;		// Each time you measure then you also report
         settings.ackBounds = 12;		
     }
 #endif
@@ -938,25 +1051,28 @@ static void dumpRegs() {
     			showNibble(r >> 4); showNibble(r);
     		}
     		Serial.println();
-    }
+     		serialFlush();
+   }
 	
 }
 #endif
 
 void setup () 
 {
+
 	cli();
-// Setup WatchDog
+//	Setup WatchDog
 	wdt_reset();			// First thing, turn it off
 	MCUSR = 0;
 	payload.rebootCode = resetFlags;
 	MCUSR = 0;
 	wdt_disable();
-	wdt_enable(WDTO_8S);	// enable watchdogtimer at 8 seconds
+//	wdt_enable(WDTO_8S);	// enable watchdogtimer at 8 seconds
+
 // Enable global interrupts
 	sei();
 
-    clock_prescale(IDLESPEED);	// Divide clock by 4, Serial viewable at 2400
+    clock_prescale(IDLESPEED);	// Divide clock by 4, Serial viewable at 1200
 #if SERIAL_OUTPUT || DEBUG
 	#if F_CPU == 8000000UL
     Serial.begin(19200);
@@ -987,11 +1103,14 @@ void setup ()
 	if (! bme.begin(BMX280_ADDRESS))
 #elif BMP280_PORT
 	if (! bmp.begin(BMX280_ADDRESS))
+#elif DS18B20_PORT
+	  pinMode(PwrCtl, OUTPUT);
 #endif
 #if BME280_PORT || BMP280_PORT
 	{
 	#if SERIAL_OUTPUT
-    	 Serial.println("Could not find a valid BME280 or BMP280 sensor"); serialFlush();   	
+    	Serial.println("Could not find a valid BME280 or BMP280 sensor"); serialFlush();   	
+		serialFlush();
     #endif
     }
 #endif
@@ -1023,26 +1142,30 @@ void loop ()
 */	
 	wdt_disable();			// Disable since pollWaiting has an extended delay    
 	byte s = scheduler.pollWaiting();
-	wdt_enable(WDTO_8S);	// enable watchdogtimer at 8 seconds
-
+//	wdt_enable(WDTO_8S);	// enable watchdogtimer at 8 seconds
 	switch (s) {
 		case MEASURE:
         // reschedule these measurements periodically
         	if (settings.MEASURE) {
 				scheduler.timer(MEASURE, settings.MEASURE_PERIOD);
 			}
-            clock_prescale(IDLESPEED);
+		#if DS18B20_PORT
+			clock_prescale(DS18B20SPEED);
+//Serial.print("DS18B20SPEED"); serialFlush();
+		#else
+			clock_prescale(IDLESPEED);
+		#endif
             doMeasure();
             break;
             
         case REPORT:
-            clock_prescale(IDLESPEED);
+            clock_prescale(RADIOSPEED);
     		#if PIR_PORT
     		maskPCINT = true;	// Airwick PIR is skittish
 			#endif
 		
-//            doReport();
-            doTrigger();
+            doReport();
+ //           doTrigger();
 
 	    	#if PIR_PORT
     		maskPCINT = false;
