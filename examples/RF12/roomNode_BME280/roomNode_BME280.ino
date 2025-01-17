@@ -285,7 +285,7 @@ ADMUX = (0<<REFS1) | (1<<REFS0) | (0<<ADLAR)| (0<<MUX5) | (1<<MUX4) | (1<<MUX3) 
 #endif
   ADCSRA = 0x8E;
 
-  delay(1);
+  delay(1);		// Required don't use Sleepy(1);
 
   //  bitSet(ADCSRA, ADIE);
   while ( (count--) > 0) {
@@ -387,7 +387,6 @@ static void doMeasure() {
 //Serial.println("Going for DS18B20");serialFlush();    	
 		prepTemp();
      	Sleepy::loseSomeTime(800);
-//		delay(800l);
    	 	payload.temp = readTemp();
 	#endif
 
@@ -467,7 +466,7 @@ static void serialFlush () {
     #if ARDUINO >= 100
         Serial.flush();
     #endif  
-    delay(2l); // make sure tx buf is empty before going back to sleep
+    Sleepy::loseSomeTime(2); // make sure tx buf is empty before going back to sleep
 }
 #endif
 
@@ -542,7 +541,7 @@ static void doTrigger() {
         	{
         		if (rebootRequested) {
         			asm volatile ("  jmp 0");
-        			delay(10000);
+        			Sleepy::loseSomeTime(10000);
 				}
 #if RF69_COMPAT				
         		payload.RXrssi = rfapi.rssi;
@@ -742,7 +741,6 @@ static void doTrigger() {
 static void prepTemp() {
   	digitalWrite(PwrCtl, HIGH);
     Sleepy::loseSomeTime(2); // must wait at least 2 ms
-//  	delay(2l);  
 
 	// starts a temperature measurement cycle
 	// then there needs to be a delay for DS18B20 to do its thing 
@@ -813,6 +811,7 @@ static int readTemp() {
   	Serial.println(raw);
     serialFlush();
 #endif 
+//Serial.println(raw);serialFlush();
 	return raw;   
 }
 
@@ -918,7 +917,7 @@ void	incrementPWR() {
 
 void blink (byte pin) {
     for (byte i = 0; i < 6; ++i) {
-        delay(100l);
+		Sleepy::loseSomeTime(100);
         digitalWrite(pin, !digitalRead(pin));
     }
 }
@@ -932,7 +931,7 @@ static void saveSettings () {
     for (byte i = 0; i < sizeof settings; ++i) {
         payload.message[i] = eeprom_read_byte(SETTINGS_EEPROM_ADDR + i);
         if ((byte)payload.message[i] != (byte)p[i]) {
-        	delay(1);	// Avoid brownout?
+        	Sleepy::loseSomeTime(1);	// Avoid brownout?
             eeprom_write_byte(SETTINGS_EEPROM_ADDR + i, p[i]);
             payload.message[i] = (byte)p[i];
 #if SERIAL_OUTPUT
@@ -1127,6 +1126,8 @@ void setup ()
 
     if (settings.MEASURE)
 		scheduler.timer(MEASURE, 10);
+		
+	payload.command = 85;
 } // Setup
 
 void loop () 
@@ -1164,8 +1165,8 @@ void loop ()
     		maskPCINT = true;	// Airwick PIR is skittish
 			#endif
 		
-            doReport();
- //           doTrigger();
+ //           doReport();
+            doTrigger();
 
 	    	#if PIR_PORT
     		maskPCINT = false;
