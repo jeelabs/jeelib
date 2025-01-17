@@ -473,6 +473,7 @@ static void serialFlush () {
 // periodic report, i.e. send out a packet and optionally report on serial port
 static void doReport() {
     payload.attempts = 0;
+	payload.sequence++;
     rf12_sleep(RF12_WAKEUP);
     rf12_sendNow(0, &payload, payloadLength);
     rf12_sendWait(RADIO_SYNC_MODE);
@@ -483,6 +484,7 @@ static void doReport() {
 static void doTrigger() {
 #if DEBUG
 	Serial.println("doTrigger"); serialFlush();
+	serialFlush();
 #endif
 	bool releaseAck = false;
 
@@ -500,6 +502,7 @@ static void doTrigger() {
 #if SERIAL_OUTPUT
 	Serial.print("Sequence ");
 	Serial.println(payload.sequence);
+	serialFlush();
 #endif
     for (byte i = 1; i <= RETRY_LIMIT; ++i) {
     	payload.attempts = i;
@@ -511,6 +514,7 @@ static void doTrigger() {
 		Serial.print(rfapi.txPower);
 		showString(PSTR(" ackPacer "));
 		Serial.println(ackPacer); serialFlush();
+		serialFlush();
 	#endif
 		if ( !(ackPacer + settings.ackBounds) ) ackPacer = 1;
 		if ( (ackPacer--) <= 0) {
@@ -553,6 +557,7 @@ static void doTrigger() {
 				Serial.print(rf12_rssi);
 				Serial.print(" with threshold of ");
 				Serial.println(rfapi.rssiThreshold);
+				serialFlush();
 	#endif
 #else
 	#if SERIAL_OUTPUT
@@ -560,6 +565,7 @@ static void doTrigger() {
 				Serial.print(rfapi.rssiThreshold);			
 				Serial.print(" LNA was "); 
 				Serial.println(rfapi.lna);
+				serialFlush();
 	#endif
 
 #endif
@@ -570,8 +576,9 @@ static void doTrigger() {
 #if SERIAL_OUTPUT
 					showString(PSTR("Central saw my last packet at power ")); 
 					Serial.println(rf12_buf[3]);
+					serialFlush();
 #endif
-//					payload.command = 85; // Clear alert after a node restart
+					payload.command = 85; // Clear alert after a node restart
 								
           			if (payload.vcc < settings.lowVcc) payload.command = 240;
 #if RF69_COMPAT          		
@@ -607,6 +614,7 @@ static void doTrigger() {
 						Serial.print(rf12_buf[6]);
 						Serial.print(", Value=");
 						Serial.println(value);
+						serialFlush();
 #endif
 					switch (rf12_buf[4]) {
 //						case 0				// Flags 0 through to 15 are
@@ -699,6 +707,7 @@ static void doTrigger() {
                     	default:                   
 #if SERIAL_OUTPUT
 							Serial.println("Unknown Command");
+							serialFlush();
 #endif
 	            			payload.command = 170;		// Rejected command									                       
     						return;
@@ -725,8 +734,8 @@ static void doTrigger() {
     	}
     	else // if (ackSW)
     	{
-//    		payload.command = settings.ackBounds + ackPacer;	// Countdown to next Ack request
-//    		if ( !(payload.command) ) payload.command = 85;	// No Alert on first Acked packet
+    		payload.command = settings.ackBounds + ackPacer;	// Countdown to next Ack request
+    		if ( !(payload.command) ) payload.command = 85;	// No Alert on first Acked packet
 	    	break;
 	    }
 	} // RETRY_LIMIT
@@ -1127,7 +1136,6 @@ void setup ()
     if (settings.MEASURE)
 		scheduler.timer(MEASURE, 10);
 		
-	payload.command = 85;
 } // Setup
 
 void loop () 
