@@ -69,9 +69,20 @@ void resetFlagsInit(void)
 
 #if F_CPU == 8000000UL
 #define CPU_MULT 2
-#else
-#define CPU_MULT 1
+	#define IDLESPEED		4	//	/16
+	#define RADIOSPEED		1	//	/2
+	#define DS18B20SPEED	0	//	/0
+	#warning roomNode_* Serial port to be set at 1200 bps
+#elif F_CPU == 16000000UL
+	#define CPU_MULT 1
+//	#define IDLESPEED		5	//	/32
+//	#define RADIOSPEED		2	//	/4  9600 Printing
+	#define IDLESPEED		5	//	/32
+	#define RADIOSPEED		2	//	/4
+	#define DS18B20SPEED	1	//	/2
+//	#warning roomNode_* Serial port to be set at 1200 bps
 #endif
+
 
 #define SHT11_PORT  0   // defined if SHT11 is connected to a port
 //	#define HYT131_PORT 1   // defined if HYT131 is connected to a port
@@ -83,25 +94,11 @@ void resetFlagsInit(void)
 #if RF69_COMPAT
 #define ACK_TIME        15 * CPU_MULT	// number of milliseconds to wait for an ack
 #else
-#define ACK_TIME 4 * CPU_MULT	// number of milliseconds to wait for an ack
+#define ACK_TIME 15 * CPU_MULT	// number of milliseconds to wait for an ack
 #endif
 #define SMOOTH          3   // smoothing factor used for running averages
 
 #define ADC_CALIBRATE	0
-
-#if F_CPU == 8000000UL
-	#define IDLESPEED		4	//	/16
-	#define RADIOSPEED		1	//	/2
-	#define DS18B20SPEED	0	//	/0
-	#warning roomNode_* Serial port to be set at 1200 bps
-#elif F_CPU == 16000000UL
-//	#define IDLESPEED		5	//	/32
-//	#define RADIOSPEED		2	//	/4  9600 Printing
-	#define IDLESPEED		5	//	/32
-	#define RADIOSPEED		2	//	/4
-	#define DS18B20SPEED	1	//	/2
-//	#warning roomNode_* Serial port to be set at 1200 bps
-#endif
 
 #define SETTINGS_EEPROM_ADDR ((uint8_t*) 0x00)
 
