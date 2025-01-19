@@ -2475,7 +2475,19 @@ void loop () {
             }
             if ((watchNode) && ((rf12_hdr & RF12_HDR_MASK) != watchNode)) return;
 
-#if RF69_COMPAT && !TINY	// At this point the radio is in standby                    
+#if RF69_COMPAT && !TINY	// At this point the radio is in standby    
+
+//		Save packet attributes before double buffering activation		 			       
+
+        	observedRX.afc = rf12_afc;
+        	observedRX.fei = rf12_fei;
+        	observedRX.rssi2 = rf12_rssi;
+        	observedRX.lna = rf12_lna;
+
+//Serial.print("ObservedRSSI=");
+//Serial.println(observedRX.rssi2);
+
+                
 			unsigned long rxCrcGap;
         
  			if (RF12_WANTS_ACK && (config.collect_mode) == 0) {
@@ -2528,12 +2540,13 @@ void loop () {
 #endif 			
 		}
 		
-#if RF69_COMPAT && !TINY				 			       
+#if RF69_COMPAT && !TINY
+/*		Save packet attributes before double buffering activation		 			       
         observedRX.afc = rf12_afc;
         observedRX.fei = rf12_fei;
         observedRX.rssi2 = rf12_rssi;
         observedRX.lna = rf12_lna;
-
+*/
         if ((observedRX.afc) && (observedRX.afc != previousAFC)) { // Track volatility of AFC
             changedAFC++;    
             previousAFC = observedRX.afc;
@@ -3132,11 +3145,15 @@ void loop () {
 #if RF69_COMPAT
         	      		printOneChar(' ');
 						if (NodeMap == -1) {
+Serial.print(NodeMap = -1 );
     	    				v = (byte *)&observedRX.rssi2;	// RSSI to hubID as the TX buffer        	      		
               				showByte(observedRX.rssi2);       	      		
       	      			} else {
-        	      			v = (byte *)&lastRSSI[NodeMap];	// Point to RSSI as the TX buffer
-         	      			showByte(lastRSSI[NodeMap]);       	      		
+// Working Area      	      			
+//        	      			v = (byte *)&lobservedRX.rssi2;	// Point to RSSI as the TX buffer
+//         	      			showByte(lastRSSI[NodeMap]);	// This is an averaged RSSI   	      		
+        	      			v = (byte *)&observedRX.rssi2;	// Point to RSSI as the TX buffer
+         	      			showByte(observedRX.rssi2);		// No avaeraging version 	      		
     	      			}
         	        	ackLen = 1;		// Supply received RSSI value in all basic ACKs
 #endif
