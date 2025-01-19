@@ -75,8 +75,6 @@ void resetFlagsInit(void)
 	#warning roomNode_* Serial port to be set at 1200 bps
 #elif F_CPU == 16000000UL
 	#define CPU_MULT 1
-//	#define IDLESPEED		5	//	/32
-//	#define RADIOSPEED		2	//	/4  9600 Printing
 	#define IDLESPEED		5	//	/32
 	#define RADIOSPEED		2	//	/4
 	#define DS18B20SPEED	1	//	/2
@@ -90,7 +88,7 @@ void resetFlagsInit(void)
 #define PIR_PORT    0//4   // defined if PIR is connected to a port's DIO pin
 
 //#define RETRY_PERIOD    20  // how soon to retry if ACK didn't come in
-#define RETRY_LIMIT     1   // maximum number of times to try transmission
+#define RETRY_LIMIT     0   // maximum number of times to try transmission
 #if RF69_COMPAT
 #define ACK_TIME        15 * CPU_MULT	// number of milliseconds to wait for an ack
 #else
@@ -469,7 +467,7 @@ static void serialFlush () {
 
 // periodic report, i.e. send out a packet and optionally report on serial port
 static void doReport() {
-    payload.attempts = 0;
+    payload.attempts = 1;
 	payload.sequence++;
     rf12_sleep(RF12_WAKEUP);
     rf12_sendNow(0, &payload, payloadLength);
@@ -501,8 +499,8 @@ static void doTrigger() {
 	Serial.println(payload.sequence);
 	serialFlush();
 #endif
-    for (byte i = 1; i <= RETRY_LIMIT; ++i) {
-    	payload.attempts = i;
+    for (byte i = 0; i <= RETRY_LIMIT; ++i) {
+    	payload.attempts = i + 1;
         rf12_sleep(RF12_WAKEUP);
 	#if SERIAL_OUTPUT
     	Serial.print("Transmitting ");
@@ -516,7 +514,10 @@ static void doTrigger() {
 		if ( !(ackPacer + settings.ackBounds) ) ackPacer = 1;
 		if ( (ackPacer--) <= 0) {
 			ackSW = 0;
-			if (settings.ackBounds + ackPacer) payload.command = settings.ackBounds + ackPacer;
+//			payload.returnedRSSI = 255;
+			if (settings.ackBounds + ackPacer) {
+			payload.command = settings.ackBounds + ackPacer;
+			}
     		else payload.command = 85;							// Countdown to next Ack request
 		}
 		else 
@@ -572,7 +573,11 @@ static void doTrigger() {
 					payload.returnedRSSI = rf12_buf[3];
 #if SERIAL_OUTPUT
 					showString(PSTR("Central saw my last packet at power ")); 
+					Serial.println(rf12_buf[0]);
+					Serial.println(rf12_buf[1]);
+					Serial.println(rf12_buf[2]);
 					Serial.println(rf12_buf[3]);
+					Serial.println(rf12_buf[4]);
 					serialFlush();
 #endif
 					payload.command = 85; // Clear alert after a node restart
