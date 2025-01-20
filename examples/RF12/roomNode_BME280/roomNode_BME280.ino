@@ -77,6 +77,8 @@ void resetFlagsInit(void)
 	#define CPU_MULT 1
 	#define IDLESPEED		5	//	/32
 	#define RADIOSPEED		2	//	/4
+//	#define IDLESPEED		0	//	/32
+//	#define RADIOSPEED		0	//	/4
 	#define DS18B20SPEED	1	//	/2
 //	#warning roomNode_* Serial port to be set at 1200 bps
 #endif
@@ -514,9 +516,8 @@ static void doTrigger() {
 		if ( !(ackPacer + settings.ackBounds) ) ackPacer = 1;
 		if ( (ackPacer--) <= 0) {
 			ackSW = 0;
-//			payload.returnedRSSI = 255;
 			if (settings.ackBounds + ackPacer) {
-			payload.command = settings.ackBounds + ackPacer;
+// Work			payload.command = settings.ackBounds + ackPacer;
 			}
     		else payload.command = 85;							// Countdown to next Ack request
 		}
@@ -573,11 +574,7 @@ static void doTrigger() {
 					payload.returnedRSSI = rf12_buf[3];
 #if SERIAL_OUTPUT
 					showString(PSTR("Central saw my last packet at power ")); 
-					Serial.println(rf12_buf[0]);
-					Serial.println(rf12_buf[1]);
-					Serial.println(rf12_buf[2]);
 					Serial.println(rf12_buf[3]);
-					Serial.println(rf12_buf[4]);
 					serialFlush();
 #endif
 					payload.command = 85; // Clear alert after a node restart
@@ -735,8 +732,9 @@ static void doTrigger() {
     		} // if (acked)
     	}
     	else // if (ackSW)
+			payload.returnedRSSI = 0;
     	{
-    		payload.command = settings.ackBounds + ackPacer;	// Countdown to next Ack request
+//    		payload.command = settings.ackBounds + ackPacer;	// Countdown to next Ack request
     		if ( !(payload.command) ) payload.command = 85;	// No Alert on first Acked packet
 	    	break;
 	    }
@@ -751,7 +749,7 @@ static void doTrigger() {
 
 static void prepTemp() {
   	digitalWrite(PwrCtl, HIGH);
-    Sleepy::loseSomeTime(2); // must wait at least 2 ms
+    Sleepy::loseSomeTime(3); // must wait at least 2 ms
 
 	// starts a temperature measurement cycle
 	// then there needs to be a delay for DS18B20 to do its thing 
@@ -869,7 +867,7 @@ static byte waitForAck() {
                         rf12_buf[i] = 0xFF;				// Paint it over
                     }
 */
-                    payload.command = 3;	// Wrong packet
+ // Work			payload.command = 3;	// Wrong packet
 #if SERIAL_OUTPUT
                     Serial.println();
 #endif
@@ -877,7 +875,7 @@ static byte waitForAck() {
                 }
             } else { 
             	incrementPWR();
-            	payload.command = 1;	// CRC bad
+// Work			payload.command = 1;	// CRC bad
             	payload.badCRC++;
             	incrementPWR();
 #if SERIAL_OUTPUT
@@ -890,7 +888,7 @@ static byte waitForAck() {
     }
     rf12_sleep(RF12_SLEEP);
     incrementPWR();
-    payload.command = 2;	// Ack timeout
+// Work    payload.command = 2;	// Ack timeout
     payload.lna = rfapi.lna;
     payload.fei = rfapi.fei;
     payloadLength = TIMEOUT_PAYLOADLENGTH;
@@ -1198,4 +1196,6 @@ void loop ()
 #endif
 	clock_prescale(8);	//	/256
 	
+    Sleepy::loseSomeTime(15000);
+    
 } // Loop

@@ -2767,10 +2767,12 @@ void loop () {
 		#if SX1276
 				Serial.print(rf12_rxTail);
 		#endif
+/*
 				if (config.verbosity & 2) {		
         	   		printOneChar(' ');
         	    	showByte(lastRSSI[NodeMap]); 
-        	    }      	      				
+        	    } 
+*/     	      				
 			}
 	#endif        
 			 
@@ -2928,11 +2930,16 @@ void loop () {
 
 					if (observedRX.rssi2 < (minRSSI[NodeMap]))
 						minRSSI[NodeMap] = observedRX.rssi2;
-					if (lastRSSI[NodeMap]) {	// Approx average RSSI from two packets
-						lastRSSI[NodeMap] = ((uint16_t)((lastRSSI[NodeMap] * 2) + observedRX.rssi2) / 3) + 1;
-					} else lastRSSI[NodeMap] = observedRX.rssi2; 
+
 					if (observedRX.rssi2 > (maxRSSI[NodeMap]))
 						maxRSSI[NodeMap] = observedRX.rssi2;   
+// Working area
+/* The averaging approach does more harm than good
+					if (lastRSSI[NodeMap]) {	// Approx average RSSI from two packets
+						lastRSSI[NodeMap] = ((uint16_t)((lastRSSI[NodeMap] * 2) + observedRX.rssi2) / 3) + 1;
+					} else 
+*/					 
+					lastRSSI[NodeMap] = observedRX.rssi2;
 	#endif
 	#if STATISTICS            
 				} else {
@@ -3005,7 +3012,7 @@ void loop () {
             	if ( (v) && (!(special)) ) {	// Post pending?
                     if (rf12_data[0] == (*(v + 2)) && ( *(v + 6)) ) { // Matched and transmitted at least once
 	                // Check if previous Post value is the first byte of this payload 
-        	            showString(PSTR("RX Release "));
+        	            showString(PSTR("RX Release "));	// Normal outcome
         	            dropNow = true;
  	               		postingsClr++;
                 	} else	
@@ -3013,7 +3020,7 @@ void loop () {
         	            showString(PSTR("RX Reject ")); 
         	            dropNow = true;
                 		postingsRej++;
-                	} else 
+ /*               	} else 
  					if (rf12_data[0] != 85) {
                			showString(PSTR("RX Alert i")); 
                     	showByte(rf12_hdr & RF12_HDR_MASK);	// Node                   
@@ -3022,8 +3029,9 @@ void loop () {
                         	showByte(rf12_grp);				// Group
                         }
                     	printOneChar(' ');
-    					Serial.println( rf12_data[0] );		// Alert code
+    					Serial.println( rf12_data[0] );		// Alert code	*/
     	        	}
+    	        	
 					if (dropNow) {					
                     	printOneChar('i');
                     	showByte(rf12_hdr & RF12_HDR_MASK);	// Node                   
@@ -3059,7 +3067,7 @@ void loop () {
 						Serial.println();                    	                     	                    	
 	                   	if ( !(semaphoreDrop((rf12_hdr & RF12_HDR_MASK), rf12_grp) ) )
 	            			showString(PSTR(" NOT FOUND "));
-	            		rf12_data[0] = 85;				// Now change default to a standard Ack
+//	            		rf12_data[0] = 85;				// Now change default to a standard Ack
 	            	}
 	            }
 
@@ -3144,17 +3152,19 @@ void loop () {
          	        } else {	// if ( (v) && (!(special)) )
 #if RF69_COMPAT
         	      		printOneChar(' ');
+ /* The averaging system does more harm than good so removed      	      		
 						if (NodeMap == -1) {
 Serial.print(NodeMap = -1 );
     	    				v = (byte *)&observedRX.rssi2;	// RSSI to hubID as the TX buffer        	      		
               				showByte(observedRX.rssi2);       	      		
       	      			} else {
 // Working Area      	      			
-//        	      			v = (byte *)&lobservedRX.rssi2;	// Point to RSSI as the TX buffer
-//         	      			showByte(lastRSSI[NodeMap]);	// This is an averaged RSSI   	      		
-        	      			v = (byte *)&observedRX.rssi2;	// Point to RSSI as the TX buffer
-         	      			showByte(observedRX.rssi2);		// No avaeraging version 	      		
-    	      			}
+//        	      			v = (byte *)lastRSSI[NodeMap];	// Point to RSSI as the TX buffer
+//         	      			showByte(lastRSSI[NodeMap]);	// This is an averaged RSSI   
+*/	      		
+        	      		v = (byte *)&observedRX.rssi2;	// Point to RSSI as the TX buffer
+         	      		showByte(observedRX.rssi2);		// No avaeraging version 	      		
+//    	      			}
         	        	ackLen = 1;		// Supply received RSSI value in all basic ACKs
 #endif
         	        }	// if ( (v) && (!(special)) )
