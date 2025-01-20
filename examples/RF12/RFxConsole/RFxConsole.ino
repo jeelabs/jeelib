@@ -2368,8 +2368,8 @@ static bool semaphoreSave (byte node, byte group, byte key, byte flag, unsigned 
 			semaphoreStack[(c * ackEntry) + 7] = 0;	// Spare
 			uint32_t t = elapsedSeconds;
 			semaphoreStack[(c * ackEntry) + 8] = (uint8_t)t;// Timestamp	
-			semaphoreStack[(c * ackEntry) + 9] = (uint8_t)(t>>8);// Timestamp		
-			semaphoreStack[(c * ackEntry) + 10] = (uint8_t)(t>>16);// Timestamp		
+			semaphoreStack[(c * ackEntry) + 9] = (uint8_t)(t>>8);	// Timestamp		
+			semaphoreStack[(c * ackEntry) + 10] = (uint8_t)(t>>16);	// Timestamp		
 			semaphoreStack[(c * ackEntry) + 11] = (uint8_t)(t>>24);	// Timestamp
 			postingsIn++;
 			return true;	
@@ -2517,7 +2517,7 @@ void loop () {
     	    	} else {
     	    		if ( (rxTimeStamp[NodeMap]) ) {
 	        			if ( arrivalTime < (rxTimeStamp[NodeMap] + DUPTIME) ) {
-		        			duplicate = true;
+		        			duplicate = true;	// If ACK requested its will be duplicated outbound
 	        				retransmissions[NodeMap]++;
 	        			}
 	        		}
@@ -2571,7 +2571,18 @@ void loop () {
             	elapsed(elapsedSeconds);
                 printOneChar(' ');
 			} 
-			if ( duplicate /*&& (!config.quiet_mode)*/ ) showString(PSTR("DU\n"));           
+			if ( duplicate /*&& (!config.quiet_mode)*/ ) {
+				showString(PSTR("DU "));
+		
+				if (rf12_hdr & 0x40) showString(PSTR("-> i"));	// Directed to remote
+				else showString(PSTR("<- i"));					// Broadcast from remote
+
+				showByte(rf12_hdr & RF12_HDR_MASK);				
+				showString(PSTR(" g"));  
+				showByte(rf12_grp);
+				Serial.println();
+				}	
+				         
             else showString(PSTR("OK"));
             
             crc = true;
