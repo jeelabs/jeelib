@@ -162,7 +162,7 @@ const char DONE[] PROGMEM = "Done\n";
 const char ABORTED[] PROGMEM = " Aborted ";
 const char UNKNOWN[] PROGMEM = " Unknown";
 const char TX[] PROGMEM = "TX ";
-const char SEMAPHOREFULL[] PROGMEM = "Semaphore table full";
+const char SEMAPHOREFULL[] PROGMEM = "Semaphore table rejected";
 const char SALUSMODE[] PROGMEM = "SALUSMODE ";
 
 #if SALUS
@@ -483,7 +483,7 @@ static signed int maxFEI[MAX_NODES];
 static byte loFloor[MAX_NODES];
 static byte hiFloor[MAX_NODES];
 static byte minRSSI[MAX_NODES];
-static byte lastRSSI[MAX_NODES];
+//static byte lastRSSI[MAX_NODES];
 static byte maxRSSI[MAX_NODES];
 static byte minLNA[MAX_NODES];
 static byte lastLNA[MAX_NODES];
@@ -1375,6 +1375,7 @@ static void handleInput (char c) {
                      // is the group number 127 is the desired value to be posted. 
                      // The byte stack[1] contains the target group and stack[0] contains the 
                      // node number. The message string to be posted is in value
+                     // A key number of 85 & 170 should be reserved for Reject and Alert
 #if MESSAGING
 					if (nullValue && top == 2) {
 						while ( (semaphoreDrop (stack[0], stack[1] )));	// Drop all node, group semaphores
@@ -1659,7 +1660,7 @@ static void handleInput (char c) {
 						
 #if RF69_COMPAT
 						commandByte[value] = retransmissions[value] = rxCount[value] = txCount[value] = lastFEI[value] = minFEI[value] = maxFEI[value] 
-						= possibleCRC[value] = rxTimeStamp[value] = rxAckTimeStamp[value] = lastRSSI[value] = minRSSI[value] = maxRSSI[value] = CumNodeFEI[value] = CumNodeTfr[value]
+						= possibleCRC[value] = rxTimeStamp[value] = rxAckTimeStamp[value] = minRSSI[value] = maxRSSI[value] = CumNodeFEI[value] = CumNodeTfr[value]
 						= CumNodeRtp[value] = lastLNA[value] = minLNA[value] = maxLNA[value] = 0;
 #endif
             		 }
@@ -1999,7 +2000,7 @@ static void clrNodeStore() {
 #if RF69_COMPAT
 	for (byte i = 0; i < MAX_NODES; i++) {
 		rxCount[i] = lastFEI[i] = minFEI[i] = maxFEI[i]
-		= lastRSSI[i] = minRSSI[i] = maxRSSI[i] = CumNodeFEI[i] = CumNodeTfr[i]
+		= minRSSI[i] = maxRSSI[i] = CumNodeFEI[i] = CumNodeTfr[i]
 		= CumNodeRtp[i] = lastLNA[i] = minLNA[i] = maxLNA[i] = 0;
 	}
 #endif   
@@ -2304,8 +2305,8 @@ static void oneShow(byte index) {
 //        Serial.print(abs(minFEI[index] - maxFEI[index]));
         Serial.print(delta);
         showString(PSTR(") RSSI("));
-        showByte(lastRSSI[index]);
-        printOneChar(';');
+//        showByte(lastRSSI[index]);
+//        printOneChar(';');
         showByte(eeprom_read_byte((RF12_EEPROM_NODEMAP) + (index * 4) + 2)); // Show original RSSI value
         printOneChar('/');
         showByte(minRSSI[index]);
@@ -2354,6 +2355,7 @@ static bool getIndex (byte group, byte node) {
 }
 
 static bool semaphoreSave (byte node, byte group, byte key, byte flag, unsigned int value) {
+	if ( (key == 85) || (key == 170) ) return false;
 	for (int c = 0; c < ackQueue; ++c) {
 		if (semaphoreStack[(c * ackEntry) + 0] == 0) {
 			semaphoreStack[(c * ackEntry) + 0] = node;	
@@ -2912,7 +2914,7 @@ void loop () {
 					if (observedRX.lna < (minLNA[NodeMap]))       
 						minLNA[NodeMap] = observedRX.lna;
 						
-					lastLNA[NodeMap] = observedRX.lna;   
+	///				lastLNA[NodeMap] = observedRX.lna;   
 					
 					if (observedRX.lna > (maxLNA[NodeMap]))
 						maxLNA[NodeMap] = observedRX.lna;   
@@ -2938,8 +2940,8 @@ void loop () {
 					if (lastRSSI[NodeMap]) {	// Approx average RSSI from two packets
 						lastRSSI[NodeMap] = ((uint16_t)((lastRSSI[NodeMap] * 2) + observedRX.rssi2) / 3) + 1;
 					} else 
-*/					 
 					lastRSSI[NodeMap] = observedRX.rssi2;
+*/					 
 	#endif
 	#if STATISTICS            
 				} else {
@@ -3006,7 +3008,8 @@ void loop () {
     	        // If a semaphore exists it is used as the TX buffer. The buffer transmitted to the 
         	    // originating node with the ACK.
 				
-	            bool dropNow = false; 
+	            bool dropNow = false;
+	            bool sendNow = true; 
             	byte * v;    
                 v = semaphoreGet((rf12_hdr & RF12_HDR_MASK), rf12_grp);
             	if ( (v) && (!(special)) ) {	// Post pending?
@@ -3020,7 +3023,7 @@ void loop () {
         	            showString(PSTR("RX Reject ")); 
         	            dropNow = true;
                 		postingsRej++;
- /*               	} else 
+                	} else 
  					if (rf12_data[0] != 85) {
                			showString(PSTR("RX Alert i")); 
                     	showByte(rf12_hdr & RF12_HDR_MASK);	// Node                   
@@ -3029,7 +3032,9 @@ void loop () {
                         	showByte(rf12_grp);				// Group
                         }
                     	printOneChar(' ');
-    					Serial.println( rf12_data[0] );		// Alert code	*/
+    					Serial.println( rf12_data[0] );		// Alert code
+    					sendNow = false;
+    					// Post to remain pending a correct command response from remote
     	        	}
     	        	
 					if (dropNow) {					
@@ -3069,6 +3074,9 @@ void loop () {
 	            			showString(PSTR(" NOT FOUND "));
 //	            		rf12_data[0] = 85;				// Now change default to a standard Ack
 	            	}
+//	            	else v = 0;
+    				// Post to remain pending a correct command response from remote
+	            	
 	            }
 
                 if (config.ackDelay) delayMicroseconds( 800 + (config.ackDelay * 50) );	// changing into TX mode is quicker than changing into RX mode for RF69.     
@@ -3108,7 +3116,7 @@ void loop () {
 	        		// Post still pending?
 	        		if (dropNow)
             			v = semaphoreGet((rf12_hdr & RF12_HDR_MASK), rf12_grp);
-                	if ( (v) && (!(special)) ) {	// Post still pending?
+                	if ( (v) && (!(special)) && (sendNow) ) {	// Post still pending?
             	        ackLen = (*(v + 0) >> 5) + 1;	// ACK length in high bits of node
                 		showString(PSTR(" Posted "));
                     	(byte)++(*(v + 6));
@@ -3163,7 +3171,7 @@ Serial.print(NodeMap = -1 );
 //         	      			showByte(lastRSSI[NodeMap]);	// This is an averaged RSSI   
 */	      		
         	      		v = (byte *)&observedRX.rssi2;	// Point to RSSI as the TX buffer
-         	      		showByte(observedRX.rssi2);		// No avaeraging version 	      		
+         	      		showByte(observedRX.rssi2);   		
 //    	      			}
         	        	ackLen = 1;		// Supply received RSSI value in all basic ACKs
 #endif
