@@ -163,6 +163,7 @@ const char ABORTED[] PROGMEM = " Aborted ";
 const char UNKNOWN[] PROGMEM = " Unknown";
 const char TX[] PROGMEM = "TX ";
 const char SEMAPHOREFULL[] PROGMEM = "Semaphore table rejected";
+const char RX_SEMAPHORE[] PROGMEM = "RX Semaphore ";
 const char SALUSMODE[] PROGMEM = "SALUSMODE ";
 
 #if SALUS
@@ -1401,15 +1402,16 @@ static void handleInput (char c) {
 					}
 
 					if (top == 5) {			// Node    Group     Old Key   New Key     Function  Post
-						if (semaphoreUpdate( (stack[0] | stack[5]), stack[1], stack[2], stack[3], stack[4], value) ) {
+						if ( semaphoreUpdate( (stack[0] | stack[5]), stack[1], stack[2], stack[3], stack[4], value) ) {
 							showPost();
 					 		c = 0;	// loose command printout
 							break;
 						} else showString(UNKNOWN);
 					}
 					if (top == 4) {		// Node       Length     Group     Key       Function  Post
-						if (semaphoreSave((stack[0] | stack[5]), stack[1], stack[2], stack[3], value)) {							
-							showPost();
+						if ( byte entry = semaphoreSave( (stack[0] | stack[5]), stack[1], stack[2], stack[3], value) ) {
+							showString(RX_SEMAPHORE);
+							semaphorePrint(--entry);						
 					 		c = 0;	// loose command printout
 							break;
 					 	} else {
@@ -1472,7 +1474,8 @@ static void handleInput (char c) {
             		Serial.println();
             		
             		for (byte i = 0; i < (ackQueue * ackEntry); i++) {
-            			if ( !(i%ackEntry) ) Serial.println();
+//            			if ( !(i%ackEntry) ) Serial.println();
+            			if ( !(ackEntry) ) Serial.println();
             			Serial.print(semaphoreStack[i]);
         				printOneChar(' ');
             		}
@@ -2048,41 +2051,8 @@ static void showPost() {
 	} 
     int c = 0;
     while (semaphoreStack[c * ackEntry + 0] != 0) {
-        printOneChar('e');										// Envelope
-    	Serial.print(c); printOneChar(' ');
-        printOneChar('c');
-		Serial.print(semaphoreStack[(c * ackEntry) + 6]);		// TX Count
-        printOneChar(' ');
-        printOneChar('i');
-    	Serial.print(semaphoreStack[(c * ackEntry) + 0] & 31);	// Node
-        printOneChar(' ');
-        printOneChar('g');
-	   	Serial.print(semaphoreStack[(c * ackEntry) + 1]);		// Group
-        printOneChar(' ');
-        printOneChar('k');
-    	Serial.print(semaphoreStack[(c * ackEntry) + 2]);		// Key
-	    printOneChar(' ');
-	    printOneChar('f');
-    	Serial.print(semaphoreStack[(c * ackEntry) + 3]);		// Flag
-    	byte l = (semaphoreStack[ c * ackEntry + 0 ] >> 5);
-	    if (l > 1) {
-	        printOneChar(' ');
-	        printOneChar('v');
-			showWord((semaphoreStack[(c * ackEntry) + 5]) << 8 | semaphoreStack[(c * ackEntry) + 4]);
-		}
-
-	    uint32_t t = semaphoreStack[(c * ackEntry) + 11]; t = t<<8;
-	    t = t + semaphoreStack[(c * ackEntry) + 10]; t = t<<8;
-	    t = t + semaphoreStack[(c * ackEntry) + 9]; t = t<<8;
-	    t = t + semaphoreStack[(c * ackEntry) + 8];
-	    t = (elapsedSeconds - t);	    
-		if (t) {
-			printOneChar(' ');
-//			printOneChar('t');
-			elapsed(t);
-		}
-		Serial.println();
-   		++c;   
+		semaphorePrint(c);
+  		++c;   
     }    
 return;
 }
@@ -2354,9 +2324,9 @@ static bool getIndex (byte group, byte node) {
     return(false);
 }
 
-static bool semaphoreSave (byte node, byte group, byte key, byte flag, unsigned int value) {
-	if ( (key == 85) || (key == 170) ) return false;
-	for (int c = 0; c < ackQueue; ++c) {
+static byte semaphoreSave (byte node, byte group, byte key, byte flag, unsigned int value) {
+	if ( (key == 85) || (key == 170) ) return 0;
+	for (int c = 0; c < ackQueue; c++) {
 		if (semaphoreStack[(c * ackEntry) + 0] == 0) {
 			semaphoreStack[(c * ackEntry) + 0] = node;	
 			semaphoreStack[(c * ackEntry) + 1] = group;	
@@ -2372,10 +2342,10 @@ static bool semaphoreSave (byte node, byte group, byte key, byte flag, unsigned 
 			semaphoreStack[(c * ackEntry) + 10] = (uint8_t)(t>>16);	// Timestamp		
 			semaphoreStack[(c * ackEntry) + 11] = (uint8_t)(t>>24);	// Timestamp
 			postingsIn++;
-			return true;	
+			return c + 1;	
 		}
 	}
-	return false;
+	return 0;
 }
 
 static bool semaphoreUpdate (byte node, byte group, byte key, byte newKey, byte flag, uint16_t value) {
@@ -2436,6 +2406,43 @@ static byte * semaphoreGet (byte node, byte group) {
 		}
 	}
 	return 0;	// Not found
+}
+
+static byte semaphorePrint (byte c) {
+// Working Area
+	printOneChar('e');										// Envelope
+    Serial.print(c); printOneChar(' ');
+    printOneChar('c');
+	Serial.print(semaphoreStack[(c * ackEntry) + 6]);		// TX Count
+    printOneChar(' ');
+    printOneChar('i');
+    Serial.print(semaphoreStack[(c * ackEntry) + 0] & 31);	// Node
+    printOneChar(' ');
+    printOneChar('g');
+	Serial.print(semaphoreStack[(c * ackEntry) + 1]);		// Group
+    printOneChar(' ');
+    printOneChar('k');
+    Serial.print(semaphoreStack[(c * ackEntry) + 2]);		// Key
+	printOneChar(' ');
+	printOneChar('f');
+    Serial.print(semaphoreStack[(c * ackEntry) + 3]);		// Flag
+    byte l = (semaphoreStack[ c * ackEntry + 0 ] >> 5);
+	if (l > 1) {
+		printOneChar(' ');
+	    printOneChar('v');
+		showWord((semaphoreStack[(c * ackEntry) + 5]) << 8 | semaphoreStack[(c * ackEntry) + 4]);
+	}
+
+	uint32_t t = semaphoreStack[(c * ackEntry) + 11]; t = t<<8;
+	t = t + semaphoreStack[(c * ackEntry) + 10]; t = t<<8;
+	t = t + semaphoreStack[(c * ackEntry) + 9]; t = t<<8;
+	t = t + semaphoreStack[(c * ackEntry) + 8];
+	t = (elapsedSeconds - t);	    
+	if (t) {
+		printOneChar(' ');
+		elapsed(t);
+	}
+	Serial.println();
 }
 
 void loop () {
