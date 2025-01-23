@@ -1379,8 +1379,9 @@ static void handleInput (char c) {
                      // A key number of 85 & 170 should be reserved for Reject and Alert
 #if MESSAGING
 					if (nullValue && top == 2) {
-						while ( (semaphoreDrop (stack[0], stack[1] )));	// Drop all node, group semaphores
+						while ( (semaphoreDrop (stack[0], stack[1] ) ) );	// Drop all node, group semaphores
 						showPost();	
+					 	c = 0;	// loose command printout
 						break;
 					} else 
 					if (nullValue) stack[5] = 1<<5; else stack[5] = 3<<5;
@@ -1402,11 +1403,12 @@ static void handleInput (char c) {
 					}
 
 					if (top == 5) {			// Node    Group     Old Key   New Key     Function  Post
-						if ( semaphoreUpdate( (stack[0] | stack[5]), stack[1], stack[2], stack[3], stack[4], value) ) {
-							showPost();
+						if ( byte entry = semaphoreUpdate( (stack[0] | stack[5]), stack[1], stack[2], stack[3], stack[4], value) ) {
+							showString(RX_SEMAPHORE);
+							semaphorePrint(--entry);						
 					 		c = 0;	// loose command printout
 							break;
-						} else showString(UNKNOWN);
+						} else showString(SEMAPHOREFULL);
 					}
 					if (top == 4) {		// Node       Length     Group     Key       Function  Post
 						if ( byte entry = semaphoreSave( (stack[0] | stack[5]), stack[1], stack[2], stack[3], value) ) {
@@ -1423,7 +1425,10 @@ static void handleInput (char c) {
 						if (nullValue) {
 							showPost();
 							if (!(semaphoreDrop(stack[0], stack[1]))) {
-                         		showString(UNKNOWN);
+								showByte(stack[0]);
+								printOneChar(',');
+								showByte(stack[1]);
+                         		showString(ABORTED);
 								break;
 							}
 							showPost();							
@@ -2326,7 +2331,7 @@ static bool getIndex (byte group, byte node) {
 
 static byte semaphoreSave (byte node, byte group, byte key, byte flag, unsigned int value) {
 	if ( (key == 85) || (key == 170) ) return 0;
-	for (int c = 0; c < ackQueue; c++) {
+	for (byte c = 0; c < ackQueue; c++) {
 		if (semaphoreStack[(c * ackEntry) + 0] == 0) {
 			semaphoreStack[(c * ackEntry) + 0] = node;	
 			semaphoreStack[(c * ackEntry) + 1] = group;	
@@ -2342,18 +2347,19 @@ static byte semaphoreSave (byte node, byte group, byte key, byte flag, unsigned 
 			semaphoreStack[(c * ackEntry) + 10] = (uint8_t)(t>>16);	// Timestamp		
 			semaphoreStack[(c * ackEntry) + 11] = (uint8_t)(t>>24);	// Timestamp
 			postingsIn++;
-			return c + 1;	
+			return ++c;	
 		}
 	}
 	return 0;
 }
 
-static bool semaphoreUpdate (byte node, byte group, byte key, byte newKey, byte flag, uint16_t value) {
-	for (int c = 0; c < ackQueue; ++c) {
+static byte semaphoreUpdate (byte node, byte group, byte key, byte newKey, byte flag, uint16_t value) {
+byte c;
+	for (c = 0; c < ackQueue; c++) {
 		if ( ( semaphoreStack[ (c * ackEntry) + 0] & 31) == (node & 31)	
-		&& semaphoreStack[ (c * ackEntry) + 1] == group				
-		&&	semaphoreStack[ (c * ackEntry) + 2] == key) {
-				semaphoreStack[(c * ackEntry) + 0] = node;	// Possibly updates ackLen
+		&& ( semaphoreStack[ (c * ackEntry) + 1] == group )				
+		&& ( semaphoreStack[ (c * ackEntry) + 2] == key) ) {
+				semaphoreStack[(c * ackEntry) + 0] = node;
 				semaphoreStack[(c * ackEntry) + 2] = newKey;
 				semaphoreStack[(c * ackEntry) + 3] = flag;
 				semaphoreStack[(c * ackEntry) + 4] = value;
@@ -2364,42 +2370,47 @@ static bool semaphoreUpdate (byte node, byte group, byte key, byte newKey, byte 
 				semaphoreStack[(c * ackEntry) + 9] = (uint8_t)(t>>8);// Timestamp		
 				semaphoreStack[(c * ackEntry) + 10] = (uint8_t)(t>>16);// Timestamp		
 				semaphoreStack[(c * ackEntry) + 11] = (uint8_t)(t>>24);	// Timestamp	
-				return true;	
-		} else
-			if (semaphoreSave(node, group, newKey, flag, value)) return true;
-	}
-	return false;
-}
-static bool semaphoreDrop (byte node, byte group) {
-	for (int c = 0; c < ackQueue; c++) {
-		if ( ( semaphoreStack[ (c * ackEntry) + 0] & 31) == (node & 31)	
-		&& semaphoreStack[ (c * ackEntry) + 1] == group) {
-			while (c < ackQueue) {
-				// Overwrite by shifting down entries above
-				semaphoreStack[ (c * ackEntry) + 0] = semaphoreStack[ (c * ackEntry) + ackEntry];
-				if (semaphoreStack[ (c * ackEntry) + ackEntry] == 0) {	// Reached highest used stack entry
-					break;
-				}
-				semaphoreStack[ (c * ackEntry) + 1] = semaphoreStack[ (c * ackEntry) + (ackEntry + 1)];
-				semaphoreStack[ (c * ackEntry) + 2] = semaphoreStack[ (c * ackEntry) + (ackEntry + 2)];
-				semaphoreStack[ (c * ackEntry) + 3] = semaphoreStack[ (c * ackEntry) + (ackEntry + 3)];
-				semaphoreStack[ (c * ackEntry) + 4] = semaphoreStack[ (c * ackEntry) + (ackEntry + 4)];
-				semaphoreStack[ (c * ackEntry) + 5] = semaphoreStack[ (c * ackEntry) + (ackEntry + 5)];
-				semaphoreStack[ (c * ackEntry) + 6] = semaphoreStack[ (c * ackEntry) + (ackEntry + 6)];
-				semaphoreStack[ (c * ackEntry) + 7] = semaphoreStack[ (c * ackEntry) + (ackEntry + 7)];
-				semaphoreStack[ (c * ackEntry) + 8] = semaphoreStack[ (c * ackEntry) + (ackEntry + 8)];
-				semaphoreStack[ (c * ackEntry) + 9] = semaphoreStack[ (c * ackEntry) + (ackEntry + 9)];
-				semaphoreStack[ (c * ackEntry) + 10] = semaphoreStack[ (c * ackEntry) + (ackEntry + 10)];
-				semaphoreStack[ (c * ackEntry) + 11] = semaphoreStack[ (c * ackEntry) + (ackEntry + 11)];
-				++c;
-			}
-		return true;
+				return ++c;	
 		}
 	}
-	return false;
+// No entry available to update, so treat as a new entry
+	c = semaphoreSave(node, group, newKey, flag, value);	
+	return c;
 }
+
+static bool semaphoreDrop (byte node, byte group) {
+	if ( getIndex(group, node) ) {		// Validate group and node
+		for (byte c = 0; c < ackQueue; c++) {
+			if ( ( semaphoreStack[ (c * ackEntry) + 0] & 31) == (node & 31)	
+			&& ( semaphoreStack[ (c * ackEntry) + 1] == group) ) {
+				while (c < ackQueue) {
+					// Overwrite by shifting down entries above
+					semaphoreStack[ (c * ackEntry) + 0] = semaphoreStack[ (c * ackEntry) + ackEntry];
+					if (semaphoreStack[ (c * ackEntry) + ackEntry] == 0) {	// Reached highest used stack entry
+						break;
+					}
+					semaphoreStack[ (c * ackEntry) + 1] = semaphoreStack[ (c * ackEntry) + (ackEntry + 1)];
+					semaphoreStack[ (c * ackEntry) + 2] = semaphoreStack[ (c * ackEntry) + (ackEntry + 2)];
+					semaphoreStack[ (c * ackEntry) + 3] = semaphoreStack[ (c * ackEntry) + (ackEntry + 3)];
+					semaphoreStack[ (c * ackEntry) + 4] = semaphoreStack[ (c * ackEntry) + (ackEntry + 4)];
+					semaphoreStack[ (c * ackEntry) + 5] = semaphoreStack[ (c * ackEntry) + (ackEntry + 5)];
+					semaphoreStack[ (c * ackEntry) + 6] = semaphoreStack[ (c * ackEntry) + (ackEntry + 6)];
+					semaphoreStack[ (c * ackEntry) + 7] = semaphoreStack[ (c * ackEntry) + (ackEntry + 7)];
+					semaphoreStack[ (c * ackEntry) + 8] = semaphoreStack[ (c * ackEntry) + (ackEntry + 8)];
+					semaphoreStack[ (c * ackEntry) + 9] = semaphoreStack[ (c * ackEntry) + (ackEntry + 9)];
+					semaphoreStack[ (c * ackEntry) + 10] = semaphoreStack[ (c * ackEntry) + (ackEntry + 10)];
+					semaphoreStack[ (c * ackEntry) + 11] = semaphoreStack[ (c * ackEntry) + (ackEntry + 11)];
+					++c;
+				}
+			return true;
+			}
+		}
+	}
+	return false;	
+}
+
 static byte * semaphoreGet (byte node, byte group) {
-	for (int c = 0; c < ackQueue; ++c) {
+	for (byte c = 0; c < ackQueue; ++c) {
 		if ( ( semaphoreStack[ (c * ackEntry) + 0] & 31) == (node & 31)	
 		&& (semaphoreStack[(c * ackEntry) + 1] == group)) {
 			return &(semaphoreStack[c * ackEntry]);
@@ -2409,7 +2420,7 @@ static byte * semaphoreGet (byte node, byte group) {
 }
 
 static byte semaphorePrint (byte c) {
-// Working Area
+
 	printOneChar('e');										// Envelope
     Serial.print(c); printOneChar(' ');
     printOneChar('c');
