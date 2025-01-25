@@ -3039,6 +3039,17 @@ void loop () {
 				
 	            bool dropNow = false;
 	            bool sendNow = true; 
+
+                if (rf12_data[0] == 0) {
+              		showString(PSTR("RX Power On Reset i")); 
+                  	showByte(rf12_hdr & RF12_HDR_MASK);	// Node                   
+                	if (config.group == 0) {
+                    	showString(PSTR(" g"));
+                    	showByte(rf12_grp);				// Group
+                    }
+                    Serial.println();
+                } 
+                
             	byte * v;    
                 v = semaphoreGet((rf12_hdr & RF12_HDR_MASK), rf12_grp);
             	if ( (v) && (!(special)) ) {	// Post pending?
@@ -3052,8 +3063,8 @@ void loop () {
         	            showString(PSTR("RX Reject ")); 
         	            dropNow = true;
                 		postingsRej++;
-                	} else 
- 					if (rf12_data[0] != 85) {
+                	} else
+ 					if ( (rf12_data[0] != 85) && (rf12_data[0] != 0) ) {
                			showString(PSTR("RX Alert i")); 
                     	showByte(rf12_hdr & RF12_HDR_MASK);	// Node                   
                     	if (config.group == 0) {
@@ -3063,7 +3074,8 @@ void loop () {
                     	printOneChar(' ');
     					Serial.println( rf12_data[0] );		// Alert code
     					sendNow = false;
-    					// Post to remain pending a correct command response from remote
+    					observedRX.rssi2 = 255;
+    					// Post to remain pending. Post 255 to re-sync the remote
     	        	}
     	        	
 					if (dropNow) {					
