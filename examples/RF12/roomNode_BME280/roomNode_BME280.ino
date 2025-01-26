@@ -13,7 +13,7 @@
 
 #warning roomNode_* Serial port to be set at 1200 bps
 #define RF69_COMPAT      0	// define this to use the RF69 driver i.s.o. RF12 
-#define SERIAL_OUTPUT  1	// set to 1 to also report readings on the serial port
+#define SERIAL_OUTPUT  0	// set to 1 to also report readings on the serial port
 #define DEBUG   0			// set to 1 to display each loop() run and PIR trigger
 ///                         // The above flag must be set similarly in RF12.cpp
 ///                         // and RF69_avr.h
@@ -77,9 +77,10 @@ void resetFlagsInit(void)
 	#define CPU_MULT 1
 	#define IDLESPEED		5	//	/32
 	#define RADIOSPEED		2	//	/4
+	#define DS18B20SPEED	1	//	/2
 //	#define IDLESPEED		0	//	/32
 //	#define RADIOSPEED		0	//	/4
-	#define DS18B20SPEED	1	//	/2
+//	#define DS18B20SPEED	0	//	/2
 //	#warning roomNode_* Serial port to be set at 1200 bps
 #endif
 
@@ -92,9 +93,10 @@ void resetFlagsInit(void)
 //#define RETRY_PERIOD    20  // how soon to retry if ACK didn't come in
 #define RETRY_LIMIT     0   // maximum number of times to try transmission
 #if RF69_COMPAT
-#define ACK_TIME        15 * CPU_MULT	// number of milliseconds to wait for an ack
+	#define ACK_TIME        15 * CPU_MULT	// number of milliseconds to wait for an ack
 #else
-#define ACK_TIME 15 * CPU_MULT	// number of milliseconds to wait for an ack
+	//#define ACK_TIME 15 * CPU_MULT	// number of milliseconds to wait for an ack
+	#define ACK_TIME 500			// number of milliseconds to wait for an ack
 #endif
 #define SMOOTH          3   // smoothing factor used for running averages
 
@@ -120,10 +122,12 @@ static void showString (PGM_P s); // forward declaration
 // Other variables used in various places in the code:
 
 static bool saveFlag = false;
+static byte errorCode = 0;
+#define	lowVCC 0b10000000;	// 128
 static byte reportCount;    // count up until next report, i.e. packet send
 static byte myNodeID;       // node ID used for this unit
 static uint16_t measureCount;
-
+static byte key = 0;		// Indicate Power On Reset to remote
 // This defines the structure of the packets which get sent out by wireless:
 
 #define BASIC_PAYLOADLENGTH		15
@@ -514,34 +518,39 @@ static void doTrigger() {
 		serialFlush();
 	#endif
 		if ( !(ackPacer + settings.ackBounds) ) ackPacer = 1;
-		if ( (ackPacer--) <= 0) {
+		if ( ((ackPacer--) <= 0) ) {
 			ackSW = 0;
 			if (settings.ackBounds + ackPacer) {
-// Work			payload.command = settings.ackBounds + ackPacer;
+				payload.command = settings.ackBounds + ackPacer;
 			}
-    		else payload.command = 85;							// Countdown to next Ack request
-		}
-		else 
-		{
+		} else {
 			ackSW = RF12_HDR_ACK;
+//    		if (releaseAck) payload.command = key;
+//    		else payload.command = 85;
 		} 
  		rfapi.rssiThreshold = settings.RSSI;
+    	if (releaseAck) payload.command = key;
+ 
+		payload.command = key; 
+ 
  		
+// TRANSMIT REQUESTING AN ACK //		
  		clock_prescale(RADIOSPEED);
+// clock_prescale(0);
 		rf12_sendStart(ackSW, &payload, payloadLength);
         rf12_sendWait(RADIO_SYNC_MODE);	// Don't slow processor for this :-(
-        
+////////////////////////////////        
 /*		
 		for (byte tick = 0; tick < 11; tick++) NOP;	// Kill some time
 */
 		if (ackSW)
 		{
-//			clock_prescale(RADIOSPEED);
         	byte acked = waitForAck();
- 			clock_prescale(IDLESPEED);
+ //			clock_prescale(IDLESPEED);
    	
         	if (acked)
         	{
+        		key = 85;
         		if (rebootRequested) {
         			asm volatile ("  jmp 0");
         			Sleepy::loseSomeTime(10000);
@@ -549,7 +558,7 @@ static void doTrigger() {
 #if RF69_COMPAT				
         		payload.RXrssi = rfapi.rssi;
 #endif
-				clock_prescale(IDLESPEED);
+//				clock_prescale(IDLESPEED);
 #if RF69_COMPAT
 	#if SERIAL_OUTPUT
 				Serial.print(" Inbound packet at ");
@@ -569,17 +578,20 @@ static void doTrigger() {
 
 #endif
 				payloadLength = BASIC_PAYLOADLENGTH;			// Reset to typical
-				if (rf12_buf[2] == 1)
-				{
+				if (rf12_buf[2] == 1)							// One byte returned RSSI value
+				{	
 					payload.returnedRSSI = rf12_buf[3];
 #if SERIAL_OUTPUT
 					showString(PSTR("Central saw my last packet at power ")); 
 					Serial.println(rf12_buf[3]);
+					if (rf12_buf[2] == 255) {
+						key = 85;			// Alert from Central, resync Ack mechanism
+						Serial.println("Syncronised returned command");
+					}
 					serialFlush();
 #endif
-					payload.command = 85; // Clear alert after a node restart
 								
-          			if (payload.vcc < settings.lowVcc) payload.command = 240;
+          			if (payload.vcc < settings.lowVcc) errorCode|lowVCC;
 #if RF69_COMPAT          		
           			if ( (payload.returnedRSSI > settings.seenAsRSSI) && (rfapi.txPower < 159) ) rfapi.txPower++;
           			else
@@ -595,10 +607,10 @@ static void doTrigger() {
 				else
 				if ( (rf12_buf[2] > 1) && (rf12_buf[2] <= 4) )
 				{
+	            	key = rf12_buf[3];		// Save Key from Acknowledgement
+	            	releaseAck = true;
     				payloadLength = EXTENDED_PAYLOADLENGTH + (sizeof settings);
 					ackPacer++;
-	            	payload.command = rf12_buf[3];		// Acknowledge the command
-	            	releaseAck = true;
 					uint16_t value = 0;
 					if (rf12_buf[2] == 4) 
 						value = ( (rf12_buf[6] << 8) + rf12_buf[5] );
@@ -721,35 +733,34 @@ static void doTrigger() {
 					Serial.println( rf12_buf[2] );
 #endif
 	            	payload.command = 170;		// Rejected command
-	            	releaseAck = true;
 	            	return;							                                 	
           		} // if ( (rf12_buf[2] > 1)
-        	}
-        	else // if (acked)
+        	} // if (acked)
+        	else 
         	{
         		if (ackPacer < 127) ackPacer++;
 	    		payload.missedACK++;
-    		} // if (acked)
+    		} // Missed ACK
     	}
     	else // if (ackSW)
 			payload.returnedRSSI = 0;
     	{
 //    		payload.command = settings.ackBounds + ackPacer;	// Countdown to next Ack request
-    		if ( !(payload.command) ) payload.command = 85;	// No Alert on first Acked packet
+//    		if ( !(payload.command) ) payload.command = 85;	// No Alert on first Acked packet
 	    	break;
 	    }
 	} // RETRY_LIMIT
 	
     clock_prescale(IDLESPEED);
     
-    if (releaseAck)
-		scheduler.timer(REPORT, 5 );
+//    if (releaseAck)
+//		scheduler.timer(REPORT, 5 );
 	
 } // doTrigger
 
 static void prepTemp() {
   	digitalWrite(PwrCtl, HIGH);
-    Sleepy::loseSomeTime(3); // must wait at least 2 ms
+    Sleepy::loseSomeTime(2); // must wait at least 2 ms
 
 	// starts a temperature measurement cycle
 	// then there needs to be a delay for DS18B20 to do its thing 
@@ -835,7 +846,7 @@ static byte waitForAck() {
             rf12_sleep(RF12_SLEEP);
         	byte ack_delay = ( (ACK_TIME) - ackTimer.remaining() );
 //			payload.inboundRssi = rf12_rssi;
-			clock_prescale(IDLESPEED);
+//			clock_prescale(IDLESPEED);
 #if SERIAL_OUTPUT
             Serial.println();
             Serial.print(ack_delay);
@@ -867,7 +878,7 @@ static byte waitForAck() {
                         rf12_buf[i] = 0xFF;				// Paint it over
                     }
 */
- // Work			payload.command = 3;	// Wrong packet
+//					payload.command = 3;	// Wrong packet
 #if SERIAL_OUTPUT
                     Serial.println();
 #endif
@@ -875,7 +886,7 @@ static byte waitForAck() {
                 }
             } else { 
             	incrementPWR();
-// Work			payload.command = 1;	// CRC bad
+//				payload.command = 1;	// CRC bad
             	payload.badCRC++;
             	incrementPWR();
 #if SERIAL_OUTPUT
@@ -888,7 +899,7 @@ static byte waitForAck() {
     }
     rf12_sleep(RF12_SLEEP);
     incrementPWR();
-// Work    payload.command = 2;	// Ack timeout
+//    payload.command = 2;	// Ack timeout
     payload.lna = rfapi.lna;
     payload.fei = rfapi.fei;
     payloadLength = TIMEOUT_PAYLOADLENGTH;
@@ -1133,6 +1144,8 @@ void setup ()
 	#endif
 #endif
 
+payload.command = 0;	// First packet power on indicator
+
     if (settings.MEASURE)
 		scheduler.timer(MEASURE, 10);
 		
@@ -1194,8 +1207,6 @@ void loop ()
 #if SERIAL_OUTPUT
 	serialFlush();
 #endif
-	clock_prescale(8);	//	/256
-	
-    Sleepy::loseSomeTime(15000);
-    
+//	clock_prescale(8);	//	/256
+	    
 } // Loop
