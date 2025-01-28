@@ -167,6 +167,7 @@ struct {					//0		Offset, node #
     byte message[ (RF12_MAXDATA - EXTENDED_PAYLOADLENGTH) ];
 } payload;
 
+
 typedef struct {
     byte start;
     uint16_t MEASURE_PERIOD;
@@ -192,7 +193,7 @@ byte	firstTime = true;
 byte 	lastLight;
 byte	lastHumi;
 byte	ackSW = RF12_HDR_ACK;
-int8_t	ackPacer = 30;	// First few packets all with Ack to tune Threshold & TX Power
+int8_t	ackPacer = 17;	// First few packets all with Ack to tune Threshold & TX Power
 bool	changed;
 bool	rebootRequested;
 // Conditional code, depending on which sensors are connected and how:
@@ -327,7 +328,7 @@ static void doMeasure() {
     scheduler.timer(MEASURE, settings.MEASURE_PERIOD);
 
     #if SERIAL_OUTPUT || DEBUG
-//	Serial.println("doMeasure"); serialFlush();
+	Serial.println("doMeasure"); serialFlush();
 	#endif
 
     payload.vcc = vccRead();
@@ -505,6 +506,29 @@ static void doTrigger() {
 	Serial.println(payload.sequence);
 	serialFlush();
 #endif
+
+    if  ( (releaseAck) ) {
+    	payload.command = key;
+		ackSW = RF12_HDR_ACK;
+	} else {
+		ackPacer--;	
+		if ( (ackPacer > 0) && (ackPacer < settings.ackBounds) ) {
+			ackSW = 0;						// Suppress Ack request
+			payload.command = ackPacer;
+		} else {
+        	if (!ackPacer) ackPacer = settings.ackBounds + 1;		
+			ackSW = RF12_HDR_ACK;			// Activate and Ack request
+			payload.command = key; 
+		}
+	} 
+// Debug
+payload.badCRC = releaseAck + 10;	
+payload.light = ackPacer;	
+payload.humi = settings.ackBounds;
+//	
+			
+ 	rfapi.rssiThreshold = settings.RSSI;	
+ 	
     for (byte i = 0; i <= RETRY_LIMIT; ++i) {
     	payload.attempts = i + 1;
         rf12_sleep(RF12_WAKEUP);
@@ -517,26 +541,8 @@ static void doTrigger() {
 		Serial.println(ackPacer); serialFlush();
 		serialFlush();
 	#endif
-		if ( !(ackPacer + settings.ackBounds) ) ackPacer = 1;
-		if ( ((ackPacer--) <= 0) ) {
-			ackSW = 0;
-			if (settings.ackBounds + ackPacer) {
-				payload.command = settings.ackBounds + ackPacer;
-			}
-		} else {
-			ackSW = RF12_HDR_ACK;
-//    		if (releaseAck) payload.command = key;
-//    		else payload.command = 85;
-		} 
- 		rfapi.rssiThreshold = settings.RSSI;
-    	if (releaseAck) payload.command = key;
- 
-		payload.command = key; 
- 
- 		
 // TRANSMIT REQUESTING AN ACK //		
  		clock_prescale(RADIOSPEED);
-// clock_prescale(0);
 		rf12_sendStart(ackSW, &payload, payloadLength);
         rf12_sendWait(RADIO_SYNC_MODE);	// Don't slow processor for this :-(
 ////////////////////////////////        
@@ -546,11 +552,10 @@ static void doTrigger() {
 		if (ackSW)
 		{
         	byte acked = waitForAck();
- //			clock_prescale(IDLESPEED);
-   	
-        	if (acked)
-        	{
+        	if (acked) {
+				releaseAck = false;
         		key = 85;
+
         		if (rebootRequested) {
         			asm volatile ("  jmp 0");
         			Sleepy::loseSomeTime(10000);
@@ -558,7 +563,7 @@ static void doTrigger() {
 #if RF69_COMPAT				
         		payload.RXrssi = rfapi.rssi;
 #endif
-//				clock_prescale(IDLESPEED);
+
 #if RF69_COMPAT
 	#if SERIAL_OUTPUT
 				Serial.print(" Inbound packet at ");
@@ -581,8 +586,9 @@ static void doTrigger() {
 				if (rf12_buf[2] == 1)							// One byte returned RSSI value
 				{	
 					payload.returnedRSSI = rf12_buf[3];
+
 #if SERIAL_OUTPUT
-					showString(PSTR("Central saw my last packet at power ")); 
+					showString(PSTR("Central saw my last packet at power on")); 
 					Serial.println(rf12_buf[3]);
 					if (rf12_buf[2] == 255) {
 						key = 85;			// Alert from Central, resync Ack mechanism
@@ -609,8 +615,8 @@ static void doTrigger() {
 				{
 	            	key = rf12_buf[3];		// Save Key from Acknowledgement
 	            	releaseAck = true;
+					ackPacer = settings.ackBounds + 1;
     				payloadLength = EXTENDED_PAYLOADLENGTH + (sizeof settings);
-					ackPacer++;
 					uint16_t value = 0;
 					if (rf12_buf[2] == 4) 
 						value = ( (rf12_buf[6] << 8) + rf12_buf[5] );
@@ -657,6 +663,10 @@ static void doTrigger() {
 						case 61:
 							if( (rf12_buf[2] == 4) && (value < 128) ) ackPacer = value;
 							else ackPacer = 127;
+                      	break; 
+						case 62:
+							if( (rf12_buf[2] == 4) && (value < 128) ) settings.ackBounds = value;
+							else settings.ackBounds = 127;
                       	break; 
 						case 70:
      						if(rf12_buf[2] == 4) settings.seenAsRSSI = value;
@@ -753,9 +763,10 @@ static void doTrigger() {
 	
     clock_prescale(IDLESPEED);
     
-//    if (releaseAck)
-//		scheduler.timer(REPORT, 5 );
-	
+   if (releaseAck) {
+   		payloadLength = 1;
+		scheduler.timer(REPORT, 50 );	// In 5 seconds time
+	}
 } // doTrigger
 
 static void prepTemp() {
@@ -1009,10 +1020,11 @@ static void loadSettings () {
 		Serial.print(settings.MEASURE_PERIOD);
 		showString(PSTR(" Report Every "));
 		Serial.println(settings.REPORT_EVERY);
-		
+/*		
         settings.MEASURE_PERIOD = 555;	// 555=1 minute: Override eeprom if on serial port
         settings.REPORT_EVERY = 1;		// Each time you measure then you also report
-        settings.ackBounds = 12;		
+        settings.ackBounds = 12;
+*/		
     }
 #endif
 } // loadSettings
@@ -1143,8 +1155,6 @@ void setup ()
 	//XXX TINY!
 	#endif
 #endif
-
-payload.command = 0;	// First packet power on indicator
 
     if (settings.MEASURE)
 		scheduler.timer(MEASURE, 10);
