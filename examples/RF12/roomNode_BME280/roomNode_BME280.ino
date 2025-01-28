@@ -1003,7 +1003,7 @@ static void loadSettings () {
 		Serial.print("is bad, defaulting ");
 		Serial.println(crc, HEX);
 #endif
-        settings.MEASURE_PERIOD = 555;
+        settings.MEASURE_PERIOD = 3010;	// Five minutes
         settings.REPORT_EVERY = 1;
         settings.MEASURE = settings.REPORT = true;
         settings.lowVcc = 140;
