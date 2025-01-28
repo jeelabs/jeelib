@@ -516,16 +516,16 @@ static void doTrigger() {
 			ackSW = 0;						// Suppress Ack request
 			payload.command = ackPacer;
 		} else {
-        	if (!ackPacer) ackPacer = settings.ackBounds + 1;		
+        	if (!ackPacer) ackPacer = settings.ackBounds;		
 			ackSW = RF12_HDR_ACK;			// Activate and Ack request
 			payload.command = key; 
 		}
 	} 
-// Debug
+/* Debug
 payload.badCRC = releaseAck + 10;	
 payload.light = ackPacer;	
 payload.humi = settings.ackBounds;
-//	
+*/	
 			
  	rfapi.rssiThreshold = settings.RSSI;	
  	
