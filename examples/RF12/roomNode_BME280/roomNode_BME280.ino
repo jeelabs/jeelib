@@ -18,9 +18,9 @@
 ///                         // The above flag must be set similarly in RF12.cpp
 ///                         // and RF69_avr.h
 ///////////////////////////////////////////////////////////////////////////////
-#define BME280_PORT  0		// defined if BME280 is connected to I2C
+#define BME280_PORT  1		// defined if BME280 is connected to I2C
 #define BMP280_PORT  0		// defined if BME280 is connected to I2C
-#define DS18B20_PORT 1		
+#define DS18B20_PORT 0		
 ///////////////////////////////////////////////////////////////////////////////
 
 #define ONEWIRE_PIN 	PD4		// Jeenode Port 1 Digital
@@ -588,7 +588,7 @@ payload.humi = settings.ackBounds;
 					payload.returnedRSSI = rf12_buf[3];
 
 #if SERIAL_OUTPUT
-					showString(PSTR("Central saw my last packet at power on")); 
+					showString(PSTR("Central saw my last packet at power ")); 
 					Serial.println(rf12_buf[3]);
 					if (rf12_buf[2] == 255) {
 						key = 85;			// Alert from Central, resync Ack mechanism
@@ -768,7 +768,7 @@ payload.humi = settings.ackBounds;
 		scheduler.timer(REPORT, 50 );	// In 5 seconds time
 	}
 } // doTrigger
-
+#if DS18B20_PORT
 static void prepTemp() {
   	digitalWrite(PwrCtl, HIGH);
     Sleepy::loseSomeTime(2); // must wait at least 2 ms
@@ -845,6 +845,7 @@ static int readTemp() {
 //Serial.println(raw);serialFlush();
 	return raw;   
 }
+#endif 
 
 static byte waitForAck() {
 
@@ -1020,11 +1021,11 @@ static void loadSettings () {
 		Serial.print(settings.MEASURE_PERIOD);
 		showString(PSTR(" Report Every "));
 		Serial.println(settings.REPORT_EVERY);
-/*		
-        settings.MEASURE_PERIOD = 555;	// 555=1 minute: Override eeprom if on serial port
+		
+        settings.MEASURE_PERIOD = 275;	// 555=1 minute: Override eeprom if serial port enabled
         settings.REPORT_EVERY = 1;		// Each time you measure then you also report
-        settings.ackBounds = 12;
-*/		
+        settings.ackBounds = 10;
+		
     }
 #endif
 } // loadSettings

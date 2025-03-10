@@ -1,9 +1,9 @@
 /// @dir RFxConsole
 ///////////////////////////////////////////////////////////////////////////////
-#define RF69_COMPAT     1	// define this to use the RF69 driver i.s.o. RF12 
+#define RF69_COMPAT     0	// define this to use the RF69 driver i.s.o. RF12 
 ///							// The above flag must be set similarly in RF12.cpp
 ///							// and RF69_avr.h
-#define SX1276			1	// Also see setting in RF69.cpp & RF69_avr.h
+#define SX1276			0	// Also see setting in RF69.cpp & RF69_avr.h
 #define BLOCK  			0	// Alternate LED pin?
 #define INVERT_LED      0	// 0 is Jeenode usual and 1 inverse
 #define DUPTIME			5l	// Number of seconds to wait for duplicate packets
@@ -1945,9 +1945,9 @@ Serial.flush();
         config.group = 212;			// Default group 212
         config.RegPaLvl = 0;		// Maximum power TX for RFM12B
         config.RegRssiThresh = 2;
+        config.clearAir = 1;      	// Default RF12 handling
 #else
-        config.clearAir = 160;      // 80dB
-        config.group = 0x00;        // Default group 0
+        config.group = 212;         // Default group 212
         config.RegRssiThresh = 180;	// -90dB
         config.clearAir = 160;      // -80dB
 /*	#if SX1276 && RF69_COMPAT
@@ -2900,7 +2900,7 @@ void loop () {
 	*///	This detects node number == 0, not currently used.
 
 					 
-				if ( !(rf12_hdr & RF12_HDR_DST) && (MAX_NODES) && (rf12_hdr & RF12_HDR_MASK) != hubID ) {
+				if ( !(rf12_hdr & RF12_HDR_DST) && (MAX_NODES) && (rf12_hdr & RF12_HDR_MASK) != hubID && (config.collect_mode == 0) ) {
 					// This code only sees broadcast packets *from* other nodes.
 					// Packets addressed to nodes do not identify the source node!          
 					// Search RF12_EEPROM_NODEMAP for node/group match
@@ -3360,6 +3360,10 @@ Serial.print(NodeMap = -1 );
 	    
     if ((cmd) || (ping)) {
         byte r = rf12_canSend(config.clearAir);
+
+Serial.println(r,HEX);
+
+        
         if (r) {
 			sendRetry = 0;
 #if RF69_COMPAT        
@@ -3408,19 +3412,20 @@ Serial.print(NodeMap = -1 );
             Serial.print(busyCount++);
             printOneChar(',');
             Serial.print(sendRetry);
-            showString(PSTR(" Busy 0x"));				// Not ready to send            
+            showString(PSTR(" RF Noise Floor 0x"));				// Not ready to send            
             Serial.print(s, HEX);
 //            busyCount++;
 			wdt_reset();		//Debug
-            if ((++sendRetry) > 1) {
+            if ((++sendRetry) > 10) {
             	sendRetry = 0;
                 showString(ABORTED);					// Drop the command
                 cmd = 0;								// Request dropped
                 ping = false;							// Drop Noise level check
                 
     			if (rf12_configSilent()) loadConfig();
-                showString(PSTR("ReInit Radio "));
-				Serial.println(radioInit++);                
+                showString(PSTR(" RF Noise, Radio Init "));
+				Serial.print(radioInit++);
+				showString(PSTR(" ClearAir=")); Serial.print(config.clearAir);              
 			}
             Serial.println();   
         } // (r)
