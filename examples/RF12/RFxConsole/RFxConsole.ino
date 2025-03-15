@@ -1,13 +1,13 @@
 /// @dir RFxConsole
 ///////////////////////////////////////////////////////////////////////////////
-#define RF69_COMPAT     0	// define this to use the RF69 driver i.s.o. RF12 
+#define RF69_COMPAT     1	// define this to use the RF69 driver i.s.o. RF12 
 ///							// The above flag must be set similarly in RF12.cpp
 ///							// and RF69_avr.h
 #define SX1276			0	// Also see setting in RF69.cpp & RF69_avr.h
 #define BLOCK  			0	// Alternate LED pin?
 #define INVERT_LED      0	// 0 is Jeenode usual and 1 inverse
 #define DUPTIME			5l	// Number of seconds to wait for duplicate packets
-#define SALUS			1
+#define SALUS			0
 
 #define hubID			31
 
@@ -580,8 +580,9 @@ static void saveConfig (byte force = false) {
 			}
 		}
 		loadConfig();
-		
+#if SALUS		
     	salusMode = false;
+#endif
 #if STATISTICS    
     	messageCount = nonBroadcastCount = CRCbadCount = 0; // Clear stats counters
 #endif
@@ -1376,7 +1377,7 @@ static void handleInput (char c) {
                      // is the group number 127 is the desired value to be posted. 
                      // The byte stack[1] contains the target group and stack[0] contains the 
                      // node number. The message string to be posted is in value
-                     // A key number of 85 & 170 should be reserved for Reject and Alert
+                     // A key number of 0, 85 & 170 should be reserved for Power On, Alert and Reject
 #if MESSAGING
 					if (nullValue && top == 2) {
 						while ( (semaphoreDrop (stack[0], stack[1] ) ) );	// Drop all node, group semaphores
@@ -3359,11 +3360,7 @@ Serial.print(NodeMap = -1 );
 	wdt_reset();
 	    
     if ((cmd) || (ping)) {
-        byte r = rf12_canSend(config.clearAir);
-
-Serial.println(r,HEX);
-
-        
+        byte r = rf12_canSend(config.clearAir);        
         if (r) {
 			sendRetry = 0;
 #if RF69_COMPAT        
