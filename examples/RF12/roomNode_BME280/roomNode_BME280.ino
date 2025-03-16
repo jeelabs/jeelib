@@ -1022,7 +1022,7 @@ static void loadSettings () {
 		showString(PSTR(" Report Every "));
 		Serial.println(settings.REPORT_EVERY);
 		
-        settings.MEASURE_PERIOD = 275;	// 555=1 minute: Override eeprom if serial port enabled
+        settings.MEASURE_PERIOD = 2850;	// 555=1 minute: Override eeprom if serial port enabled
         settings.REPORT_EVERY = 1;		// Each time you measure then you also report
         settings.ackBounds = 10;
 		
