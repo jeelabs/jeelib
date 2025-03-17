@@ -8,7 +8,10 @@
 
 // Modify the RF12 driver in such a way that it can inter-operate with RFM69
 // modules running in "native" mode. This affects packet layout and some more.
+
+/////////////// NOT RFM69 Flag //////////////
 #define RF12_COMPAT 0
+/////////////////////////////////////////////
 
 /// RFM12B Protocol version.
 /// Version 1 did not include the group code in the crc.
