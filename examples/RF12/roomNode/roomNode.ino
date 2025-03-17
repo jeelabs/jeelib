@@ -13,9 +13,12 @@
 #include <PortsSHT11.h>
 #include <avr/sleep.h>
 #include <util/atomic.h>
+#include <JeeLib.h>
+#include "RFAPI.h"		// Define
+rfAPI rfapi;			// Declare
 
-#define SERIAL  0   // set to 1 to also report readings on the serial port
-#define DEBUG   0   // set to 1 to display each loop() run and PIR trigger
+#define SERIAL  1   // set to 1 to also report readings on the serial port
+#define DEBUG   1   // set to 1 to display each loop() run and PIR trigger
 
 // #define SHT11_PORT  1   // defined if SHT11 is connected to a port
 #define HYT131_PORT 1   // defined if HYT131 is connected to a port
@@ -261,7 +264,7 @@ void blink (byte pin) {
 
 void setup () {
     #if SERIAL || DEBUG
-        Serial.begin(57600);
+        Serial.begin(115200);
         Serial.print("\n[roomNode.3]");
         myNodeID = rf12_config();
         serialFlush();
