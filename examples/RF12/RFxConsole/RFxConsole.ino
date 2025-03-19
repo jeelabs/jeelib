@@ -1,6 +1,6 @@
 /// @dir RFxConsole
 ///////////////////////////////////////////////////////////////////////////////
-#define RF69_COMPAT     1	// define this to use the RF69 driver i.s.o. RF12 
+#define RF69_COMPAT     0	// define this to use the RF69 driver i.s.o. RF12 
 ///							// The above flag must be set similarly in RF12.cpp
 ///							// and RF69_avr.h
 #define SX1276			0	// Also see setting in RF69.cpp & RF69_avr.h
@@ -3218,16 +3218,7 @@ Serial.print(NodeMap = -1 );
         	        	ackLen = 1;		// Supply received RSSI value in all basic ACKs
 #endif
         	        }	// if ( (v) && (!(special)) )
-#endif                                        
-////////////////////////////////////////////////////////////////////      	                	                
-// Temporary Code until i21 is upgraded to understand new Acks//////
-//////////////////////////////////////////////////////////////////// 
-					if ( (rf12_hdr & RF12_HDR_MASK) == 21) {
-						ackLen = 0;
-						showString(PSTR(" This Ack set zero length")); 
-					}					
-////////////////////////////////////////////////////////////////////      	                	                
-////////////////////////////////////////////////////////////////////      	                	                
+#endif
     	                	                
 					rf12_sendStart(RF12_ACK_REPLY, (v), ackLen);
 					rf12_sendWait(0);
