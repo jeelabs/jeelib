@@ -20,16 +20,16 @@ rfAPI rfapi;			// Declare
 #define SERIAL  1   // set to 1 to also report readings on the serial port
 #define DEBUG   1   // set to 1 to display each loop() run and PIR trigger
 
-// #define SHT11_PORT  1   // defined if SHT11 is connected to a port
+//#define SHT11_PORT  1   // defined if SHT11 is connected to a port
 #define HYT131_PORT 1   // defined if HYT131 is connected to a port
-#define LDR_PORT    4   // defined if LDR is connected to a port's AIO pin
-#define PIR_PORT    4   // defined if PIR is connected to a port's DIO pin
+#define LDR_PORT    0   // defined if LDR is connected to a port's AIO pin
+#define PIR_PORT    0   // defined if PIR is connected to a port's DIO pin
 
 #define MEASURE_PERIOD  600 // how often to measure, in tenths of seconds
 #define RETRY_PERIOD    10  // how soon to retry if ACK didn't come in
-#define RETRY_LIMIT     5   // maximum number of times to retry
+#define RETRY_LIMIT     2   // maximum number of times to retry
 #define ACK_TIME        10  // number of milliseconds to wait for an ack
-#define REPORT_EVERY    5   // report every N measurement cycles
+#define REPORT_EVERY    1   // report every N measurement cycles
 #define SMOOTH          3   // smoothing factor used for running averages
 
 // set the sync mode to 2 if the fuses are still the Arduino default
@@ -75,8 +75,8 @@ struct {
 
 #if PIR_PORT
     #define PIR_HOLD_TIME   30  // hold PIR value this many seconds after change
-    #define PIR_PULLUP      1   // set to one to pull-up the PIR input pin
-    #define PIR_INVERTED    1   // 0 or 1, to match PIR reporting high or low
+    #define PIR_PULLUP      0   // set to one to pull-up the PIR input pin
+    #define PIR_INVERTED    0   // 0 or 1, to match PIR reporting high or low
     
     /// Interface to a Passive Infrared motion sensor.
     class PIR : public Port {
@@ -312,7 +312,7 @@ void loop () {
             // every so often, a report needs to be sent out
             if (++reportCount >= REPORT_EVERY) {
                 reportCount = 0;
-                scheduler.timer(REPORT, 0);
+                scheduler.timer(REPORT, 2);
             }
             break;
             
