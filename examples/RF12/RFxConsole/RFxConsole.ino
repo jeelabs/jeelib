@@ -2600,7 +2600,6 @@ void loop () {
 				showString(PSTR(" g"));  
 				showByte(rf12_grp);
 				Serial.println();
-				return;
 				}	
 				         
             else showString(PSTR("OK"));
@@ -2703,7 +2702,7 @@ void loop () {
         }		// Bad CRC
 
 		byte testPacket = false;
-		if ( !(duplicate) || ((duplicate) && !(config.quiet_mode)) ) {		
+		if ( !(duplicate) /* || ((duplicate) && !(config.quiet_mode))*/ ) {		
  
 			if (config.output & 0x1)
 				printOneChar('X');
