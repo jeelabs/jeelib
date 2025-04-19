@@ -151,8 +151,8 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x25, 0x00, // Set DIOMAPPING1 to POR value
   0x28, IRQ2_FIFOOVERRUN, // Clear the FIFO
   0x2E, 0x98, // SyncConfig = sync on, sync size = 4 (Dynamically changed in code)
-  0x2F, 0xAA, // SyncValue1 = 0xAA
-  0x30, 0xAA, // SyncValue2 = 0xAA
+  0x2F, RF12_FRAME, // SyncValue1 = 0xAA
+  0x30, RF12_FRAME, // SyncValue2 = 0xAA
   0x31, 0x2D, // SyncValue3 = 0x2D
   0x32, 0xD4, // SyncValue4 = 0xD4, 212, group
 //  0x33, 0x00, // SyncValue5
@@ -349,8 +349,8 @@ static ROM_UINT8 configRegs_compat [] ROM_DATA = {
 
 static ROM_UINT8 configRegs_compat [] ROM_DATA = {
   0x27, 0x13, // SyncConfig = sync on, sync size = 4 (Dynamically changed in code)
-  0x28, 0xAA, // SyncValue1 = 0xAA
-  0x29, 0xAA, // SyncValue2 = 0xAA
+  0x28, RF12_FRAME, // SyncValue1 = 0xAA
+  0x29, RF12_FRAME, // SyncValue2 = 0xAA
   0x2A, 0x2D, // SyncValue3 = 0x2D
   0x2B, 0xD4, // SyncValue4 = 0xD4, 212, group
 

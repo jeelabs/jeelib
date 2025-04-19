@@ -196,6 +196,7 @@ volatile uint16_t rf12_rxTail;
 volatile uint32_t rf12_tfr;         // Only available with RFM69 hardware
 
 volatile uint8_t rf12_skip;         // header bytes to skip
+volatile uint8_t rf12_lead;         	// header bytes to skip
 volatile uint8_t rf12_max_len;      // Maximum length packet accepted
 long rf12_seq;                      // seq number of encrypted packet (or -1)
 static uint8_t rf12_fixed_pkt_len;  // fixed packet length reception
@@ -414,7 +415,7 @@ static void rf12_interrupt () {
 #endif
                 case TXDONE: rf12_xfer(RF_SLEEP_MODE); break;
                 
-                default:     out = 0xAA;
+                default:     out = rf12_lead;
             }
 #if RF12_COMPAT
             if (rxstate < TXDONE) // this applies only to TXCRC1 and TXCRC2
@@ -567,6 +568,11 @@ uint16_t rf12_status() {
 
 void rf12_skip_hdr (uint8_t skip) {
     rf12_skip = skip;
+}
+uint8_t rf12_leader (uint8_t value) {
+	uint8_t v = rf12_lead;
+    rf12_lead = value;
+    return v;
 }
 
 void rf12_fix_len (uint8_t fix) {
@@ -755,6 +761,7 @@ uint8_t rf12_initialize (uint8_t id, uint8_t band, uint8_t g, uint16_t f) {
     rf12_xfer(0xC049); // 1.66MHz,3.1V
 
     rxstate = TXIDLE;
+    rf12_lead = RF12_FRAME;	
 
 #ifdef EIMSK    // ATMega
     #if PINCHG_IRQ && !RF69_COMPAT

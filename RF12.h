@@ -12,6 +12,7 @@
 /////////////// NOT RFM69 Flag //////////////
 #define RF12_COMPAT 0
 /////////////////////////////////////////////
+#define RF12_FRAME 0x7E
 
 /// RFM12B Protocol version.
 /// Version 1 did not include the group code in the crc.
@@ -137,6 +138,9 @@ void rf12_sendStart(uint8_t hdr);
 /// Call this to skip transmission of specific bytes in rf12_buf
 /// Default value 2 skips the Jeelib header enabling non-Jeelib FSK packets 
 void rf12_skip_hdr (uint8_t skip = 2);
+///
+uint8_t rf12_leader (uint8_t value = 0xAA);
+
 /// Call this to fix the receive length where rf12_len is not used
 /// Default value 16 will receive 16 bytes before forcing end of data packet
 void rf12_fix_len (uint8_t fix = 16);
