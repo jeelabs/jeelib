@@ -2468,7 +2468,7 @@ void loop () {
 		showString(PSTR("RX Restart Rate is "));    	
     	Serial.println(restartRate);
     }
-    if ( (restartRate > 15000UL) && (rfapi.rssiThreshold > 160) ) rfapi.rssiThreshold--;
+    if ( (restartRate > 15000UL) && (rfapi.rssiThreshold > 150) ) rfapi.rssiThreshold--;
     else
     if ( (restartRate < 5000UL) && (rfapi.rssiThreshold < rfapi.configThreshold) ) rfapi.rssiThreshold++;
 	
@@ -2600,6 +2600,7 @@ void loop () {
 				showString(PSTR(" g"));  
 				showByte(rf12_grp);
 				Serial.println();
+				return;
 				}	
 				         
             else showString(PSTR("OK"));
